@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "School Management Platform"
+description = "A responsive school management platform foundation for a primary and secondary school, beginning with authentication, school roles, and safe access boundaries."
+version = "1.0.0"
+id = "artifacts/school-platform"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23573
+
+[services.development]
+run = "pnpm --filter @workspace/school-platform run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/school-platform", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/school-platform/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23573"
+BASE_PATH = "/"

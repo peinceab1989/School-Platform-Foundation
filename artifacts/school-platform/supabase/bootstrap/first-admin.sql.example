@@ -1,0 +1,16 @@
+-- 1. Create the first admin account in Supabase Auth.
+-- 2. Replace both placeholders below, then run this in the Supabase SQL Editor.
+-- 3. Keep the account email private; share access by inviting additional users.
+
+insert into public.schools (name)
+values ('Your School Name')
+returning id;
+
+-- Run this after copying the returned school UUID and the admin user's Auth UUID:
+-- insert into public.school_memberships (school_id, user_id, role, status)
+-- values (
+--   'REPLACE_WITH_SCHOOL_UUID'::uuid,
+--   'REPLACE_WITH_AUTH_USER_UUID'::uuid,
+--   'admin',
+--   'active'
+-- );

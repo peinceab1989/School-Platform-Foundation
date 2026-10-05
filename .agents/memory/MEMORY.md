@@ -1,0 +1,1 @@
+- [Scoped package installs](workspace-package-install.md) — target workspace dependencies explicitly; the generic Replit package callback defaults to the monorepo root.
