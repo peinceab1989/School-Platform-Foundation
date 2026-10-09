@@ -14,6 +14,14 @@ import AdminDashboard from '@/pages/admin-dashboard';
 import StudentsPage from '@/pages/students';
 import Home from '@/pages/home';
 import NotFound from '@/pages/not-found';
+import {
+  ActivitiesGalleryPage,
+  AdmissionsPage,
+  ContactPage,
+  InnovationTechnologyPage,
+  PracticalSkillsPage,
+  WisdomInspirationPage,
+} from '@/pages/public-pages';
 
 import {
   Route,
@@ -436,6 +444,32 @@ function Router() {
         <Route
           path="/"
           component={PublicHome}
+        />
+
+        {/* PUBLIC RESA INFORMATION PAGES */}
+        <Route
+          path="/innovation-technology"
+          component={InnovationTechnologyPage}
+        />
+        <Route
+          path="/practical-skills"
+          component={PracticalSkillsPage}
+        />
+        <Route
+          path="/wisdom-inspiration"
+          component={WisdomInspirationPage}
+        />
+        <Route
+          path="/activities-gallery"
+          component={ActivitiesGalleryPage}
+        />
+        <Route
+          path="/admissions"
+          component={AdmissionsPage}
+        />
+        <Route
+          path="/contact"
+          component={ContactPage}
         />
 
         {/* PROTECTED SCHOOL MANAGEMENT PORTAL */}

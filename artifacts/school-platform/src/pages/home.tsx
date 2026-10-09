@@ -1,16 +1,14 @@
-import { Link } from "wouter";
 import {
   ArrowRight,
   BookOpen,
   CalendarDays,
   Laptop,
-  Menu,
   Microscope,
   Trophy,
   Users,
-  X,
 } from "lucide-react";
 import { type FormEvent, useState } from "react";
+import { PublicLayout } from "@/components/public-site";
 
 const features = [
   {
@@ -128,7 +126,6 @@ const schoolPhotos = [
 ];
 
 export default function HomePage() {
-  const [open, setOpen] = useState(false);
   const [enquiryPrepared, setEnquiryPrepared] = useState(false);
 
   const handleAdmissionEnquirySubmit = (
@@ -165,123 +162,13 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <Link href="/" className="flex items-center gap-3">
-            <img
-              src={mediaPath("media/logo/resa-logo.jpg")}
-              alt=""
-              className="h-12 w-12 rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200"
-              width={48}
-              height={48}
-            />
-
-            <div>
-              <div className="font-black text-blue-800">
-                RHEMA EXPLOITS
-              </div>
-              <div className="text-xs font-semibold text-slate-500">
-                SCIENCE ACADEMY INTERNATIONAL
-              </div>
-            </div>
-          </Link>
-
-          <nav className="hidden items-center gap-6 lg:flex">
-            <a href="#about" className="font-medium hover:text-blue-700">
-              About
-            </a>
-            <a href="#academics" className="font-medium hover:text-blue-700">
-              Academics
-            </a>
-            <a href="#activities" className="font-medium hover:text-blue-700">
-              Activities
-            </a>
-            <a href="#admissions" className="font-medium hover:text-blue-700">
-              Admissions
-            </a>
-            <a href="#contact" className="font-medium hover:text-blue-700">
-              Contact
-            </a>
-
-            <Link
-              href="/dashboard"
-              className="rounded-lg bg-blue-700 px-4 py-2.5 font-bold text-white"
-            >
-              Portal Login
-            </Link>
-          </nav>
-
-          <button
-            onClick={() => setOpen(!open)}
-            className="rounded-lg border p-2 lg:hidden"
-            aria-label="Menu"
-          >
-            {open ? <X /> : <Menu />}
-          </button>
-        </div>
-
-        {open && (
-          <div className="border-t bg-white px-4 py-4 lg:hidden">
-            <div className="flex flex-col gap-2">
-              <a
-                href="#about"
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-3 hover:bg-slate-50"
-              >
-                About
-              </a>
-
-              <a
-                href="#academics"
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-3 hover:bg-slate-50"
-              >
-                Academics
-              </a>
-
-              <a
-                href="#activities"
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-3 hover:bg-slate-50"
-              >
-                Activities
-              </a>
-
-              <a
-                href="#admissions"
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-3 hover:bg-slate-50"
-              >
-                Admissions
-              </a>
-
-              <a
-                href="#contact"
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-3 hover:bg-slate-50"
-              >
-                Contact
-              </a>
-
-              <Link
-                href="/dashboard"
-                onClick={() => setOpen(false)}
-                className="rounded-lg bg-blue-700 p-3 text-center font-bold text-white"
-              >
-                Portal Login
-              </Link>
-            </div>
-          </div>
-        )}
-      </header>
+    <PublicLayout>
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-blue-950 via-blue-900 to-indigo-800 text-white">
+      <section className="bg-[#214a37] text-white">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 py-20 lg:grid-cols-2 lg:items-center">
           <div>
-            <p className="mb-4 font-bold text-blue-200">
+            <p className="mb-4 font-bold text-[#e4c879]">
               PASSION • SKILLS • EXCELLENT SPIRIT
             </p>
 
@@ -289,7 +176,7 @@ export default function HomePage() {
               Preparing Students for the Future
             </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-blue-100">
+            <p className="mt-6 max-w-2xl text-lg leading-8 text-[#e0e9dd]">
               At Rhema Exploits Science Academy International, we don't just
               teach. We prepare students to think, create, lead and succeed.
             </p>
@@ -297,7 +184,8 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
                 href="#admission-enquiry"
-                className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-4 font-bold text-blue-900"
+                className="flex items-center justify-center gap-2 rounded-xl bg-[#e4c879] px-6 py-4 font-bold text-[#254633]"
+                data-testid="home-cta-admissions"
               >
                 Explore Admissions
                 <ArrowRight />
@@ -306,13 +194,14 @@ export default function HomePage() {
               <a
                 href="#activities"
                 className="flex items-center justify-center gap-2 rounded-xl border border-white/30 px-6 py-4 font-bold"
+                data-testid="home-cta-activities"
               >
                 Explore Activities
               </a>
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl shadow-blue-950/30">
+          <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl">
             <img
               src={mediaPath("media/photos/digital-learning-classroom.jpg")}
               alt="RESA students attending a digital learning class."
@@ -321,9 +210,9 @@ export default function HomePage() {
               height={988}
               fetchPriority="high"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-blue-950/80 via-blue-950/10 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#183b2a]/80 via-[#183b2a]/10 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#e4c879]">
                 Learning in action
               </p>
               <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">
@@ -337,7 +226,7 @@ export default function HomePage() {
       {/* About */}
       <section id="about" className="scroll-mt-24 py-16">
         <div className="mx-auto max-w-7xl px-4">
-          <p className="font-bold uppercase tracking-wide text-blue-700">
+          <p className="font-bold uppercase tracking-wide text-[#8b702e]">
             Welcome to RESA
           </p>
 
@@ -352,16 +241,16 @@ export default function HomePage() {
             development.
           </p>
 
-          <p className="mt-5 font-bold text-blue-800">
+          <p className="mt-5 font-bold text-[#245b40]">
             Passion, Skills and Excellent Spirit.
           </p>
         </div>
       </section>
 
       {/* Features */}
-      <section id="academics" className="scroll-mt-24 bg-slate-50 py-16">
+      <section id="academics" className="scroll-mt-24 bg-[#f1efe4] py-16">
         <div className="mx-auto max-w-7xl px-4">
-          <p className="font-bold uppercase tracking-wide text-blue-700">
+          <p className="font-bold uppercase tracking-wide text-[#8b702e]">
             Academics & Development
           </p>
 
@@ -377,8 +266,9 @@ export default function HomePage() {
                 <div
                   key={feature.title}
                   className="rounded-2xl border bg-white p-6 shadow-sm"
+                  data-testid={`home-feature-${feature.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#e9efdf] text-[#245b40]">
                     <Icon />
                   </div>
 
@@ -397,7 +287,7 @@ export default function HomePage() {
       {/* Activities */}
       <section id="activities" className="scroll-mt-24 py-16">
         <div className="mx-auto max-w-7xl px-4">
-          <p className="font-bold uppercase tracking-wide text-blue-700">
+          <p className="font-bold uppercase tracking-wide text-[#8b702e]">
             RESA Activities & Media
           </p>
 
@@ -419,6 +309,7 @@ export default function HomePage() {
                 <img
                   src={mediaPath(photo.src)}
                   alt={photo.alt}
+                  data-testid={`home-photo-${photo.src.split("/").pop()?.replace(".jpg", "")}`}
                   className={`aspect-[4/3] w-full ${
                     photo.fit === "contain"
                       ? "bg-slate-100 object-contain p-2"
@@ -429,7 +320,7 @@ export default function HomePage() {
                 />
 
                 <div className="p-5">
-                  <p className="text-xs font-bold uppercase text-blue-700">
+                  <p className="text-xs font-bold uppercase text-[#8b702e]">
                     {photo.category}
                   </p>
 
@@ -446,11 +337,11 @@ export default function HomePage() {
       {/* Admissions */}
       <section
         id="admissions"
-        className="scroll-mt-24 bg-blue-950 py-16 text-white"
+        className="scroll-mt-24 bg-[#214a37] py-16 text-white"
       >
         <div className="mx-auto grid max-w-7xl gap-10 px-4 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
           <div className="pt-2">
-            <p className="font-bold uppercase tracking-wide text-blue-300">
+            <p className="font-bold uppercase tracking-wide text-[#e4c879]">
               Admissions
             </p>
 
@@ -458,7 +349,7 @@ export default function HomePage() {
               Enroll Today. Build Tomorrow!
             </h2>
 
-            <p className="mt-5 max-w-xl leading-8 text-blue-100">
+            <p className="mt-5 max-w-xl leading-8 text-[#e0e9dd]">
               Give your child more than just a classroom education. Choose an
               environment built around academic excellence, practical skills,
               technology, creativity and leadership.
@@ -467,7 +358,8 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
                 href="#admission-enquiry"
-                className="rounded-xl bg-white px-6 py-4 text-center font-bold text-blue-900 hover:bg-blue-50"
+                className="rounded-xl bg-[#e4c879] px-6 py-4 text-center font-bold text-[#254633] hover:bg-[#f0d993]"
+                data-testid="home-admission-enquiry-anchor"
               >
                 Admission Enquiry
               </a>
@@ -475,6 +367,7 @@ export default function HomePage() {
               <a
                 href="#academics"
                 className="rounded-xl border border-white/30 px-6 py-4 text-center font-bold hover:bg-white/10"
+                data-testid="home-academics-anchor"
               >
                 Learn More
               </a>
@@ -486,7 +379,7 @@ export default function HomePage() {
             className="scroll-mt-24 rounded-3xl bg-white p-6 text-slate-900 shadow-2xl sm:p-8"
             aria-labelledby="admission-form-heading"
           >
-            <p className="text-sm font-bold uppercase tracking-wide text-blue-700">
+            <p className="text-sm font-bold uppercase tracking-wide text-[#245b40]">
               RHEMA EXPLOITS SCIENCE ACADEMY INTERNATIONAL
             </p>
             <h3
@@ -519,7 +412,8 @@ export default function HomePage() {
                   maxLength={120}
                   required
                   placeholder="Enter your full name"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#648451]"
+                  data-testid="input-parent-name"
                 />
               </div>
 
@@ -538,7 +432,8 @@ export default function HomePage() {
                   maxLength={32}
                   required
                   placeholder="Enter your phone number"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#648451]"
+                  data-testid="input-phone"
                 />
               </div>
 
@@ -557,7 +452,8 @@ export default function HomePage() {
                   maxLength={254}
                   required
                   placeholder="you@example.com"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#648451]"
+                  data-testid="input-email"
                 />
               </div>
 
@@ -576,7 +472,8 @@ export default function HomePage() {
                   maxLength={120}
                   required
                   placeholder="Enter the student's full name"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#648451]"
+                  data-testid="input-student-name"
                 />
               </div>
 
@@ -594,7 +491,8 @@ export default function HomePage() {
                   maxLength={80}
                   required
                   placeholder="Enter the class or year group"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#648451]"
+                  data-testid="input-class-applying-for"
                 />
               </div>
 
@@ -611,14 +509,16 @@ export default function HomePage() {
                   rows={4}
                   maxLength={3000}
                   placeholder="Add any questions or details you would like the school to know."
-                  className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                  className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#648451]"
+                  data-testid="input-message"
                 />
               </div>
 
               <div className="sm:col-span-2">
                 <button
                   type="submit"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-800 px-6 py-4 font-bold text-white transition hover:bg-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 sm:w-auto"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#245b40] px-6 py-4 font-bold text-white transition hover:bg-[#17462f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#648451] focus-visible:ring-offset-2 sm:w-auto"
+                  data-testid="button-prepare-enquiry"
                 >
                   Prepare enquiry email
                   <ArrowRight className="h-5 w-5" aria-hidden="true" />
@@ -629,7 +529,8 @@ export default function HomePage() {
                   send. If it doesn&apos;t open, email{" "}
                   <a
                     href={`mailto:${admissionsEmail}`}
-                    className="font-semibold text-blue-800 underline underline-offset-2"
+                    className="font-semibold text-[#245b40] underline underline-offset-2"
+                    data-testid="link-admissions-email"
                   >
                     {admissionsEmail}
                   </a>
@@ -638,7 +539,8 @@ export default function HomePage() {
 
                 {enquiryPrepared && (
                   <p
-                    className="mt-3 rounded-xl bg-blue-50 p-4 text-sm leading-6 text-blue-900"
+                    className="mt-3 rounded-xl bg-[#edf3e9] p-4 text-sm leading-6 text-[#244a36]"
+                    data-testid="status-enquiry-prepared"
                     role="status"
                     aria-live="polite"
                   >
@@ -655,7 +557,7 @@ export default function HomePage() {
       {/* Contact */}
       <section id="contact" className="py-16">
         <div className="mx-auto max-w-7xl px-4">
-          <p className="font-bold uppercase tracking-wide text-blue-700">
+          <p className="font-bold uppercase tracking-wide text-[#8b702e]">
             Contact RESA
           </p>
 
@@ -665,7 +567,7 @@ export default function HomePage() {
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
             <div className="rounded-2xl border p-6">
-              <CalendarDays className="text-blue-700" />
+              <CalendarDays className="text-[#8b702e]" />
               <h3 className="mt-4 font-black">Visit Us</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 1, Smiling George Way, Opposite Winners' Chapel,
@@ -674,22 +576,24 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-2xl border p-6">
-              <BookOpen className="text-blue-700" />
+              <BookOpen className="text-[#8b702e]" />
               <h3 className="mt-4 font-black">Email</h3>
               <a
                 href="mailto:rhemaexploitsacademy@gmail.com"
-                className="mt-2 block break-all text-sm text-blue-700"
+                className="mt-2 block break-all text-sm text-[#245b40]"
+                data-testid="home-contact-email"
               >
                 rhemaexploitsacademy@gmail.com
               </a>
             </div>
 
             <div className="rounded-2xl border p-6">
-              <Users className="text-blue-700" />
+              <Users className="text-[#8b702e]" />
               <h3 className="mt-4 font-black">Phone</h3>
               <a
                 href="tel:+2348058422691"
-                className="mt-2 block text-sm text-blue-700"
+                className="mt-2 block text-sm text-[#245b40]"
+                data-testid="home-contact-phone"
               >
                 +234 805 842 2691
               </a>
@@ -698,33 +602,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-slate-950 py-10 text-white">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="font-black">RHEMA EXPLOITS SCIENCE ACADEMY</h3>
-              <p className="mt-1 text-sm text-slate-400">
-                Passion, Skills and Excellent Spirit.
-              </p>
-            </div>
-
-            <a
-              href="https://www.facebook.com/profile.php?id=61590864593753"
-              target="_blank"
-              rel="noreferrer"
-              className="font-semibold text-blue-300 hover:text-white"
-            >
-              Facebook
-            </a>
-          </div>
-
-          <div className="mt-8 border-t border-slate-800 pt-5 text-center text-xs text-slate-500">
-            © {new Date().getFullYear()} Rhema Exploits Science Academy
-            International. All rights reserved.
-          </div>
-        </div>
-      </footer>
-    </div>
+    </PublicLayout>
   );
 }
