@@ -3,7 +3,6 @@ import {
   ArrowRight,
   BookOpen,
   CalendarDays,
-  GraduationCap,
   Laptop,
   Menu,
   Microscope,
@@ -36,6 +35,96 @@ const features = [
   },
 ];
 
+const mediaPath = (path: string) =>
+  `${import.meta.env.BASE_URL}${path}`;
+
+const schoolPhotos = [
+  {
+    src: "media/photos/basketball-sports-team.jpg",
+    category: "Sports & fitness",
+    title: "Basketball and team sports",
+    alt: "RESA students in sports uniforms with a basketball.",
+    fit: "contain",
+  },
+  {
+    src: "media/photos/cooking-and-baking-activities.jpg",
+    category: "Practical skills",
+    title: "Cooking and baking activities",
+    alt: "Students taking part in a supervised cooking and baking activity.",
+    fit: "cover",
+  },
+  {
+    src: "media/photos/ict-classroom-workstations.jpg",
+    category: "Digital learning",
+    title: "ICT classroom practice",
+    alt: "A student using a desktop computer at an ICT workstation.",
+    fit: "cover",
+  },
+  {
+    src: "media/photos/ict-digital-skills-lab.jpg",
+    category: "Digital learning",
+    title: "ICT digital skills lab",
+    alt: "Computer workstations in the ICT and digital skills lab.",
+    fit: "contain",
+  },
+  {
+    src: "media/photos/mental-development-games.jpg",
+    category: "Thinking skills",
+    title: "Mental development games",
+    alt: "Students playing a strategy board game together.",
+    fit: "contain",
+  },
+  {
+    src: "media/photos/school-building-sign.jpg",
+    category: "Our school",
+    title: "Rhema Exploits Science Academy",
+    alt: "The school building and Rhema Exploits Science Academy sign.",
+    fit: "contain",
+  },
+  {
+    src: "media/photos/science-lab-activity.jpg",
+    category: "Science",
+    title: "Science laboratory activities",
+    alt: "Students working together during a science laboratory activity.",
+    fit: "contain",
+  },
+  {
+    src: "media/photos/skill-acquisition-workshop.jpg",
+    category: "Practical skills",
+    title: "Skill acquisition workshop",
+    alt: "Students learning practical woodworking skills in a workshop.",
+    fit: "contain",
+  },
+  {
+    src: "media/photos/smartboard-classroom.jpg",
+    category: "Digital learning",
+    title: "Learning with the smartboard",
+    alt: "Students following a lesson displayed on a classroom smartboard.",
+    fit: "cover",
+  },
+  {
+    src: "media/photos/student-computer-lab.jpg",
+    category: "Digital learning",
+    title: "Student computer lab",
+    alt: "A student working at a computer in the school computer lab.",
+    fit: "cover",
+  },
+  {
+    src: "media/photos/student-using-computer.jpg",
+    category: "Digital learning",
+    title: "Individual computer learning",
+    alt: "A student using a desktop computer for individual learning.",
+    fit: "contain",
+  },
+  {
+    src: "media/photos/word-puzzle-activity.jpg",
+    category: "Class activities",
+    title: "Word puzzle activities",
+    alt: "Students working together on a word puzzle activity.",
+    fit: "contain",
+  },
+];
+
 export default function HomePage() {
   const [open, setOpen] = useState(false);
 
@@ -45,9 +134,13 @@ export default function HomePage() {
       <header className="sticky top-0 z-50 border-b bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-700 text-white">
-              <GraduationCap />
-            </div>
+            <img
+              src={mediaPath("media/logo/resa-logo.jpg")}
+              alt=""
+              className="h-12 w-12 rounded-full bg-white object-cover shadow-sm ring-1 ring-slate-200"
+              width={48}
+              height={48}
+            />
 
             <div>
               <div className="font-black text-blue-800">
@@ -183,17 +276,23 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/20 bg-white/10 p-8">
-            <div className="flex min-h-[300px] items-center justify-center rounded-2xl border border-dashed border-white/30">
-              <div className="text-center">
-                <GraduationCap className="mx-auto h-16 w-16" />
-                <h2 className="mt-5 text-2xl font-black">
-                  Welcome to RESA
-                </h2>
-                <p className="mt-3 text-blue-100">
-                  School photos and videos will appear here.
-                </p>
-              </div>
+          <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl shadow-blue-950/30">
+            <img
+              src={mediaPath("media/photos/digital-learning-classroom.jpg")}
+              alt="RESA students attending a digital learning class."
+              className="aspect-[4/3] w-full object-cover"
+              width={1452}
+              height={988}
+              fetchPriority="high"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-blue-950/80 via-blue-950/10 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
+                Learning in action
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-white sm:text-3xl">
+                Digital learning at RESA
+              </h2>
             </div>
           </div>
         </div>
@@ -275,28 +374,32 @@ export default function HomePage() {
             make learning at RESA engaging and meaningful.
           </p>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {[1, 2, 3].map((item) => (
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {schoolPhotos.map((photo) => (
               <div
-                key={item}
-                className="overflow-hidden rounded-2xl border bg-slate-50"
+                key={photo.src}
+                className="overflow-hidden rounded-2xl border bg-white shadow-sm"
               >
-                <div className="flex h-52 items-center justify-center bg-blue-50">
-                  <GraduationCap className="h-14 w-14 text-blue-300" />
-                </div>
+                <img
+                  src={mediaPath(photo.src)}
+                  alt={photo.alt}
+                  className={`aspect-[4/3] w-full ${
+                    photo.fit === "contain"
+                      ? "bg-slate-100 object-contain p-2"
+                      : "object-cover"
+                  }`}
+                  loading="lazy"
+                  decoding="async"
+                />
 
                 <div className="p-5">
                   <p className="text-xs font-bold uppercase text-blue-700">
-                    RESA Activities
+                    {photo.category}
                   </p>
 
                   <h3 className="mt-2 font-black">
-                    School Activity & Learning Experience
+                    {photo.title}
                   </h3>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Photos and videos will be connected through RESA Drive.
-                  </p>
                 </div>
               </div>
             ))}
