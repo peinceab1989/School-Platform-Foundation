@@ -10,7 +10,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 
 const features = [
   {
@@ -37,6 +37,8 @@ const features = [
 
 const mediaPath = (path: string) =>
   `${import.meta.env.BASE_URL}${path}`;
+
+const admissionsEmail = "rhemaexploitsacademy@gmail.com";
 
 const schoolPhotos = [
   {
@@ -127,6 +129,40 @@ const schoolPhotos = [
 
 export default function HomePage() {
   const [open, setOpen] = useState(false);
+  const [enquiryPrepared, setEnquiryPrepared] = useState(false);
+
+  const handleAdmissionEnquirySubmit = (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const parentName = String(formData.get("parentName") ?? "").trim();
+    const phone = String(formData.get("phone") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const studentName = String(formData.get("studentName") ?? "").trim();
+    const classApplyingFor = String(
+      formData.get("classApplyingFor") ?? "",
+    ).trim();
+    const message = String(formData.get("message") ?? "").trim();
+
+    const subject = `Admission enquiry for ${studentName}`;
+    const body = [
+      "Admission enquiry from the RESA website",
+      "",
+      `Parent or guardian name: ${parentName}`,
+      `Phone number: ${phone}`,
+      `Email address: ${email}`,
+      `Student's name: ${studentName}`,
+      `Class applying for: ${classApplyingFor}`,
+      `Message: ${message || "No additional message"}`,
+    ].join("\n");
+
+    window.location.href =
+      `mailto:${admissionsEmail}?subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
+    setEnquiryPrepared(true);
+  };
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -260,7 +296,7 @@ export default function HomePage() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a
-                href="#admissions"
+                href="#admission-enquiry"
                 className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-4 font-bold text-blue-900"
               >
                 Explore Admissions
@@ -299,7 +335,7 @@ export default function HomePage() {
       </section>
 
       {/* About */}
-      <section id="about" className="py-16">
+      <section id="about" className="scroll-mt-24 py-16">
         <div className="mx-auto max-w-7xl px-4">
           <p className="font-bold uppercase tracking-wide text-blue-700">
             Welcome to RESA
@@ -323,7 +359,7 @@ export default function HomePage() {
       </section>
 
       {/* Features */}
-      <section id="academics" className="bg-slate-50 py-16">
+      <section id="academics" className="scroll-mt-24 bg-slate-50 py-16">
         <div className="mx-auto max-w-7xl px-4">
           <p className="font-bold uppercase tracking-wide text-blue-700">
             Academics & Development
@@ -359,7 +395,7 @@ export default function HomePage() {
       </section>
 
       {/* Activities */}
-      <section id="activities" className="py-16">
+      <section id="activities" className="scroll-mt-24 py-16">
         <div className="mx-auto max-w-7xl px-4">
           <p className="font-bold uppercase tracking-wide text-blue-700">
             RESA Activities & Media
@@ -408,30 +444,210 @@ export default function HomePage() {
       </section>
 
       {/* Admissions */}
-      <section id="admissions" className="bg-blue-950 py-16 text-white">
-        <div className="mx-auto max-w-7xl px-4">
-          <p className="font-bold uppercase tracking-wide text-blue-300">
-            Admissions
-          </p>
+      <section
+        id="admissions"
+        className="scroll-mt-24 bg-blue-950 py-16 text-white"
+      >
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+          <div className="pt-2">
+            <p className="font-bold uppercase tracking-wide text-blue-300">
+              Admissions
+            </p>
 
-          <h2 className="mt-3 text-3xl font-black sm:text-4xl">
-            Enroll Today. Build Tomorrow!
-          </h2>
+            <h2 className="mt-3 text-3xl font-black sm:text-4xl">
+              Enroll Today. Build Tomorrow!
+            </h2>
 
-          <p className="mt-5 max-w-2xl leading-8 text-blue-100">
-            Give your child more than just a classroom education. Choose an
-            environment built around academic excellence, practical skills,
-            technology, creativity and leadership.
-          </p>
+            <p className="mt-5 max-w-xl leading-8 text-blue-100">
+              Give your child more than just a classroom education. Choose an
+              environment built around academic excellence, practical skills,
+              technology, creativity and leadership.
+            </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <button className="rounded-xl bg-white px-6 py-4 font-bold text-blue-900">
-              Admission Enquiry
-            </button>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="#admission-enquiry"
+                className="rounded-xl bg-white px-6 py-4 text-center font-bold text-blue-900 hover:bg-blue-50"
+              >
+                Admission Enquiry
+              </a>
 
-            <button className="rounded-xl border border-white/30 px-6 py-4 font-bold">
-              Learn More
-            </button>
+              <a
+                href="#academics"
+                className="rounded-xl border border-white/30 px-6 py-4 text-center font-bold hover:bg-white/10"
+              >
+                Learn More
+              </a>
+            </div>
+          </div>
+
+          <div
+            id="admission-enquiry"
+            className="scroll-mt-24 rounded-3xl bg-white p-6 text-slate-900 shadow-2xl sm:p-8"
+            aria-labelledby="admission-form-heading"
+          >
+            <p className="text-sm font-bold uppercase tracking-wide text-blue-700">
+              RHEMA EXPLOITS SCIENCE ACADEMY INTERNATIONAL
+            </p>
+            <h3
+              id="admission-form-heading"
+              className="mt-2 text-2xl font-black sm:text-3xl"
+            >
+              Admission enquiry
+            </h3>
+            <p className="mt-3 leading-7 text-slate-600">
+              Share a few details and we’ll prepare an enquiry email addressed
+              to the school.
+            </p>
+
+            <form
+              className="mt-7 grid gap-5 sm:grid-cols-2"
+              onSubmit={handleAdmissionEnquirySubmit}
+            >
+              <div>
+                <label
+                  htmlFor="parentName"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Parent or guardian name
+                </label>
+                <input
+                  id="parentName"
+                  name="parentName"
+                  type="text"
+                  autoComplete="name"
+                  maxLength={120}
+                  required
+                  placeholder="Enter your full name"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Phone number
+                </label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  maxLength={32}
+                  required
+                  placeholder="Enter your phone number"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  maxLength={254}
+                  required
+                  placeholder="you@example.com"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="studentName"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Student&apos;s name
+                </label>
+                <input
+                  id="studentName"
+                  name="studentName"
+                  type="text"
+                  autoComplete="off"
+                  maxLength={120}
+                  required
+                  placeholder="Enter the student's full name"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="classApplyingFor"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Class applying for
+                </label>
+                <input
+                  id="classApplyingFor"
+                  name="classApplyingFor"
+                  type="text"
+                  maxLength={80}
+                  required
+                  placeholder="Enter the class or year group"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="message"
+                  className="mb-2 block text-sm font-semibold text-slate-800"
+                >
+                  Message <span className="font-normal text-slate-500">(optional)</span>
+                </label>
+                <textarea
+                  id="message"
+                  name="message"
+                  rows={4}
+                  maxLength={3000}
+                  placeholder="Add any questions or details you would like the school to know."
+                  className="w-full resize-y rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-800 px-6 py-4 font-bold text-white transition hover:bg-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 sm:w-auto"
+                >
+                  Prepare enquiry email
+                  <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                </button>
+
+                <p className="mt-4 text-sm leading-6 text-slate-600">
+                  Submitting opens your email app with the enquiry ready to
+                  send. If it doesn&apos;t open, email{" "}
+                  <a
+                    href={`mailto:${admissionsEmail}`}
+                    className="font-semibold text-blue-800 underline underline-offset-2"
+                  >
+                    {admissionsEmail}
+                  </a>
+                  .
+                </p>
+
+                {enquiryPrepared && (
+                  <p
+                    className="mt-3 rounded-xl bg-blue-50 p-4 text-sm leading-6 text-blue-900"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    Your email app should now show the completed enquiry.
+                    Review it and press send to contact the school.
+                  </p>
+                )}
+              </div>
+            </form>
           </div>
         </div>
       </section>
