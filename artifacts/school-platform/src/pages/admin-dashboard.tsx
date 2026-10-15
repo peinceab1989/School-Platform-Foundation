@@ -1,3 +1,4 @@
+
 import {
   BarChart3,
   Bell,
@@ -13,6 +14,7 @@ import {
   ShieldCheck,
   UserPlus,
   Users,
+  UsersRound,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -26,7 +28,7 @@ type AdminDashboardProps = {
 
 type MenuItem = {
   label: string;
-  icon: React.ElementType;
+  icon: typeof BookOpen;
   path?: string;
   comingSoon?: boolean;
 };
@@ -36,19 +38,16 @@ export default function AdminDashboard({
   email,
   onSignOut,
 }: AdminDashboardProps) {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const menuItems: MenuItem[] = [
+    { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
+    { label: "Students", icon: Users, path: "/students" },
     {
-      label: "Dashboard",
-      icon: LayoutDashboard,
-      path: "/dashboard",
-    },
-    {
-      label: "Students",
-      icon: Users,
-      path: "/students",
+      label: "Parent Management",
+      icon: UsersRound,
+      path: "/parents",
     },
     {
       label: "Teachers & Staff",
@@ -56,9 +55,14 @@ export default function AdminDashboard({
       comingSoon: true,
     },
     {
-      label: "Classes & Subjects",
+      label: "Classes",
       icon: BookOpen,
-      comingSoon: true,
+      path: "/classes",
+    },
+    {
+      label: "Subjects",
+      icon: ClipboardList,
+      path: "/subjects",
     },
     {
       label: "Attendance",
@@ -70,32 +74,55 @@ export default function AdminDashboard({
       icon: ClipboardList,
       comingSoon: true,
     },
-    {
-      label: "Results",
-      icon: BarChart3,
-      comingSoon: true,
-    },
-    {
-      label: "Announcements",
-      icon: Bell,
-      comingSoon: true,
-    },
-    {
-      label: "Settings",
-      icon: Settings,
-      comingSoon: true,
-    },
+    { label: "Results", icon: BarChart3, comingSoon: true },
+    { label: "Announcements", icon: Bell, comingSoon: true },
+    { label: "Settings", icon: Settings, comingSoon: true },
   ];
 
-  function navigate(path?: string) {
-    if (!path) return;
-
+  function navigate(path: string) {
     setMobileMenuOpen(false);
     setLocation(path);
   }
 
   function handleComingSoon() {
     setMobileMenuOpen(false);
+  }
+
+  function renderMenuItem(item: MenuItem) {
+    const Icon = item.icon;
+    const active =
+      item.path === location ||
+      (item.path === "/parents" && location === "/parent-management");
+
+    return (
+      <button
+        key={item.label}
+        type="button"
+        onClick={() =>
+          item.path
+            ? navigate(item.path)
+            : handleComingSoon()
+        }
+        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
+          active
+            ? "bg-blue-50 text-blue-700"
+            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        }`}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        <span className="flex-1">{item.label}</span>
+
+        {item.comingSoon && (
+          <span className="text-[10px] font-semibold uppercase text-slate-400">
+            Soon
+          </span>
+        )}
+
+        {active && (
+          <ChevronRight className="h-4 w-4 shrink-0" />
+        )}
+      </button>
+    );
   }
 
   return (
@@ -107,7 +134,6 @@ export default function AdminDashboard({
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
               RESA SCHOOL PORTAL
             </p>
-
             <h1 className="truncate text-base font-bold">
               {schoolName}
             </h1>
@@ -127,61 +153,34 @@ export default function AdminDashboard({
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/40"
+          <button
+            type="button"
+            aria-label="Close menu backdrop"
+            className="absolute inset-0 h-full w-full bg-black/40"
             onClick={() => setMobileMenuOpen(false)}
           />
 
           <aside className="relative flex h-full w-[85%] max-w-sm flex-col bg-white shadow-xl">
             <div className="flex items-center justify-between border-b p-4">
-              <div className="min-w-0">
+              <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
                   RESA
                 </p>
-
-                <h2 className="truncate font-bold">
-                  School Portal
-                </h2>
+                <h2 className="font-bold">School Portal</h2>
               </div>
 
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex h-10 w-10 items-center justify-center rounded-xl border"
+                aria-label="Close menu"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-
-                return (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() =>
-                      item.path
-                        ? navigate(item.path)
-                        : handleComingSoon()
-                    }
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
-                  >
-                    <Icon className="h-5 w-5 shrink-0 text-slate-500" />
-
-                    <span className="flex-1">
-                      {item.label}
-                    </span>
-
-                    {item.comingSoon && (
-                      <span className="text-[10px] font-semibold uppercase text-slate-400">
-                        Soon
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {menuItems.map(renderMenuItem)}
             </nav>
 
             <div className="border-t p-4">
@@ -207,12 +206,11 @@ export default function AdminDashboard({
                 <ShieldCheck className="h-6 w-6" />
               </div>
 
-              <div className="min-w-0">
+              <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
                   RESA
                 </p>
-
-                <h1 className="truncate text-sm font-bold">
+                <h1 className="text-sm font-bold">
                   School Portal
                 </h1>
               </div>
@@ -224,38 +222,7 @@ export default function AdminDashboard({
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() =>
-                    item.path
-                      ? navigate(item.path)
-                      : handleComingSoon()
-                  }
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
-                    item.label === "Dashboard"
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`}
-                >
-                  <Icon className="h-5 w-5 shrink-0" />
-
-                  <span className="flex-1">
-                    {item.label}
-                  </span>
-
-                  {item.comingSoon && (
-                    <span className="text-[10px] font-semibold uppercase text-slate-400">
-                      Soon
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {menuItems.map(renderMenuItem)}
           </nav>
 
           <div className="border-t p-4">
@@ -263,7 +230,6 @@ export default function AdminDashboard({
               <p className="text-xs font-medium text-slate-500">
                 Signed in as
               </p>
-
               <p className="mt-1 truncate text-sm font-semibold">
                 {email || "Administrator"}
               </p>
@@ -283,20 +249,17 @@ export default function AdminDashboard({
         {/* Main content */}
         <main className="min-w-0 flex-1">
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            {/* Page heading */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-medium text-blue-600">
                   School Administration
                 </p>
-
                 <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
                   Dashboard
                 </h2>
-
                 <p className="mt-2 text-sm text-slate-500">
-                  Manage students, staff, academics, attendance,
-                  examinations and school operations.
+                  Manage students, parents and guardians, staff, classes,
+                  subjects, attendance, examinations and school operations.
                 </p>
               </div>
 
@@ -306,7 +269,7 @@ export default function AdminDashboard({
               </div>
             </div>
 
-            {/* Statistics */}
+            {/* Dashboard statistics */}
             <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <DashboardStat
                 title="Total Students"
@@ -314,21 +277,18 @@ export default function AdminDashboard({
                 description="Student records"
                 icon={<Users className="h-6 w-6" />}
               />
-
               <DashboardStat
                 title="Teachers & Staff"
                 value="0"
                 description="Staff records"
                 icon={<GraduationCap className="h-6 w-6" />}
               />
-
               <DashboardStat
                 title="Active Classes"
-                value="0"
-                description="School classes"
+                value="16"
+                description="Classes created"
                 icon={<BookOpen className="h-6 w-6" />}
               />
-
               <DashboardStat
                 title="Attendance Today"
                 value="0%"
@@ -340,133 +300,109 @@ export default function AdminDashboard({
             {/* Welcome card */}
             <section className="mt-6 overflow-hidden rounded-2xl border bg-white shadow-sm">
               <div className="bg-gradient-to-r from-blue-700 to-blue-600 p-6 text-white sm:p-8">
-                <div className="max-w-3xl">
-                  <p className="text-sm font-semibold text-blue-100">
-                    Welcome to the RESA School Portal
-                  </p>
-
-                  <h3 className="mt-2 text-2xl font-bold sm:text-3xl">
-                    Your school management system is taking shape.
-                  </h3>
-
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">
-                    The portal is connected to your Supabase school
-                    database. We are building each major school
-                    management module carefully so the system can
-                    grow without damaging the foundation.
-                  </p>
-                </div>
+                <p className="text-sm font-semibold text-blue-100">
+                  Welcome to the RESA School Portal
+                </p>
+                <h3 className="mt-2 text-2xl font-bold sm:text-3xl">
+                  Your school management system
+                </h3>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">
+                  Manage your school through the available portal modules.
+                  Student Management, Parent Management, Class Management
+                  and Subject Management are accessible from this dashboard.
+                </p>
               </div>
             </section>
 
             {/* Quick actions */}
             <section className="mt-6">
               <div className="mb-4">
-                <h3 className="text-lg font-bold">
-                  Quick Actions
-                </h3>
-
+                <h3 className="text-lg font-bold">Quick Actions</h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Start with the most common school administration
-                  tasks.
+                  Open a school administration module.
                 </p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 <QuickAction
                   title="Manage Students"
                   description="View and manage student records"
                   icon={<Users className="h-6 w-6" />}
                   onClick={() => navigate("/students")}
                 />
-
                 <QuickAction
                   title="Add Student"
-                  description="Register a new student"
+                  description="Open student registration"
                   icon={<UserPlus className="h-6 w-6" />}
                   onClick={() => navigate("/students")}
                 />
-
                 <QuickAction
-                  title="Take Attendance"
-                  description="Record today's attendance"
-                  icon={<CalendarCheck className="h-6 w-6" />}
-                  onClick={handleComingSoon}
+                  title="Parent Management"
+                  description="Register parents and guardians and link them to students"
+                  icon={<UsersRound className="h-6 w-6" />}
+                  onClick={() => navigate("/parents")}
                 />
-
                 <QuickAction
-                  title="Examinations / CBT"
-                  description="Manage school examinations"
+                  title="Manage Classes"
+                  description="Create and view school classes"
+                  icon={<BookOpen className="h-6 w-6" />}
+                  onClick={() => navigate("/classes")}
+                />
+                <QuickAction
+                  title="Manage Subjects"
+                  description="Assign subjects to school classes"
                   icon={<ClipboardList className="h-6 w-6" />}
-                  onClick={handleComingSoon}
+                  onClick={() => navigate("/subjects")}
                 />
               </div>
             </section>
 
-            {/* Current development status */}
-            <section className="mt-6 grid gap-6 lg:grid-cols-2">
-              <div className="rounded-2xl border bg-white p-6 shadow-sm">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                    <Users className="h-6 w-6" />
-                  </div>
+            {/* Student, parent, class and subject management */}
+            <section className="mt-6 grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
+              <ManagementCard
+                title="Students Management"
+                description="Open the existing student management page to manage student records."
+                buttonText="Open Students"
+                icon={<Users className="h-6 w-6" />}
+                onClick={() => navigate("/students")}
+              />
 
-                  <div>
-                    <h3 className="font-bold">
-                      Students Management
-                    </h3>
+              <ManagementCard
+                title="Parent Management"
+                description="Register parents and guardians, record their contact details, and associate them with students."
+                buttonText="Open Parent Management"
+                icon={<UsersRound className="h-6 w-6" />}
+                onClick={() => navigate("/parents")}
+              />
 
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      The first student-management stage is connected
-                      to the existing student and people records in
-                      your database.
-                    </p>
+              <ManagementCard
+                title="Class Management"
+                description="Manage Nursery, Primary, Junior Secondary and Senior Secondary classes."
+                buttonText="Open Classes"
+                icon={<BookOpen className="h-6 w-6" />}
+                onClick={() => navigate("/classes")}
+              />
 
-                    <button
-                      type="button"
-                      onClick={() => navigate("/students")}
-                      className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
-                    >
-                      Open Students
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
-                    <ShieldCheck className="h-6 w-6" />
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-blue-900">
-                      Development Roadmap
-                    </h3>
-
-                    <p className="mt-2 text-sm leading-6 text-blue-800">
-                      Next modules will include student registration,
-                      classes, teachers, attendance, CBT,
-                      examinations, results, parents, finance and
-                      other school operations.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <ManagementCard
+                title="Subject Management"
+                description="Add subjects, select classes and manage each class's subject list."
+                buttonText="Open Subjects"
+                icon={<ClipboardList className="h-6 w-6" />}
+                onClick={() => navigate("/subjects")}
+              />
             </section>
 
-            {/* Important note */}
             <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
               <h3 className="font-semibold text-amber-900">
-                Current development stage
+                Development status
               </h3>
-
               <p className="mt-1 text-sm leading-6 text-amber-800">
-                Some menu items are intentionally marked
-                <strong> Soon</strong>. They are placeholders for
-                modules we will build next. No database changes are
-                required for this dashboard update.
+                Teachers and Staff, Attendance, Examinations / CBT, Results,
+                Announcements and Settings remain under development.
+                Student, staff and attendance statistics are placeholders
+                until connected to live database queries. Parent Management
+                navigation is available, but parent registration and student
+                linking must be tested against the database.
               </p>
             </section>
           </div>
@@ -494,16 +430,13 @@ function DashboardStat({
           <p className="text-sm font-medium text-slate-500">
             {title}
           </p>
-
           <p className="mt-2 text-3xl font-bold tracking-tight">
             {value}
           </p>
-
           <p className="mt-1 text-xs text-slate-400">
             {description}
           </p>
         </div>
-
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
           {icon}
         </div>
@@ -533,15 +466,46 @@ function QuickAction({
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
           {icon}
         </div>
-
         <ChevronRight className="h-5 w-5 text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-600" />
       </div>
-
       <h3 className="mt-4 font-bold">{title}</h3>
-
       <p className="mt-1 text-sm leading-5 text-slate-500">
         {description}
       </p>
     </button>
+  );
+}
+
+function ManagementCard({
+  title,
+  description,
+  buttonText,
+  icon,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  buttonText: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+        {icon}
+      </div>
+      <h3 className="mt-4 font-bold">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        {description}
+      </p>
+      <button
+        type="button"
+        onClick={onClick}
+        className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+      >
+        {buttonText}
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
   );
 }

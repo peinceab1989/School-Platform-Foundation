@@ -1,5 +1,12 @@
 
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import {
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -13,6 +20,9 @@ import {
 
 import AdminDashboard from '@/pages/admin-dashboard';
 import StudentsPage from '@/pages/students';
+import ClassManagementPage from '@/pages/class-management';
+import SubjectManagementPage from '@/pages/subject-management';
+import ParentManagementPage from '@/pages/parent-management';
 import Home from '@/pages/home';
 import NotFound from '@/pages/not-found';
 
@@ -46,12 +56,562 @@ import {
 
 const queryClient = new QueryClient();
 
-function PublicHome() {
-  return <Home />;
+type NexusModule = {
+  id: string;
+  module_key: string;
+  display_name: string;
+  is_enabled: boolean;
+  updated_at: string;
+};
+
+type NexusAuditEntry = {
+  id: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+};
+
+function normalizePath(path: string): string {
+  const pathname = path.split('?')[0].split('#')[0];
+  const normalized = pathname.replace(/\/+$/, '');
+  return normalized || '/';
 }
+
+const buttonStyle: CSSProperties = {
+  border: 'none',
+  borderRadius: 8,
+  padding: '11px 15px',
+  background: '#e6c66b',
+  color: '#17251b',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const panelStyle: CSSProperties = {
+  background: '#fff',
+  border: '1px solid #e0e7e0',
+  borderRadius: 12,
+  padding: 18,
+  marginBottom: 18,
+  overflowWrap: 'anywhere',
+};
+
+const statStyle: CSSProperties = {
+  padding: 15,
+  background: '#f1f6f1',
+  borderRadius: 10,
+};
+
+const statLabelStyle: CSSProperties = {
+  fontSize: 13,
+  color: '#536456',
+};
+
+const statNumberStyle: CSSProperties = {
+  display: 'block',
+  fontSize: 28,
+  marginTop: 8,
+};
+
+/* =========================================================
+   JETAB TECH PRIVATE ENGINE ROOM
+
+   Owner verification is performed through the existing
+   Supabase is_nexus_owner RPC function.
+========================================================= */
+
+function NexusDashboard({
+  email,
+  onSignOut,
+}: {
+  email?: string;
+  onSignOut: () => void;
+}) {
+  const [ownerCheck, setOwnerCheck] = useState<
+    'checking' | 'owner' | 'denied' | 'error'
+  >('checking');
+
+  const [modules, setModules] = useState<NexusModule[]>([]);
+  const [auditEntries, setAuditEntries] = useState<NexusAuditEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [busyModule, setBusyModule] = useState<string | null>(null);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [statusText, setStatusText] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function verifyPrivateAccess() {
+      setOwnerCheck('checking');
+
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client.rpc('is_nexus_owner');
+
+        if (!active) return;
+
+        if (error) {
+          setErrorText(error.message);
+          setOwnerCheck('error');
+          return;
+        }
+
+        if (data !== true) {
+          setOwnerCheck('denied');
+          return;
+        }
+
+        setOwnerCheck('owner');
+      } catch (error) {
+        if (!active) return;
+
+        setErrorText(
+          error instanceof Error
+            ? error.message
+            : 'Could not verify private system access.',
+        );
+        setOwnerCheck('error');
+      }
+    }
+
+    void verifyPrivateAccess();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setErrorText(null);
+
+    try {
+      const client = getSupabaseClient();
+
+      const [moduleResult, auditResult] = await Promise.all([
+        client
+          .from('nexus_module_controls')
+          .select('id, module_key, display_name, is_enabled, updated_at')
+          .order('display_name', { ascending: true }),
+
+        client
+          .from('nexus_audit_logs')
+          .select('id, action, target_type, target_id, details, created_at')
+          .order('created_at', { ascending: false })
+          .limit(30),
+      ]);
+
+      if (moduleResult.error) throw moduleResult.error;
+      if (auditResult.error) throw auditResult.error;
+
+      setModules((moduleResult.data ?? []) as NexusModule[]);
+      setAuditEntries((auditResult.data ?? []) as NexusAuditEntry[]);
+    } catch (error) {
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : 'Could not load private settings and audit records.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (ownerCheck === 'owner') {
+      void loadData();
+    }
+  }, [ownerCheck, loadData]);
+
+  const changeModuleStatus = useCallback(
+    async (module: NexusModule) => {
+      const nextStatus = !module.is_enabled;
+      const action = nextStatus ? 'enable' : 'disable';
+
+      if (
+        !window.confirm(
+          `Are you sure you want to ${action} "${module.display_name}"?`,
+        )
+      ) {
+        return;
+      }
+
+      setBusyModule(module.module_key);
+      setErrorText(null);
+      setStatusText(null);
+
+      try {
+        const client = getSupabaseClient();
+
+        const { error } = await client.rpc('nexus_set_module_enabled', {
+          p_module_key: module.module_key,
+          p_is_enabled: nextStatus,
+        });
+
+        if (error) throw error;
+
+        setStatusText(`${module.display_name} settings have been updated.`);
+        await loadData();
+      } catch (error) {
+        setErrorText(
+          error instanceof Error
+            ? error.message
+            : 'The module setting could not be changed.',
+        );
+      } finally {
+        setBusyModule(null);
+      }
+    },
+    [loadData],
+  );
+
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        padding: 20,
+        background: '#f4f7f4',
+        color: '#17251b',
+        fontFamily: 'Arial, sans-serif',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <header
+          style={{
+            background: '#123d2b',
+            color: '#fff',
+            borderRadius: 14,
+            padding: 22,
+            marginBottom: 20,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              letterSpacing: 2,
+              color: '#e6c66b',
+            }}
+          >
+            JETAB TECH • PRIVATE SYSTEM
+          </div>
+
+          <h1 style={{ margin: '10px 0', fontSize: 28 }}>
+            JETAB Engine Room
+          </h1>
+
+          <p style={{ margin: '0 0 16px', color: '#f0f3ef' }}>
+            The private control centre.
+          </p>
+
+          <p style={{ margin: '0 0 16px', overflowWrap: 'anywhere' }}>
+            Signed in as: {email || 'Authenticated account'}
+          </p>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              disabled={ownerCheck !== 'owner' || loading}
+              style={buttonStyle}
+            >
+              {loading ? 'Refreshing…' : 'Refresh data'}
+            </button>
+
+            <button type="button" onClick={onSignOut} style={buttonStyle}>
+              Sign out
+            </button>
+          </div>
+        </header>
+
+        {ownerCheck === 'checking' && (
+          <section style={panelStyle}>
+            Verifying private system access…
+          </section>
+        )}
+
+        {ownerCheck === 'error' && (
+          <section style={panelStyle}>
+            <h2>Access verification failed</h2>
+            <p>{errorText || 'The access check could not be completed.'}</p>
+            <p>
+              Check the Supabase connection and confirm that the existing
+              private-access verification function is available.
+            </p>
+          </section>
+        )}
+
+        {ownerCheck === 'denied' && (
+          <section style={panelStyle}>
+            <h2>Access denied</h2>
+            <p>
+              This account has not been verified for the private system.
+              These controls are unavailable to this account.
+            </p>
+          </section>
+        )}
+
+        {ownerCheck === 'owner' && (
+          <>
+            <section style={panelStyle}>
+              <h2 style={{ marginTop: 0 }}>System overview</h2>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                <div style={statStyle}>
+                  <div style={statLabelStyle}>Registered modules</div>
+                  <strong style={statNumberStyle}>{modules.length}</strong>
+                </div>
+
+                <div style={statStyle}>
+                  <div style={statLabelStyle}>Enabled modules</div>
+                  <strong style={statNumberStyle}>
+                    {modules.filter((module) => module.is_enabled).length}
+                  </strong>
+                </div>
+
+                <div style={statStyle}>
+                  <div style={statLabelStyle}>Disabled modules</div>
+                  <strong style={statNumberStyle}>
+                    {modules.filter((module) => !module.is_enabled).length}
+                  </strong>
+                </div>
+              </div>
+            </section>
+
+            {errorText && (
+              <section
+                role="alert"
+                style={{
+                  ...panelStyle,
+                  border: '1px solid #d68a8a',
+                  color: '#8b1e1e',
+                }}
+              >
+                <strong>Error:</strong> {errorText}
+              </section>
+            )}
+
+            {statusText && (
+              <section
+                role="status"
+                style={{
+                  ...panelStyle,
+                  border: '1px solid #7eae8d',
+                  color: '#155b30',
+                }}
+              >
+                {statusText}
+              </section>
+            )}
+
+            <section style={panelStyle}>
+              <h2 style={{ marginTop: 0 }}>Module settings</h2>
+
+              <p>
+                These settings are stored in Supabase, and changes are
+                recorded in the audit log. The enabled/disabled settings are
+                not automatically enforced across every portal feature unless
+                that feature has its own enforcement logic.
+              </p>
+
+              {loading && modules.length === 0 && <p>Loading modules…</p>}
+
+              {!loading && modules.length === 0 && !errorText && (
+                <p>No modules were returned by Supabase.</p>
+              )}
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                {modules.map((module) => (
+                  <article
+                    key={module.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 14,
+                      flexWrap: 'wrap',
+                      padding: 14,
+                      border: '1px solid #dfe6df',
+                      borderRadius: 10,
+                    }}
+                  >
+                    <div style={{ minWidth: 180, flex: '1 1 220px' }}>
+                      <strong>{module.display_name}</strong>
+
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: '#68766b',
+                          marginTop: 4,
+                        }}
+                      >
+                        {module.module_key}
+                      </div>
+
+                      <div style={{ marginTop: 7 }}>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            borderRadius: 20,
+                            padding: '4px 9px',
+                            fontSize: 12,
+                            background: module.is_enabled
+                              ? '#d9f1df'
+                              : '#f8dddd',
+                            color: module.is_enabled
+                              ? '#155b30'
+                              : '#8b1e1e',
+                          }}
+                        >
+                          {module.is_enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => void changeModuleStatus(module)}
+                      disabled={busyModule !== null || loading}
+                      style={{
+                        ...buttonStyle,
+                        background: module.is_enabled ? '#8b2c2c' : '#17683b',
+                        color: '#fff',
+                        opacity:
+                          busyModule !== null || loading ? 0.65 : 1,
+                      }}
+                    >
+                      {busyModule === module.module_key
+                        ? 'Saving…'
+                        : module.is_enabled
+                          ? 'Disable'
+                          : 'Enable'}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section style={panelStyle}>
+              <h2 style={{ marginTop: 0 }}>System activity log</h2>
+              <p>Recent recorded actions, newest first.</p>
+
+              {auditEntries.length === 0 && !loading && (
+                <p>No audit entries have been recorded yet.</p>
+              )}
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                {auditEntries.map((entry) => (
+                  <article
+                    key={entry.id}
+                    style={{
+                      padding: 12,
+                      background: '#f7f9f7',
+                      borderRadius: 8,
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    <strong>{entry.action.replaceAll('_', ' ')}</strong>
+
+                    {entry.target_type && <div>Type: {entry.target_type}</div>}
+                    {entry.target_id && <div>Target: {entry.target_id}</div>}
+
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: '#68766b',
+                        marginTop: 5,
+                      }}
+                    >
+                      {new Date(entry.created_at).toLocaleString()}
+                    </div>
+
+                    {entry.details &&
+                      Object.keys(entry.details).length > 0 && (
+                        <pre
+                          style={{
+                            whiteSpace: 'pre-wrap',
+                            overflowWrap: 'anywhere',
+                            fontSize: 12,
+                          }}
+                        >
+                          {JSON.stringify(entry.details, null, 2)}
+                        </pre>
+                      )}
+                  </article>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
+
+/* =========================================================
+   SCHOOL PORTAL AND PRIVATE LOGIN
+========================================================= */
+
+const privateLabelStyle: CSSProperties = {
+  display: 'block',
+  margin: '0 0 7px',
+  fontSize: 13,
+  fontWeight: 700,
+  color: '#263a2b',
+};
+
+const privateInputStyle: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  boxSizing: 'border-box',
+  margin: '0 0 16px',
+  padding: '12px 13px',
+  border: '1px solid #cbd5cc',
+  borderRadius: 8,
+  background: '#fff',
+  color: '#17251b',
+  fontSize: 14,
+  outlineColor: '#17683b',
+};
+
+const privateSubmitStyle: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  border: 'none',
+  borderRadius: 8,
+  padding: '13px 12px',
+  background: '#123d2b',
+  color: '#fff',
+  fontSize: 14,
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const privateCancelStyle: CSSProperties = {
+  display: 'block',
+  width: '100%',
+  marginTop: 10,
+  border: '1px solid #d6ded7',
+  borderRadius: 8,
+  padding: '11px 12px',
+  background: '#fff',
+  color: '#34443a',
+  fontSize: 14,
+  cursor: 'pointer',
+};
 
 function FoundationPage() {
   const [location, setLocation] = useLocation();
+  const currentPath = normalizePath(location);
+
   const [session, setSession] = useState<Session | null>(null);
 
   const [authState, setAuthState] = useState<FoundationAuthState>(
@@ -66,6 +626,13 @@ function FoundationPage() {
 
   const [errorText, setErrorText] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
+
+  const [privateLoginOpen, setPrivateLoginOpen] = useState(
+    currentPath === '/jetab-engine-room' || currentPath === '/nexus',
+  );
+  const [privateUsername, setPrivateUsername] = useState('');
+  const [privatePassword, setPrivatePassword] = useState('');
+  const [privateLoginBusy, setPrivateLoginBusy] = useState(false);
 
   useEffect(() => {
     if (!hasSupabaseConfig) {
@@ -126,18 +693,34 @@ function FoundationPage() {
     };
   }, []);
 
-  /*
-   * Redirect signed-out visitors only from protected routes.
-   * Public pages such as /about and /academics remain accessible.
-   */
+  /* Protect school portal pages when the user is signed out. */
   useEffect(() => {
+    const protectedPaths = [
+      '/dashboard',
+      '/students',
+      '/classes',
+      '/subjects',
+      '/subject-management',
+      '/parents',
+      '/parent-management',
+    ];
+
     if (
       (authState === 'signed-out' || authState === 'needs-config') &&
-      (location === '/dashboard' || location === '/students')
+      protectedPaths.includes(currentPath)
     ) {
       setLocation('/portal');
     }
-  }, [authState, location, setLocation]);
+  }, [authState, currentPath, setLocation]);
+
+  useEffect(() => {
+    if (
+      (currentPath === '/jetab-engine-room' || currentPath === '/nexus') &&
+      authState !== 'signed-in'
+    ) {
+      setPrivateLoginOpen(true);
+    }
+  }, [currentPath, authState]);
 
   useEffect(() => {
     if (!session || authState !== 'signed-in') {
@@ -148,7 +731,6 @@ function FoundationPage() {
 
     let active = true;
     setMembershipsLoading(true);
-    setErrorText(null);
 
     void runMembershipAccessCheck(getSupabaseClient(), session.user.id)
       .then(({ memberships: nextMemberships, result }) => {
@@ -190,7 +772,8 @@ function FoundationPage() {
   const signIn = useCallback(async (email: string, password: string) => {
     if (!hasSupabaseConfig) {
       setAuthState('needs-config');
-      return;
+      setErrorText('Supabase is not configured.');
+      return false;
     }
 
     setAuthState('loading');
@@ -206,14 +789,18 @@ function FoundationPage() {
       if (error) {
         setAuthState('signed-out');
         setErrorText(error.message);
+        return false;
       }
+
+      return true;
     } catch (error) {
       setAuthState('signed-out');
       setErrorText(
         error instanceof Error
           ? error.message
-          : 'Could not reach the school sign-in service.',
+          : 'Could not reach the sign-in service.',
       );
+      return false;
     }
   }, []);
 
@@ -225,7 +812,11 @@ function FoundationPage() {
     try {
       const { error } = await getSupabaseClient().auth.signOut();
 
-      if (error) setErrorText(error.message);
+      if (error) {
+        setErrorText(error.message);
+      } else {
+        setLocation('/portal');
+      }
     } catch (error) {
       setErrorText(
         error instanceof Error
@@ -233,7 +824,7 @@ function FoundationPage() {
           : 'Could not sign out safely.',
       );
     }
-  }, []);
+  }, [setLocation]);
 
   const runAccessCheck = useCallback(async () => {
     if (!session) {
@@ -259,13 +850,12 @@ function FoundationPage() {
         return;
       }
 
-      const unknownSchoolDenied =
-        await confirmUnknownSchoolIsDenied(client);
+      const unknownSchoolDenied = await confirmUnknownSchoolIsDenied(client);
 
       if (!unknownSchoolDenied) {
         setAccessCheckState('error');
         setErrorText(
-          'The role helper did not deny access to an unrecognized school. Review the Phase 1 database policies before adding school records.',
+          'The role helper did not deny access to an unrecognized school. Review the database policies before adding school records.',
         );
         return;
       }
@@ -285,18 +875,73 @@ function FoundationPage() {
     }
   }, [session]);
 
+  const openPrivateLogin = () => {
+    setErrorText(null);
+    setPrivateLoginOpen(true);
+  };
+
+  const submitPrivateLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!privateUsername.trim() || !privatePassword) {
+      setErrorText('Enter your account email and password.');
+      return;
+    }
+
+    setPrivateLoginBusy(true);
+    setErrorText(null);
+
+    const succeeded = await signIn(privateUsername.trim(), privatePassword);
+
+    setPrivateLoginBusy(false);
+
+    if (succeeded) {
+      setPrivateLoginOpen(false);
+      setPrivatePassword('');
+      setLocation('/jetab-engine-room');
+    }
+  };
+
+  /* Private owner verification remains inside NexusDashboard. */
+  if (
+    (currentPath === '/nexus' || currentPath === '/jetab-engine-room') &&
+    authState === 'signed-in' &&
+    session
+  ) {
+    return (
+      <NexusDashboard
+        email={session.user.email}
+        onSignOut={() => void signOut()}
+      />
+    );
+  }
+
   const adminMembership = memberships.find(
     (membership) =>
       membership.role === 'admin' && membership.status === 'active',
   );
 
-  if (
-    authState === 'signed-in' &&
-    adminMembership &&
-    !membershipsLoading
-  ) {
-    if (location === '/students') {
-      return <StudentsPage />;
+  if (authState === 'signed-in' && adminMembership && !membershipsLoading) {
+    if (currentPath === '/students') {
+      return <StudentsPage schoolId={adminMembership.schoolId} />;
+    }
+
+    if (currentPath === '/classes') {
+      return <ClassManagementPage schoolId={adminMembership.schoolId} />;
+    }
+
+    if (
+      currentPath === '/subjects' ||
+      currentPath === '/subject-management'
+    ) {
+      return <SubjectManagementPage schoolId={adminMembership.schoolId} />;
+    }
+
+    if (
+      currentPath === '/parents' ||
+      currentPath === '/parent-management'
+    ) {
+      return <ParentManagementPage schoolId={adminMembership.schoolId} />;
     }
 
     return (
@@ -309,65 +954,276 @@ function FoundationPage() {
   }
 
   return (
-    <FoundationAppView
-      authState={authState}
-      signedInEmail={session?.user.email}
-      memberships={memberships}
-      errorText={errorText}
-      statusText={statusText}
-      membershipsLoading={membershipsLoading}
-      accessCheckState={accessCheckState}
-      onSignIn={(email, password) => void signIn(email, password)}
-      onSignOut={() => void signOut()}
-      onRunAccessCheck={() => void runAccessCheck()}
-    />
+    <div style={{ position: 'relative', minHeight: '100vh' }}>
+      <FoundationAppView
+        authState={authState}
+        signedInEmail={session?.user.email}
+        memberships={memberships}
+        errorText={errorText}
+        statusText={statusText}
+        membershipsLoading={membershipsLoading}
+        accessCheckState={accessCheckState}
+        onSignIn={(email, password) => void signIn(email, password)}
+        onSignOut={() => void signOut()}
+        onRunAccessCheck={() => void runAccessCheck()}
+      />
+
+      {/* This button opens the private sign-in dialog.
+          It does not grant private access. */}
+      <button
+        type="button"
+        onClick={openPrivateLogin}
+        aria-label="Open private system sign-in"
+        title="Private system"
+        style={{
+          position: 'fixed',
+          right: 13,
+          bottom: 58,
+          zIndex: 1000,
+          width: 35,
+          height: 35,
+          padding: 0,
+          borderRadius: '50%',
+          border: '1px solid rgba(230,198,107,0.55)',
+          background: '#123d2b',
+          color: '#e6c66b',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.16)',
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="17"
+          height="17"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z" />
+        </svg>
+      </button>
+
+      {privateLoginOpen && (
+        <div
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setPrivateLoginOpen(false);
+              setErrorText(null);
+            }
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 18,
+            background: 'rgba(9, 22, 15, 0.72)',
+            boxSizing: 'border-box',
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="jetab-private-heading"
+            style={{
+              width: '100%',
+              maxWidth: 410,
+              boxSizing: 'border-box',
+              padding: 24,
+              borderRadius: 16,
+              background: '#fff',
+              color: '#17251b',
+              fontFamily: 'Arial, sans-serif',
+              boxShadow: '0 18px 60px rgba(0,0,0,0.3)',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: 1.7,
+                color: '#8a6a19',
+                marginBottom: 12,
+              }}
+            >
+              JETAB TECH • PRIVATE SYSTEM
+            </div>
+
+            <h2
+              id="jetab-private-heading"
+              style={{
+                margin: '0 0 8px',
+                fontSize: 23,
+                lineHeight: 1.3,
+                color: '#123d2b',
+              }}
+            >
+              Open JETAB Engine Room
+            </h2>
+
+            <p
+              style={{
+                margin: '0 0 22px',
+                color: '#58645b',
+                fontSize: 14,
+              }}
+            >
+              The private control centre.
+            </p>
+
+            <form onSubmit={(event) => void submitPrivateLogin(event)}>
+              <label htmlFor="jetab-private-username" style={privateLabelStyle}>
+                Account email
+              </label>
+
+              <input
+                id="jetab-private-username"
+                name="username"
+                type="email"
+                autoComplete="username"
+                value={privateUsername}
+                onChange={(event) => setPrivateUsername(event.target.value)}
+                placeholder="Enter your registered account email"
+                required
+                style={privateInputStyle}
+              />
+
+              <label htmlFor="jetab-private-password" style={privateLabelStyle}>
+                Password
+              </label>
+
+              <input
+                id="jetab-private-password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                value={privatePassword}
+                onChange={(event) => setPrivatePassword(event.target.value)}
+                placeholder="Enter your password"
+                required
+                style={privateInputStyle}
+              />
+
+              {errorText && (
+                <p
+                  role="alert"
+                  style={{
+                    margin: '12px 0',
+                    color: '#9b2424',
+                    fontSize: 13,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {errorText}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={privateLoginBusy}
+                style={{
+                  ...privateSubmitStyle,
+                  opacity: privateLoginBusy ? 0.7 : 1,
+                }}
+              >
+                {privateLoginBusy ? 'Verifying…' : 'Open JETAB Engine Room'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPrivateLoginOpen(false);
+                  setErrorText(null);
+                  setPrivatePassword('');
+                }}
+                style={privateCancelStyle}
+              >
+                Cancel
+              </button>
+            </form>
+          </section>
+        </div>
+      )}
+    </div>
   );
 }
 
-function Router() {
+/* =========================================================
+   PUBLIC WEBSITE ROUTES
+========================================================= */
+
+function PublicHome() {
+  return <Home />;
+}
+
+/* =========================================================
+   ERROR BOUNDARY
+========================================================= */
+
+function RoutedErrorBoundary({ children }: { children: ReactNode }) {
+  return <ErrorBoundary>{children}</ErrorBoundary>;
+}
+
+/* =========================================================
+   APPLICATION ROUTES
+========================================================= */
+
+function AppRoutes() {
   return (
     <RoutedErrorBoundary>
       <Switch>
-        {/* PUBLIC WEBSITE */}
+        {/* Public school website */}
         <Route path="/" component={PublicHome} />
         <Route path="/about" component={AboutPage} />
         <Route path="/academics" component={AcademicsPage} />
-        <Route path="/innovation-technology" component={InnovationTechnologyPage} />
+        <Route
+          path="/innovation-technology"
+          component={InnovationTechnologyPage}
+        />
         <Route path="/practical-skills" component={PracticalSkillsPage} />
         <Route path="/wisdom-inspiration" component={WisdomInspirationPage} />
         <Route path="/activities-gallery" component={ActivitiesGalleryPage} />
         <Route path="/admissions" component={AdmissionsPage} />
         <Route path="/contact" component={ContactPage} />
 
-        {/* SCHOOL PORTAL */}
+        {/* School portal */}
         <Route path="/portal" component={FoundationPage} />
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
+        <Route path="/classes" component={FoundationPage} />
+        <Route path="/subjects" component={FoundationPage} />
+        <Route path="/subject-management" component={FoundationPage} />
+        <Route path="/parents" component={FoundationPage} />
+        <Route path="/parent-management" component={FoundationPage} />
 
-        {/* UNKNOWN PAGE */}
+        {/* Private control centre */}
+        <Route path="/jetab-engine-room" component={FoundationPage} />
+        <Route path="/nexus" component={FoundationPage} />
+
+        {/* Not found */}
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>
   );
 }
 
-function RoutedErrorBoundary({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
-
-  return (
-    <ErrorBoundary resetKey={location}>
-      {children}
-    </ErrorBoundary>
-  );
-}
-
 function App() {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+
   return (
     <QueryClientProvider client={queryClient}>
-      <WouterRouter
-        base={import.meta.env.BASE_URL.replace(/\/$/, '')}
-      >
-        <Router />
+      <WouterRouter base={basePath}>
+        <AppRoutes />
       </WouterRouter>
     </QueryClientProvider>
   );
