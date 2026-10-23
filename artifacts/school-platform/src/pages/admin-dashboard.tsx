@@ -1,511 +1,752 @@
+Filename: "artifacts/school-platform/src/pages/admin-dashboard.tsx"
 
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "wouter";
 import {
-  BarChart3,
-  Bell,
-  BookOpen,
-  CalendarCheck,
-  ChevronRight,
-  ClipboardList,
-  GraduationCap,
+  getSupabaseClient,
+  hasSupabaseConfig,
+} from "@/lib/supabase/client";
+import {
   LayoutDashboard,
+  Users,
+  UserCog,
+  School,
+  BookOpen,
+  ClipboardCheck,
+  FileText,
+  Megaphone,
+  Settings,
   LogOut,
   Menu,
-  Settings,
-  ShieldCheck,
-  UserPlus,
-  Users,
-  UsersRound,
   X,
+  ArrowRight,
+  RefreshCw,
+  GraduationCap,
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
 } from "lucide-react";
-import { useState } from "react";
-import { useLocation } from "wouter";
 
 type AdminDashboardProps = {
+  schoolId: string;
   schoolName?: string;
   email?: string | null;
   onSignOut: () => void;
 };
 
-type MenuItem = {
-  label: string;
-  icon: typeof BookOpen;
-  path?: string;
-  comingSoon?: boolean;
+type Stat = {
+  loading: boolean;
+  count: number | null;
+  error: string | null;
 };
 
+type Stats = {
+  students: Stat;
+  staff: Stat;
+  classes: Stat;
+  attendance: Stat;
+};
+
+const emptyStat = (): Stat => ({
+  loading: true,
+  count: null,
+  error: null,
+});
+
+const initialStats = (): Stats => ({
+  students: emptyStat(),
+  staff: emptyStat(),
+  classes: emptyStat(),
+  attendance: emptyStat(),
+});
+
+function lagosDate(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lagos",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+  const day = parts.find((part) => part.type === "day")?.value ?? "";
+
+  return `${year}-${month}-${day}`;
+}
+
+const navigation = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Students", href: "/students", icon: Users },
+  {
+    label: "Teachers & Staff",
+    href: "/staff-invitations",
+    icon: GraduationCap,
+  },
+  {
+    label: "Parent Management",
+    href: "/parent-management",
+    icon: UserCog,
+  },
+  { label: "Classes", href: "/classes", icon: School },
+  { label: "Subjects", href: "/subjects", icon: BookOpen },
+];
+
+const upcomingSections = [
+  {
+    label: "Attendance",
+    icon: ClipboardCheck,
+    description: "Daily attendance records",
+  },
+  {
+    label: "Examinations / CBT",
+    icon: FileText,
+    description: "Online examinations and tests",
+  },
+  {
+    label: "Results",
+    icon: FileText,
+    description: "Student assessment and results",
+  },
+  {
+    label: "Announcements",
+    icon: Megaphone,
+    description: "School notices and communications",
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    description: "School and portal configuration",
+  },
+];
+
 export default function AdminDashboard({
-  schoolName = "RHEMA EXPLOITS SCIENCE ACADEMY",
+  schoolId,
+  schoolName = "RHEMA EXPLOITS SCIENCE ACADEMY (RESA)",
   email,
   onSignOut,
 }: AdminDashboardProps) {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [stats, setStats] = useState<Stats>(initialStats);
+  const requestIdRef = useRef(0);
 
-  const menuItems: MenuItem[] = [
-    { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { label: "Students", icon: Users, path: "/students" },
+  const loadStatistics = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
+    const setUnavailable = (message: string) => {
+      if (requestId !== requestIdRef.current) return;
+
+      const unavailable: Stat = {
+        loading: false,
+        count: null,
+        error: message,
+      };
+
+      setStats({
+        students: { ...unavailable },
+        staff: { ...unavailable },
+        classes: { ...unavailable },
+        attendance: { ...unavailable },
+      });
+    };
+
+    if (!hasSupabaseConfig) {
+      setUnavailable("Supabase is not configured.");
+      return;
+    }
+
+    if (!schoolId) {
+      setUnavailable("The school account could not be identified.");
+      return;
+    }
+
+    setStats((previous) => ({
+      students: { ...previous.students, loading: true, error: null },
+      staff: { ...previous.staff, loading: true, error: null },
+      classes: { ...previous.classes, loading: true, error: null },
+      attendance: { ...previous.attendance, loading: true, error: null },
+    }));
+
+    try {
+      const client = getSupabaseClient();
+
+      if (!client) {
+        throw new Error("Unable to connect to the Supabase client.");
+      }
+
+      const today = lagosDate();
+
+      const [
+        studentsResult,
+        staffResult,
+        classesResult,
+        attendanceResult,
+      ] = await Promise.all([
+        client
+          .from("students")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", schoolId),
+
+        client
+          .from("staff")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", schoolId),
+
+        client
+          .from("school_classes")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", schoolId),
+
+        client
+          .from("student_attendance")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", schoolId)
+          .eq("attendance_date", today),
+      ]);
+
+      if (requestId !== requestIdRef.current) return;
+
+      setStats({
+        students: {
+          loading: false,
+          count: studentsResult.error
+            ? null
+            : studentsResult.count ?? 0,
+          error: studentsResult.error?.message ?? null,
+        },
+        staff: {
+          loading: false,
+          count: staffResult.error ? null : staffResult.count ?? 0,
+          error: staffResult.error?.message ?? null,
+        },
+        classes: {
+          loading: false,
+          count: classesResult.error
+            ? null
+            : classesResult.count ?? 0,
+          error: classesResult.error?.message ?? null,
+        },
+        attendance: {
+          loading: false,
+          count: attendanceResult.error
+            ? null
+            : attendanceResult.count ?? 0,
+          error: attendanceResult.error?.message ?? null,
+        },
+      });
+    } catch (error: unknown) {
+      if (requestId !== requestIdRef.current) return;
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to load school statistics.";
+
+      console.error("RESA dashboard statistics error:", error);
+
+      setUnavailable(message);
+    }
+  }, [schoolId]);
+
+  useEffect(() => {
+    void loadStatistics();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [loadStatistics]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location]);
+
+  const formatCount = (stat: Stat) => {
+    if (stat.loading) return "Loading…";
+    if (stat.count === null) return "Unavailable";
+    return stat.count.toLocaleString();
+  };
+
+  const isRefreshing = Object.values(stats).some(
+    (stat) => stat.loading,
+  );
+
+  const hasErrors = Object.values(stats).some(
+    (stat) => Boolean(stat.error),
+  );
+
+  const statCards = [
     {
-      label: "Parent Management",
-      icon: UsersRound,
-      path: "/parents",
+      title: "Total Students",
+      stat: stats.students,
+      description: "Student records",
+      icon: Users,
+      iconStyle: "bg-green-50 text-green-700",
     },
     {
-      label: "Teachers & Staff",
+      title: "Teachers & Staff",
+      stat: stats.staff,
+      description: "Staff records",
       icon: GraduationCap,
-      comingSoon: true,
+      iconStyle: "bg-blue-50 text-blue-700",
     },
     {
-      label: "Classes",
-      icon: BookOpen,
-      path: "/classes",
+      title: "Total Classes",
+      stat: stats.classes,
+      description: "All school class records",
+      icon: School,
+      iconStyle: "bg-amber-50 text-amber-700",
     },
     {
-      label: "Subjects",
-      icon: ClipboardList,
-      path: "/subjects",
+      title: "Attendance Today",
+      stat: stats.attendance,
+      description: "Student attendance records today",
+      icon: ClipboardCheck,
+      iconStyle: "bg-violet-50 text-violet-700",
     },
-    {
-      label: "Attendance",
-      icon: CalendarCheck,
-      comingSoon: true,
-    },
-    {
-      label: "Examinations / CBT",
-      icon: ClipboardList,
-      comingSoon: true,
-    },
-    { label: "Results", icon: BarChart3, comingSoon: true },
-    { label: "Announcements", icon: Bell, comingSoon: true },
-    { label: "Settings", icon: Settings, comingSoon: true },
   ];
 
-  function navigate(path: string) {
-    setMobileMenuOpen(false);
-    setLocation(path);
-  }
+  const managementCards = [
+    {
+      title: "Students",
+      description: "View and manage student records.",
+      href: "/students",
+      icon: Users,
+    },
+    {
+      title: "Teachers & Staff",
+      description:
+        "Invite staff, review registrations, and manage staff approvals.",
+      href: "/staff-invitations",
+      icon: GraduationCap,
+    },
+    {
+      title: "Parent Management",
+      description: "Access parent management.",
+      href: "/parent-management",
+      icon: UserCog,
+    },
+    {
+      title: "Classes",
+      description: "View and manage school classes.",
+      href: "/classes",
+      icon: School,
+    },
+    {
+      title: "Subjects",
+      description: "Access subject management.",
+      href: "/subjects",
+      icon: BookOpen,
+    },
+  ];
 
-  function handleComingSoon() {
-    setMobileMenuOpen(false);
-  }
-
-  function renderMenuItem(item: MenuItem) {
-    const Icon = item.icon;
-    const active =
-      item.path === location ||
-      (item.path === "/parents" && location === "/parent-management");
-
+  function Sidebar() {
     return (
-      <button
-        key={item.label}
-        type="button"
-        onClick={() =>
-          item.path
-            ? navigate(item.path)
-            : handleComingSoon()
-        }
-        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${
-          active
-            ? "bg-blue-50 text-blue-700"
-            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-        }`}
-      >
-        <Icon className="h-5 w-5 shrink-0" />
-        <span className="flex-1">{item.label}</span>
+      <div className="flex h-full flex-col bg-white">
+        <div className="border-b border-slate-200 px-5 py-6">
+          <p className="text-xs font-extrabold uppercase tracking-widest text-green-700">
+            RESA SCHOOL PORTAL
+          </p>
 
-        {item.comingSoon && (
-          <span className="text-[10px] font-semibold uppercase text-slate-400">
-            Soon
-          </span>
-        )}
+          <h2 className="mt-2 text-base font-bold text-slate-900">
+            School Administration
+          </h2>
 
-        {active && (
-          <ChevronRight className="h-4 w-4 shrink-0" />
-        )}
-      </button>
+          <p className="mt-2 break-all text-xs text-blue-700">
+            {email || "Administrator"}
+          </p>
+        </div>
+
+        <nav
+          aria-label="Administrator navigation"
+          className="flex-1 space-y-1 overflow-y-auto px-3 py-4"
+        >
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const active = location === item.href;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition ${
+                  active
+                    ? "bg-green-50 text-green-800"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+
+          <div className="px-3 pb-1 pt-5 text-xs font-bold uppercase tracking-wide text-slate-400">
+            Other Sections
+          </div>
+
+          {upcomingSections.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <div
+                key={item.label}
+                title={item.description}
+                aria-disabled="true"
+                className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-3 text-sm text-slate-400"
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+
+                <span className="min-w-0 flex-1">{item.label}</span>
+
+                <span className="text-[10px] font-semibold uppercase">
+                  Soon
+                </span>
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-slate-200 p-3">
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          >
+            <LogOut className="h-5 w-5" />
+            Sign out
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Mobile header */}
-      <header className="sticky top-0 z-40 border-b bg-white lg:hidden">
-        <div className="flex h-16 items-center justify-between px-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-              RESA SCHOOL PORTAL
-            </p>
-            <h1 className="truncate text-base font-bold">
-              {schoolName}
-            </h1>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border bg-white"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
-
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label="Close menu backdrop"
-            className="absolute inset-0 h-full w-full bg-black/40"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-
-          <aside className="relative flex h-full w-[85%] max-w-sm flex-col bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b p-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-                  RESA
-                </p>
-                <h2 className="font-bold">School Portal</h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border"
-                aria-label="Close menu"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-              {menuItems.map(renderMenuItem)}
-            </nav>
-
-            <div className="border-t p-4">
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="h-5 w-5" />
-                Sign out
-              </button>
-            </div>
-          </aside>
-        </div>
-      )}
-
       <div className="flex min-h-screen">
-        {/* Desktop sidebar */}
-        <aside className="hidden w-72 shrink-0 border-r bg-white lg:flex lg:flex-col">
-          <div className="border-b p-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-                  RESA
-                </p>
-                <h1 className="text-sm font-bold">
-                  School Portal
-                </h1>
-              </div>
-            </div>
-
-            <p className="mt-4 line-clamp-2 text-xs leading-5 text-slate-500">
-              {schoolName}
-            </p>
-          </div>
-
-          <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-            {menuItems.map(renderMenuItem)}
-          </nav>
-
-          <div className="border-t p-4">
-            <div className="mb-3 rounded-xl bg-slate-50 p-3">
-              <p className="text-xs font-medium text-slate-500">
-                Signed in as
-              </p>
-              <p className="mt-1 truncate text-sm font-semibold">
-                {email || "Administrator"}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
-            >
-              <LogOut className="h-5 w-5" />
-              Sign out
-            </button>
+        <aside className="hidden w-64 shrink-0 border-r border-slate-200 lg:block">
+          <div className="sticky top-0 h-screen">
+            <Sidebar />
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="min-w-0 flex-1">
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-blue-600">
-                  School Administration
-                </p>
-                <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-                  Dashboard
-                </h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  Manage students, parents and guardians, staff, classes,
-                  subjects, attendance, examinations and school operations.
-                </p>
+        <div className="min-w-0 flex-1">
+          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+            <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+              <div className="flex min-w-0 items-center gap-3">
+                <button
+                  type="button"
+                  aria-label={
+                    mobileMenuOpen ? "Close menu" : "Open menu"
+                  }
+                  aria-expanded={mobileMenuOpen}
+                  onClick={() =>
+                    setMobileMenuOpen((open) => !open)
+                  }
+                  className="rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 lg:hidden"
+                >
+                  {mobileMenuOpen ? (
+                    <X className="h-5 w-5" />
+                  ) : (
+                    <Menu className="h-5 w-5" />
+                  )}
+                </button>
+
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wide text-green-700 sm:text-sm">
+                    RESA SCHOOL PORTAL
+                  </p>
+
+                  <h1 className="mt-1 truncate text-lg font-bold sm:text-xl">
+                    Administrator Dashboard
+                  </h1>
+                </div>
               </div>
 
-              <div className="hidden items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm text-slate-600 shadow-sm sm:flex">
-                <ShieldCheck className="h-4 w-4 text-green-600" />
-                Administrator Access
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="hidden shrink-0 items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 sm:flex"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            </div>
+          </header>
+
+          {mobileMenuOpen && (
+            <div className="fixed inset-0 z-40 lg:hidden">
+              <button
+                type="button"
+                aria-label="Close navigation"
+                onClick={() => setMobileMenuOpen(false)}
+                className="absolute inset-0 bg-slate-900/40"
+              />
+
+              <div className="absolute inset-y-0 left-0 w-[min(19rem,85vw)] overflow-y-auto shadow-xl">
+                <Sidebar />
               </div>
             </div>
+          )}
 
-            {/* Dashboard statistics */}
-            <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <DashboardStat
-                title="Total Students"
-                value="0"
-                description="Student records"
-                icon={<Users className="h-6 w-6" />}
-              />
-              <DashboardStat
-                title="Teachers & Staff"
-                value="0"
-                description="Staff records"
-                icon={<GraduationCap className="h-6 w-6" />}
-              />
-              <DashboardStat
-                title="Active Classes"
-                value="16"
-                description="Classes created"
-                icon={<BookOpen className="h-6 w-6" />}
-              />
-              <DashboardStat
-                title="Attendance Today"
-                value="0%"
-                description="Daily attendance"
-                icon={<CalendarCheck className="h-6 w-6" />}
-              />
-            </section>
+          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+            <section className="rounded-2xl bg-gradient-to-r from-green-800 to-green-700 p-6 text-white shadow-sm sm:p-8">
+              <p className="text-sm font-semibold text-green-100">
+                School Administration
+              </p>
 
-            {/* Welcome card */}
-            <section className="mt-6 overflow-hidden rounded-2xl border bg-white shadow-sm">
-              <div className="bg-gradient-to-r from-blue-700 to-blue-600 p-6 text-white sm:p-8">
-                <p className="text-sm font-semibold text-blue-100">
-                  Welcome to the RESA School Portal
-                </p>
-                <h3 className="mt-2 text-2xl font-bold sm:text-3xl">
-                  Your school management system
-                </h3>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100 sm:text-base">
-                  Manage your school through the available portal modules.
-                  Student Management, Parent Management, Class Management
-                  and Subject Management are accessible from this dashboard.
-                </p>
-              </div>
-            </section>
+              <h2 className="mt-2 text-2xl font-extrabold sm:text-3xl">
+                Welcome to RESA
+              </h2>
 
-            {/* Quick actions */}
-            <section className="mt-6">
-              <div className="mb-4">
-                <h3 className="text-lg font-bold">Quick Actions</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Open a school administration module.
-                </p>
-              </div>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-green-50 sm:text-base">
+                Manage your school records, classes, parents, and
+                daily school operations from one place.
+              </p>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                <QuickAction
-                  title="Manage Students"
-                  description="View and manage student records"
-                  icon={<Users className="h-6 w-6" />}
-                  onClick={() => navigate("/students")}
-                />
-                <QuickAction
-                  title="Add Student"
-                  description="Open student registration"
-                  icon={<UserPlus className="h-6 w-6" />}
-                  onClick={() => navigate("/students")}
-                />
-                <QuickAction
-                  title="Parent Management"
-                  description="Register parents and guardians and link them to students"
-                  icon={<UsersRound className="h-6 w-6" />}
-                  onClick={() => navigate("/parents")}
-                />
-                <QuickAction
-                  title="Manage Classes"
-                  description="Create and view school classes"
-                  icon={<BookOpen className="h-6 w-6" />}
-                  onClick={() => navigate("/classes")}
-                />
-                <QuickAction
-                  title="Manage Subjects"
-                  description="Assign subjects to school classes"
-                  icon={<ClipboardList className="h-6 w-6" />}
-                  onClick={() => navigate("/subjects")}
-                />
-              </div>
-            </section>
-
-            {/* Student, parent, class and subject management */}
-            <section className="mt-6 grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
-              <ManagementCard
-                title="Students Management"
-                description="Open the existing student management page to manage student records."
-                buttonText="Open Students"
-                icon={<Users className="h-6 w-6" />}
-                onClick={() => navigate("/students")}
-              />
-
-              <ManagementCard
-                title="Parent Management"
-                description="Register parents and guardians, record their contact details, and associate them with students."
-                buttonText="Open Parent Management"
-                icon={<UsersRound className="h-6 w-6" />}
-                onClick={() => navigate("/parents")}
-              />
-
-              <ManagementCard
-                title="Class Management"
-                description="Manage Nursery, Primary, Junior Secondary and Senior Secondary classes."
-                buttonText="Open Classes"
-                icon={<BookOpen className="h-6 w-6" />}
-                onClick={() => navigate("/classes")}
-              />
-
-              <ManagementCard
-                title="Subject Management"
-                description="Add subjects, select classes and manage each class's subject list."
-                buttonText="Open Subjects"
-                icon={<ClipboardList className="h-6 w-6" />}
-                onClick={() => navigate("/subjects")}
-              />
-            </section>
-
-            <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-              <h3 className="font-semibold text-amber-900">
-                Development status
-              </h3>
-              <p className="mt-1 text-sm leading-6 text-amber-800">
-                Teachers and Staff, Attendance, Examinations / CBT, Results,
-                Announcements and Settings remain under development.
-                Student, staff and attendance statistics are placeholders
-                until connected to live database queries. Parent Management
-                navigation is available, but parent registration and student
-                linking must be tested against the database.
+              <p className="mt-4 break-words text-sm text-green-100">
+                {schoolName}
               </p>
             </section>
-          </div>
-        </main>
-      </div>
-    </div>
-  );
-}
 
-function DashboardStat({
-  title,
-  value,
-  description,
-  icon,
-}: {
-  title: string;
-  value: string;
-  description: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-slate-500">
-            {title}
-          </p>
-          <p className="mt-2 text-3xl font-bold tracking-tight">
-            {value}
-          </p>
-          <p className="mt-1 text-xs text-slate-400">
-            {description}
-          </p>
-        </div>
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-}
+            <section className="mt-8">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-bold">
+                    School Overview
+                  </h2>
 
-function QuickAction({
-  title,
-  description,
-  icon,
-  onClick,
-}: {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group rounded-2xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-          {icon}
-        </div>
-        <ChevronRight className="h-5 w-5 text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-600" />
-      </div>
-      <h3 className="mt-4 font-bold">{title}</h3>
-      <p className="mt-1 text-sm leading-5 text-slate-500">
-        {description}
-      </p>
-    </button>
-  );
-}
+                  <p className="mt-1 text-sm text-slate-600">
+                    Your school statistics and current portal status.
+                  </p>
+                </div>
 
-function ManagementCard({
-  title,
-  description,
-  buttonText,
-  icon,
-  onClick,
-}: {
-  title: string;
-  description: string;
-  buttonText: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <div className="rounded-2xl border bg-white p-6 shadow-sm">
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-        {icon}
+                <button
+                  type="button"
+                  onClick={() => void loadStatistics()}
+                  disabled={isRefreshing}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+                >
+                  <RefreshCw
+                    aria-hidden="true"
+                    className={`h-4 w-4 ${
+                      isRefreshing ? "animate-spin" : ""
+                    }`}
+                  />
+
+                  {isRefreshing
+                    ? "Refreshing…"
+                    : "Refresh Statistics"}
+                </button>
+              </div>
+
+              <div
+                className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+                aria-live="polite"
+                aria-busy={isRefreshing}
+              >
+                {statCards.map((card) => {
+                  const Icon = card.icon;
+
+                  return (
+                    <article
+                      key={card.title}
+                      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold text-slate-600">
+                          {card.title}
+                        </h3>
+
+                        <span
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${card.iconStyle}`}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </span>
+                      </div>
+
+                      <p className="mt-4 break-words text-3xl font-extrabold text-slate-900">
+                        {formatCount(card.stat)}
+                      </p>
+
+                      <p className="mt-2 text-xs text-slate-500">
+                        {card.stat.error
+                          ? "Could not load this statistic"
+                          : card.description}
+                      </p>
+                    </article>
+                  );
+                })}
+              </div>
+
+              {hasErrors && (
+                <div
+                  role="alert"
+                  className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+                >
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+
+                    <div>
+                      <p className="font-semibold">
+                        Some statistics could not be loaded.
+                      </p>
+
+                      <p className="mt-1">
+                        Check the relevant Supabase tables, school
+                        records, and database permissions.
+                      </p>
+
+                      <ul className="mt-2 list-inside list-disc space-y-1">
+                        {statCards
+                          .filter((card) => card.stat.error)
+                          .map((card) => (
+                            <li key={card.title}>
+                              <span className="font-semibold">
+                                {card.title}:
+                              </span>{" "}
+                              {card.stat.error}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!hasErrors && !isRefreshing && (
+                <div className="mt-4 flex items-center gap-2 text-xs text-green-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>
+                    All four dashboard statistics loaded successfully.
+                  </span>
+                </div>
+              )}
+            </section>
+
+            <section className="mt-8">
+              <h2 className="text-xl font-bold">Quick Actions</h2>
+
+              <p className="mt-1 text-sm text-slate-600">
+                Quickly open the main management areas.
+              </p>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {managementCards.slice(0, 2).map((card) => {
+                  const Icon = card.icon;
+
+                  return (
+                    <Link
+                      key={card.href}
+                      href={card.href}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-300 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="rounded-lg bg-green-100 p-2 text-green-800">
+                          <Icon className="h-5 w-5" />
+                        </span>
+
+                        <span className="min-w-0">
+                          <span className="block font-semibold text-slate-900">
+                            {card.title}
+                          </span>
+
+                          <span className="mt-1 block text-xs text-slate-500">
+                            {card.description}
+                          </span>
+                        </span>
+                      </span>
+
+                      <ArrowRight className="h-5 w-5 shrink-0 text-slate-400" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="mt-8">
+              <h2 className="text-xl font-bold">Management</h2>
+
+              <p className="mt-1 text-sm text-slate-600">
+                Access the available school management sections.
+              </p>
+
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {managementCards.map((card) => {
+                  const Icon = card.icon;
+
+                  return (
+                    <Link
+                      key={card.href}
+                      href={card.href}
+                      className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-green-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+                    >
+                      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-800">
+                        <Icon className="h-5 w-5" />
+                      </span>
+
+                      <h3 className="mt-4 font-bold text-slate-900">
+                        {card.title}
+                      </h3>
+
+                      <p className="mt-2 text-sm leading-5 text-slate-600">
+                        {card.description}
+                      </p>
+
+                      <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-green-800">
+                        Open section
+                        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+              <div className="flex items-start gap-3">
+                <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+
+                <div>
+                  <h2 className="font-bold text-slate-900">
+                    Portal Development Status
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    This dashboard retrieves student, staff, class,
+                    and attendance counts from Supabase for the
+                    current school. Attendance Today counts student
+                    attendance records for today's date in Nigeria.
+                    Total Classes counts all school class records
+                    and does not independently verify whether each
+                    class is active.
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Teachers &amp; Staff now has a dashboard route
+                    to the staff invitations and approval page.
+                    Attendance, Examinations / CBT, Results,
+                    Announcements, and Settings remain upcoming
+                    sections until their routes and functionality
+                    have been verified.
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Existing authentication, database permissions,
+                    and school records are not modified by this
+                    dashboard component.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <footer className="mt-8 border-t border-slate-200 py-5 text-center text-xs text-slate-500">
+              RESA School Portal · {new Date().getFullYear()}
+            </footer>
+          </main>
+        </div>
       </div>
-      <h3 className="mt-4 font-bold">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-500">
-        {description}
-      </p>
-      <button
-        type="button"
-        onClick={onClick}
-        className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
-      >
-        {buttonText}
-        <ChevronRight className="h-4 w-4" />
-      </button>
     </div>
   );
 }

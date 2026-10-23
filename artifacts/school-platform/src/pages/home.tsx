@@ -1,7 +1,23 @@
 
-import { ArrowRight, BookOpen, Laptop, Microscope, Trophy, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  ArrowRight,
+  BookOpen,
+  Laptop,
+  Microscope,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { Link } from "wouter";
 import { PublicLayout } from "@/components/public-site";
+import {
+  getSupabaseClient,
+  hasSupabaseConfig,
+} from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/database.types";
+
+type WebsiteContent =
+  Database["public"]["Functions"]["get_resa_website_content"]["Returns"][number];
 
 const mediaPath = (path: string) =>
   `${import.meta.env.BASE_URL}${path}`;
@@ -38,6 +54,44 @@ const features = [
 ];
 
 export default function HomePage() {
+  const [websiteContent, setWebsiteContent] = useState<WebsiteContent[]>([]);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadWebsiteContent() {
+      try {
+        const { data, error } = await getSupabaseClient().rpc(
+          "get_resa_website_content",
+          {
+            p_content_type: null,
+          },
+        );
+
+        if (error) {
+          console.error("Unable to load RESA website content:", error.message);
+          return;
+        }
+
+        if (isMounted) {
+          setWebsiteContent(data ?? []);
+        }
+      } catch (error) {
+        console.error("Unable to connect to RESA website content:", error);
+      }
+    }
+
+    void loadWebsiteContent();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <PublicLayout>
       <main>
@@ -47,14 +101,17 @@ export default function HomePage() {
               <p className="text-xs font-bold tracking-[0.2em] text-[#e7cd83] sm:text-sm">
                 PASSION • SKILLS • EXCELLENT SPIRIT
               </p>
+
               <h1 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl lg:text-5xl">
                 Preparing Students for the Future
               </h1>
+
               <p className="mt-5 max-w-xl text-base leading-7 text-white/85 sm:text-lg">
                 At Rhema Exploits Science Academy International, we help
                 students think, create, discover their abilities and prepare
                 for a changing world.
               </p>
+
               <div className="mt-7 flex flex-wrap gap-3">
                 <Link
                   href="/admissions"
@@ -62,6 +119,7 @@ export default function HomePage() {
                 >
                   Explore Admissions <ArrowRight size={18} />
                 </Link>
+
                 <Link
                   href="/activities-gallery"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/50 px-5 py-3 font-bold text-white transition hover:bg-white/10"
@@ -81,20 +139,110 @@ export default function HomePage() {
           </div>
         </section>
 
+        {websiteContent.length > 0 && (
+          <section
+            aria-labelledby="website-updates-heading"
+            className="bg-white px-5 py-12 sm:px-8 sm:py-16"
+          >
+            <div className="mx-auto max-w-7xl">
+              <div className="mx-auto mb-8 max-w-2xl text-center">
+                <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#98782c]">
+                  Stay Informed
+                </p>
+
+                <h2
+                  id="website-updates-heading"
+                  className="mt-3 text-2xl font-extrabold text-[#215641] sm:text-3xl"
+                >
+                  RESA News & Updates
+                </h2>
+
+                <p className="mt-3 leading-7 text-[#5d6a60]">
+                  Discover the latest news, announcements, events and updates
+                  from our school.
+                </p>
+              </div>
+
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {websiteContent.map((item) => {
+                  const contentType = item.content_type.replace(/_/g, " ");
+                  const hasImage = Boolean(item.image_url?.trim());
+                  const hasPublicationDate =
+                    Boolean(item.published_at) &&
+                    !Number.isNaN(Date.parse(item.published_at));
+
+                  return (
+                    <article
+                      key={item.id}
+                      className="overflow-hidden rounded-2xl border border-[#e2dece] bg-white shadow-sm transition hover:shadow-md"
+                    >
+                      {hasImage && (
+                        <img
+                          src={item.image_url}
+                          alt={item.image_alt || item.title}
+                          className="h-48 w-full object-cover"
+                          loading="lazy"
+                        />
+                      )}
+
+                      <div className="p-5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-[#eaf1e8] px-3 py-1 text-xs font-bold capitalize text-[#215641]">
+                            {contentType}
+                          </span>
+
+                          {hasPublicationDate && (
+                            <time
+                              dateTime={item.published_at}
+                              className="text-xs text-[#657066]"
+                            >
+                              {new Date(item.published_at).toLocaleDateString(
+                                "en-NG",
+                                {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                },
+                              )}
+                            </time>
+                          )}
+                        </div>
+
+                        <h3 className="mt-4 text-lg font-bold text-[#215641]">
+                          {item.title}
+                        </h3>
+
+                        {(item.summary || item.body) && (
+                          <p className="mt-3 line-clamp-4 whitespace-pre-line text-sm leading-6 text-[#657066]">
+                            {item.summary || item.body}
+                          </p>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16">
           <div className="mx-auto max-w-3xl text-center">
             <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#98782c]">
               Welcome to RESA
             </p>
+
             <h2 className="mt-3 text-2xl font-extrabold text-[#215641] sm:text-3xl">
               More Than a Classroom Education
             </h2>
+
             <p className="mt-4 leading-7 text-[#5d6a60]">
               Every child deserves an excellent learning environment. RESA
               brings together academic development, science, technology,
-              practical skills and character building to prepare learners
-              for meaningful opportunities.
+              practical skills and character building to prepare learners for
+              meaningful opportunities.
             </p>
+
             <Link
               href="/about"
               className="mt-5 inline-flex items-center gap-2 font-bold text-[#215641] hover:text-[#98782c]"
@@ -110,6 +258,7 @@ export default function HomePage() {
               <h2 className="text-2xl font-extrabold text-[#215641] sm:text-3xl">
                 Learning for Life
               </h2>
+
               <p className="mt-3 leading-7 text-[#5d6a60]">
                 Discover the areas that help our students learn, grow and
                 prepare for the future.
@@ -119,6 +268,7 @@ export default function HomePage() {
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {features.map((feature) => {
                 const Icon = feature.icon;
+
                 return (
                   <article
                     key={feature.title}
@@ -127,12 +277,15 @@ export default function HomePage() {
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#eaf1e8] text-[#215641]">
                       <Icon size={25} />
                     </div>
+
                     <h3 className="mt-4 text-lg font-bold text-[#215641]">
                       {feature.title}
                     </h3>
+
                     <p className="mt-3 text-sm leading-6 text-[#657066]">
                       {feature.description}
                     </p>
+
                     <Link
                       href={feature.href}
                       className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#215641] hover:text-[#98782c]"
@@ -156,18 +309,21 @@ export default function HomePage() {
                 loading="lazy"
               />
             </div>
+
             <div>
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#eaf1e8] text-[#215641]">
                 <Users size={25} />
               </div>
+
               <h2 className="mt-4 text-2xl font-extrabold text-[#215641] sm:text-3xl">
                 Every Learner Has Potential
               </h2>
+
               <p className="mt-4 leading-7 text-[#5d6a60]">
                 We encourage learners to build knowledge, develop practical
-                abilities, work together and approach tomorrow with
-                confidence.
+                abilities, work together and approach tomorrow with confidence.
               </p>
+
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/activities-gallery"
@@ -175,6 +331,7 @@ export default function HomePage() {
                 >
                   View School Gallery <ArrowRight size={17} />
                 </Link>
+
                 <Link
                   href="/contact"
                   className="inline-flex items-center gap-2 rounded-xl border border-[#215641] px-5 py-3 font-bold text-[#215641] hover:bg-[#eaf1e8]"

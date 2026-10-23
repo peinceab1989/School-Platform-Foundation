@@ -19,6 +19,7 @@ import {
 } from '@/components/foundation/foundation-app-view';
 
 import AdminDashboard from '@/pages/admin-dashboard';
+import StaffInvitationsPage from '@/pages/staff-invitations';
 import StudentsPage from '@/pages/students';
 import ClassManagementPage from '@/pages/class-management';
 import SubjectManagementPage from '@/pages/subject-management';
@@ -73,6 +74,13 @@ type NexusAuditEntry = {
   created_at: string;
 };
 
+type SecurityTestStatus =
+  | 'idle'
+  | 'running'
+  | 'pass'
+  | 'fail'
+  | 'inconclusive';
+
 function normalizePath(path: string): string {
   const pathname = path.split('?')[0].split('#')[0];
   const normalized = pathname.replace(/\/+$/, '');
@@ -117,9 +125,6 @@ const statNumberStyle: CSSProperties = {
 
 /* =========================================================
    JETAB TECH PRIVATE ENGINE ROOM
-
-   Owner verification is performed through the existing
-   Supabase is_nexus_owner RPC function.
 ========================================================= */
 
 function NexusDashboard({
@@ -139,6 +144,11 @@ function NexusDashboard({
   const [busyModule, setBusyModule] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
+
+  const [securityTestStatus, setSecurityTestStatus] =
+    useState<SecurityTestStatus>('idle');
+  const [securityTestMessage, setSecurityTestMessage] =
+    useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -181,6 +191,98 @@ function NexusDashboard({
     return () => {
       active = false;
     };
+  }, []);
+
+  const testDatabaseProtection = useCallback(async () => {
+    setSecurityTestStatus('running');
+    setSecurityTestMessage(null);
+
+    try {
+      const client = getSupabaseClient();
+
+      const {
+        data: { user },
+        error: userError,
+      } = await client.auth.getUser();
+
+      if (userError || !user) {
+        setSecurityTestStatus('inconclusive');
+        setSecurityTestMessage(
+          userError?.message ||
+            'No authenticated user was available for this test. Sign in again.',
+        );
+        return;
+      }
+
+      const {
+        data: ownerData,
+        error: ownerError,
+      } = await client.rpc('is_nexus_owner');
+
+      if (ownerError) {
+        setSecurityTestStatus('inconclusive');
+        setSecurityTestMessage(
+          `Could not verify the current account's owner status: ${ownerError.message}`,
+        );
+        return;
+      }
+
+      if (ownerData !== false) {
+        setSecurityTestStatus('inconclusive');
+        setSecurityTestMessage(
+          'The current account was not confirmed as a non-owner. No protected test request was made.',
+        );
+        return;
+      }
+
+      const testModuleKey = '__jetab_security_test_nonexistent__';
+
+      const { error: rpcError } = await client.rpc(
+        'nexus_set_module_enabled',
+        {
+          p_module_key: testModuleKey,
+          p_is_enabled: false,
+        },
+      );
+
+      if (!rpcError) {
+        setSecurityTestStatus('fail');
+        setSecurityTestMessage(
+          'The function returned successfully for a confirmed non-owner. Review the database authorization logic immediately.',
+        );
+        return;
+      }
+
+      const message = rpcError.message || 'Unknown database error';
+
+      if (message.includes('Access denied: Nexus owner only')) {
+        setSecurityTestStatus('pass');
+        setSecurityTestMessage(
+          'PASS: Supabase rejected the authenticated non-owner at the database function owner check. No real module was targeted.',
+        );
+        return;
+      }
+
+      if (message.includes(`Nexus module not found: ${testModuleKey}`)) {
+        setSecurityTestStatus('fail');
+        setSecurityTestMessage(
+          'FAIL: The request reached the module lookup instead of being rejected by the owner check. Review the database function before further use.',
+        );
+        return;
+      }
+
+      setSecurityTestStatus('inconclusive');
+      setSecurityTestMessage(
+        `The request returned an unexpected error, so authorization could not be confirmed: ${message}`,
+      );
+    } catch (error) {
+      setSecurityTestStatus('inconclusive');
+      setSecurityTestMessage(
+        error instanceof Error
+          ? error.message
+          : 'The security test could not be completed.',
+      );
+    }
   }, []);
 
   const loadData = useCallback(async () => {
@@ -344,13 +446,96 @@ function NexusDashboard({
         )}
 
         {ownerCheck === 'denied' && (
-          <section style={panelStyle}>
-            <h2>Access denied</h2>
-            <p>
-              This account has not been verified for the private system.
-              These controls are unavailable to this account.
-            </p>
-          </section>
+          <>
+            <section style={panelStyle}>
+              <h2>Access denied</h2>
+              <p>
+                This account has not been verified for the private system.
+                These controls are unavailable to this account.
+              </p>
+            </section>
+
+            <section style={panelStyle}>
+              <h2 style={{ marginTop: 0 }}>
+                Database security verification
+              </h2>
+
+              <p>
+                This test checks whether Supabase rejects a signed-in
+                non-owner when calling the protected module-control function
+                directly. It uses a deliberately nonexistent module key and
+                does not intentionally change any real module.
+              </p>
+
+              <p style={{ fontSize: 13, color: '#536456' }}>
+                Run this test only while signed in with the non-owner account.
+                Do not share passwords, access tokens, or secret keys.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => void testDatabaseProtection()}
+                disabled={securityTestStatus === 'running'}
+                style={{
+                  ...buttonStyle,
+                  background: '#123d2b',
+                  color: '#fff',
+                  opacity: securityTestStatus === 'running' ? 0.65 : 1,
+                }}
+              >
+                {securityTestStatus === 'running'
+                  ? 'Testing database protection…'
+                  : 'Test database protection'}
+              </button>
+
+              {securityTestStatus !== 'idle' && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    marginTop: 16,
+                    padding: 14,
+                    borderRadius: 8,
+                    overflowWrap: 'anywhere',
+                    background:
+                      securityTestStatus === 'pass'
+                        ? '#e3f4e7'
+                        : securityTestStatus === 'fail'
+                          ? '#fbe6e6'
+                          : '#fff4d9',
+                    color:
+                      securityTestStatus === 'pass'
+                        ? '#155b30'
+                        : securityTestStatus === 'fail'
+                          ? '#8b1e1e'
+                          : '#704f0a',
+                    border:
+                      securityTestStatus === 'pass'
+                        ? '1px solid #7eae8d'
+                        : securityTestStatus === 'fail'
+                          ? '1px solid #d68a8a'
+                          : '1px solid #e5ca7a',
+                  }}
+                >
+                  <strong>
+                    {securityTestStatus === 'running'
+                      ? 'Test running'
+                      : securityTestStatus === 'pass'
+                        ? 'PASS'
+                        : securityTestStatus === 'fail'
+                          ? 'FAIL'
+                          : 'INCONCLUSIVE'}
+                  </strong>
+
+                  {securityTestMessage && (
+                    <p style={{ marginBottom: 0 }}>
+                      {securityTestMessage}
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
+          </>
         )}
 
         {ownerCheck === 'owner' && (
@@ -466,9 +651,7 @@ function NexusDashboard({
                             background: module.is_enabled
                               ? '#d9f1df'
                               : '#f8dddd',
-                            color: module.is_enabled
-                              ? '#155b30'
-                              : '#8b1e1e',
+                            color: module.is_enabled ? '#155b30' : '#8b1e1e',
                           }}
                         >
                           {module.is_enabled ? 'Enabled' : 'Disabled'}
@@ -484,8 +667,7 @@ function NexusDashboard({
                         ...buttonStyle,
                         background: module.is_enabled ? '#8b2c2c' : '#17683b',
                         color: '#fff',
-                        opacity:
-                          busyModule !== null || loading ? 0.65 : 1,
+                        opacity: busyModule !== null || loading ? 0.65 : 1,
                       }}
                     >
                       {busyModule === module.module_key
@@ -703,6 +885,7 @@ function FoundationPage() {
       '/subject-management',
       '/parents',
       '/parent-management',
+      '/staff-invitations',
     ];
 
     if (
@@ -922,6 +1105,16 @@ function FoundationPage() {
   );
 
   if (authState === 'signed-in' && adminMembership && !membershipsLoading) {
+    if (currentPath === '/staff-invitations') {
+      return (
+        <StaffInvitationsPage
+          schoolId={adminMembership.schoolId}
+          schoolName={adminMembership.schoolName}
+          onSignOut={() => void signOut()}
+        />
+      );
+    }
+
     if (currentPath === '/students') {
       return <StudentsPage schoolId={adminMembership.schoolId} />;
     }
@@ -946,6 +1139,7 @@ function FoundationPage() {
 
     return (
       <AdminDashboard
+        schoolId={adminMembership.schoolId}
         schoolName={adminMembership.schoolName}
         email={session?.user.email}
         onSignOut={() => void signOut()}
@@ -968,8 +1162,6 @@ function FoundationPage() {
         onRunAccessCheck={() => void runAccessCheck()}
       />
 
-      {/* This button opens the private sign-in dialog.
-          It does not grant private access. */}
       <button
         type="button"
         onClick={openPrivateLogin}
@@ -1205,6 +1397,7 @@ function AppRoutes() {
         <Route path="/subject-management" component={FoundationPage} />
         <Route path="/parents" component={FoundationPage} />
         <Route path="/parent-management" component={FoundationPage} />
+        <Route path="/staff-invitations" component={FoundationPage} />
 
         {/* Private control centre */}
         <Route path="/jetab-engine-room" component={FoundationPage} />

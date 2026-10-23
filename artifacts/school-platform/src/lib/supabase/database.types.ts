@@ -173,6 +173,24 @@ export interface Database {
         };
         Returns: boolean;
       };
+
+      get_resa_website_content: {
+        Args: {
+          p_content_type?: string | null;
+        };
+        Returns: {
+          id: string;
+          content_type: string;
+          title: string;
+          slug: string;
+          summary: string;
+          body: string;
+          image_url: string;
+          image_alt: string;
+          published_at: string;
+          sort_order: number;
+        }[];
+      };
     };
 
     Enums: {
