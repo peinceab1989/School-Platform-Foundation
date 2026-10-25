@@ -1,0 +1,21 @@
+
+{
+  "id": "/",
+  "name": "RHEMA EXPLOITS SCIENCE ACADEMY",
+  "short_name": "RESA",
+  "description": "Rhema Exploits Science Academy International — Passion, Skills, Excellent Spirit.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#14532d",
+  "icons": [
+    {
+      "src": "/media/logo/resa-logo.jpg",
+      "sizes": "any",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
