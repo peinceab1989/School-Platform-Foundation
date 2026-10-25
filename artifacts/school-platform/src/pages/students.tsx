@@ -1,5 +1,11 @@
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -13,6 +19,8 @@ import {
   Users,
   Pencil,
   X,
+  UserPlus,
+  ShieldCheck,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -25,6 +33,7 @@ type Student = {
   admission_date: string | null;
   status: string;
   created_at: string;
+  user_id: string | null;
   first_name: string;
   middle_name: string | null;
   last_name: string;
@@ -80,7 +89,9 @@ function fullName(student: Student): string {
     student.first_name,
     student.middle_name,
     student.last_name,
-  ].filter(Boolean).join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function normalizedStatus(status: string | null | undefined): string {
@@ -92,14 +103,38 @@ function displayStatus(status: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export default function StudentsPage({ schoolId }: { schoolId: string }) {
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return "An unexpected error occurred. Please try again.";
+}
+
+export default function StudentsPage({
+  schoolId,
+}: {
+  schoolId: string;
+}) {
   const [, setLocation] = useLocation();
 
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [creatingLoginId, setCreatingLoginId] = useState<string | null>(
+    null,
+  );
   const [showForm, setShowForm] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(
+    null,
+  );
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState<StudentForm>(emptyForm);
@@ -126,7 +161,7 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
       const { data: studentRows, error: studentError } = await supabase
         .from("students")
         .select(
-          "id, school_id, person_id, admission_number, admission_date, status, created_at",
+          "id, school_id, person_id, admission_number, admission_date, status, created_at, user_id",
         )
         .eq("school_id", schoolId)
         .order("created_at", { ascending: false });
@@ -168,6 +203,7 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
             admission_date: student.admission_date,
             status: student.status,
             created_at: student.created_at,
+            user_id: student.user_id ?? null,
             first_name: person?.first_name ?? "",
             middle_name: person?.middle_name ?? null,
             last_name: person?.last_name ?? "",
@@ -179,11 +215,7 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
       );
     } catch (err) {
       console.error("Unable to load students:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load student records.",
-      );
+      setError(errorMessage(err) || "Unable to load student records.");
     } finally {
       setLoading(false);
     }
@@ -242,6 +274,7 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
 
     if (!supabase) {
       setError("Supabase is not configured.");
+      setEditingStudent(null);
       return;
     }
 
@@ -253,7 +286,9 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
       .maybeSingle();
 
     if (personError) {
-      setError(`Could not load the student's full details: ${personError.message}`);
+      setError(
+        `Could not load the student's full details: ${personError.message}`,
+      );
       setEditingStudent(null);
       return;
     }
@@ -277,9 +312,131 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
 
   function closeForm() {
     if (saving) return;
+
     setShowForm(false);
     setEditingStudent(null);
     setError("");
+  }
+
+  async function handleCreateStudentLogin(student: Student) {
+    setError("");
+    setSuccess("");
+
+    if (creatingLoginId || saving) return;
+
+    if (normalizedStatus(student.status) !== "active") {
+      setError(
+        "Only active students can receive a portal login. Update the student's status first.",
+      );
+      return;
+    }
+
+    if (student.user_id) {
+      setSuccess(
+        `${fullName(student)} already has a linked login account.`,
+      );
+      return;
+    }
+
+    const suggestedEmail = student.email?.trim() ?? "";
+    const enteredEmail = window.prompt(
+      `Enter the student's personal email address for the portal invitation.\n\nStudent: ${fullName(student)}\nAdmission number: ${student.admission_number}`,
+      suggestedEmail,
+    );
+
+    if (enteredEmail === null) return;
+
+    const email = enteredEmail.trim().toLowerCase();
+
+    if (!email) {
+      setError("An email address is required to create a student login.");
+      return;
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailPattern.test(email)) {
+      setError("Enter a valid email address and try again.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Create a student portal login for ${fullName(student)} using ${email}?\n\nAn invitation will be sent to this address.`,
+    );
+
+    if (!confirmed) return;
+
+    setCreatingLoginId(student.id);
+
+    try {
+      const supabase = getSupabaseClient();
+
+      if (!supabase) {
+        throw new Error("Supabase is not configured.");
+      }
+
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        throw new Error(
+          "Your administrator session has expired. Sign in again and retry.",
+        );
+      }
+
+      const { data, error: functionError } =
+        await supabase.functions.invoke("resa-create-student-login", {
+          body: {
+            student_id: student.id,
+            email,
+          },
+        });
+
+      if (functionError) {
+        let details = functionError.message;
+
+        try {
+          const response = functionError.context;
+
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+
+            if (typeof body?.error === "string") {
+              details = body.error;
+            } else if (typeof body?.message === "string") {
+              details = body.message;
+            }
+          }
+        } catch {
+          // Keep the original function error if its response is not JSON.
+        }
+
+        throw new Error(details || "Unable to create the student login.");
+      }
+
+      if (data?.error) {
+        throw new Error(
+          typeof data.error === "string"
+            ? data.error
+            : "The server could not create this student login.",
+        );
+      }
+
+      setSuccess(
+        `Login invitation processed for ${fullName(student)} (${email}). Check the invitation result and the student's linked-account status.`,
+      );
+
+      await loadStudents();
+    } catch (err) {
+      console.error("Unable to create student login:", err);
+      setError(
+        `Could not create the student login: ${errorMessage(err)}`,
+      );
+    } finally {
+      setCreatingLoginId(null);
+    }
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -332,7 +489,6 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
       }
 
       if (editingStudent) {
-        // Update the existing student's personal details.
         const { error: personError } = await supabase
           .from("people")
           .update({
@@ -350,7 +506,6 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
 
         if (personError) throw personError;
 
-        // Update admission details on the existing student record.
         const { error: studentError } = await supabase
           .from("students")
           .update({
@@ -369,7 +524,6 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
 
         setSuccess(`${firstName} ${lastName}'s record has been updated.`);
       } else {
-        // Create the personal record first.
         const { data: person, error: personError } = await supabase
           .from("people")
           .insert({
@@ -399,7 +553,6 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
           });
 
         if (studentError) {
-          // Try to remove the person record if student creation fails.
           const { error: cleanupError } = await supabase
             .from("people")
             .delete()
@@ -407,13 +560,18 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
             .eq("school_id", schoolId);
 
           if (cleanupError) {
-            console.error("Cleanup after registration failure:", cleanupError);
+            console.error(
+              "Cleanup after registration failure:",
+              cleanupError,
+            );
           }
 
           throw studentError;
         }
 
-        setSuccess(`${firstName} ${lastName} has been registered successfully.`);
+        setSuccess(
+          `${firstName} ${lastName} has been registered successfully. Use Create Login to invite the student to the portal.`,
+        );
       }
 
       setShowForm(false);
@@ -423,13 +581,46 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
     } catch (err) {
       console.error("Unable to save student:", err);
       setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to save the student record. Please try again.",
+        errorMessage(err) ||
+          "Unable to save the student record. Please try again.",
       );
     } finally {
       setSaving(false);
     }
+  }
+
+  function renderLoginAction(student: Student, mobile = false) {
+    if (student.user_id) {
+      return (
+        <span
+          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"
+          title="A user account is linked to this student"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Login linked
+        </span>
+      );
+    }
+
+    const busy = creatingLoginId === student.id;
+
+    return (
+      <button
+        type="button"
+        onClick={() => void handleCreateStudentLogin(student)}
+        disabled={Boolean(creatingLoginId) || saving}
+        className={`inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${
+          mobile ? "w-full sm:w-auto" : ""
+        }`}
+      >
+        {busy ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <UserPlus className="h-4 w-4" />
+        )}
+        {busy ? "Creating..." : "Create Login"}
+      </button>
+    );
   }
 
   return (
@@ -469,14 +660,15 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
         <section>
           <h2 className="text-2xl font-bold">Students</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Register students, update records and manage student information.
+            Register students, update records, and create secure student
+            portal login invitations.
           </p>
         </section>
 
         {success && (
           <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
             <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <p>{success}</p>
+            <p className="break-words">{success}</p>
             <button
               type="button"
               onClick={() => setSuccess("")}
@@ -490,7 +682,7 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
 
         {error && !showForm && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            <p>{error}</p>
+            <p className="break-words">{error}</p>
             <button
               type="button"
               onClick={() => void loadStudents()}
@@ -528,6 +720,7 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
                 className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
               />
             </div>
+
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -540,13 +733,16 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
               <option value="graduated">Graduated</option>
               <option value="withdrawn">Withdrawn</option>
             </select>
+
             <button
               type="button"
               onClick={() => void loadStudents()}
               disabled={loading}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
               Refresh
             </button>
           </div>
@@ -569,7 +765,9 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
             <div className="px-5 py-12 text-center">
               <Users className="mx-auto h-10 w-10 text-slate-300" />
               <h4 className="mt-3 font-semibold">
-                {students.length === 0 ? "No students registered yet" : "No matching students"}
+                {students.length === 0
+                  ? "No students registered yet"
+                  : "No matching students"}
               </h4>
               <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
                 {students.length === 0
@@ -594,36 +792,56 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
                       <th className="px-5 py-3 font-semibold">Student</th>
-                      <th className="px-5 py-3 font-semibold">Admission No.</th>
+                      <th className="px-5 py-3 font-semibold">
+                        Admission No.
+                      </th>
                       <th className="px-5 py-3 font-semibold">Contact</th>
-                      <th className="px-5 py-3 font-semibold">Admission date</th>
+                      <th className="px-5 py-3 font-semibold">
+                        Admission date
+                      </th>
                       <th className="px-5 py-3 font-semibold">Status</th>
-                      <th className="px-5 py-3 text-right font-semibold">Action</th>
+                      <th className="px-5 py-3 font-semibold">Portal login</th>
+                      <th className="px-5 py-3 text-right font-semibold">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredStudents.map((student) => (
                       <tr key={student.id} className="hover:bg-slate-50">
                         <td className="px-5 py-4">
-                          <p className="font-semibold">{fullName(student) || "Name unavailable"}</p>
+                          <p className="font-semibold">
+                            {fullName(student) || "Name unavailable"}
+                          </p>
                           <p className="mt-1 text-xs text-slate-500">
                             {student.gender || "Gender not specified"}
                           </p>
                         </td>
-                        <td className="px-5 py-4">{student.admission_number}</td>
+                        <td className="px-5 py-4">
+                          {student.admission_number}
+                        </td>
                         <td className="px-5 py-4">
                           <p>{student.phone || "—"}</p>
-                          <p className="mt-1 text-xs text-slate-500">{student.email || "—"}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {student.email || "—"}
+                          </p>
                         </td>
-                        <td className="px-5 py-4">{formatDate(student.admission_date)}</td>
                         <td className="px-5 py-4">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            normalizedStatus(student.status) === "active"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-slate-100 text-slate-700"
-                          }`}>
+                          {formatDate(student.admission_date)}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              normalizedStatus(student.status) === "active"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
                             {displayStatus(student.status)}
                           </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          {renderLoginAction(student)}
                         </td>
                         <td className="px-5 py-4 text-right">
                           <button
@@ -643,19 +861,26 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
 
               <div className="divide-y divide-slate-100 md:hidden">
                 {filteredStudents.map((student) => (
-                  <article key={student.id} className="space-y-3 p-4">
+                  <article
+                    key={student.id}
+                    className="space-y-3 p-4"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h4 className="font-semibold">{fullName(student) || "Name unavailable"}</h4>
+                        <h4 className="font-semibold">
+                          {fullName(student) || "Name unavailable"}
+                        </h4>
                         <p className="mt-1 text-sm text-slate-500">
                           Admission No: {student.admission_number}
                         </p>
                       </div>
-                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        normalizedStatus(student.status) === "active"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-slate-100 text-slate-700"
-                      }`}>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          normalizedStatus(student.status) === "active"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
                         {displayStatus(student.status)}
                       </span>
                     </div>
@@ -666,24 +891,30 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
                         {student.phone}
                       </p>
                     )}
+
                     {student.email && (
                       <p className="flex items-center gap-2 break-all text-sm text-slate-600">
                         <Mail className="h-4 w-4 shrink-0" />
                         {student.email}
                       </p>
                     )}
+
                     <p className="flex items-center gap-2 text-sm text-slate-600">
                       <CalendarDays className="h-4 w-4 shrink-0" />
                       Admitted: {formatDate(student.admission_date)}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => void openEditForm(student)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit student
-                    </button>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      {renderLoginAction(student, true)}
+                      <button
+                        type="button"
+                        onClick={() => void openEditForm(student)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit student
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -698,7 +929,9 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
               <div>
                 <h3 className="text-xl font-bold">
-                  {editingStudent ? "Edit student record" : "Register a student"}
+                  {editingStudent
+                    ? "Edit student record"
+                    : "Register a student"}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   {editingStudent
@@ -725,90 +958,159 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
               )}
 
               <div>
-                <h4 className="mb-3 font-semibold">Personal information</h4>
+                <h4 className="mb-3 font-semibold">
+                  Personal information
+                </h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <label className="block text-sm font-medium">
                     First name *
-                    <input required value={form.first_name}
-                      onChange={(event) => updateField("first_name", event.target.value)}
+                    <input
+                      required
+                      value={form.first_name}
+                      onChange={(event) =>
+                        updateField("first_name", event.target.value)
+                      }
                       autoComplete="given-name"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
                   </label>
+
                   <label className="block text-sm font-medium">
                     Last name *
-                    <input required value={form.last_name}
-                      onChange={(event) => updateField("last_name", event.target.value)}
+                    <input
+                      required
+                      value={form.last_name}
+                      onChange={(event) =>
+                        updateField("last_name", event.target.value)
+                      }
                       autoComplete="family-name"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
                   </label>
+
                   <label className="block text-sm font-medium">
                     Middle name
-                    <input value={form.middle_name}
-                      onChange={(event) => updateField("middle_name", event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                    <input
+                      value={form.middle_name}
+                      onChange={(event) =>
+                        updateField("middle_name", event.target.value)
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
                   </label>
+
                   <label className="block text-sm font-medium">
                     Gender
-                    <select value={form.gender}
-                      onChange={(event) => updateField("gender", event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-emerald-700">
+                    <select
+                      value={form.gender}
+                      onChange={(event) =>
+                        updateField("gender", event.target.value)
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    >
                       <option value="">Select gender</option>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
                       <option value="other">Other</option>
                     </select>
                   </label>
+
                   <label className="block text-sm font-medium">
                     Date of birth
-                    <input type="date" value={form.date_of_birth}
-                      onChange={(event) => updateField("date_of_birth", event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                    <input
+                      type="date"
+                      value={form.date_of_birth}
+                      onChange={(event) =>
+                        updateField("date_of_birth", event.target.value)
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
                   </label>
+
                   <label className="block text-sm font-medium">
                     Phone number
-                    <input type="tel" value={form.phone}
-                      onChange={(event) => updateField("phone", event.target.value)}
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={(event) =>
+                        updateField("phone", event.target.value)
+                      }
                       autoComplete="tel"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
                   </label>
+
                   <label className="block text-sm font-medium sm:col-span-2">
                     Email address
-                    <input type="email" value={form.email}
-                      onChange={(event) => updateField("email", event.target.value)}
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(event) =>
+                        updateField("email", event.target.value)
+                      }
                       autoComplete="email"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
+                    <span className="mt-1 block text-xs font-normal text-slate-500">
+                      Add the student's own accessible email if they will need
+                      a portal login.
+                    </span>
                   </label>
+
                   <label className="block text-sm font-medium sm:col-span-2">
                     Home address
-                    <textarea rows={2} value={form.address}
-                      onChange={(event) => updateField("address", event.target.value)}
+                    <textarea
+                      rows={2}
+                      value={form.address}
+                      onChange={(event) =>
+                        updateField("address", event.target.value)
+                      }
                       autoComplete="street-address"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
                   </label>
                 </div>
               </div>
 
               <div className="border-t border-slate-200 pt-5">
-                <h4 className="mb-3 font-semibold">Admission information</h4>
+                <h4 className="mb-3 font-semibold">
+                  Admission information
+                </h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <label className="block text-sm font-medium">
                     Admission number *
-                    <input required value={form.admission_number}
-                      onChange={(event) => updateField("admission_number", event.target.value)}
+                    <input
+                      required
+                      value={form.admission_number}
+                      onChange={(event) =>
+                        updateField("admission_number", event.target.value)
+                      }
                       placeholder="e.g. RESA/2026/001"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
                   </label>
+
                   <label className="block text-sm font-medium">
                     Admission date
-                    <input type="date" value={form.admission_date}
-                      onChange={(event) => updateField("admission_date", event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700" />
+                    <input
+                      type="date"
+                      value={form.admission_date}
+                      onChange={(event) =>
+                        updateField("admission_date", event.target.value)
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    />
                   </label>
+
                   <label className="block text-sm font-medium">
                     Student status
-                    <select value={form.status}
-                      onChange={(event) => updateField("status", event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-emerald-700">
+                    <select
+                      value={form.status}
+                      onChange={(event) =>
+                        updateField("status", event.target.value)
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
+                    >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                       <option value="graduated">Graduated</option>
@@ -819,13 +1121,22 @@ export default function StudentsPage({ schoolId }: { schoolId: string }) {
               </div>
 
               <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-                <button type="button" onClick={closeForm} disabled={saving}
-                  className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  disabled={saving}
+                  className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
+                >
                   Cancel
                 </button>
-                <button type="submit" disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60">
-                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                   {saving
                     ? "Saving..."
                     : editingStudent
