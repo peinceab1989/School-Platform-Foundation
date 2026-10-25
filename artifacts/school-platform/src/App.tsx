@@ -1,4 +1,3 @@
-
 import {
   type CSSProperties,
   type FormEvent,
@@ -7,6 +6,7 @@ import {
   useEffect,
   useState,
 } from 'react';
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -41,8 +41,8 @@ import {
 import {
   Route,
   Switch,
-  useLocation,
   Router as WouterRouter,
+  useLocation,
 } from 'wouter';
 
 import {
@@ -86,6 +86,17 @@ function normalizePath(path: string): string {
   const normalized = pathname.replace(/\/+$/, '');
   return normalized || '/';
 }
+
+const PROTECTED_SCHOOL_PATHS = [
+  '/dashboard',
+  '/students',
+  '/classes',
+  '/subjects',
+  '/subject-management',
+  '/parents',
+  '/parent-management',
+  '/staff-invitations',
+];
 
 const buttonStyle: CSSProperties = {
   border: 'none',
@@ -816,6 +827,11 @@ function FoundationPage() {
   const [privatePassword, setPrivatePassword] = useState('');
   const [privateLoginBusy, setPrivateLoginBusy] = useState(false);
 
+  const adminMembership = memberships.find(
+    (membership) =>
+      membership.role === 'admin' && membership.status === 'active',
+  );
+
   useEffect(() => {
     if (!hasSupabaseConfig) {
       setAuthState('needs-config');
@@ -838,6 +854,7 @@ function FoundationPage() {
 
       if (!nextSession) {
         setMemberships([]);
+        setMembershipsLoading(false);
       }
     });
 
@@ -875,26 +892,36 @@ function FoundationPage() {
     };
   }, []);
 
-  /* Protect school portal pages when the user is signed out. */
   useEffect(() => {
-    const protectedPaths = [
-      '/dashboard',
-      '/students',
-      '/classes',
-      '/subjects',
-      '/subject-management',
-      '/parents',
-      '/parent-management',
-      '/staff-invitations',
-    ];
+    if (!PROTECTED_SCHOOL_PATHS.includes(currentPath)) {
+      return;
+    }
+
+    if (authState === 'signed-out' || authState === 'needs-config') {
+      setLocation('/portal');
+      return;
+    }
 
     if (
-      (authState === 'signed-out' || authState === 'needs-config') &&
-      protectedPaths.includes(currentPath)
+      authState !== 'signed-in' ||
+      membershipsLoading ||
+      accessCheckState === 'idle' ||
+      accessCheckState === 'loading'
     ) {
+      return;
+    }
+
+    if (!adminMembership) {
       setLocation('/portal');
     }
-  }, [authState, currentPath, setLocation]);
+  }, [
+    authState,
+    currentPath,
+    membershipsLoading,
+    accessCheckState,
+    adminMembership,
+    setLocation,
+  ]);
 
   useEffect(() => {
     if (
@@ -909,11 +936,14 @@ function FoundationPage() {
     if (!session || authState !== 'signed-in') {
       setMemberships([]);
       setMembershipsLoading(false);
+      setAccessCheckState('idle');
       return;
     }
 
     let active = true;
+
     setMembershipsLoading(true);
+    setAccessCheckState('loading');
 
     void runMembershipAccessCheck(getSupabaseClient(), session.user.id)
       .then(({ memberships: nextMemberships, result }) => {
@@ -927,6 +957,7 @@ function FoundationPage() {
         }
 
         setMemberships(nextMemberships);
+        setAccessCheckState('success');
         setStatusText(
           `${nextMemberships.length} school ${
             nextMemberships.length === 1 ? 'membership is' : 'memberships are'
@@ -937,6 +968,7 @@ function FoundationPage() {
         if (!active) return;
 
         setMemberships([]);
+        setAccessCheckState('error');
         setErrorText(
           error instanceof Error
             ? error.message
@@ -1085,7 +1117,6 @@ function FoundationPage() {
     }
   };
 
-  /* Private owner verification remains inside NexusDashboard. */
   if (
     (currentPath === '/nexus' || currentPath === '/jetab-engine-room') &&
     authState === 'signed-in' &&
@@ -1098,11 +1129,6 @@ function FoundationPage() {
       />
     );
   }
-
-  const adminMembership = memberships.find(
-    (membership) =>
-      membership.role === 'admin' && membership.status === 'active',
-  );
 
   if (authState === 'signed-in' && adminMembership && !membershipsLoading) {
     if (currentPath === '/staff-invitations') {

@@ -2,7 +2,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import {
+  AlertCircle,
   ArrowLeft,
+  Ban,
   CheckCircle2,
   Clock3,
   LoaderCircle,
@@ -12,7 +14,6 @@ import {
   ShieldCheck,
   UserCheck,
   Users,
-  AlertCircle,
 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -22,13 +23,31 @@ type StaffInvitationsPageProps = {
   onSignOut?: () => void;
 };
 
-type PendingStaff = {
+type StaffMember = {
   user_id: string;
   staff_number: string | null;
   job_title: string | null;
   department: string | null;
-  status: string;
+  staff_status: string;
+  membership_status: string;
 };
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "message" in err &&
+    typeof err.message === "string"
+  ) {
+    return err.message;
+  }
+
+  return fallback;
+}
 
 export default function StaffInvitationsPage({
   schoolId,
@@ -41,42 +60,54 @@ export default function StaffInvitationsPage({
   const [phone, setPhone] = useState("");
   const [jobTitle, setJobTitle] = useState("Teacher");
   const [department, setDepartment] = useState("ICT");
+
   const [submitting, setSubmitting] = useState(false);
-  const [loadingPending, setLoadingPending] = useState(true);
-  const [approvingUser, setApprovingUser] = useState<string | null>(null);
-  const [pendingStaff, setPendingStaff] = useState<PendingStaff[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(true);
+  const [processingUser, setProcessingUser] = useState<string | null>(null);
+
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const loadPendingStaff = useCallback(async () => {
+  const loadStaff = useCallback(async () => {
     if (!schoolId) {
       setError("The school account could not be identified.");
-      setLoadingPending(false);
+      setStaffMembers([]);
+      setLoadingStaff(false);
       return;
     }
 
-    setLoadingPending(true);
+    setLoadingStaff(true);
 
     try {
       const client = getSupabaseClient();
 
       const { data: memberships, error: membershipError } = await client
         .from("school_memberships")
-        .select("user_id")
+        .select("user_id, status")
         .eq("school_id", schoolId)
         .eq("role", "teacher")
-        .eq("status", "invited");
+        .in("status", ["invited", "active", "suspended"]);
 
       if (membershipError) {
         throw membershipError;
       }
 
-      const invitedUserIds = (memberships ?? [])
-        .map((membership) => membership.user_id)
-        .filter((userId): userId is string => Boolean(userId));
+      const membershipByUserId = new Map<string, string>();
 
-      if (invitedUserIds.length === 0) {
-        setPendingStaff([]);
+      for (const membership of memberships ?? []) {
+        if (membership.user_id) {
+          membershipByUserId.set(
+            membership.user_id,
+            membership.status ?? "invited",
+          );
+        }
+      }
+
+      const userIds = Array.from(membershipByUserId.keys());
+
+      if (userIds.length === 0) {
+        setStaffMembers([]);
         setError("");
         return;
       }
@@ -85,36 +116,46 @@ export default function StaffInvitationsPage({
         .from("staff")
         .select("user_id, staff_number, job_title, department, status")
         .eq("school_id", schoolId)
-        .in("user_id", invitedUserIds);
+        .in("user_id", userIds);
 
       if (staffError) {
         throw staffError;
       }
 
-      setPendingStaff(
-        (staffRows ?? []).map((staff) => ({
-          user_id: staff.user_id,
-          staff_number: staff.staff_number ?? null,
-          job_title: staff.job_title ?? null,
-          department: staff.department ?? null,
-          status: staff.status ?? "pending",
-        })),
-      );
+      const members: StaffMember[] = (staffRows ?? [])
+        .filter(
+          (staff) =>
+            Boolean(staff.user_id) &&
+            membershipByUserId.has(staff.user_id as string),
+        )
+        .map((staff) => {
+          const userId = staff.user_id as string;
+
+          return {
+            user_id: userId,
+            staff_number: staff.staff_number ?? null,
+            job_title: staff.job_title ?? null,
+            department: staff.department ?? null,
+            staff_status: staff.status ?? "pending",
+            membership_status:
+              membershipByUserId.get(userId) ?? "invited",
+          };
+        });
+
+      setStaffMembers(members);
       setError("");
     } catch (err: unknown) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to load pending staff invitations.",
+        getErrorMessage(err, "Unable to load the school staff directory."),
       );
     } finally {
-      setLoadingPending(false);
+      setLoadingStaff(false);
     }
   }, [schoolId]);
 
   useEffect(() => {
-    void loadPendingStaff();
-  }, [loadPendingStaff]);
+    void loadStaff();
+  }, [loadStaff]);
 
   async function handleInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -123,6 +164,11 @@ export default function StaffInvitationsPage({
 
     if (!schoolId) {
       setError("The school account could not be identified.");
+      return;
+    }
+
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      setError("Please enter the teacher's first name, last name, and email.");
       return;
     }
 
@@ -140,15 +186,17 @@ export default function StaffInvitationsPage({
         throw new Error("Your session has expired. Please sign in again.");
       }
 
+      const normalizedEmail = email.trim().toLowerCase();
+
       const { data, error: functionError } =
         await client.functions.invoke("resa-invite-staff", {
           body: {
             school_id: schoolId,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
-            email: email.trim().toLowerCase(),
+            email: normalizedEmail,
             phone: phone.trim(),
-            job_title: jobTitle.trim(),
+            job_title: jobTitle.trim() || "Teacher",
             department: department.trim(),
           },
         });
@@ -158,12 +206,13 @@ export default function StaffInvitationsPage({
 
         try {
           const response = functionError.context;
+
           if (response && typeof response.json === "function") {
             const body = await response.json();
             details = body?.error || body?.message || details;
           }
         } catch {
-          // Keep the original Supabase function error.
+          // Retain the original Supabase function error.
         }
 
         throw new Error(details || "The invitation could not be sent.");
@@ -174,8 +223,9 @@ export default function StaffInvitationsPage({
       }
 
       setMessage(
-        `Invitation processed successfully for ${email.trim()}. The staff record will remain pending until an administrator approves it.`,
+        `Invitation processed successfully for ${normalizedEmail}. The teacher must complete the invitation process and be approved by an administrator before receiving active school access.`,
       );
+
       setFirstName("");
       setLastName("");
       setEmail("");
@@ -183,12 +233,10 @@ export default function StaffInvitationsPage({
       setJobTitle("Teacher");
       setDepartment("ICT");
 
-      await loadPendingStaff();
+      await loadStaff();
     } catch (err: unknown) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "The invitation could not be sent. Please try again.",
+        getErrorMessage(err, "The invitation could not be sent. Please try again."),
       );
     } finally {
       setSubmitting(false);
@@ -198,7 +246,7 @@ export default function StaffInvitationsPage({
   async function handleApprove(userId: string) {
     setError("");
     setMessage("");
-    setApprovingUser(userId);
+    setProcessingUser(userId);
 
     try {
       const client = getSupabaseClient();
@@ -229,16 +277,175 @@ export default function StaffInvitationsPage({
       }
 
       setMessage("The teacher has been approved and activated.");
-      await loadPendingStaff();
+      await loadStaff();
     } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "The teacher could not be approved.",
-      );
+      setError(getErrorMessage(err, "The teacher could not be approved."));
     } finally {
-      setApprovingUser(null);
+      setProcessingUser(null);
     }
+  }
+
+  async function handleSuspend(staff: StaffMember) {
+    if (staff.membership_status !== "active") {
+      setError("Only active teachers can be suspended.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Suspend ${staff.staff_number || "this teacher"}?\n\n` +
+        "Their school membership will be marked as suspended. " +
+        "They should no longer have access to protected teacher features. " +
+        "Their staff record will be retained.",
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setMessage("");
+    setProcessingUser(staff.user_id);
+
+    try {
+      const client = getSupabaseClient();
+
+      const { data: sessionData, error: sessionError } =
+        await client.auth.getSession();
+
+      if (sessionError) throw sessionError;
+
+      if (!sessionData.session) {
+        throw new Error("Please sign in again before suspending staff.");
+      }
+
+      const { data, error: suspensionError } = await client.rpc(
+        "suspend_school_teacher",
+        {
+          p_school_id: schoolId,
+          p_user_id: staff.user_id,
+        },
+      );
+
+      if (suspensionError) throw suspensionError;
+
+      if (data !== true) {
+        throw new Error(
+          "The teacher was not suspended. Verify your administrator permissions and try again.",
+        );
+      }
+
+      setMessage(
+        `${staff.staff_number || "The teacher"} has been suspended. Their staff record has been retained.`,
+      );
+
+      await loadStaff();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "The teacher could not be suspended."));
+    } finally {
+      setProcessingUser(null);
+    }
+  }
+
+  const pendingStaff = staffMembers.filter(
+    (staff) => staff.membership_status === "invited",
+  );
+
+  const activeStaff = staffMembers.filter(
+    (staff) => staff.membership_status === "active",
+  );
+
+  const suspendedStaff = staffMembers.filter(
+    (staff) => staff.membership_status === "suspended",
+  );
+
+  function renderStaffCard(staff: StaffMember) {
+    const isProcessing = processingUser === staff.user_id;
+    const isInvited = staff.membership_status === "invited";
+    const isActive = staff.membership_status === "active";
+    const isSuspended = staff.membership_status === "suspended";
+
+    return (
+      <article
+        key={staff.user_id}
+        className="rounded-xl border border-slate-200 bg-white p-4"
+      >
+        <div className="flex items-start gap-3">
+          <span className="rounded-lg bg-slate-100 p-2 text-slate-700">
+            <Users className="h-5 w-5" />
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <p className="break-all font-bold text-slate-900">
+              {staff.staff_number || "Staff number pending"}
+            </p>
+
+            <p className="mt-1 text-sm text-slate-600">
+              {staff.job_title || "Teacher"}
+              {staff.department ? ` · ${staff.department}` : ""}
+            </p>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${
+                  isActive
+                    ? "bg-green-100 text-green-800"
+                    : isSuspended
+                      ? "bg-red-100 text-red-800"
+                      : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {isActive
+                  ? "Active"
+                  : isSuspended
+                    ? "Suspended"
+                    : "Awaiting approval"}
+              </span>
+
+              <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                Staff record: {staff.staff_status}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {isInvited && (
+          <button
+            type="button"
+            onClick={() => void handleApprove(staff.user_id)}
+            disabled={processingUser !== null}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-800 px-3 py-2.5 text-sm font-bold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+          >
+            {isProcessing ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <UserCheck className="h-4 w-4" />
+            )}
+            {isProcessing ? "Approving…" : "Approve Teacher"}
+          </button>
+        )}
+
+        {isActive && (
+          <button
+            type="button"
+            onClick={() => void handleSuspend(staff)}
+            disabled={processingUser !== null}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+          >
+            {isProcessing ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Ban className="h-4 w-4" />
+            )}
+            {isProcessing ? "Suspending…" : "Suspend Teacher"}
+          </button>
+        )}
+
+        {isSuspended && (
+          <p className="mt-4 text-sm text-red-700">
+            This teacher is suspended. Their staff record remains available
+            for administrative reference.
+          </p>
+        )}
+      </article>
+    );
   }
 
   return (
@@ -250,7 +457,7 @@ export default function StaffInvitationsPage({
               RESA SCHOOL PORTAL
             </p>
             <h1 className="mt-1 text-xl font-extrabold sm:text-2xl">
-              Staff Invitations
+              Staff Management
             </h1>
             <p className="mt-1 text-sm text-slate-600">{schoolName}</p>
           </div>
@@ -263,6 +470,19 @@ export default function StaffInvitationsPage({
               <ArrowLeft className="h-4 w-4" />
               Dashboard
             </Link>
+
+            <button
+              type="button"
+              onClick={() => void loadStaff()}
+              disabled={loadingStaff}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-100 disabled:opacity-60"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loadingStaff ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+
             {onSignOut && (
               <button
                 type="button"
@@ -282,13 +502,15 @@ export default function StaffInvitationsPage({
             <span className="rounded-xl bg-white/15 p-3">
               <ShieldCheck className="h-7 w-7" />
             </span>
+
             <div>
               <h2 className="text-xl font-extrabold sm:text-2xl">
-                Teacher Registration and Approval
+                Teacher Registration, Approval and Access
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-green-50">
-                Invite teachers through Supabase. New staff remain pending
-                until an authorised school administrator approves them.
+                Invite teachers, approve eligible staff, review active
+                memberships, and suspend access when necessary. Administrative
+                actions are checked by Supabase.
               </p>
             </div>
           </div>
@@ -310,9 +532,47 @@ export default function StaffInvitationsPage({
             className="flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800"
           >
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
-            <p>{message}</p>
+            <p className="break-words">{message}</p>
           </div>
         )}
+
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Clock3 className="h-6 w-6 text-amber-600" />
+              <p className="text-sm font-semibold text-slate-600">
+                Pending approval
+              </p>
+            </div>
+            <p className="mt-3 text-3xl font-extrabold">
+              {pendingStaff.length}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <UserCheck className="h-6 w-6 text-green-700" />
+              <p className="text-sm font-semibold text-slate-600">
+                Active teachers
+              </p>
+            </div>
+            <p className="mt-3 text-3xl font-extrabold">
+              {activeStaff.length}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Ban className="h-6 w-6 text-red-600" />
+              <p className="text-sm font-semibold text-slate-600">
+                Suspended teachers
+              </p>
+            </div>
+            <p className="mt-3 text-3xl font-extrabold">
+              {suspendedStaff.length}
+            </p>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -418,34 +678,19 @@ export default function StaffInvitationsPage({
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="rounded-xl bg-amber-50 p-3 text-amber-700">
-                  <Clock3 className="h-6 w-6" />
-                </span>
-                <div>
-                  <h2 className="text-lg font-bold">Pending Approval</h2>
-                  <p className="text-sm text-slate-500">
-                    {pendingStaff.length} pending teacher
-                    {pendingStaff.length === 1 ? "" : "s"}
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <span className="rounded-xl bg-amber-50 p-3 text-amber-700">
+                <Clock3 className="h-6 w-6" />
+              </span>
+              <div>
+                <h2 className="text-lg font-bold">Pending Approval</h2>
+                <p className="text-sm text-slate-500">
+                  Invitations awaiting administrator approval.
+                </p>
               </div>
-
-              <button
-                type="button"
-                onClick={() => void loadPendingStaff()}
-                disabled={loadingPending}
-                aria-label="Refresh pending staff"
-                className="rounded-lg border border-slate-300 p-2 hover:bg-slate-100 disabled:opacity-60"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${loadingPending ? "animate-spin" : ""}`}
-                />
-              </button>
             </div>
 
-            {loadingPending ? (
+            {loadingStaff ? (
               <div className="flex items-center gap-2 py-10 text-sm text-slate-500">
                 <LoaderCircle className="h-5 w-5 animate-spin" />
                 Loading pending staff…
@@ -462,55 +707,53 @@ export default function StaffInvitationsPage({
               </div>
             ) : (
               <div className="mt-5 space-y-3">
-                {pendingStaff.map((staff) => (
-                  <article
-                    key={staff.user_id}
-                    className="rounded-xl border border-slate-200 p-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="rounded-lg bg-slate-100 p-2 text-slate-700">
-                        <Users className="h-5 w-5" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="break-all font-bold text-slate-900">
-                          {staff.staff_number || "Staff number pending"}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600">
-                          {staff.job_title || "Teacher"}
-                          {staff.department ? ` · ${staff.department}` : ""}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Status: {staff.status}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => void handleApprove(staff.user_id)}
-                      disabled={approvingUser !== null}
-                      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-800 px-3 py-2.5 text-sm font-bold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {approvingUser === staff.user_id ? (
-                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <UserCheck className="h-4 w-4" />
-                      )}
-                      {approvingUser === staff.user_id
-                        ? "Approving…"
-                        : "Approve Teacher"}
-                    </button>
-                  </article>
-                ))}
+                {pendingStaff.map(renderStaffCard)}
               </div>
             )}
           </section>
         </div>
 
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold">Staff Directory</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Review active and suspended teacher memberships.
+              </p>
+            </div>
+
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+              {activeStaff.length + suspendedStaff.length} staff
+            </span>
+          </div>
+
+          {loadingStaff ? (
+            <div className="flex items-center gap-2 py-10 text-sm text-slate-500">
+              <LoaderCircle className="h-5 w-5 animate-spin" />
+              Loading staff directory…
+            </div>
+          ) : activeStaff.length === 0 && suspendedStaff.length === 0 ? (
+            <div className="py-10 text-center">
+              <Users className="mx-auto h-10 w-10 text-slate-300" />
+              <p className="mt-3 font-semibold text-slate-700">
+                No active or suspended teachers
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Approved teachers will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
+              {[...activeStaff, ...suspendedStaff].map(renderStaffCard)}
+            </div>
+          )}
+        </section>
+
         <p className="text-xs leading-5 text-slate-500">
-          Approval is processed by the secured Supabase database function.
-          Only an authenticated administrator authorised for this school can
-          approve an invited teacher.
+          Staff membership changes are processed through secured Supabase
+          database functions. Suspension retains the staff record. All
+          protected teacher features must also enforce active membership
+          checks to deny access to suspended accounts.
         </p>
       </main>
     </div>
