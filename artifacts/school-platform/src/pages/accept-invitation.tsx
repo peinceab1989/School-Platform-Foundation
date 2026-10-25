@@ -3,12 +3,23 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 type PageStatus = 'checking' | 'ready' | 'saving' | 'success' | 'error';
+type AccountRole = 'student' | 'teacher' | 'unknown';
 
 export default function AcceptInvitationPage() {
   const [status, setStatus] = useState<PageStatus>('checking');
+  const [role, setRole] = useState<AccountRole>('unknown');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
+
+  const isStudent = role === 'student';
+  const isTeacher = role === 'teacher';
+
+  const accountLabel = isStudent
+    ? 'student'
+    : isTeacher
+      ? 'teacher'
+      : 'school';
 
   useEffect(() => {
     let active = true;
@@ -17,8 +28,10 @@ export default function AcceptInvitationPage() {
       try {
         const client = getSupabaseClient();
         const url = new URL(window.location.href);
+
         const tokenHash = url.searchParams.get('token_hash');
         const tokenType = url.searchParams.get('type');
+        const authCode = url.searchParams.get('code');
 
         if (tokenHash && tokenType === 'invite') {
           const { error } = await client.auth.verifyOtp({
@@ -31,24 +44,64 @@ export default function AcceptInvitationPage() {
           url.searchParams.delete('token_hash');
           url.searchParams.delete('type');
           window.history.replaceState({}, document.title, url.toString());
+        } else if (authCode) {
+          const { error } = await client.auth.exchangeCodeForSession(authCode);
+
+          if (error) throw error;
+
+          url.searchParams.delete('code');
+          window.history.replaceState({}, document.title, url.toString());
         }
 
-        // Supabase may also deliver the invitation session in the URL hash
-        // or through its PKCE callback flow.
-        const { data, error } = await client.auth.getSession();
+        const {
+          data: { session },
+          error: sessionError,
+        } = await client.auth.getSession();
 
-        if (error) throw error;
+        if (sessionError) throw sessionError;
 
-        if (!data.session) {
+        if (!session) {
           throw new Error(
             'This invitation link is invalid, expired, or already used. Ask your school administrator to send a new invitation.',
           );
         }
 
-        if (active) {
-          setStatus('ready');
-          setMessage('');
+        // First check role metadata, then look up the authenticated user's
+        // school membership. A failed membership lookup does not invalidate
+        // an otherwise valid invitation.
+        const metadataRole =
+          session.user.app_metadata?.role ??
+          session.user.user_metadata?.role;
+
+        let detectedRole: AccountRole =
+          metadataRole === 'student' || metadataRole === 'teacher'
+            ? metadataRole
+            : 'unknown';
+
+        if (detectedRole === 'unknown') {
+          const { data: membership, error: membershipError } = await client
+            .from('school_memberships')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .in('role', ['student', 'teacher'])
+            .limit(1)
+            .maybeSingle();
+
+          if (!membershipError && membership) {
+            if (
+              membership.role === 'student' ||
+              membership.role === 'teacher'
+            ) {
+              detectedRole = membership.role;
+            }
+          }
         }
+
+        if (!active) return;
+
+        setRole(detectedRole);
+        setStatus('ready');
+        setMessage('');
       } catch (error) {
         if (!active) return;
 
@@ -111,8 +164,7 @@ export default function AcceptInvitationPage() {
 
       if (updateError) throw updateError;
 
-      // Creating a password must not bypass the administrator's
-      // school-membership approval process.
+      // Creating a password must not bypass the school's access controls.
       const { error: signOutError } = await client.auth.signOut();
 
       if (signOutError) {
@@ -124,9 +176,20 @@ export default function AcceptInvitationPage() {
       setPassword('');
       setConfirmPassword('');
       setStatus('success');
-      setMessage(
-        'Your password has been created. Your school administrator must approve your teacher account before you can access the school portal. After approval, return to the portal and sign in with your email and new password.',
-      );
+
+      if (isStudent) {
+        setMessage(
+          'Your student account password has been created. Return to the school portal and sign in with your email address and new password. If access is not yet available, contact your school administrator.',
+        );
+      } else if (isTeacher) {
+        setMessage(
+          'Your password has been created. Your teacher access remains subject to school administrator approval. After approval, return to the portal and sign in with your email address and new password.',
+        );
+      } else {
+        setMessage(
+          'Your password has been created. Return to the school portal and sign in with your email address and new password. If you cannot access your account, contact your school administrator.',
+        );
+      }
     } catch (error) {
       setStatus('ready');
       setMessage(
@@ -185,12 +248,15 @@ export default function AcceptInvitationPage() {
         </p>
 
         <h1 style={{ margin: '12px 0', fontSize: 26 }}>
-          Activate your teacher account
+          {`Activate your ${accountLabel} account`}
         </h1>
 
         <p style={{ color: '#58645b', lineHeight: 1.6 }}>
-          Create a password to complete your invitation. Your teacher access
-          remains subject to school administrator approval.
+          {isTeacher
+            ? 'Create a password to complete your invitation. Your teacher access remains subject to school administrator approval.'
+            : isStudent
+              ? 'Create a password to complete your student invitation and access the school portal.'
+              : 'Create a password to complete your invitation and set up your school portal account.'}
         </p>
 
         {status === 'checking' && (
@@ -238,13 +304,13 @@ export default function AcceptInvitationPage() {
         {(status === 'ready' || status === 'saving') && (
           <form onSubmit={(event) => void handleSubmit(event)}>
             <label
-              htmlFor="teacher-password"
+              htmlFor="account-password"
               style={{ display: 'block', marginTop: 22, fontWeight: 700 }}
             >
               Create password
             </label>
             <input
-              id="teacher-password"
+              id="account-password"
               type="password"
               autoComplete="new-password"
               minLength={8}
@@ -256,13 +322,13 @@ export default function AcceptInvitationPage() {
             />
 
             <label
-              htmlFor="teacher-confirm-password"
+              htmlFor="account-confirm-password"
               style={{ display: 'block', marginTop: 18, fontWeight: 700 }}
             >
               Confirm password
             </label>
             <input
-              id="teacher-confirm-password"
+              id="account-confirm-password"
               type="password"
               autoComplete="new-password"
               minLength={8}
