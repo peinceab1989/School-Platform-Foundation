@@ -1,3 +1,4 @@
+
 import {
   type CSSProperties,
   type FormEvent,
@@ -24,6 +25,8 @@ import StudentsPage from '@/pages/students';
 import ClassManagementPage from '@/pages/class-management';
 import SubjectManagementPage from '@/pages/subject-management';
 import ParentManagementPage from '@/pages/parent-management';
+import TeacherDashboard from '@/pages/teacher-dashboard';
+import AcceptInvitationPage from '@/pages/accept-invitation';
 import Home from '@/pages/home';
 import NotFound from '@/pages/not-found';
 
@@ -87,8 +90,7 @@ function normalizePath(path: string): string {
   return normalized || '/';
 }
 
-const PROTECTED_SCHOOL_PATHS = [
-  '/dashboard',
+const ADMIN_SCHOOL_PATHS = [
   '/students',
   '/classes',
   '/subjects',
@@ -96,6 +98,12 @@ const PROTECTED_SCHOOL_PATHS = [
   '/parents',
   '/parent-management',
   '/staff-invitations',
+];
+
+const PROTECTED_SCHOOL_PATHS = [
+  '/dashboard',
+  ...ADMIN_SCHOOL_PATHS,
+  '/teacher-dashboard',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -832,6 +840,11 @@ function FoundationPage() {
       membership.role === 'admin' && membership.status === 'active',
   );
 
+  const teacherMembership = memberships.find(
+    (membership) =>
+      membership.role === 'teacher' && membership.status === 'active',
+  );
+
   useEffect(() => {
     if (!hasSupabaseConfig) {
       setAuthState('needs-config');
@@ -892,6 +905,13 @@ function FoundationPage() {
     };
   }, []);
 
+  /*
+   * Route protection:
+   * - Admins use the existing administrator routes.
+   * - Active teachers use the teacher dashboard.
+   * - Invited, pending, suspended, or unrecognized memberships
+   *   do not receive access to protected school pages.
+   */
   useEffect(() => {
     if (!PROTECTED_SCHOOL_PATHS.includes(currentPath)) {
       return;
@@ -911,15 +931,65 @@ function FoundationPage() {
       return;
     }
 
-    if (!adminMembership) {
+    if (accessCheckState !== 'success') {
       setLocation('/portal');
+      return;
     }
+
+    if (adminMembership) {
+      if (currentPath === '/teacher-dashboard') {
+        setLocation('/dashboard');
+      }
+      return;
+    }
+
+    if (teacherMembership) {
+      if (
+        currentPath === '/dashboard' ||
+        ADMIN_SCHOOL_PATHS.includes(currentPath)
+      ) {
+        setLocation('/teacher-dashboard');
+      }
+      return;
+    }
+
+    setLocation('/portal');
   }, [
     authState,
     currentPath,
     membershipsLoading,
     accessCheckState,
     adminMembership,
+    teacherMembership,
+    setLocation,
+  ]);
+
+  /*
+   * Send an already-signed-in active teacher who opens the portal
+   * landing page to the teacher dashboard.
+   */
+  useEffect(() => {
+    if (
+      currentPath !== '/portal' ||
+      authState !== 'signed-in' ||
+      membershipsLoading ||
+      accessCheckState !== 'success'
+    ) {
+      return;
+    }
+
+    if (adminMembership) {
+      setLocation('/dashboard');
+    } else if (teacherMembership) {
+      setLocation('/teacher-dashboard');
+    }
+  }, [
+    currentPath,
+    authState,
+    membershipsLoading,
+    accessCheckState,
+    adminMembership,
+    teacherMembership,
     setLocation,
   ]);
 
@@ -1030,6 +1100,8 @@ function FoundationPage() {
       if (error) {
         setErrorText(error.message);
       } else {
+        setMemberships([]);
+        setAccessCheckState('idle');
         setLocation('/portal');
       }
     } catch (error) {
@@ -1117,6 +1189,10 @@ function FoundationPage() {
     }
   };
 
+  /*
+   * Preserve the existing private JETAB Engine Room.
+   * Its own database owner verification remains in place.
+   */
   if (
     (currentPath === '/nexus' || currentPath === '/jetab-engine-room') &&
     authState === 'signed-in' &&
@@ -1130,7 +1206,15 @@ function FoundationPage() {
     );
   }
 
-  if (authState === 'signed-in' && adminMembership && !membershipsLoading) {
+  /*
+   * Administrator pages remain available only to active admins.
+   */
+  if (
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    adminMembership &&
+    !membershipsLoading
+  ) {
     if (currentPath === '/staff-invitations') {
       return (
         <StaffInvitationsPage
@@ -1168,6 +1252,35 @@ function FoundationPage() {
         schoolId={adminMembership.schoolId}
         schoolName={adminMembership.schoolName}
         email={session?.user.email}
+        onSignOut={() => void signOut()}
+      />
+    );
+  }
+
+  /*
+   * An active teacher gets the teacher dashboard rather than
+   * the administrator dashboard. Invited or suspended teachers
+   * do not satisfy the active-membership check.
+   */
+  if (
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    !membershipsLoading &&
+    !adminMembership &&
+    teacherMembership &&
+    session &&
+    [
+      '/teacher-dashboard',
+      '/dashboard',
+      '/portal',
+    ].includes(currentPath)
+  ) {
+    return (
+      <TeacherDashboard
+        schoolId={teacherMembership.schoolId}
+        schoolName={teacherMembership.schoolName}
+        userId={session.user.id}
+        email={session.user.email}
         onSignOut={() => void signOut()}
       />
     );
@@ -1414,9 +1527,16 @@ function AppRoutes() {
         <Route path="/admissions" component={AdmissionsPage} />
         <Route path="/contact" component={ContactPage} />
 
+        {/* Staff invitation acceptance */}
+        <Route
+          path="/accept-invitation"
+          component={AcceptInvitationPage}
+        />
+
         {/* School portal */}
         <Route path="/portal" component={FoundationPage} />
         <Route path="/dashboard" component={FoundationPage} />
+        <Route path="/teacher-dashboard" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
         <Route path="/classes" component={FoundationPage} />
         <Route path="/subjects" component={FoundationPage} />

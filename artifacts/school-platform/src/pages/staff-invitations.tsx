@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   Mail,
   RefreshCw,
+  RotateCcw,
   Send,
   ShieldCheck,
   UserCheck,
@@ -236,7 +237,10 @@ export default function StaffInvitationsPage({
       await loadStaff();
     } catch (err: unknown) {
       setError(
-        getErrorMessage(err, "The invitation could not be sent. Please try again."),
+        getErrorMessage(
+          err,
+          "The invitation could not be sent. Please try again.",
+        ),
       );
     } finally {
       setSubmitting(false);
@@ -344,6 +348,70 @@ export default function StaffInvitationsPage({
     }
   }
 
+  async function handleUnsuspend(staff: StaffMember) {
+    if (staff.membership_status !== "suspended") {
+      setError("Only suspended teachers can be unsuspended.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Unsuspend ${staff.staff_number || "this teacher"}?\n\n` +
+        "Their school membership and staff record will be restored to active. " +
+        "The teacher will regain access only where the portal's authentication " +
+        "and access rules permit it.",
+    );
+
+    if (!confirmed) return;
+
+    setError("");
+    setMessage("");
+    setProcessingUser(staff.user_id);
+
+    try {
+      const client = getSupabaseClient();
+
+      const { data: sessionData, error: sessionError } =
+        await client.auth.getSession();
+
+      if (sessionError) throw sessionError;
+
+      if (!sessionData.session) {
+        throw new Error("Please sign in again before restoring staff access.");
+      }
+
+      const { data, error: unsuspensionError } = await client.rpc(
+        "unsuspend_school_teacher",
+        {
+          p_school_id: schoolId,
+          p_user_id: staff.user_id,
+        },
+      );
+
+      if (unsuspensionError) throw unsuspensionError;
+
+      if (data !== true) {
+        throw new Error(
+          "The teacher was not unsuspended. Verify your administrator permissions and try again.",
+        );
+      }
+
+      setMessage(
+        `${staff.staff_number || "The teacher"} has been unsuspended. Their membership and staff status are now active.`,
+      );
+
+      await loadStaff();
+    } catch (err: unknown) {
+      setError(
+        getErrorMessage(
+          err,
+          "The teacher could not be unsuspended. Please try again.",
+        ),
+      );
+    } finally {
+      setProcessingUser(null);
+    }
+  }
+
   const pendingStaff = staffMembers.filter(
     (staff) => staff.membership_status === "invited",
   );
@@ -439,10 +507,27 @@ export default function StaffInvitationsPage({
         )}
 
         {isSuspended && (
-          <p className="mt-4 text-sm text-red-700">
-            This teacher is suspended. Their staff record remains available
-            for administrative reference.
-          </p>
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-red-700">
+              This teacher is suspended. Their staff record remains available
+              for administrative reference, and protected teacher access should
+              remain blocked until access is restored.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => void handleUnsuspend(staff)}
+              disabled={processingUser !== null}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-800 px-3 py-2.5 text-sm font-bold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+            >
+              {isProcessing ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4" />
+              )}
+              {isProcessing ? "Restoring access…" : "Unsuspend Teacher"}
+            </button>
+          </div>
         )}
       </article>
     );
@@ -509,8 +594,8 @@ export default function StaffInvitationsPage({
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-green-50">
                 Invite teachers, approve eligible staff, review active
-                memberships, and suspend access when necessary. Administrative
-                actions are checked by Supabase.
+                memberships, and suspend or restore access when necessary.
+                Administrative actions are checked by Supabase.
               </p>
             </div>
           </div>
@@ -751,9 +836,10 @@ export default function StaffInvitationsPage({
 
         <p className="text-xs leading-5 text-slate-500">
           Staff membership changes are processed through secured Supabase
-          database functions. Suspension retains the staff record. All
-          protected teacher features must also enforce active membership
-          checks to deny access to suspended accounts.
+          database functions. Suspension retains the staff record. Unsuspension
+          restores the membership and staff record to active. All protected
+          teacher features must enforce active membership checks so suspended
+          accounts remain blocked.
         </p>
       </main>
     </div>
