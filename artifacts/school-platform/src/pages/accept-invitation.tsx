@@ -28,10 +28,25 @@ export default function AcceptInvitationPage() {
       try {
         const client = getSupabaseClient();
         const url = new URL(window.location.href);
+        const hashParams = new URLSearchParams(
+          url.hash.startsWith('#') ? url.hash.slice(1) : url.hash,
+        );
 
         const tokenHash = url.searchParams.get('token_hash');
         const tokenType = url.searchParams.get('type');
         const authCode = url.searchParams.get('code');
+        const hashError =
+          hashParams.get('error_description') ||
+          hashParams.get('error');
+
+        if (hashError) {
+          throw new Error(
+            hashParams.get('error_description') ||
+              'Your invitation link could not be verified. Ask the school administrator to send a new invitation.',
+          );
+        }
+
+        let verifiedInvitation = false;
 
         if (tokenHash && tokenType === 'invite') {
           const { error } = await client.auth.verifyOtp({
@@ -41,16 +56,51 @@ export default function AcceptInvitationPage() {
 
           if (error) throw error;
 
+          verifiedInvitation = true;
           url.searchParams.delete('token_hash');
           url.searchParams.delete('type');
-          window.history.replaceState({}, document.title, url.toString());
+          window.history.replaceState(
+            {},
+            document.title,
+            `${url.pathname}${url.search}${url.hash}`,
+          );
         } else if (authCode) {
-          const { error } = await client.auth.exchangeCodeForSession(authCode);
+          const { error } =
+            await client.auth.exchangeCodeForSession(authCode);
 
           if (error) throw error;
 
+          verifiedInvitation = true;
           url.searchParams.delete('code');
-          window.history.replaceState({}, document.title, url.toString());
+          window.history.replaceState(
+            {},
+            document.title,
+            `${url.pathname}${url.search}${url.hash}`,
+          );
+        } else if (
+          hashParams.get('access_token') &&
+          hashParams.get('refresh_token')
+        ) {
+          // Supabase normally processes implicit-flow tokens automatically.
+          // Give the client a chance to finish processing the URL.
+          const { data, error } = await client.auth.getSession();
+
+          if (error) throw error;
+
+          if (data.session) {
+            verifiedInvitation =
+              hashParams.get('type') === 'invite' ||
+              hashParams.get('type') === 'recovery' ||
+              hashParams.get('type') === 'signup';
+          }
+
+          if (verifiedInvitation) {
+            window.history.replaceState(
+              {},
+              document.title,
+              `${url.pathname}${url.search}`,
+            );
+          }
         }
 
         const {
@@ -66,9 +116,9 @@ export default function AcceptInvitationPage() {
           );
         }
 
-        // First check role metadata, then look up the authenticated user's
-        // school membership. A failed membership lookup does not invalidate
-        // an otherwise valid invitation.
+        // Do not accept an unrelated existing login as proof of an invitation.
+        // A valid invitation URL must have been processed, unless the current
+        // authenticated account has a supported school role.
         const metadataRole =
           session.user.app_metadata?.role ??
           session.user.user_metadata?.role;
@@ -78,26 +128,41 @@ export default function AcceptInvitationPage() {
             ? metadataRole
             : 'unknown';
 
-        if (detectedRole === 'unknown') {
-          const { data: membership, error: membershipError } = await client
-            .from('school_memberships')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .in('role', ['student', 'teacher'])
-            .limit(1)
-            .maybeSingle();
+        const { data: membership, error: membershipError } = await client
+          .from('school_memberships')
+          .select('role,status')
+          .eq('user_id', session.user.id)
+          .in('role', ['student', 'teacher'])
+          .limit(1)
+          .maybeSingle();
 
-          if (!membershipError && membership) {
-            if (
-              membership.role === 'student' ||
-              membership.role === 'teacher'
-            ) {
-              detectedRole = membership.role;
-            }
+        if (!membershipError && membership) {
+          if (
+            membership.role === 'student' ||
+            membership.role === 'teacher'
+          ) {
+            detectedRole = membership.role;
           }
         }
 
+        // Student invitations may identify the account in user metadata even
+        // when the membership query is not yet available.
+        const accountType = session.user.user_metadata?.account_type;
+
+        if (
+          detectedRole === 'unknown' &&
+          accountType === 'student'
+        ) {
+          detectedRole = 'student';
+        }
+
         if (!active) return;
+
+        if (!verifiedInvitation && detectedRole === 'unknown') {
+          throw new Error(
+            'We could not confirm that this is a valid school invitation. Open the original invitation link or ask the school administrator to send a new one.',
+          );
+        }
 
         setRole(detectedRole);
         setStatus('ready');
@@ -125,8 +190,8 @@ export default function AcceptInvitationPage() {
     event.preventDefault();
     setMessage('');
 
-    if (password.length < 8) {
-      setMessage('Your password must contain at least 8 characters.');
+    if (password.length < 8 || password.length > 128) {
+      setMessage('Your password must contain between 8 and 128 characters.');
       return;
     }
 
@@ -152,25 +217,49 @@ export default function AcceptInvitationPage() {
 
       if (sessionError) throw sessionError;
 
-      if (!session) {
+      if (!session?.access_token) {
         throw new Error(
-          'Your invitation session has expired. Ask the administrator for a new invitation.',
+          'Your invitation session has expired. Ask the administrator to send a new invitation.',
         );
       }
 
-      const { error: updateError } = await client.auth.updateUser({
-        password,
-      });
+      // Use the deployed server-side activation function. Do not use
+      // client.auth.updateUser({ password }), which may require the current
+      // password when that Supabase Auth security option is enabled.
+      const { data: activationData, error: activationError } =
+        await client.functions.invoke('resa-activate-account', {
+          body: { password },
+        });
 
-      if (updateError) throw updateError;
+      if (activationError) {
+        throw new Error(
+          activationError.message ||
+            'The activation service could not create your password. Please try again.',
+        );
+      }
 
-      // Creating a password must not bypass the school's access controls.
+      if (
+        !activationData ||
+        activationData.success !== true
+      ) {
+        throw new Error(
+          typeof activationData?.message === 'string'
+            ? activationData.message
+            : 'Your password could not be created. Ask the school administrator for assistance.',
+        );
+      }
+
+      // End the invitation session after the server confirms success.
       const { error: signOutError } = await client.auth.signOut();
 
       if (signOutError) {
-        throw new Error(
-          'Your password was created, but we could not safely end the invitation session. Please close this page and contact the administrator.',
+        setPassword('');
+        setConfirmPassword('');
+        setStatus('success');
+        setMessage(
+          'Your password was created successfully. Close this page, return to the school portal, and sign in with your email address and new password. If the previous session remains open on this device, sign out before signing in again.',
         );
+        return;
       }
 
       setPassword('');
@@ -314,6 +403,7 @@ export default function AcceptInvitationPage() {
               type="password"
               autoComplete="new-password"
               minLength={8}
+              maxLength={128}
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -332,6 +422,7 @@ export default function AcceptInvitationPage() {
               type="password"
               autoComplete="new-password"
               minLength={8}
+              maxLength={128}
               required
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
