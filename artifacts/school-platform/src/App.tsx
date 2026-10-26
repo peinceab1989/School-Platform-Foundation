@@ -1108,8 +1108,10 @@ function FoundationPage() {
 
     // Admin access takes precedence.
     if (adminMembership) {
-      if (currentPath === '/teacher-dashboard' ||
-          currentPath === '/student-dashboard') {
+      if (
+        currentPath === '/teacher-dashboard' ||
+        currentPath === '/student-dashboard'
+      ) {
         setLocation('/dashboard');
       }
       return;
@@ -1458,15 +1460,7 @@ function FoundationPage() {
       '/portal',
     ].includes(currentPath)
   ) {
-    return (
-      <TeacherDashboard
-        schoolId={teacherMembership.schoolId}
-        schoolName={teacherMembership.schoolName}
-        userId={session.user.id}
-        email={session.user.email}
-        onSignOut={() => void signOut()}
-      />
-    );
+    return <TeacherDashboard schoolId={teacherMembership.schoolId} />;
   }
 
   /*
