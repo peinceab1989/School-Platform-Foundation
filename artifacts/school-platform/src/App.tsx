@@ -104,6 +104,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/dashboard',
   ...ADMIN_SCHOOL_PATHS,
   '/teacher-dashboard',
+  '/student-dashboard',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -141,6 +142,168 @@ const statNumberStyle: CSSProperties = {
   fontSize: 28,
   marginTop: 8,
 };
+
+/* =========================================================
+   STUDENT DASHBOARD
+========================================================= */
+
+function StudentDashboard({
+  schoolName,
+  email,
+  onSignOut,
+}: {
+  schoolName: string;
+  email?: string;
+  onSignOut: () => void;
+}) {
+  return (
+    <main
+      style={{
+        minHeight: '100vh',
+        padding: 16,
+        boxSizing: 'border-box',
+        background: '#f4f7f1',
+        color: '#17251b',
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
+      <div style={{ maxWidth: 1050, margin: '0 auto' }}>
+        <header
+          style={{
+            background: '#123d2b',
+            color: '#fff',
+            borderRadius: 16,
+            padding: '24px 20px',
+            marginBottom: 22,
+          }}
+        >
+          <div
+            style={{
+              color: '#e6c66b',
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: 1.5,
+            }}
+          >
+            RESA SCHOOL PORTAL
+          </div>
+
+          <h1
+            style={{
+              fontSize: 27,
+              lineHeight: 1.3,
+              margin: '12px 0',
+            }}
+          >
+            Student Dashboard
+          </h1>
+
+          <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>
+            Welcome to your learning portal.
+          </p>
+
+          <p
+            style={{
+              margin: '0 0 18px',
+              color: '#e8eee8',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {schoolName}
+          </p>
+
+          {email && (
+            <p
+              style={{
+                fontSize: 13,
+                color: '#e8eee8',
+                overflowWrap: 'anywhere',
+                margin: '0 0 18px',
+              }}
+            >
+              Signed in as: {email}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={onSignOut}
+            style={buttonStyle}
+          >
+            Sign out
+          </button>
+        </header>
+
+        <section style={panelStyle}>
+          <h2 style={{ margin: '0 0 10px', fontSize: 21 }}>
+            My Learning
+          </h2>
+
+          <p style={{ color: '#536456', lineHeight: 1.7, margin: 0 }}>
+            Your student portal is ready. Learning resources, assignments,
+            attendance, CBT, results and other student services can be
+            connected here as their individual modules become available.
+          </p>
+        </section>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 14,
+          }}
+        >
+          <section style={panelStyle}>
+            <div style={{ fontSize: 25, marginBottom: 10 }}>📚</div>
+            <h3 style={{ margin: '0 0 8px' }}>Learning Resources</h3>
+            <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
+              A place for your learning materials and study resources.
+            </p>
+          </section>
+
+          <section style={panelStyle}>
+            <div style={{ fontSize: 25, marginBottom: 10 }}>📝</div>
+            <h3 style={{ margin: '0 0 8px' }}>Assignments and CBT</h3>
+            <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
+              Student assessment features can be connected here.
+            </p>
+          </section>
+
+          <section style={panelStyle}>
+            <div style={{ fontSize: 25, marginBottom: 10 }}>📊</div>
+            <h3 style={{ margin: '0 0 8px' }}>My Academic Progress</h3>
+            <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
+              Results and academic records will appear when the student
+              records and results modules are connected.
+            </p>
+          </section>
+
+          <section style={panelStyle}>
+            <div style={{ fontSize: 25, marginBottom: 10 }}>📅</div>
+            <h3 style={{ margin: '0 0 8px' }}>Attendance</h3>
+            <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
+              Attendance information can be displayed here when the student
+              attendance feature is connected.
+            </p>
+          </section>
+        </div>
+
+        <footer
+          style={{
+            textAlign: 'center',
+            color: '#68766b',
+            fontSize: 12,
+            padding: '12px 0 20px',
+          }}
+        >
+          RHEMA EXPLOITS SCIENCE ACADEMY (RESA)
+          <br />
+          PASSION • SKILLS • EXCELLENT SPIRIT
+        </footer>
+      </div>
+    </main>
+  );
+}
 
 /* =========================================================
    JETAB TECH PRIVATE ENGINE ROOM
@@ -845,6 +1008,11 @@ function FoundationPage() {
       membership.role === 'teacher' && membership.status === 'active',
   );
 
+  const studentMembership = memberships.find(
+    (membership) =>
+      membership.role === 'student' && membership.status === 'active',
+  );
+
   useEffect(() => {
     if (!hasSupabaseConfig) {
       setAuthState('needs-config');
@@ -906,11 +1074,13 @@ function FoundationPage() {
   }, []);
 
   /*
-   * Route protection:
-   * - Admins use the existing administrator routes.
-   * - Active teachers use the teacher dashboard.
-   * - Invited, pending, suspended, or unrecognized memberships
-   *   do not receive access to protected school pages.
+   * Protected school routes:
+   * - Active admins retain administrator access.
+   * - Active teachers are directed to the teacher dashboard.
+   * - Active students are directed to the student dashboard.
+   * - Other accounts do not receive protected school-page access.
+   *
+   * Membership access verification remains required.
    */
   useEffect(() => {
     if (!PROTECTED_SCHOOL_PATHS.includes(currentPath)) {
@@ -936,19 +1106,30 @@ function FoundationPage() {
       return;
     }
 
+    // Admin access takes precedence.
     if (adminMembership) {
-      if (currentPath === '/teacher-dashboard') {
+      if (currentPath === '/teacher-dashboard' ||
+          currentPath === '/student-dashboard') {
         setLocation('/dashboard');
       }
       return;
     }
 
+    // Teacher access takes precedence over student access.
     if (teacherMembership) {
       if (
         currentPath === '/dashboard' ||
+        currentPath === '/student-dashboard' ||
         ADMIN_SCHOOL_PATHS.includes(currentPath)
       ) {
         setLocation('/teacher-dashboard');
+      }
+      return;
+    }
+
+    if (studentMembership) {
+      if (currentPath !== '/student-dashboard') {
+        setLocation('/student-dashboard');
       }
       return;
     }
@@ -961,12 +1142,13 @@ function FoundationPage() {
     accessCheckState,
     adminMembership,
     teacherMembership,
+    studentMembership,
     setLocation,
   ]);
 
   /*
-   * Send an already-signed-in active teacher who opens the portal
-   * landing page to the teacher dashboard.
+   * Route signed-in users from the portal landing page to
+   * the dashboard matching their active membership.
    */
   useEffect(() => {
     if (
@@ -982,6 +1164,8 @@ function FoundationPage() {
       setLocation('/dashboard');
     } else if (teacherMembership) {
       setLocation('/teacher-dashboard');
+    } else if (studentMembership) {
+      setLocation('/student-dashboard');
     }
   }, [
     currentPath,
@@ -990,6 +1174,7 @@ function FoundationPage() {
     accessCheckState,
     adminMembership,
     teacherMembership,
+    studentMembership,
     setLocation,
   ]);
 
@@ -1191,7 +1376,7 @@ function FoundationPage() {
 
   /*
    * Preserve the existing private JETAB Engine Room.
-   * Its own database owner verification remains in place.
+   * Its database owner verification remains in place.
    */
   if (
     (currentPath === '/nexus' || currentPath === '/jetab-engine-room') &&
@@ -1258,9 +1443,7 @@ function FoundationPage() {
   }
 
   /*
-   * An active teacher gets the teacher dashboard rather than
-   * the administrator dashboard. Invited or suspended teachers
-   * do not satisfy the active-membership check.
+   * Active teachers receive the teacher dashboard.
    */
   if (
     authState === 'signed-in' &&
@@ -1280,6 +1463,29 @@ function FoundationPage() {
         schoolId={teacherMembership.schoolId}
         schoolName={teacherMembership.schoolName}
         userId={session.user.id}
+        email={session.user.email}
+        onSignOut={() => void signOut()}
+      />
+    );
+  }
+
+  /*
+   * Active students receive the student dashboard.
+   * This requires successful membership access verification.
+   */
+  if (
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    !membershipsLoading &&
+    !adminMembership &&
+    !teacherMembership &&
+    studentMembership &&
+    session &&
+    currentPath === '/student-dashboard'
+  ) {
+    return (
+      <StudentDashboard
+        schoolName={studentMembership.schoolName}
         email={session.user.email}
         onSignOut={() => void signOut()}
       />
@@ -1537,6 +1743,7 @@ function AppRoutes() {
         <Route path="/portal" component={FoundationPage} />
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/teacher-dashboard" component={FoundationPage} />
+        <Route path="/student-dashboard" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
         <Route path="/classes" component={FoundationPage} />
         <Route path="/subjects" component={FoundationPage} />
