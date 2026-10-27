@@ -10,7 +10,8 @@ create table if not exists public.cctv_cameras (
   created_by uuid not null default auth.uid() references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (school_id, camera_name, location)
+  unique (school_id, camera_name, location),
+  unique (id, school_id)
 );
 
 create table if not exists public.cctv_parent_camera_access (
@@ -26,11 +27,6 @@ create table if not exists public.cctv_parent_camera_access (
   constraint cctv_access_camera_school_fk foreign key (camera_id, school_id)
     references public.cctv_cameras(id, school_id) on delete cascade
 );
-
--- Composite FK needs a matching unique constraint on the referenced camera tuple.
-do $$ begin
-  alter table public.cctv_cameras add constraint cctv_cameras_id_school_unique unique (id, school_id);
-exception when duplicate_object then null; end $$;
 
 create index if not exists cctv_cameras_school_idx on public.cctv_cameras(school_id);
 create index if not exists cctv_parent_camera_access_parent_idx on public.cctv_parent_camera_access(parent_guardian_id, school_id);
@@ -90,7 +86,7 @@ for all to authenticated using (
   and granted_by = (select auth.uid())
   and exists (
     select 1 from public.cctv_cameras c
-    where c.id = camera_id and c.school_id = school_id
+    where c.id = cctv_parent_camera_access.camera_id and c.school_id = cctv_parent_camera_access.school_id
   )
   and exists (
     select 1 from public.parents_guardians pg
