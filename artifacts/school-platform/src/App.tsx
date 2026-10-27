@@ -23,6 +23,7 @@ import AdminDashboard from '@/pages/admin-dashboard';
 import StaffInvitationsPage from '@/pages/staff-invitations';
 import StudentsPage from '@/pages/students';
 import AttendancePage from '@/pages/attendance';
+import AnnouncementsPage from '@/pages/announcements';
 import ClassManagementPage from '@/pages/class-management';
 import SubjectManagementPage from '@/pages/subject-management';
 import ParentManagementPage from '@/pages/parent-management';
@@ -94,6 +95,7 @@ function normalizePath(path: string): string {
 const ADMIN_SCHOOL_PATHS = [
   '/students',
   '/attendance',
+  '/announcements',
   '/classes',
   '/subjects',
   '/subject-management',
@@ -1434,6 +1436,10 @@ function FoundationPage() {
       return <AttendancePage schoolId={adminMembership.schoolId} />;
     }
 
+    if (currentPath === '/announcements') {
+      return <AnnouncementsPage schoolId={adminMembership.schoolId} />;
+    }
+
     if (currentPath === '/classes') {
       return <ClassManagementPage schoolId={adminMembership.schoolId} />;
     }
@@ -1758,6 +1764,7 @@ function AppRoutes() {
         <Route path="/student-dashboard" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
+        <Route path="/announcements" component={FoundationPage} />
         <Route path="/classes" component={FoundationPage} />
         <Route path="/subjects" component={FoundationPage} />
         <Route path="/subject-management" component={FoundationPage} />
