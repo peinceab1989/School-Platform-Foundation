@@ -15,7 +15,7 @@ const FACEBOOK_URL = "https://www.facebook.com/share/1H2v8eruwR/";
 const SCHOOL_EMAIL = "Resainternational2024@gmail.com";
 const SCHOOL_PHONE = "+2348058422691";
 const SCHOOL_WHATSAPP = "https://wa.me/2347010945774";
-const PORTAL_PATH = "/portal";
+const PORTAL_PATH = "/portal-options";
 
 const JETAB_WHATSAPP =
 "https://wa.me/2347054078988?text=Hello%20JETAB%20TECH%2C%20I%20would%20like%20to%20request%20a%20service%20or%20training.";
@@ -115,7 +115,7 @@ testId="img-resa-logo"
         href={PORTAL_PATH}
         className="ml-1 inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#245b40] px-4 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_#153c2b] transition hover:-translate-y-0.5 hover:bg-[#17462f] hover:shadow-[0_5px_0_#153c2b]"
       >
-        Portal Login <ArrowRight size={15} aria-hidden="true" />
+        Portal & Services <ArrowRight size={15} aria-hidden="true" />
       </Link>
     </nav>
 
@@ -163,7 +163,7 @@ testId="img-resa-logo"
           onClick={() => setOpen(false)}
           className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-[#245b40] px-4 py-3.5 text-center text-sm font-bold text-white shadow-[0_4px_0_#153c2b] transition hover:bg-[#17462f]"
         >
-          Portal Login <ArrowRight size={16} aria-hidden="true" />
+          Portal & Services <ArrowRight size={16} aria-hidden="true" />
         </Link>
       </div>
     </nav>
