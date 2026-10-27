@@ -79,6 +79,7 @@ const navigation = [
   { label: "Students", href: "/students", icon: Users },
   { label: "Attendance", href: "/attendance", icon: CalendarCheck },
   { label: "HR & Employee Records", href: "/hr-management", icon: UserCog },
+  { label: "School Reports", href: "/school-reports", icon: FileText },
   { label: "Announcements", href: "/announcements", icon: BellRing },
   { label: "Examinations & CBT", href: "/examinations", icon: ClipboardList },
   { label: "Academic Results", href: "/results", icon: FileText },
@@ -259,6 +260,12 @@ export default function AdminDashboard({
       description: "Student records",
       icon: Users,
       iconStyle: "bg-green-50 text-green-700",
+    },
+    {
+      title: "School Reports",
+      description: "View school record summaries and export attendance and module counts.",
+      href: "/school-reports",
+      icon: FileText,
     },
     {
       title: "HR & Employee Records",
