@@ -154,6 +154,7 @@ export default function PortalOptionsPage() {
       </section>
 
       <footer className="border-t border-emerald-950/10 bg-white px-4 py-5 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3">Designed &amp; Powered by JETAB TECH</p></footer>
+      <CustomerCareWidget />
     </main>
   );
 }
