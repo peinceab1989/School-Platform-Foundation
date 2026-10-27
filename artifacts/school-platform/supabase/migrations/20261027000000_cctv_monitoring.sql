@@ -49,7 +49,8 @@ for select to authenticated using (
      and p.school_id = a.school_id
     join public.parents_guardians pg
       on pg.id = a.parent_guardian_id and pg.school_id = a.school_id
-    where a.camera_id = cctv_cameras.id
+    where cctv_cameras.is_enabled
+      and a.camera_id = cctv_cameras.id
       and a.school_id = cctv_cameras.school_id
       and a.is_active
       and p.is_active
