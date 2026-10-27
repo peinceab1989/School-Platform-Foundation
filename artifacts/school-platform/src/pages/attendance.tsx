@@ -86,16 +86,17 @@ export default function AttendancePage({ schoolId }: { schoolId: string }) {
     setError("");
     try {
       const client = getSupabaseClient();
-      const { data: enrolledRows, error: studentsError } = await client
-        .from("students")
-        .select("id,person_id,admission_number,status")
+      const { data: enrollmentRows, error: enrollmentError } = await client
+        .from("student_enrollments")
+        .select("student_id")
         .eq("school_id", schoolId)
-        .eq("status", "active")
-        .order("admission_number");
-      if (studentsError) throw studentsError;
+        .eq("class_id", classId)
+        .eq("academic_session_id", sessionId)
+        .eq("status", "active");
+      if (enrollmentError) throw enrollmentError;
 
-      const allStudents = enrolledRows ?? [];
-      if (!allStudents.length) {
+      const enrolledIds = [...new Set((enrollmentRows ?? []).map((row) => row.student_id))];
+      if (!enrolledIds.length) {
         setStudents([]);
         setStatuses({});
         setRemarks({});
@@ -103,6 +104,16 @@ export default function AttendancePage({ schoolId }: { schoolId: string }) {
         return;
       }
 
+      const { data: enrolledRows, error: studentsError } = await client
+        .from("students")
+        .select("id,person_id,admission_number,status")
+        .eq("school_id", schoolId)
+        .eq("status", "active")
+        .in("id", enrolledIds)
+        .order("admission_number");
+      if (studentsError) throw studentsError;
+
+      const allStudents = enrolledRows ?? [];
       const ids = allStudents.map((student) => student.person_id);
       const { data: people, error: peopleError } = await client
         .from("people")
