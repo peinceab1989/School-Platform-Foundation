@@ -25,14 +25,13 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
       const { data: auth, error: authError } = await db.auth.getUser();
       if (authError || !auth.user) throw new Error("Please sign in again.");
       setUserId(auth.user.id);
-      const { data: memberships, error: membershipError } = await db.from("school_memberships").select("user_id,role,status").eq("school_id", schoolId).eq("status", "active");
-      if (membershipError) throw membershipError;
-      const memberRows = memberships ?? [];
-      const ids = memberRows.map((m: any) => m.user_id);
-      const { data: profiles, error: profileError } = await db.from("profiles").select("id,display_name").in("id", ids);
-      if (profileError) throw profileError;
-      const names = new Map((profiles ?? []).map((p: any) => [p.id, p.display_name]));
-      setContacts(memberRows.filter((m: any) => m.user_id !== auth.user.id).map((m: any) => ({ user_id: m.user_id, role: m.role, display_name: names.get(m.user_id) || (m.role.charAt(0).toUpperCase()+m.role.slice(1))+" member" })));
+      const { data: contactsData, error: contactsError } = await db.rpc("get_school_message_contacts", { p_school_id: schoolId });
+      if (contactsError) throw contactsError;
+      setContacts((contactsData ?? []).filter((m: any) => m.user_id !== auth.user.id).map((m: any) => ({
+        user_id: m.user_id,
+        role: m.role,
+        display_name: m.display_name || (String(m.role).charAt(0).toUpperCase() + String(m.role).slice(1) + " member"),
+      })));
       const { data: rows, error: messagesError } = await db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at").eq("school_id", schoolId).or(`sender_id.eq.${auth.user.id},recipient_id.eq.${auth.user.id}`).order("sent_at", { ascending: false }).limit(150);
       if (messagesError) throw messagesError;
       setMessages((rows ?? []) as Message[]);
