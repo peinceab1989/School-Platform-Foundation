@@ -13,6 +13,9 @@ import {
   Video,
   WalletCards,
   Headset,
+  MessageCircle,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { Link } from "wouter";
 import { SchoolLogo } from "@/components/school-logo";
