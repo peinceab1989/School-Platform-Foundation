@@ -31,13 +31,16 @@ export default function SchoolCctvPage({ schoolId, role = "admin" }: { schoolId:
       if (cameraResult.error) throw cameraResult.error;
       setCameras((cameraResult.data ?? []) as CameraRow[]);
       if (role === "admin") {
-        const [parentResult, grantResult] = await Promise.all([
-          db.from("parent_portal_accounts").select("id,parent_guardian_id,user_id,is_active,parents_guardians!inner(portal_enabled,relationship)").eq("school_id", schoolId).eq("is_active", true),
+        const [parentResult, guardianResult, grantResult] = await Promise.all([
+          db.from("parent_portal_accounts").select("id,parent_guardian_id,user_id,is_active").eq("school_id", schoolId).eq("is_active", true),
+          db.from("parents_guardians").select("id,portal_enabled,relationship").eq("school_id", schoolId),
           db.from("cctv_parent_camera_access").select("id,camera_id,parent_guardian_id,is_active,granted_at").eq("school_id", schoolId).order("granted_at", { ascending: false }),
         ]);
         if (parentResult.error) throw parentResult.error;
+        if (guardianResult.error) throw guardianResult.error;
         if (grantResult.error) throw grantResult.error;
-        setParents((parentResult.data ?? []).map((p: any) => ({...p, guardian: Array.isArray(p.parents_guardians) ? p.parents_guardians[0] : p.parents_guardians})) as ParentAccount[]);
+        const guardians = new Map((guardianResult.data ?? []).map(g => [g.id, { portal_enabled: g.portal_enabled, relationship: g.relationship }]));
+        setParents((parentResult.data ?? []).map(p => ({ ...p, guardian: guardians.get(p.parent_guardian_id) ?? null })) as ParentAccount[]);
         setGrants((grantResult.data ?? []) as GrantRow[]);
       }
     } catch (e) {
