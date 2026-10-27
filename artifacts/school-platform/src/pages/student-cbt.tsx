@@ -29,6 +29,9 @@ export default function StudentCbtPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [result, setResult] = useState<{score:number;total_marks:number;manual_marking_required:boolean;message:string}|null>(null);
+  const [offlineSaved, setOfflineSaved] = useState(false);
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const cacheKey = "resa-cbt-active-attempt-v1";
 
   const load = useCallback(async () => {
     setLoading(true); setError(""); setNotice("");
@@ -42,7 +45,43 @@ export default function StudentCbtPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    try {
+      const saved = window.localStorage.getItem(cacheKey);
+      if (saved) {
+        const parsed = JSON.parse(saved) as { active?: ActiveExam; answers?: Record<string, string> };
+        if (parsed.active?.attempt?.id && Array.isArray(parsed.active.questions)) {
+          setActive(parsed.active);
+          setAnswers(parsed.answers ?? {});
+          setNotice("Restored your saved examination and answers from this device.");
+          setOfflineSaved(true);
+        } else {
+          window.localStorage.removeItem(cacheKey);
+        }
+      }
+    } catch {
+      setNotice("This browser could not restore the locally saved examination.");
+    }
+    void load();
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    if (!active) return;
+    try {
+      window.localStorage.setItem(cacheKey, JSON.stringify({ active, answers, savedAt: new Date().toISOString() }));
+      setOfflineSaved(true);
+    } catch {
+      setOfflineSaved(false);
+    }
+  }, [active, answers]);
 
   useEffect(() => {
     if (!active) { setRemaining(null); return; }
@@ -59,6 +98,10 @@ export default function StudentCbtPage() {
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
       setActive(data as ActiveExam); setAnswers({});
+      try {
+        window.localStorage.setItem(cacheKey, JSON.stringify({ active: data as ActiveExam, answers: {}, savedAt: new Date().toISOString() }));
+        setOfflineSaved(true);
+      } catch { setOfflineSaved(false); }
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start this examination.");
@@ -68,6 +111,10 @@ export default function StudentCbtPage() {
 
   const submit = async () => {
     if (!active || busy) return;
+    if (!navigator.onLine) {
+      setError("You are offline. Your answers are saved on this device, but official submission requires an internet connection. Reconnect and submit again.");
+      return;
+    }
     if (!window.confirm("Submit this examination now? You cannot change your answers after submission.")) return;
     setBusy(true); setError(""); setNotice("");
     try {
@@ -79,6 +126,8 @@ export default function StudentCbtPage() {
       if (data?.error) throw new Error(data.error);
       setResult(data); setNotice(data.message || "Your examination was submitted.");
       setActive(null); setAnswers({});
+      try { window.localStorage.removeItem(cacheKey); } catch { /* local storage may be unavailable */ }
+      setOfflineSaved(false);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Submission failed. Your answers remain on this screen; please retry.");
@@ -93,6 +142,10 @@ export default function StudentCbtPage() {
       <Link href="/student-dashboard" className="flex shrink-0 items-center gap-2 rounded-lg border border-white/30 px-3 py-2 text-sm"><ArrowLeft size={16}/> Dashboard</Link>
     </div></header>
     <div className="mx-auto max-w-5xl px-4 py-7">
+      <div className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-3 text-sm ${isOnline ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-300 bg-amber-50 text-amber-950"}`}>
+        <span className="font-semibold">{isOnline ? "Internet connected" : "Offline mode — working from this device"}</span>
+        <span>{active ? (offlineSaved ? "Answers saved locally on this device" : "Local saving unavailable") : "Open an exam while online to cache it for offline answer recovery"}</span>
+      </div>
       {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {notice && <p role="status" className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-900">{notice}</p>}
       {result && <section className="mb-5 rounded-xl border bg-white p-5"><h2 className="text-lg font-bold">Submission receipt</h2><p className="mt-2">Automatically graded score: <strong>{result.score} marks</strong> out of {result.total_marks} total marks.</p>{result.manual_marking_required && <p className="mt-2 text-sm text-amber-800">Written answers require teacher marking. This is not yet your final score.</p>}</section>}
