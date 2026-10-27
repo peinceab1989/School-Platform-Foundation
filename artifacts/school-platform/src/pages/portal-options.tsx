@@ -1,6 +1,7 @@
 import {
   ArrowUpRight,
   BookOpen,
+  BookOpenCheck,
   CalendarDays,
   ClipboardCheck,
   CreditCard,
@@ -11,6 +12,7 @@ import {
   UsersRound,
   Video,
   WalletCards,
+  Headset,
 } from "lucide-react";
 import { Link } from "wouter";
 import { SchoolLogo } from "@/components/school-logo";
@@ -19,10 +21,12 @@ const options = [
   { title: "Check Results", description: "View academic results and progress.", href: "/results", icon: ClipboardCheck, tone: "blue", group: "Student services" },
   { title: "E-learning", description: "Continue learning and access study resources.", href: "/student-dashboard", icon: BookOpen, tone: "orange", group: "Student services" },
   { title: "Computer Based Test", description: "Open online assessments and CBT activities.", href: "/student-cbt", icon: Laptop, tone: "slate", group: "Student services" },
+  { title: "Test Drilling & Practice", description: "Practise questions and review answer explanations.", href: "/practice-drills", icon: BookOpenCheck, tone: "green", group: "Student services" },
   { title: "Assignments", description: "Go to your student learning area.", href: "/student-dashboard", icon: GraduationCap, tone: "blue", group: "Student services" },
   { title: "Live Classes", description: "Continue to the school learning portal.", href: "/portal", icon: Video, tone: "gold", group: "Student services" },
   { title: "School Fees", description: "Continue to the secure school portal.", href: "/portal", icon: WalletCards, tone: "sand", group: "Student services" },
   { title: "Staff Platform", description: "Sign in to staff tools and teaching resources.", href: "/portal", icon: UsersRound, tone: "green", group: "Staff & administration" },
+  { title: "Customer Care", description: "Contact RESA for help by chat, message or phone.", href: "/contact", icon: Headset, tone: "gold", group: "Staff & administration" },
   { title: "Admin Platform", description: "Manage school records and operations.", href: "/dashboard", icon: ShieldCheck, tone: "green", group: "Staff & administration" },
 ];
 
