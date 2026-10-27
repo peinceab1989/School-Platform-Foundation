@@ -13,9 +13,6 @@ import {
   School,
   BookOpen,
   ClipboardCheck,
-  FileText,
-  Megaphone,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -24,7 +21,6 @@ import {
   GraduationCap,
   AlertCircle,
   CheckCircle2,
-  Clock3,
 } from "lucide-react";
 
 type AdminDashboardProps = {
@@ -90,34 +86,6 @@ const navigation = [
   },
   { label: "Classes", href: "/classes", icon: School },
   { label: "Subjects", href: "/subjects", icon: BookOpen },
-];
-
-const upcomingSections = [
-  {
-    label: "Attendance",
-    icon: ClipboardCheck,
-    description: "Daily attendance records",
-  },
-  {
-    label: "Examinations / CBT",
-    icon: FileText,
-    description: "Online examinations and tests",
-  },
-  {
-    label: "Results",
-    icon: FileText,
-    description: "Student assessment and results",
-  },
-  {
-    label: "Announcements",
-    icon: Megaphone,
-    description: "School notices and communications",
-  },
-  {
-    label: "Settings",
-    icon: Settings,
-    description: "School and portal configuration",
-  },
 ];
 
 export default function AdminDashboard({
@@ -382,30 +350,6 @@ export default function AdminDashboard({
             );
           })}
 
-          <div className="px-3 pb-1 pt-5 text-xs font-bold uppercase tracking-wide text-slate-400">
-            Other Sections
-          </div>
-
-          {upcomingSections.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <div
-                key={item.label}
-                title={item.description}
-                aria-disabled="true"
-                className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-3 text-sm text-slate-400"
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-
-                <span className="min-w-0 flex-1">{item.label}</span>
-
-                <span className="text-[10px] font-semibold uppercase">
-                  Soon
-                </span>
-              </div>
-            );
-          })}
         </nav>
 
         <div className="border-t border-slate-200 p-3">
@@ -704,42 +648,6 @@ export default function AdminDashboard({
               </div>
             </section>
 
-            <section className="mt-8 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
-              <div className="flex items-start gap-3">
-                <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-
-                <div>
-                  <h2 className="font-bold text-slate-900">
-                    Portal Development Status
-                  </h2>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    This dashboard retrieves student, staff, class,
-                    and attendance counts from Supabase for the
-                    current school. Attendance Today counts student
-                    attendance records for today's date in Nigeria.
-                    Total Classes counts all school class records
-                    and does not independently verify whether each
-                    class is active.
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Teachers &amp; Staff now has a dashboard route
-                    to the staff invitations and approval page.
-                    Attendance, Examinations / CBT, Results,
-                    Announcements, and Settings remain upcoming
-                    sections until their routes and functionality
-                    have been verified.
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Existing authentication, database permissions,
-                    and school records are not modified by this
-                    dashboard component.
-                  </p>
-                </div>
-              </div>
-            </section>
 
             <footer className="mt-8 border-t border-slate-200 py-5 text-center text-xs text-slate-500">
               RESA School Portal · {new Date().getFullYear()}
