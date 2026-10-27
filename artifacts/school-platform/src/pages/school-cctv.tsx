@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Camera, CircleAlert, LockKeyhole, Plus, RefreshCw, ShieldCheck, VideoOff } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -25,7 +25,9 @@ export default function SchoolCctvPage({ schoolId, role = "admin" }: { schoolId:
     setLoading(true); setError("");
     try {
       const db = getSupabaseClient();
-      const cameraResult = await db.from("cctv_cameras").select("id,school_id,camera_name,location,notes,is_enabled,created_at").eq("school_id", schoolId).order("location");
+      let cameraQuery = db.from("cctv_cameras").select("id,school_id,camera_name,location,notes,is_enabled,created_at").eq("school_id", schoolId);
+      if (role === "parent") cameraQuery = cameraQuery.eq("is_enabled", true);
+      const cameraResult = await cameraQuery.order("location");
       if (cameraResult.error) throw cameraResult.error;
       setCameras((cameraResult.data ?? []) as CameraRow[]);
       if (role === "admin") {
@@ -45,7 +47,7 @@ export default function SchoolCctvPage({ schoolId, role = "admin" }: { schoolId:
 
   useEffect(() => { void load(); }, [load]);
 
-  const addCamera = async (event: React.FormEvent<HTMLFormElement>) => {
+  const addCamera = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
       const db = getSupabaseClient();
