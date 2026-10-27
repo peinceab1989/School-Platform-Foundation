@@ -82,6 +82,7 @@ const navigation = [
   { label: "Attendance", href: "/attendance", icon: CalendarCheck },
   { label: "Staff Attendance", href: "/staff-attendance", icon: CalendarCheck },
   { label: "School Messages", href: "/school-communication", icon: BellRing },
+  { label: "Notifications", href: "/notifications", icon: BellRing },
   { label: "HR & Employee Records", href: "/hr-management", icon: UserCog },
   { label: "School Reports", href: "/school-reports", icon: FileText },
   { label: "Additional School Services", href: "/school-services", icon: Database },
