@@ -371,16 +371,17 @@ export default function AdminDashboard({
   function Sidebar() {
     return (
       <div className="flex h-full flex-col bg-white">
-        <div className="border-b border-slate-200 px-5 py-6">
-          <p className="text-xs font-extrabold uppercase tracking-widest text-green-700">
+        <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-950 to-emerald-800 px-5 py-7 text-white">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/40 bg-white/10 text-xl font-black tracking-tight text-amber-200 shadow-inner">R</div>
+          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-200">
             RESA SCHOOL PORTAL
           </p>
 
-          <h2 className="mt-2 text-base font-bold text-slate-900">
+          <h2 className="mt-2 text-base font-bold text-white">
             School Administration
           </h2>
 
-          <p className="mt-2 break-all text-xs text-blue-700">
+          <p className="mt-2 break-all text-xs text-emerald-100/80">
             {email || "Administrator"}
           </p>
         </div>
@@ -427,16 +428,16 @@ export default function AdminDashboard({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-[#f4f7f1] text-slate-900">
       <div className="flex min-h-screen">
-        <aside className="hidden w-64 shrink-0 border-r border-slate-200 lg:block">
+        <aside className="hidden w-[270px] shrink-0 border-r border-emerald-950/10 bg-white lg:block">
           <div className="sticky top-0 h-screen">
             <Sidebar />
           </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+          <header className="sticky top-0 z-30 border-b border-emerald-100 bg-white/95 shadow-sm backdrop-blur">
             <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
               <div className="flex min-w-0 items-center gap-3">
                 <button
@@ -458,11 +459,11 @@ export default function AdminDashboard({
                 </button>
 
                 <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wide text-green-700 sm:text-sm">
+                  <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-800 sm:text-sm">
                     RESA SCHOOL PORTAL
                   </p>
 
-                  <h1 className="mt-1 truncate text-lg font-bold sm:text-xl">
+                  <h1 className="mt-1 truncate text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">
                     Administrator Dashboard
                   </h1>
                 </div>
@@ -495,29 +496,31 @@ export default function AdminDashboard({
           )}
 
           <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-            <section className="rounded-2xl bg-gradient-to-r from-green-800 to-green-700 p-6 text-white shadow-sm sm:p-8">
-              <p className="text-sm font-semibold text-green-100">
+            <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-800 to-emerald-700 p-6 text-white shadow-xl shadow-emerald-950/10 sm:p-8 lg:p-10">
+              <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full border border-amber-200/20" />
+              <div aria-hidden="true" className="pointer-events-none absolute -right-2 -top-10 h-44 w-44 rounded-full border border-amber-200/20" />
+              <p className="relative text-sm font-bold uppercase tracking-[0.18em] text-amber-200">
                 School Administration
               </p>
 
-              <h2 className="mt-2 text-2xl font-extrabold sm:text-3xl">
+              <h2 className="relative mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
                 Welcome to RESA
               </h2>
 
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-green-50 sm:text-base">
+              <p className="relative mt-3 max-w-3xl text-sm leading-7 text-emerald-50 sm:text-base">
                 Manage your school records, classes, parents, and
                 daily school operations from one place.
               </p>
 
-              <p className="mt-4 break-words text-sm text-green-100">
+              <p className="relative mt-5 inline-flex max-w-full break-words rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-emerald-50">
                 {schoolName}
               </p>
             </section>
 
-            <section className="mt-8">
+            <section className="mt-10">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-bold">
+                  <h2 className="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
                     School Overview
                   </h2>
 
@@ -556,7 +559,7 @@ export default function AdminDashboard({
                   return (
                     <article
                       key={card.title}
-                      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                      className="group rounded-2xl border border-white bg-white p-5 shadow-md shadow-emerald-950/[0.04] ring-1 ring-slate-900/[0.03] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold text-slate-600">
@@ -690,7 +693,7 @@ export default function AdminDashboard({
                         <Icon className="h-5 w-5" />
                       </span>
 
-                      <h3 className="mt-4 font-bold text-slate-900">
+                      <h3 className="mt-4 font-extrabold text-slate-900">
                         {card.title}
                       </h3>
 
