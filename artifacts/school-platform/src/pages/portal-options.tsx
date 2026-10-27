@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   CreditCard,
   GraduationCap,
+  Headset,
   Laptop,
   LibraryBig,
   ShieldCheck,
@@ -46,6 +47,8 @@ function CustomerCareWidget() {
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [topic, setTopic] = useState("Portal or account access");
+  // Keep the widget honest until a shared staff-availability service is connected.
+  const [isAvailable] = useState(false);
   const sendMessage = () => {
     const clean = message.trim();
     if (!clean) return;
@@ -56,20 +59,20 @@ function CustomerCareWidget() {
     {open && <section aria-label="RESA customer care chat" className="fixed bottom-24 right-4 z-[100] flex max-h-[min(620px,calc(100dvh-7rem))] w-[min(370px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-emerald-900/15 bg-white shadow-2xl sm:bottom-24 sm:right-6">
       <div className="bg-gradient-to-br from-emerald-950 to-emerald-700 p-5 text-white">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-3"><span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/15"><Headset size={23}/><span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-emerald-900 bg-lime-300"/></span><div><p className="font-extrabold">RESA Customer Care</p><p className="mt-1 flex items-center gap-1.5 text-xs text-emerald-50"><span className="h-2 w-2 rounded-full bg-lime-300"/> Send us a message</p></div></div>
+          <div className="flex items-center gap-3"><span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white/15"><Headset size={23}/><span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-emerald-900 bg-lime-300"/></span><div><p className="font-extrabold">RESA Customer Care</p><p className="mt-1 flex items-center gap-1.5 text-xs text-emerald-50"><span className={`h-2 w-2 rounded-full ${isAvailable ? "bg-lime-300" : "bg-amber-300"}`}/>{isAvailable ? "Customer care is live now" : "Not available right now · Leave a message"}</p></div></div>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close customer care chat" className="rounded-full p-2 text-white/80 hover:bg-white/15 hover:text-white"><X size={19}/></button>
         </div>
-        <p className="mt-4 text-sm leading-6 text-emerald-50">Hello! 👋 Welcome to RESA. Tell us what you need help with and we’ll prepare a message to our school contact.</p>
+        <p className="mt-4 text-sm leading-6 text-emerald-50">Hello! 👋 Welcome to RESA. {isAvailable ? "A customer care representative is available." : "Our representative is away at the moment. Drop your message and we’ll get back to you."}</p>
       </div>
       <div className="space-y-3 overflow-y-auto p-4">
-        <div className="max-w-[92%] rounded-2xl rounded-tl-sm bg-slate-100 p-3 text-sm leading-5 text-slate-700">Hi there! Please choose a topic and drop your message below.</div>
+        <div className="max-w-[92%] rounded-2xl rounded-tl-sm bg-slate-100 p-3 text-sm leading-5 text-slate-700">{isAvailable ? "Hi there! A customer care representative is live. Tell us how we can help." : "Hi there! Customer care is currently offline. Drop your message below and we’ll follow up."}</div>
         <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">How can we help?</label>
         <select value={topic} onChange={e => setTopic(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100">
           <option>Portal or account access</option><option>Admissions and enrolment</option><option>Fees and payment</option><option>Results, CBT or learning</option><option>Parent or student support</option><option>General enquiry</option>
         </select>
         <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">Your message</label>
         <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} maxLength={1200} placeholder="Type your message here…" className="w-full resize-y rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"/>
-        <div className="flex items-center justify-between gap-2 text-xs text-slate-400"><span className="inline-flex items-center gap-1"><Clock3 size={13}/> Opens WhatsApp</span><span>{message.length}/1200</span></div>
+        <div className="flex items-center justify-between gap-2 text-xs text-slate-400"><span className="inline-flex items-center gap-1"><Clock3 size={13}/> {isAvailable ? "Contact customer care" : "Leave a message"}</span><span>{message.length}/1200</span></div>
         <button type="button" onClick={sendMessage} disabled={!message.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3.5 text-sm font-extrabold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"><Send size={17}/> Send message <ArrowUpRight size={16}/></button>
         <p className="text-center text-[11px] leading-4 text-slate-500">WhatsApp opens with your message prepared. Tap Send in WhatsApp to deliver it.</p>
       </div>
