@@ -12,6 +12,7 @@ import {
   BookOpen,
   ClipboardCheck,
   CalendarCheck,
+  BellRing,
   LogOut,
   Menu,
   X,
@@ -74,6 +75,7 @@ const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Students", href: "/students", icon: Users },
   { label: "Attendance", href: "/attendance", icon: CalendarCheck },
+  { label: "Announcements", href: "/announcements", icon: BellRing },
   {
     label: "Teachers & Staff",
     href: "/staff-invitations",
@@ -286,6 +288,12 @@ export default function AdminDashboard({
       description: "Record and review daily student attendance by class.",
       href: "/attendance",
       icon: CalendarCheck,
+    },
+    {
+      title: "Announcements",
+      description: "Create, publish and manage school notices.",
+      href: "/announcements",
+      icon: BellRing,
     },
     {
       title: "Teachers & Staff",
