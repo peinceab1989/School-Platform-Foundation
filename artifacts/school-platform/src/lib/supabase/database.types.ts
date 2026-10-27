@@ -186,6 +186,76 @@ export interface Database {
         Relationships: [];
       };
 
+      announcements: {
+        Row: { id: string; school_id: string; title: string; content: string; announcement_type: string; is_published: boolean; published_at: string | null; expires_at: string | null; created_at: string };
+        Insert: { id?: string; school_id: string; title: string; content: string; announcement_type?: string; is_published?: boolean; published_at?: string | null; expires_at?: string | null; created_at?: string };
+        Update: { id?: string; school_id?: string; title?: string; content?: string; announcement_type?: string; is_published?: boolean; published_at?: string | null; expires_at?: string | null; created_at?: string };
+        Relationships: [];
+      };
+
+      school_classes: {
+        Row: { id: string; school_id: string; name: string; level: string | null; created_at: string };
+        Insert: { id?: string; school_id: string; name: string; level?: string | null; created_at?: string };
+        Update: { id?: string; school_id?: string; name?: string; level?: string | null; created_at?: string };
+        Relationships: [];
+      };
+
+      school_subjects: {
+        Row: { id: string; school_id: string; class_id: string; name: string; created_at: string };
+        Insert: { id?: string; school_id: string; class_id: string; name: string; created_at?: string };
+        Update: { id?: string; school_id?: string; class_id?: string; name?: string; created_at?: string };
+        Relationships: [];
+      };
+
+      academic_sessions: {
+        Row: { id: string; school_id: string; name: string; start_date: string; end_date: string; is_current: boolean; created_at: string };
+        Insert: { id?: string; school_id: string; name: string; start_date: string; end_date: string; is_current?: boolean; created_at?: string };
+        Update: { id?: string; school_id?: string; name?: string; start_date?: string; end_date?: string; is_current?: boolean; created_at?: string };
+        Relationships: [];
+      };
+
+      academic_terms: {
+        Row: { id: string; school_id: string; academic_session_id: string; name: string; term_number: number; start_date: string | null; end_date: string | null; is_current: boolean; created_at: string };
+        Insert: { id?: string; school_id: string; academic_session_id: string; name: string; term_number: number; start_date?: string | null; end_date?: string | null; is_current?: boolean; created_at?: string };
+        Update: { id?: string; school_id?: string; academic_session_id?: string; name?: string; term_number?: number; start_date?: string | null; end_date?: string | null; is_current?: boolean; created_at?: string };
+        Relationships: [];
+      };
+
+      student_enrollments: {
+        Row: { id: string; school_id: string; student_id: string; academic_session_id: string; class_id: string; enrollment_date: string; status: string; created_at: string };
+        Insert: { id?: string; school_id: string; student_id: string; academic_session_id: string; class_id: string; enrollment_date: string; status?: string; created_at?: string };
+        Update: { id?: string; school_id?: string; student_id?: string; academic_session_id?: string; class_id?: string; enrollment_date?: string; status?: string; created_at?: string };
+        Relationships: [];
+      };
+
+      student_attendance: {
+        Row: { id: string; school_id: string; student_id: string; academic_session_id: string; class_id: string; attendance_date: string; status: string; remarks: string | null; created_at: string; biometric_event_id: string | null; check_in_at: string | null; check_out_at: string | null; check_in_event_id: string | null; check_out_event_id: string | null };
+        Insert: { id?: string; school_id: string; student_id: string; academic_session_id: string; class_id: string; attendance_date: string; status: string; remarks?: string | null; created_at?: string; biometric_event_id?: string | null; check_in_at?: string | null; check_out_at?: string | null; check_in_event_id?: string | null; check_out_event_id?: string | null };
+        Update: { id?: string; school_id?: string; student_id?: string; academic_session_id?: string; class_id?: string; attendance_date?: string; status?: string; remarks?: string | null; created_at?: string; biometric_event_id?: string | null; check_in_at?: string | null; check_out_at?: string | null; check_in_event_id?: string | null; check_out_event_id?: string | null };
+        Relationships: [];
+      };
+
+      online_exams: {
+        Row: { id: string; school_id: string; academic_session_id: string; class_id: string; subject_id: string; title: string; instructions: string | null; duration_minutes: number | null; total_marks: number; start_at: string | null; end_at: string | null; status: string; created_by: string | null; created_at: string };
+        Insert: { id?: string; school_id: string; academic_session_id: string; class_id: string; subject_id: string; title: string; instructions?: string | null; duration_minutes?: number | null; total_marks?: number; start_at?: string | null; end_at?: string | null; status?: string; created_by?: string | null; created_at?: string };
+        Update: { id?: string; school_id?: string; academic_session_id?: string; class_id?: string; subject_id?: string; title?: string; instructions?: string | null; duration_minutes?: number | null; total_marks?: number; start_at?: string | null; end_at?: string | null; status?: string; created_by?: string | null; created_at?: string };
+        Relationships: [];
+      };
+
+      online_exam_questions: {
+        Row: { id: string; school_id: string; exam_id: string; question_text: string; question_type: string; option_a: string | null; option_b: string | null; option_c: string | null; option_d: string | null; correct_answer: string | null; marks: number; sort_order: number; created_at: string };
+        Insert: { id?: string; school_id: string; exam_id: string; question_text: string; question_type?: string; option_a?: string | null; option_b?: string | null; option_c?: string | null; option_d?: string | null; correct_answer?: string | null; marks?: number; sort_order?: number; created_at?: string };
+        Update: { id?: string; school_id?: string; exam_id?: string; question_text?: string; question_type?: string; option_a?: string | null; option_b?: string | null; option_c?: string | null; option_d?: string | null; correct_answer?: string | null; marks?: number; sort_order?: number; created_at?: string };
+        Relationships: [];
+      };
+
+      school_settings: {
+        Row: { id: string; school_id: string; motto: string | null; address: string | null; phone: string | null; email: string | null; website: string | null; logo_url: string | null; current_academic_session_id: string | null; current_term_id: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; school_id: string; motto?: string | null; address?: string | null; phone?: string | null; email?: string | null; website?: string | null; logo_url?: string | null; current_academic_session_id?: string | null; current_term_id?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; school_id?: string; motto?: string | null; address?: string | null; phone?: string | null; email?: string | null; website?: string | null; logo_url?: string | null; current_academic_session_id?: string | null; current_term_id?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+
       nexus_module_controls: {
         Row: {
           id: string;
