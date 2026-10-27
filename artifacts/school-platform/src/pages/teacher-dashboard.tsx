@@ -5,1149 +5,1953 @@ import {
   useMemo,
   useState,
   type FormEvent,
-} from "react";
-import {
-  ArrowLeft,
-  CalendarDays,
-  CheckCircle,
-  Loader2,
-  Mail,
-  Phone,
-  Plus,
-  RefreshCw,
-  Search,
-  Users,
-  Pencil,
-  X,
-  UserPlus,
-  ShieldCheck,
-} from "lucide-react";
-import { useLocation } from "wouter";
-import { getSupabaseClient } from "@/lib/supabase/client";
+} from 'react';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
-type Student = {
+type TeacherStaff = {
   id: string;
-  school_id: string;
-  person_id: string;
-  admission_number: string;
-  admission_date: string | null;
+  staff_number: string | null;
+  job_title: string | null;
+  department: string | null;
+  status: string | null;
+};
+
+type TeachingAssignment = {
+  id: string;
+  staff_id: string;
+  academic_session_id: string;
+  class_id: string;
+  subject_id: string;
+};
+
+type SchoolClass = {
+  id: string;
+  name: string;
+  level: string | null;
+};
+
+type SchoolSubject = {
+  id: string;
+  name: string;
+};
+
+type Homework = {
+  id: string;
+  title: string;
+  description: string | null;
+  instructions: string | null;
+  due_date: string | null;
   status: string;
-  created_at: string;
-  user_id: string | null;
-  first_name: string;
-  middle_name: string | null;
-  last_name: string;
-  phone: string | null;
-  email: string | null;
-  gender: string | null;
+  class_id: string;
+  subject_id: string;
+  max_score: number;
 };
 
-type StudentForm = {
-  first_name: string;
-  middle_name: string;
-  last_name: string;
-  admission_number: string;
-  admission_date: string;
-  date_of_birth: string;
-  gender: string;
-  phone: string;
-  email: string;
-  address: string;
+type TimetableEntry = {
+  id: string;
+  class_id: string;
+  subject_id: string;
+  day_of_week?: number;
+  start_time?: string;
+  end_time?: string;
+  room?: string | null;
+};
+
+type OnlineExam = {
+  id: string;
+  title: string;
+  class_id: string;
+  subject_id: string;
+  instructions: string | null;
+  duration_minutes: number | null;
+  total_marks: number;
+  status: string;
+  start_at: string | null;
+  end_at: string | null;
+};
+
+type ExamQuestion = {
+  question_text: string;
+  question_type: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_answer: string;
+  marks: number;
+};
+
+type Submission = {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  submission_text: string | null;
+  attachment_url: string | null;
+  submitted_at: string | null;
+  score: number | null;
+  feedback: string | null;
   status: string;
 };
 
-const emptyForm: StudentForm = {
-  first_name: "",
-  middle_name: "",
-  last_name: "",
-  admission_number: "",
-  admission_date: new Date().toISOString().slice(0, 10),
-  date_of_birth: "",
-  gender: "",
-  phone: "",
-  email: "",
-  address: "",
-  status: "active",
+type StudentRecord = {
+  id: string;
+  admission_number: string;
 };
 
-function formatDate(value: string | null | undefined): string {
-  if (!value) return "—";
-
-  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) return value;
-
-  return date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function fullName(student: Student): string {
-  return [
-    student.first_name,
-    student.middle_name,
-    student.last_name,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function normalizedStatus(status: string | null | undefined): string {
-  return (status || "active").toLowerCase();
-}
-
-function displayStatus(status: string): string {
-  const value = normalizedStatus(status);
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof error.message === "string"
-  ) {
-    return error.message;
-  }
-
-  return "An unexpected error occurred. Please try again.";
-}
-
-export default function StudentsPage({
-  schoolId,
-}: {
+type TeacherDashboardProps = {
   schoolId: string;
-}) {
-  const [, setLocation] = useLocation();
+  schoolName?: string;
+  email?: string;
+  userId: string;
+  onSignOut: () => void;
+};
 
-  const [students, setStudents] = useState<Student[]>([]);
+const pageStyle = {
+  minHeight: '100vh',
+  padding: 16,
+  background: '#f4f7f4',
+  color: '#17251b',
+  fontFamily: 'Arial, sans-serif',
+  boxSizing: 'border-box' as const,
+};
+
+const panelStyle = {
+  background: '#fff',
+  border: '1px solid #e0e7e0',
+  borderRadius: 12,
+  padding: 18,
+  marginBottom: 16,
+  overflowWrap: 'anywhere' as const,
+};
+
+const buttonStyle = {
+  border: 'none',
+  borderRadius: 8,
+  padding: '11px 15px',
+  background: '#e6c66b',
+  color: '#17251b',
+  fontWeight: 700,
+  cursor: 'pointer',
+};
+
+const secondaryButtonStyle = {
+  ...buttonStyle,
+  background: '#e9f0eb',
+};
+
+const fieldStyle = {
+  width: '100%',
+  boxSizing: 'border-box' as const,
+  border: '1px solid #ccd8ce',
+  borderRadius: 8,
+  padding: 11,
+  fontSize: 15,
+  background: '#fff',
+  color: '#17251b',
+};
+
+const labelStyle = {
+  display: 'grid',
+  gap: 6,
+  fontSize: 14,
+  fontWeight: 700,
+  marginBottom: 12,
+};
+
+const sectionTitleStyle = {
+  marginTop: 0,
+  color: '#123d2b',
+};
+
+const tabs = [
+  'Overview',
+  'Assignments',
+  'Online CBT',
+  'Marking',
+  'Timetable',
+] as const;
+
+type TabName = (typeof tabs)[number];
+
+const emptyQuestion = (): ExamQuestion => ({
+  question_text: '',
+  question_type: 'multiple_choice',
+  option_a: '',
+  option_b: '',
+  option_c: '',
+  option_d: '',
+  correct_answer: 'A',
+  marks: 1,
+});
+
+export default function TeacherDashboard({
+  schoolId,
+  schoolName,
+  email,
+  userId,
+  onSignOut,
+}: TeacherDashboardProps) {
+  const [staff, setStaff] = useState<TeacherStaff | null>(null);
+  const [teachingAssignments, setTeachingAssignments] = useState<
+    TeachingAssignment[]
+  >([]);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
+  const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+  const [assignments, setAssignments] = useState<Homework[]>([]);
+  const [exams, setExams] = useState<OnlineExam[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [creatingLoginId, setCreatingLoginId] = useState<string | null>(
-    null,
-  );
-  const [showForm, setShowForm] = useState(false);
-  const [editingStudent, setEditingStudent] = useState<Student | null>(
-    null,
-  );
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [form, setForm] = useState<StudentForm>(emptyForm);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [activeTab, setActiveTab] = useState<TabName>('Overview');
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [noticeText, setNoticeText] = useState<string | null>(null);
 
-  const loadStudents = useCallback(async () => {
-    if (!schoolId) {
-      setError("No school was selected. Please return to the dashboard.");
-      setLoading(false);
-      return;
-    }
+  const [homeworkForm, setHomeworkForm] = useState({
+    title: '',
+    description: '',
+    instructions: '',
+    classId: '',
+    subjectId: '',
+    dueDate: '',
+    maxScore: '100',
+  });
 
+  const [examForm, setExamForm] = useState({
+    title: '',
+    instructions: '',
+    classId: '',
+    subjectId: '',
+    duration: '30',
+    startAt: '',
+    endAt: '',
+  });
+
+  const [questions, setQuestions] = useState<ExamQuestion[]>([
+    emptyQuestion(),
+  ]);
+
+  const [grading, setGrading] = useState<
+    Record<string, { score: string; feedback: string }>
+  >({});
+
+  const className = useCallback(
+    (classId: string) =>
+      classes.find((item) => item.id === classId)?.name ??
+      'Class name unavailable',
+    [classes],
+  );
+
+  const subjectName = useCallback(
+    (subjectId: string) =>
+      subjects.find((item) => item.id === subjectId)?.name ??
+      'Subject name unavailable',
+    [subjects],
+  );
+
+  const myClassIds = useMemo(
+    () => new Set(teachingAssignments.map((item) => item.class_id)),
+    [teachingAssignments],
+  );
+
+  const mySubjectIds = useMemo(
+    () => new Set(teachingAssignments.map((item) => item.subject_id)),
+    [teachingAssignments],
+  );
+
+  // A subject is available for a class only when the signed-in teacher
+  // has an assignment linking that exact class and subject.
+  const availableSubjectsForClass = useCallback(
+    (classId: string) => {
+      const allowedSubjectIds = new Set(
+        teachingAssignments
+          .filter((item) => item.class_id === classId)
+          .map((item) => item.subject_id),
+      );
+
+      return subjects.filter((subject) =>
+        allowedSubjectIds.has(subject.id),
+      );
+    },
+    [teachingAssignments, subjects],
+  );
+
+  const loadDashboard = useCallback(async () => {
     setLoading(true);
-    setError("");
+    setErrorText(null);
+    setNoticeText(null);
 
     try {
-      const supabase = getSupabaseClient();
+      const client = getSupabaseClient();
 
-      if (!supabase) {
-        throw new Error("Supabase is not configured.");
+      // Resolve the signed-in teacher's staff record.
+      const { data: directStaff, error: directStaffError } = await client
+        .from('staff')
+        .select('id, staff_number, job_title, department, status')
+        .eq('school_id', schoolId)
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+
+      if (directStaffError) throw directStaffError;
+
+      let staffRecord = directStaff as TeacherStaff | null;
+
+      if (!staffRecord) {
+        const { data: person, error: personError } = await client
+          .from('people')
+          .select('id')
+          .eq('school_id', schoolId)
+          .eq('user_id', userId)
+          .limit(1)
+          .maybeSingle();
+
+        if (personError) throw personError;
+
+        if (person?.id) {
+          const { data: linkedStaff, error: linkedStaffError } =
+            await client
+              .from('staff')
+              .select('id, staff_number, job_title, department, status')
+              .eq('school_id', schoolId)
+              .eq('person_id', person.id)
+              .limit(1)
+              .maybeSingle();
+
+          if (linkedStaffError) throw linkedStaffError;
+
+          staffRecord = linkedStaff as TeacherStaff | null;
+        }
       }
 
-      const { data: studentRows, error: studentError } = await supabase
-        .from("students")
-        .select(
-          "id, school_id, person_id, admission_number, admission_date, status, created_at, user_id",
-        )
-        .eq("school_id", schoolId)
-        .order("created_at", { ascending: false });
-
-      if (studentError) throw studentError;
-
-      const rows = studentRows ?? [];
-
-      if (rows.length === 0) {
+      if (!staffRecord) {
+        setStaff(null);
+        setTeachingAssignments([]);
+        setClasses([]);
+        setSubjects([]);
+        setTimetable([]);
+        setAssignments([]);
+        setExams([]);
+        setSubmissions([]);
         setStudents([]);
+        setNoticeText(
+          'No staff record is linked to your account. Please ask an administrator to check your teacher profile.',
+        );
         return;
       }
 
-      const personIds = rows.map((student) => student.person_id);
+      setStaff(staffRecord);
 
-      const { data: peopleRows, error: peopleError } = await supabase
-        .from("people")
+      // Read the current academic session.
+      const { data: session, error: sessionError } = await client
+        .from('academic_sessions')
+        .select('id')
+        .eq('school_id', schoolId)
+        .eq('is_current', true)
+        .limit(1)
+        .maybeSingle();
+
+      if (sessionError) throw sessionError;
+
+      setCurrentSessionId(session?.id ?? null);
+
+      // Teacher assignments determine the classes and subjects
+      // this teacher is allowed to work with.
+      const { data: teacherRows, error: teacherRowsError } = await client
+        .from('teacher_assignments')
         .select(
-          "id, school_id, first_name, middle_name, last_name, phone, email, gender",
+          'id, staff_id, academic_session_id, class_id, subject_id',
         )
-        .eq("school_id", schoolId)
-        .in("id", personIds);
+        .eq('school_id', schoolId)
+        .eq('staff_id', staffRecord.id);
 
-      if (peopleError) throw peopleError;
+      if (teacherRowsError) throw teacherRowsError;
 
-      const peopleById = new Map(
-        (peopleRows ?? []).map((person) => [person.id, person]),
+      const allTeacherRows = (teacherRows ?? []) as TeachingAssignment[];
+
+      const sessionRows = session?.id
+        ? allTeacherRows.filter(
+            (item) => item.academic_session_id === session.id,
+          )
+        : allTeacherRows;
+
+      setTeachingAssignments(sessionRows);
+
+      const [timetableResult, homeworkResult, examResult] =
+        await Promise.all([
+          client
+            .from('class_timetables')
+            .select(
+              'id, class_id, subject_id, day_of_week, start_time, end_time, room',
+            )
+            .eq('school_id', schoolId)
+            .eq('staff_id', staffRecord.id),
+
+          client
+            .from('assignments')
+            .select(
+              'id, title, description, instructions, due_date, status, class_id, subject_id, max_score',
+            )
+            .eq('school_id', schoolId)
+            .eq('staff_id', staffRecord.id)
+            .order('created_at', { ascending: false }),
+
+          client
+            .from('online_exams')
+            .select(
+              'id, title, class_id, subject_id, instructions, duration_minutes, total_marks, status, start_at, end_at',
+            )
+            .eq('school_id', schoolId)
+            .eq('created_by', userId)
+            .order('created_at', { ascending: false }),
+        ]);
+
+      if (timetableResult.error) throw timetableResult.error;
+      if (homeworkResult.error) throw homeworkResult.error;
+
+      if (examResult.error) {
+        setNoticeText(
+          'Your profile and teaching records loaded. Online exam records could not be listed under the current database permissions. An administrator may need to review the existing exam access policies.',
+        );
+      }
+
+      const timetableRows = (timetableResult.data ??
+        []) as TimetableEntry[];
+      const homeworkRows = (homeworkResult.data ?? []) as Homework[];
+      const examRows = (examResult.data ?? []) as OnlineExam[];
+
+      setTimetable(timetableRows);
+      setAssignments(homeworkRows);
+      setExams(examRows);
+
+      const classIds = [
+        ...new Set([
+          ...sessionRows.map((item) => item.class_id),
+          ...timetableRows.map((item) => item.class_id),
+          ...homeworkRows.map((item) => item.class_id),
+          ...examRows.map((item) => item.class_id),
+        ]),
+      ];
+
+      const subjectIds = [
+        ...new Set([
+          ...sessionRows.map((item) => item.subject_id),
+          ...timetableRows.map((item) => item.subject_id),
+          ...homeworkRows.map((item) => item.subject_id),
+          ...examRows.map((item) => item.subject_id),
+        ]),
+      ];
+
+      if (classIds.length) {
+        const { data, error } = await client
+          .from('school_classes')
+          .select('id, name, level')
+          .eq('school_id', schoolId)
+          .in('id', classIds);
+
+        if (error) throw error;
+
+        setClasses((data ?? []) as SchoolClass[]);
+      } else {
+        setClasses([]);
+      }
+
+      // FIX: Subject records are stored in the actual "subjects" table.
+      // Class-to-subject access comes from teacher_assignments, not
+      // from a class_id column on the subjects table.
+      if (subjectIds.length) {
+        const { data, error } = await client
+          .from('subjects')
+          .select('id, name')
+          .eq('school_id', schoolId)
+          .in('id', subjectIds);
+
+        if (error) throw error;
+
+        setSubjects((data ?? []) as SchoolSubject[]);
+      } else {
+        setSubjects([]);
+      }
+
+      // Load submissions only for assignments belonging to this teacher.
+      const homeworkIds = homeworkRows.map((item) => item.id);
+
+      if (homeworkIds.length) {
+        const { data, error } = await client
+          .from('assignment_submissions')
+          .select(
+            'id, assignment_id, student_id, submission_text, attachment_url, submitted_at, score, feedback, status',
+          )
+          .eq('school_id', schoolId)
+          .in('assignment_id', homeworkIds)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          setSubmissions([]);
+          setNoticeText(
+            'Your teaching records loaded, but submissions could not be listed. An administrator may need to review submission access permissions.',
+          );
+        } else {
+          const submissionRows = (data ?? []) as Submission[];
+
+          setSubmissions(submissionRows);
+
+          const studentIds = [
+            ...new Set(submissionRows.map((item) => item.student_id)),
+          ];
+
+          if (studentIds.length) {
+            const { data: studentRows, error: studentError } =
+              await client
+                .from('students')
+                .select('id, admission_number')
+                .eq('school_id', schoolId)
+                .in('id', studentIds);
+
+            if (!studentError) {
+              setStudents((studentRows ?? []) as StudentRecord[]);
+            }
+          } else {
+            setStudents([]);
+          }
+
+          setGrading((previous) => {
+            const next = { ...previous };
+
+            for (const submission of submissionRows) {
+              if (!next[submission.id]) {
+                next[submission.id] = {
+                  score:
+                    submission.score === null
+                      ? ''
+                      : String(submission.score),
+                  feedback: submission.feedback ?? '',
+                };
+              }
+            }
+
+            return next;
+          });
+        }
+      } else {
+        setSubmissions([]);
+        setStudents([]);
+      }
+
+      // Default forms to the first real teaching assignment.
+      if (sessionRows.length) {
+        const first = sessionRows[0];
+
+        setHomeworkForm((previous) => ({
+          ...previous,
+          classId: previous.classId || first.class_id,
+          subjectId: previous.subjectId || first.subject_id,
+        }));
+
+        setExamForm((previous) => ({
+          ...previous,
+          classId: previous.classId || first.class_id,
+          subjectId: previous.subjectId || first.subject_id,
+        }));
+      }
+    } catch (error) {
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : 'The teacher dashboard could not load its records.',
       );
-
-      setStudents(
-        rows.map((student) => {
-          const person = peopleById.get(student.person_id);
-
-          return {
-            id: student.id,
-            school_id: student.school_id,
-            person_id: student.person_id,
-            admission_number: student.admission_number,
-            admission_date: student.admission_date,
-            status: student.status,
-            created_at: student.created_at,
-            user_id: student.user_id ?? null,
-            first_name: person?.first_name ?? "",
-            middle_name: person?.middle_name ?? null,
-            last_name: person?.last_name ?? "",
-            phone: person?.phone ?? null,
-            email: person?.email ?? null,
-            gender: person?.gender ?? null,
-          };
-        }),
-      );
-    } catch (err) {
-      console.error("Unable to load students:", err);
-      setError(errorMessage(err) || "Unable to load student records.");
     } finally {
       setLoading(false);
     }
-  }, [schoolId]);
+  }, [schoolId, userId]);
 
   useEffect(() => {
-    void loadStudents();
-  }, [loadStudents]);
+    void loadDashboard();
+  }, [loadDashboard]);
 
-  const filteredStudents = useMemo(() => {
-    const term = search.trim().toLowerCase();
-
-    return students.filter((student) => {
-      const matchesSearch =
-        !term ||
-        fullName(student).toLowerCase().includes(term) ||
-        student.admission_number.toLowerCase().includes(term) ||
-        (student.email ?? "").toLowerCase().includes(term) ||
-        (student.phone ?? "").toLowerCase().includes(term);
-
-      const matchesStatus =
-        statusFilter === "all" ||
-        normalizedStatus(student.status) === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [students, search, statusFilter]);
-
-  const activeCount = students.filter(
-    (student) => normalizedStatus(student.status) === "active",
-  ).length;
-
-  const otherCount = students.length - activeCount;
-
-  function updateField(field: keyof StudentForm, value: string) {
-    setForm((previous) => ({ ...previous, [field]: value }));
-  }
-
-  function openNewStudentForm() {
-    setEditingStudent(null);
-    setForm({
-      ...emptyForm,
-      admission_date: new Date().toISOString().slice(0, 10),
-    });
-    setError("");
-    setSuccess("");
-    setShowForm(true);
-  }
-
-  async function openEditForm(student: Student) {
-    setError("");
-    setSuccess("");
-    setEditingStudent(student);
-
-    const supabase = getSupabaseClient();
-
-    if (!supabase) {
-      setError("Supabase is not configured.");
-      setEditingStudent(null);
-      return;
-    }
-
-    const { data: person, error: personError } = await supabase
-      .from("people")
-      .select("address, date_of_birth")
-      .eq("id", student.person_id)
-      .eq("school_id", schoolId)
-      .maybeSingle();
-
-    if (personError) {
-      setError(
-        `Could not load the student's full details: ${personError.message}`,
-      );
-      setEditingStudent(null);
-      return;
-    }
-
-    setForm({
-      first_name: student.first_name,
-      middle_name: student.middle_name ?? "",
-      last_name: student.last_name,
-      admission_number: student.admission_number,
-      admission_date: student.admission_date ?? "",
-      date_of_birth: person?.date_of_birth ?? "",
-      gender: student.gender ?? "",
-      phone: student.phone ?? "",
-      email: student.email ?? "",
-      address: person?.address ?? "",
-      status: student.status || "active",
-    });
-
-    setShowForm(true);
-  }
-
-  function closeForm() {
-    if (saving) return;
-
-    setShowForm(false);
-    setEditingStudent(null);
-    setError("");
-  }
-
-  async function handleCreateStudentLogin(student: Student) {
-    setError("");
-    setSuccess("");
-
-    if (creatingLoginId || saving) return;
-
-    if (normalizedStatus(student.status) !== "active") {
-      setError(
-        "Only active students can receive a portal login. Update the student's status first.",
-      );
-      return;
-    }
-
-    if (student.user_id) {
-      setSuccess(
-        `${fullName(student)} already has a linked login account.`,
-      );
-      return;
-    }
-
-    const suggestedEmail = student.email?.trim() ?? "";
-    const enteredEmail = window.prompt(
-      `Enter the student's personal email address for the portal invitation.\n\nStudent: ${fullName(student)}\nAdmission number: ${student.admission_number}`,
-      suggestedEmail,
-    );
-
-    if (enteredEmail === null) return;
-
-    const email = enteredEmail.trim().toLowerCase();
-
-    if (!email) {
-      setError("An email address is required to create a student login.");
-      return;
-    }
-
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailPattern.test(email)) {
-      setError("Enter a valid email address and try again.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Create a student portal login for ${fullName(student)} using ${email}?\n\nAn invitation will be sent to this address.`,
-    );
-
-    if (!confirmed) return;
-
-    setCreatingLoginId(student.id);
-
-    try {
-      const supabase = getSupabaseClient();
-
-      if (!supabase) {
-        throw new Error("Supabase is not configured.");
-      }
-
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError || !user) {
-        throw new Error(
-          "Your administrator session has expired. Sign in again and retry.",
-        );
-      }
-
-      const { data, error: functionError } =
-        await supabase.functions.invoke("resa-create-student-login", {
-          body: {
-            student_id: student.id,
-            email,
-          },
-        });
-
-      if (functionError) {
-        let details = functionError.message;
-
-        try {
-          const response = functionError.context;
-
-          if (response && typeof response.json === "function") {
-            const body = await response.json();
-
-            if (typeof body?.error === "string") {
-              details = body.error;
-            } else if (typeof body?.message === "string") {
-              details = body.message;
-            }
-          }
-        } catch {
-          // Keep the original function error if its response is not JSON.
-        }
-
-        throw new Error(details || "Unable to create the student login.");
-      }
-
-      if (data?.error) {
-        throw new Error(
-          typeof data.error === "string"
-            ? data.error
-            : "The server could not create this student login.",
-        );
-      }
-
-      setSuccess(
-        `Login invitation processed for ${fullName(student)} (${email}). Check the invitation result and the student's linked-account status.`,
-      );
-
-      await loadStudents();
-    } catch (err) {
-      console.error("Unable to create student login:", err);
-      setError(
-        `Could not create the student login: ${errorMessage(err)}`,
-      );
-    } finally {
-      setCreatingLoginId(null);
-    }
-  }
-
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
+  const handleHomeworkSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
-    setError("");
-    setSuccess("");
+    setErrorText(null);
+    setNoticeText(null);
 
-    if (!schoolId) {
-      setError("The school ID is missing. Return to the dashboard.");
+    if (!staff || !currentSessionId) {
+      setErrorText(
+        'A current academic session and linked teacher profile are required before homework can be created. Ask an administrator to check the academic session settings.',
+      );
       return;
     }
 
-    const firstName = form.first_name.trim();
-    const lastName = form.last_name.trim();
-    const admissionNumber = form.admission_number.trim();
+    const assignmentIsAllowed = teachingAssignments.some(
+      (item) =>
+        item.class_id === homeworkForm.classId &&
+        item.subject_id === homeworkForm.subjectId,
+    );
 
-    if (!firstName || !lastName || !admissionNumber) {
-      setError("First name, last name and admission number are required.");
+    if (!assignmentIsAllowed) {
+      setErrorText(
+        'You can only create homework for a class and subject assigned to your teacher profile.',
+      );
+      return;
+    }
+
+    if (!homeworkForm.title.trim()) {
+      setErrorText('Enter a title for this assignment.');
+      return;
+    }
+
+    const maxScore = Number(homeworkForm.maxScore);
+
+    if (!Number.isFinite(maxScore) || maxScore <= 0) {
+      setErrorText('The maximum score must be greater than zero.');
       return;
     }
 
     setSaving(true);
 
     try {
-      const supabase = getSupabaseClient();
+      const client = getSupabaseClient();
 
-      if (!supabase) {
-        throw new Error("Supabase is not configured.");
-      }
+      const { error } = await client.from('assignments').insert({
+        school_id: schoolId,
+        academic_session_id: currentSessionId,
+        class_id: homeworkForm.classId,
+        subject_id: homeworkForm.subjectId,
+        staff_id: staff.id,
+        title: homeworkForm.title.trim(),
+        description: homeworkForm.description.trim() || null,
+        instructions: homeworkForm.instructions.trim() || null,
+        due_date: homeworkForm.dueDate
+          ? new Date(homeworkForm.dueDate).toISOString()
+          : null,
+        max_score: maxScore,
+        status: 'published',
+      });
 
-      let duplicateQuery = supabase
-        .from("students")
-        .select("id")
-        .eq("school_id", schoolId)
-        .eq("admission_number", admissionNumber);
+      if (error) throw error;
 
-      if (editingStudent) {
-        duplicateQuery = duplicateQuery.neq("id", editingStudent.id);
-      }
+      setHomeworkForm((previous) => ({
+        ...previous,
+        title: '',
+        description: '',
+        instructions: '',
+        dueDate: '',
+      }));
 
-      const { data: duplicate, error: duplicateError } =
-        await duplicateQuery.maybeSingle();
-
-      if (duplicateError) throw duplicateError;
-
-      if (duplicate) {
-        throw new Error(
-          "That admission number already belongs to another student. Please enter a different number.",
-        );
-      }
-
-      if (editingStudent) {
-        const { error: personError } = await supabase
-          .from("people")
-          .update({
-            first_name: firstName,
-            middle_name: form.middle_name.trim() || null,
-            last_name: lastName,
-            phone: form.phone.trim() || null,
-            email: form.email.trim() || null,
-            address: form.address.trim() || null,
-            date_of_birth: form.date_of_birth || null,
-            gender: form.gender || null,
-          })
-          .eq("id", editingStudent.person_id)
-          .eq("school_id", schoolId);
-
-        if (personError) throw personError;
-
-        const { error: studentError } = await supabase
-          .from("students")
-          .update({
-            admission_number: admissionNumber,
-            admission_date: form.admission_date || null,
-            status: form.status || "active",
-          })
-          .eq("id", editingStudent.id)
-          .eq("school_id", schoolId);
-
-        if (studentError) {
-          throw new Error(
-            `Personal details may have been saved, but admission details could not be updated: ${studentError.message}`,
-          );
-        }
-
-        setSuccess(`${firstName} ${lastName}'s record has been updated.`);
-      } else {
-        const { data: person, error: personError } = await supabase
-          .from("people")
-          .insert({
-            school_id: schoolId,
-            first_name: firstName,
-            middle_name: form.middle_name.trim() || null,
-            last_name: lastName,
-            phone: form.phone.trim() || null,
-            email: form.email.trim() || null,
-            address: form.address.trim() || null,
-            date_of_birth: form.date_of_birth || null,
-            gender: form.gender || null,
-          })
-          .select("id")
-          .single();
-
-        if (personError) throw personError;
-
-        const { error: studentError } = await supabase
-          .from("students")
-          .insert({
-            school_id: schoolId,
-            person_id: person.id,
-            admission_number: admissionNumber,
-            admission_date: form.admission_date || null,
-            status: form.status || "active",
-          });
-
-        if (studentError) {
-          const { error: cleanupError } = await supabase
-            .from("people")
-            .delete()
-            .eq("id", person.id)
-            .eq("school_id", schoolId);
-
-          if (cleanupError) {
-            console.error(
-              "Cleanup after registration failure:",
-              cleanupError,
-            );
-          }
-
-          throw studentError;
-        }
-
-        setSuccess(
-          `${firstName} ${lastName} has been registered successfully. Use Create Login to invite the student to the portal.`,
-        );
-      }
-
-      setShowForm(false);
-      setEditingStudent(null);
-      setForm(emptyForm);
-      await loadStudents();
-    } catch (err) {
-      console.error("Unable to save student:", err);
-      setError(
-        errorMessage(err) ||
-          "Unable to save the student record. Please try again.",
+      setNoticeText('Assignment created successfully.');
+      await loadDashboard();
+    } catch (error) {
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : 'The assignment could not be saved.',
       );
     } finally {
       setSaving(false);
     }
-  }
+  };
 
-  function renderLoginAction(student: Student, mobile = false) {
-    if (student.user_id) {
-      return (
-        <span
-          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"
-          title="A user account is linked to this student"
-        >
-          <ShieldCheck className="h-4 w-4" />
-          Login linked
-        </span>
+  const handleExamSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    setErrorText(null);
+    setNoticeText(null);
+
+    if (!staff || !currentSessionId) {
+      setErrorText(
+        'A linked teacher profile and current academic session are required to create an online exam.',
       );
+      return;
     }
 
-    const busy = creatingLoginId === student.id;
+    const assignmentIsAllowed = teachingAssignments.some(
+      (item) =>
+        item.class_id === examForm.classId &&
+        item.subject_id === examForm.subjectId,
+    );
+
+    if (!assignmentIsAllowed) {
+      setErrorText(
+        'You can only create an exam for a class and subject assigned to your teacher profile.',
+      );
+      return;
+    }
+
+    if (!examForm.title.trim()) {
+      setErrorText('Enter an exam title.');
+      return;
+    }
+
+    const validQuestions = questions.filter(
+      (question) =>
+        question.question_text.trim() &&
+        question.option_a.trim() &&
+        question.option_b.trim() &&
+        question.option_c.trim() &&
+        question.option_d.trim() &&
+        ['A', 'B', 'C', 'D'].includes(question.correct_answer) &&
+        Number.isFinite(Number(question.marks)) &&
+        Number(question.marks) > 0,
+    );
+
+    if (!validQuestions.length) {
+      setErrorText(
+        'Add at least one complete multiple-choice question, all four options, a correct answer, and positive marks.',
+      );
+      return;
+    }
+
+    if (questions.some((question) => !validQuestions.includes(question))) {
+      setErrorText(
+        'Complete every question row or remove the unfinished question before saving.',
+      );
+      return;
+    }
+
+    if (
+      examForm.startAt &&
+      examForm.endAt &&
+      new Date(examForm.endAt) <= new Date(examForm.startAt)
+    ) {
+      setErrorText('The exam end time must be after the start time.');
+      return;
+    }
+
+    const duration = Number(examForm.duration);
+
+    if (!Number.isFinite(duration) || duration < 1) {
+      setErrorText('Exam duration must be at least one minute.');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const client = getSupabaseClient();
+
+      const totalMarks = validQuestions.reduce(
+        (sum, question) => sum + Number(question.marks),
+        0,
+      );
+
+      const { data: exam, error: examError } = await client
+        .from('online_exams')
+        .insert({
+          school_id: schoolId,
+          academic_session_id: currentSessionId,
+          class_id: examForm.classId,
+          subject_id: examForm.subjectId,
+          title: examForm.title.trim(),
+          instructions: examForm.instructions.trim() || null,
+          duration_minutes: duration,
+          total_marks: totalMarks,
+          start_at: examForm.startAt
+            ? new Date(examForm.startAt).toISOString()
+            : null,
+          end_at: examForm.endAt
+            ? new Date(examForm.endAt).toISOString()
+            : null,
+          status: 'draft',
+          created_by: userId,
+        })
+        .select('id')
+        .single();
+
+      if (examError) throw examError;
+
+      const questionRows = validQuestions.map((question, index) => ({
+        school_id: schoolId,
+        exam_id: exam.id,
+        question_text: question.question_text.trim(),
+        question_type: 'multiple_choice',
+        option_a: question.option_a.trim(),
+        option_b: question.option_b.trim(),
+        option_c: question.option_c.trim(),
+        option_d: question.option_d.trim(),
+        correct_answer: question.correct_answer,
+        marks: Number(question.marks),
+        sort_order: index + 1,
+      }));
+
+      const { error: questionsError } = await client
+        .from('online_exam_questions')
+        .insert(questionRows);
+
+      if (questionsError) {
+        setErrorText(
+          `The exam record was created, but its questions could not be saved: ${questionsError.message}. The exam has not been published; check the exam access policies before retrying.`,
+        );
+        return;
+      }
+
+      setExamForm((previous) => ({
+        ...previous,
+        title: '',
+        instructions: '',
+        duration: '30',
+        startAt: '',
+        endAt: '',
+      }));
+
+      setQuestions([emptyQuestion()]);
+      setNoticeText(
+        'Online exam and questions saved as a draft. Review the exam access rules before making it available to students.',
+      );
+
+      await loadDashboard();
+    } catch (error) {
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : 'The online exam could not be saved.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleGradeSubmission = async (submission: Submission) => {
+    setErrorText(null);
+    setNoticeText(null);
+
+    const value = grading[submission.id];
+    const homework = assignments.find(
+      (item) => item.id === submission.assignment_id,
+    );
+
+    if (!value || value.score.trim() === '') {
+      setErrorText('Enter a score before saving the grade.');
+      return;
+    }
+
+    const score = Number(value.score);
+    const maximum = Number(homework?.max_score ?? 100);
+
+    if (!Number.isFinite(score) || score < 0 || score > maximum) {
+      setErrorText(`Enter a score between 0 and ${maximum}.`);
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const client = getSupabaseClient();
+
+      const { error } = await client
+        .from('assignment_submissions')
+        .update({
+          score,
+          feedback: value.feedback.trim() || null,
+          status: 'graded',
+          graded_by: userId,
+          graded_at: new Date().toISOString(),
+        })
+        .eq('school_id', schoolId)
+        .eq('id', submission.id)
+        .eq('assignment_id', submission.assignment_id);
+
+      if (error) throw error;
+
+      setNoticeText('Grade saved successfully.');
+      await loadDashboard();
+    } catch (error) {
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : 'The grade could not be saved. Check the submission access policies.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const studentNumber = (studentId: string) =>
+    students.find((item) => item.id === studentId)?.admission_number ??
+    studentId;
+
+  const dayName = (day?: number) => {
+    if (day === undefined) return 'Day not specified';
 
     return (
-      <button
-        type="button"
-        onClick={() => void handleCreateStudentLogin(student)}
-        disabled={Boolean(creatingLoginId) || saving}
-        className={`inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${
-          mobile ? "w-full sm:w-auto" : ""
-        }`}
-      >
-        {busy ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <UserPlus className="h-4 w-4" />
-        )}
-        {busy ? "Creating..." : "Create Login"}
-      </button>
+      [
+        'Sunday',
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+      ][day] ?? `Day ${day}`
     );
-  }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setLocation("/dashboard")}
-              className="rounded-lg border border-slate-200 p-2 hover:bg-slate-100"
-              aria-label="Back to dashboard"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold sm:text-xl">
-                RESA School Portal
-              </h1>
-              <p className="text-sm text-slate-500">Student Management</p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={openNewStudentForm}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 sm:px-4"
+    <main style={pageStyle}>
+      <div style={{ maxWidth: 1150, margin: '0 auto' }}>
+        <header
+          style={{
+            background: '#123d2b',
+            color: '#fff',
+            borderRadius: 14,
+            padding: 22,
+            marginBottom: 16,
+          }}
+        >
+          <div
+            style={{
+              color: '#e6c66b',
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: 1.5,
+            }}
           >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Register Student</span>
-            <span className="sm:hidden">Register</span>
-          </button>
-        </div>
-      </header>
+            RESA • TEACHER WORKSPACE
+          </div>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section>
-          <h2 className="text-2xl font-bold">Students</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Register students, update records, and create secure student
-            portal login invitations.
+          <h1 style={{ margin: '10px 0', fontSize: 28 }}>
+            Teacher Dashboard
+          </h1>
+
+          <p style={{ margin: '0 0 8px' }}>
+            {schoolName || 'RHEMA EXPLOITS SCIENCE ACADEMY'}
           </p>
-        </section>
 
-        {success && (
-          <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-            <CheckCircle className="mt-0.5 h-5 w-5 shrink-0" />
-            <p className="break-words">{success}</p>
+          <p style={{ margin: '0 0 16px', overflowWrap: 'anywhere' }}>
+            Signed in as: {email || 'Teacher account'}
+          </p>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => setSuccess("")}
-              className="ml-auto"
-              aria-label="Dismiss success message"
+              onClick={() => void loadDashboard()}
+              disabled={loading || saving}
+              style={buttonStyle}
             >
-              <X className="h-4 w-4" />
+              {loading ? 'Refreshing…' : 'Refresh dashboard'}
+            </button>
+
+            <button
+              type="button"
+              onClick={onSignOut}
+              style={secondaryButtonStyle}
+            >
+              Sign out
             </button>
           </div>
+        </header>
+
+        {errorText && (
+          <section
+            role="alert"
+            style={{
+              ...panelStyle,
+              borderColor: '#d68a8a',
+              color: '#8b1e1e',
+            }}
+          >
+            <strong>Action needs attention</strong>
+            <p style={{ marginBottom: 0 }}>{errorText}</p>
+          </section>
         )}
 
-        {error && !showForm && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            <p className="break-words">{error}</p>
-            <button
-              type="button"
-              onClick={() => void loadStudents()}
-              className="mt-2 font-semibold underline"
-            >
-              Try again
-            </button>
-          </div>
+        {noticeText && (
+          <section
+            role="status"
+            style={{
+              ...panelStyle,
+              borderColor: '#e5ca7a',
+              background: '#fffaf0',
+            }}
+          >
+            {noticeText}
+          </section>
         )}
 
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">Total students</p>
-            <p className="mt-2 text-3xl font-bold">{students.length}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">Active students</p>
-            <p className="mt-2 text-3xl font-bold">{activeCount}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <p className="text-sm text-slate-500">Other statuses</p>
-            <p className="mt-2 text-3xl font-bold">{otherCount}</p>
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search name, admission number, phone or email"
-                className="w-full rounded-lg border border-slate-300 py-3 pl-9 pr-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-emerald-700"
-              aria-label="Filter students by status"
-            >
-              <option value="all">All statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="graduated">Graduated</option>
-              <option value="withdrawn">Withdrawn</option>
-            </select>
-
+        <nav
+          aria-label="Teacher workspace sections"
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            marginBottom: 16,
+          }}
+        >
+          {tabs.map((tab) => (
             <button
+              key={tab}
               type="button"
-              onClick={() => void loadStudents()}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
+              onClick={() => setActiveTab(tab)}
+              aria-pressed={activeTab === tab}
+              style={{
+                ...buttonStyle,
+                background: activeTab === tab ? '#123d2b' : '#fff',
+                color: activeTab === tab ? '#fff' : '#17251b',
+                border:
+                  activeTab === tab
+                    ? '1px solid #123d2b'
+                    : '1px solid #d8e1d9',
+              }}
             >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-              />
-              Refresh
+              {tab}
             </button>
-          </div>
-        </section>
+          ))}
+        </nav>
 
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 px-4 py-4 sm:px-5">
-            <h3 className="font-bold">Student records</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Showing {filteredStudents.length} of {students.length} students
-            </p>
-          </div>
+        {activeTab === 'Overview' && (
+          <>
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>My staff profile</h2>
 
-          {loading ? (
-            <div className="flex items-center justify-center gap-3 p-12 text-slate-500">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Loading students...
-            </div>
-          ) : filteredStudents.length === 0 ? (
-            <div className="px-5 py-12 text-center">
-              <Users className="mx-auto h-10 w-10 text-slate-300" />
-              <h4 className="mt-3 font-semibold">
-                {students.length === 0
-                  ? "No students registered yet"
-                  : "No matching students"}
-              </h4>
-              <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-                {students.length === 0
-                  ? "Use Register Student to add the first student to RESA."
-                  : "Try another search term or change the status filter."}
-              </p>
-              {students.length === 0 && (
-                <button
-                  type="button"
-                  onClick={openNewStudentForm}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
+              {loading && !staff ? (
+                <p>Loading your staff profile…</p>
+              ) : staff ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(150px, 1fr))',
+                    gap: 14,
+                  }}
                 >
-                  <Plus className="h-4 w-4" />
-                  Register first student
-                </button>
+                  <div>
+                    <strong>Staff number</strong>
+                    <p>{staff.staff_number || 'Not assigned'}</p>
+                  </div>
+                  <div>
+                    <strong>Job title</strong>
+                    <p>{staff.job_title || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <strong>Department</strong>
+                    <p>{staff.department || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <strong>Staff status</strong>
+                    <p>{staff.status || 'Not specified'}</p>
+                  </div>
+                </div>
+              ) : (
+                <p>No linked staff profile is available.</p>
               )}
-            </div>
-          ) : (
-            <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-600">
-                    <tr>
-                      <th className="px-5 py-3 font-semibold">Student</th>
-                      <th className="px-5 py-3 font-semibold">
-                        Admission No.
-                      </th>
-                      <th className="px-5 py-3 font-semibold">Contact</th>
-                      <th className="px-5 py-3 font-semibold">
-                        Admission date
-                      </th>
-                      <th className="px-5 py-3 font-semibold">Status</th>
-                      <th className="px-5 py-3 font-semibold">Portal login</th>
-                      <th className="px-5 py-3 text-right font-semibold">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredStudents.map((student) => (
-                      <tr key={student.id} className="hover:bg-slate-50">
-                        <td className="px-5 py-4">
-                          <p className="font-semibold">
-                            {fullName(student) || "Name unavailable"}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {student.gender || "Gender not specified"}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4">
-                          {student.admission_number}
-                        </td>
-                        <td className="px-5 py-4">
-                          <p>{student.phone || "—"}</p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {student.email || "—"}
-                          </p>
-                        </td>
-                        <td className="px-5 py-4">
-                          {formatDate(student.admission_date)}
-                        </td>
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                              normalizedStatus(student.status) === "active"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {displayStatus(student.status)}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4">
-                          {renderLoginAction(student)}
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => void openEditForm(student)}
-                            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 font-semibold hover:bg-slate-100"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            </section>
 
-              <div className="divide-y divide-slate-100 md:hidden">
-                {filteredStudents.map((student) => (
-                  <article
-                    key={student.id}
-                    className="space-y-3 p-4"
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>My teaching overview</h2>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fit, minmax(135px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                {[
+                  { label: 'Assigned classes', value: myClassIds.size },
+                  { label: 'Assigned subjects', value: mySubjectIds.size },
+                  { label: 'Timetable entries', value: timetable.length },
+                  { label: 'Homework tasks', value: assignments.length },
+                  { label: 'Online exams', value: exams.length },
+                  { label: 'Submissions', value: submissions.length },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    style={{
+                      padding: 15,
+                      background: '#f1f6f1',
+                      borderRadius: 10,
+                    }}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h4 className="font-semibold">
-                          {fullName(student) || "Name unavailable"}
-                        </h4>
-                        <p className="mt-1 text-sm text-slate-500">
-                          Admission No: {student.admission_number}
-                        </p>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          normalizedStatus(student.status) === "active"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {displayStatus(student.status)}
-                      </span>
+                    <div style={{ fontSize: 13, color: '#536456' }}>
+                      {stat.label}
                     </div>
+                    <strong
+                      style={{
+                        display: 'block',
+                        fontSize: 27,
+                        marginTop: 8,
+                      }}
+                    >
+                      {loading ? '—' : stat.value}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-                    {student.phone && (
-                      <p className="flex items-center gap-2 text-sm text-slate-600">
-                        <Phone className="h-4 w-4 shrink-0" />
-                        {student.phone}
-                      </p>
-                    )}
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>
+                My assigned classes and subjects
+              </h2>
 
-                    {student.email && (
-                      <p className="flex items-center gap-2 break-all text-sm text-slate-600">
-                        <Mail className="h-4 w-4 shrink-0" />
-                        {student.email}
-                      </p>
-                    )}
+              {loading && <p>Loading teacher assignments…</p>}
 
-                    <p className="flex items-center gap-2 text-sm text-slate-600">
-                      <CalendarDays className="h-4 w-4 shrink-0" />
-                      Admitted: {formatDate(student.admission_date)}
-                    </p>
+              {!loading && teachingAssignments.length === 0 && (
+                <p>
+                  No teacher assignments were found for the current academic
+                  session. Ask the administrator to assign classes and
+                  subjects to your staff profile.
+                </p>
+              )}
 
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      {renderLoginAction(student, true)}
-                      <button
-                        type="button"
-                        onClick={() => void openEditForm(student)}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Edit student
-                      </button>
-                    </div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {teachingAssignments.map((item) => (
+                  <article
+                    key={item.id}
+                    style={{
+                      border: '1px solid #e0e7e0',
+                      borderRadius: 9,
+                      padding: 13,
+                    }}
+                  >
+                    <strong>{className(item.class_id)}</strong>
+                    <div>{subjectName(item.subject_id)}</div>
                   </article>
                 ))}
               </div>
-            </>
-          )}
-        </section>
-      </main>
+            </section>
+          </>
+        )}
 
-      {showForm && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-3 sm:p-6">
-          <div className="mx-auto my-4 max-w-3xl rounded-2xl bg-white shadow-xl sm:my-8">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
-              <div>
-                <h3 className="text-xl font-bold">
-                  {editingStudent
-                    ? "Edit student record"
-                    : "Register a student"}
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  {editingStudent
-                    ? "Correct the details below and save your changes."
-                    : "Enter the student's personal and admission details."}
+        {activeTab === 'Assignments' && (
+          <>
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>
+                Create homework or assignment
+              </h2>
+
+              {!currentSessionId && !loading && (
+                <p>
+                  No current academic session is configured. Ask the
+                  administrator to set the current session before creating
+                  assignments.
                 </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeForm}
-                disabled={saving}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
-                aria-label="Close form"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSave} className="space-y-5 p-5">
-              {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                  {error}
-                </div>
               )}
 
-              <div>
-                <h4 className="mb-3 font-semibold">
-                  Personal information
-                </h4>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <label className="block text-sm font-medium">
-                    First name *
-                    <input
-                      required
-                      value={form.first_name}
-                      onChange={(event) =>
-                        updateField("first_name", event.target.value)
-                      }
-                      autoComplete="given-name"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                  </label>
+              <form onSubmit={handleHomeworkSubmit}>
+                <label style={labelStyle}>
+                  Assignment title
+                  <input
+                    style={fieldStyle}
+                    value={homeworkForm.title}
+                    onChange={(event) =>
+                      setHomeworkForm((previous) => ({
+                        ...previous,
+                        title: event.target.value,
+                      }))
+                    }
+                    required
+                    maxLength={200}
+                    placeholder="e.g. Introduction to computer hardware"
+                  />
+                </label>
 
-                  <label className="block text-sm font-medium">
-                    Last name *
-                    <input
-                      required
-                      value={form.last_name}
-                      onChange={(event) =>
-                        updateField("last_name", event.target.value)
-                      }
-                      autoComplete="family-name"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                  </label>
-
-                  <label className="block text-sm font-medium">
-                    Middle name
-                    <input
-                      value={form.middle_name}
-                      onChange={(event) =>
-                        updateField("middle_name", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                  </label>
-
-                  <label className="block text-sm font-medium">
-                    Gender
-                    <select
-                      value={form.gender}
-                      onChange={(event) =>
-                        updateField("gender", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    >
-                      <option value="">Select gender</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </label>
-
-                  <label className="block text-sm font-medium">
-                    Date of birth
-                    <input
-                      type="date"
-                      value={form.date_of_birth}
-                      onChange={(event) =>
-                        updateField("date_of_birth", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                  </label>
-
-                  <label className="block text-sm font-medium">
-                    Phone number
-                    <input
-                      type="tel"
-                      value={form.phone}
-                      onChange={(event) =>
-                        updateField("phone", event.target.value)
-                      }
-                      autoComplete="tel"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                  </label>
-
-                  <label className="block text-sm font-medium sm:col-span-2">
-                    Email address
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(event) =>
-                        updateField("email", event.target.value)
-                      }
-                      autoComplete="email"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                    <span className="mt-1 block text-xs font-normal text-slate-500">
-                      Add the student's own accessible email if they will need
-                      a portal login.
-                    </span>
-                  </label>
-
-                  <label className="block text-sm font-medium sm:col-span-2">
-                    Home address
-                    <textarea
-                      rows={2}
-                      value={form.address}
-                      onChange={(event) =>
-                        updateField("address", event.target.value)
-                      }
-                      autoComplete="street-address"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 pt-5">
-                <h4 className="mb-3 font-semibold">
-                  Admission information
-                </h4>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <label className="block text-sm font-medium">
-                    Admission number *
-                    <input
-                      required
-                      value={form.admission_number}
-                      onChange={(event) =>
-                        updateField("admission_number", event.target.value)
-                      }
-                      placeholder="e.g. RESA/2026/001"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                  </label>
-
-                  <label className="block text-sm font-medium">
-                    Admission date
-                    <input
-                      type="date"
-                      value={form.admission_date}
-                      onChange={(event) =>
-                        updateField("admission_date", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    />
-                  </label>
-
-                  <label className="block text-sm font-medium">
-                    Student status
-                    <select
-                      value={form.status}
-                      onChange={(event) =>
-                        updateField("status", event.target.value)
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-emerald-700"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="graduated">Graduated</option>
-                      <option value="withdrawn">Withdrawn</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  disabled={saving}
-                  className="rounded-lg border border-slate-300 px-5 py-3 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(190px, 1fr))',
+                    gap: 12,
+                  }}
                 >
-                  Cancel
-                </button>
+                  <label style={labelStyle}>
+                    Assigned class
+                    <select
+                      style={fieldStyle}
+                      value={homeworkForm.classId}
+                      onChange={(event) => {
+                        const classId = event.target.value;
+                        const allowed = availableSubjectsForClass(classId);
+
+                        setHomeworkForm((previous) => ({
+                          ...previous,
+                          classId,
+                          subjectId: allowed[0]?.id ?? '',
+                        }));
+                      }}
+                      required
+                    >
+                      <option value="">Choose a class</option>
+                      {classes
+                        .filter((item) => myClassIds.has(item.id))
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    Assigned subject
+                    <select
+                      style={fieldStyle}
+                      value={homeworkForm.subjectId}
+                      onChange={(event) =>
+                        setHomeworkForm((previous) => ({
+                          ...previous,
+                          subjectId: event.target.value,
+                        }))
+                      }
+                      required
+                    >
+                      <option value="">Choose a subject</option>
+                      {availableSubjectsForClass(homeworkForm.classId).map(
+                        (item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                </div>
+
+                <label style={labelStyle}>
+                  Description
+                  <textarea
+                    style={{ ...fieldStyle, minHeight: 85 }}
+                    value={homeworkForm.description}
+                    onChange={(event) =>
+                      setHomeworkForm((previous) => ({
+                        ...previous,
+                        description: event.target.value,
+                      }))
+                    }
+                    placeholder="Briefly describe the assignment."
+                  />
+                </label>
+
+                <label style={labelStyle}>
+                  Instructions for students
+                  <textarea
+                    style={{ ...fieldStyle, minHeight: 85 }}
+                    value={homeworkForm.instructions}
+                    onChange={(event) =>
+                      setHomeworkForm((previous) => ({
+                        ...previous,
+                        instructions: event.target.value,
+                      }))
+                    }
+                    placeholder="Explain how students should complete and submit the work."
+                  />
+                </label>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(190px, 1fr))',
+                    gap: 12,
+                  }}
+                >
+                  <label style={labelStyle}>
+                    Due date and time
+                    <input
+                      style={fieldStyle}
+                      type="datetime-local"
+                      value={homeworkForm.dueDate}
+                      onChange={(event) =>
+                        setHomeworkForm((previous) => ({
+                          ...previous,
+                          dueDate: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <label style={labelStyle}>
+                    Maximum score
+                    <input
+                      style={fieldStyle}
+                      type="number"
+                      min="1"
+                      max="10000"
+                      value={homeworkForm.maxScore}
+                      onChange={(event) =>
+                        setHomeworkForm((previous) => ({
+                          ...previous,
+                          maxScore: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    ...buttonStyle,
+                    opacity: saving || !currentSessionId ? 0.6 : 1,
+                  }}
+                  disabled={saving || loading || !currentSessionId}
                 >
-                  {saving && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
-                  {saving
-                    ? "Saving..."
-                    : editingStudent
-                      ? "Save changes"
-                      : "Save student"}
+                  {saving ? 'Saving…' : 'Create assignment'}
                 </button>
+              </form>
+            </section>
+
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>My assignments</h2>
+
+              {!loading && assignments.length === 0 && (
+                <p>No homework assignments have been created by you yet.</p>
+              )}
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                {assignments.map((item) => (
+                  <article
+                    key={item.id}
+                    style={{
+                      border: '1px solid #e0e7e0',
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    <h3 style={{ marginTop: 0 }}>{item.title}</h3>
+                    <p>
+                      {className(item.class_id)} ·{' '}
+                      {subjectName(item.subject_id)}
+                    </p>
+                    {item.description && <p>{item.description}</p>}
+                    {item.instructions && <p>{item.instructions}</p>}
+                    <small>
+                      Status: {item.status} · Maximum score: {item.max_score}
+                      {' · '}Due:{' '}
+                      {item.due_date
+                        ? new Date(item.due_date).toLocaleString()
+                        : 'No due date'}
+                    </small>
+                  </article>
+                ))}
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+            </section>
+          </>
+        )}
+
+        {activeTab === 'Online CBT' && (
+          <>
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>
+                Create an online CBT examination
+              </h2>
+
+              <p>
+                Create a multiple-choice exam, enter the answer options,
+                select the correct answer, and set marks. New exams are
+                saved as drafts.
+              </p>
+
+              <form onSubmit={handleExamSubmit}>
+                <label style={labelStyle}>
+                  Examination title
+                  <input
+                    style={fieldStyle}
+                    value={examForm.title}
+                    onChange={(event) =>
+                      setExamForm((previous) => ({
+                        ...previous,
+                        title: event.target.value,
+                      }))
+                    }
+                    required
+                    maxLength={200}
+                    placeholder="e.g. Basic Technology — First Test"
+                  />
+                </label>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(190px, 1fr))',
+                    gap: 12,
+                  }}
+                >
+                  <label style={labelStyle}>
+                    Assigned class
+                    <select
+                      style={fieldStyle}
+                      value={examForm.classId}
+                      onChange={(event) => {
+                        const classId = event.target.value;
+                        const allowed = availableSubjectsForClass(classId);
+
+                        setExamForm((previous) => ({
+                          ...previous,
+                          classId,
+                          subjectId: allowed[0]?.id ?? '',
+                        }));
+                      }}
+                      required
+                    >
+                      <option value="">Choose a class</option>
+                      {classes
+                        .filter((item) => myClassIds.has(item.id))
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    Assigned subject
+                    <select
+                      style={fieldStyle}
+                      value={examForm.subjectId}
+                      onChange={(event) =>
+                        setExamForm((previous) => ({
+                          ...previous,
+                          subjectId: event.target.value,
+                        }))
+                      }
+                      required
+                    >
+                      <option value="">Choose a subject</option>
+                      {availableSubjectsForClass(examForm.classId).map(
+                        (item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+
+                  <label style={labelStyle}>
+                    Duration (minutes)
+                    <input
+                      style={fieldStyle}
+                      type="number"
+                      min="1"
+                      max="600"
+                      value={examForm.duration}
+                      onChange={(event) =>
+                        setExamForm((previous) => ({
+                          ...previous,
+                          duration: event.target.value,
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+                </div>
+
+                <label style={labelStyle}>
+                  Instructions
+                  <textarea
+                    style={{ ...fieldStyle, minHeight: 75 }}
+                    value={examForm.instructions}
+                    onChange={(event) =>
+                      setExamForm((previous) => ({
+                        ...previous,
+                        instructions: event.target.value,
+                      }))
+                    }
+                    placeholder="Instructions students should read before starting."
+                  />
+                </label>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(190px, 1fr))',
+                    gap: 12,
+                  }}
+                >
+                  <label style={labelStyle}>
+                    Start date and time (optional)
+                    <input
+                      style={fieldStyle}
+                      type="datetime-local"
+                      value={examForm.startAt}
+                      onChange={(event) =>
+                        setExamForm((previous) => ({
+                          ...previous,
+                          startAt: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <label style={labelStyle}>
+                    End date and time (optional)
+                    <input
+                      style={fieldStyle}
+                      type="datetime-local"
+                      value={examForm.endAt}
+                      onChange={(event) =>
+                        setExamForm((previous) => ({
+                          ...previous,
+                          endAt: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <h3>Questions</h3>
+
+                {questions.map((question, index) => (
+                  <article
+                    key={index}
+                    style={{
+                      border: '1px solid #dce5dd',
+                      borderRadius: 10,
+                      padding: 14,
+                      marginBottom: 12,
+                      background: '#fbfdfb',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <h4>Question {index + 1}</h4>
+
+                      {questions.length > 1 && (
+                        <button
+                          type="button"
+                          style={secondaryButtonStyle}
+                          onClick={() =>
+                            setQuestions((previous) =>
+                              previous.filter((_, i) => i !== index),
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <label style={labelStyle}>
+                      Question text
+                      <textarea
+                        style={{ ...fieldStyle, minHeight: 70 }}
+                        value={question.question_text}
+                        onChange={(event) =>
+                          setQuestions((previous) =>
+                            previous.map((item, i) =>
+                              i === index
+                                ? {
+                                    ...item,
+                                    question_text: event.target.value,
+                                  }
+                                : item,
+                            ),
+                          )
+                        }
+                        required
+                      />
+                    </label>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          'repeat(auto-fit, minmax(190px, 1fr))',
+                        gap: 12,
+                      }}
+                    >
+                      {(['A', 'B', 'C', 'D'] as const).map((letter) => {
+                        const optionKey = `option_${letter.toLowerCase()}` as
+                          | 'option_a'
+                          | 'option_b'
+                          | 'option_c'
+                          | 'option_d';
+
+                        return (
+                          <label key={letter} style={labelStyle}>
+                            Option {letter}
+                            <input
+                              style={fieldStyle}
+                              value={question[optionKey]}
+                              onChange={(event) =>
+                                setQuestions((previous) =>
+                                  previous.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          [optionKey]: event.target.value,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              required
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          'repeat(auto-fit, minmax(150px, 1fr))',
+                        gap: 12,
+                      }}
+                    >
+                      <label style={labelStyle}>
+                        Correct answer
+                        <select
+                          style={fieldStyle}
+                          value={question.correct_answer}
+                          onChange={(event) =>
+                            setQuestions((previous) =>
+                              previous.map((item, i) =>
+                                i === index
+                                  ? {
+                                      ...item,
+                                      correct_answer: event.target.value,
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="A">Option A</option>
+                          <option value="B">Option B</option>
+                          <option value="C">Option C</option>
+                          <option value="D">Option D</option>
+                        </select>
+                      </label>
+
+                      <label style={labelStyle}>
+                        Marks
+                        <input
+                          style={fieldStyle}
+                          type="number"
+                          min="1"
+                          max="1000"
+                          value={question.marks}
+                          onChange={(event) =>
+                            setQuestions((previous) =>
+                              previous.map((item, i) =>
+                                i === index
+                                  ? {
+                                      ...item,
+                                      marks: Number(event.target.value),
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                          required
+                        />
+                      </label>
+                    </div>
+                  </article>
+                ))}
+
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                    marginBottom: 16,
+                  }}
+                >
+                  <button
+                    type="button"
+                    style={secondaryButtonStyle}
+                    onClick={() =>
+                      setQuestions((previous) => [
+                        ...previous,
+                        emptyQuestion(),
+                      ])
+                    }
+                  >
+                    + Add another question
+                  </button>
+
+                  <strong style={{ alignSelf: 'center' }}>
+                    Total marks:{' '}
+                    {questions.reduce(
+                      (sum, question) =>
+                        sum + Number(question.marks || 0),
+                      0,
+                    )}
+                  </strong>
+                </div>
+
+                <button
+                  type="submit"
+                  style={{
+                    ...buttonStyle,
+                    opacity: saving || !currentSessionId ? 0.6 : 1,
+                  }}
+                  disabled={saving || loading || !currentSessionId}
+                >
+                  {saving ? 'Saving exam…' : 'Save exam as draft'}
+                </button>
+              </form>
+            </section>
+
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>My online examinations</h2>
+
+              {!loading && exams.length === 0 && (
+                <p>No online exams created by your account were found.</p>
+              )}
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                {exams.map((exam) => (
+                  <article
+                    key={exam.id}
+                    style={{
+                      border: '1px solid #e0e7e0',
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    <h3 style={{ marginTop: 0 }}>{exam.title}</h3>
+                    <p>
+                      {className(exam.class_id)} ·{' '}
+                      {subjectName(exam.subject_id)}
+                    </p>
+                    <p>
+                      Duration: {exam.duration_minutes ?? 'Not set'} minutes
+                      {' · '}Total marks: {exam.total_marks}
+                    </p>
+                    <p>
+                      Status: <strong>{exam.status}</strong>
+                    </p>
+                    {exam.instructions && <p>{exam.instructions}</p>}
+                    <small>
+                      Start:{' '}
+                      {exam.start_at
+                        ? new Date(exam.start_at).toLocaleString()
+                        : 'Not scheduled'}
+                      {' · '}End:{' '}
+                      {exam.end_at
+                        ? new Date(exam.end_at).toLocaleString()
+                        : 'Not scheduled'}
+                    </small>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+
+        {activeTab === 'Marking' && (
+          <section style={panelStyle}>
+            <h2 style={sectionTitleStyle}>Review and grade submissions</h2>
+
+            <p>
+              Scores are checked against the maximum mark for each assignment.
+              The database must authorize the teacher to update each submission.
+            </p>
+
+            {!loading && submissions.length === 0 && (
+              <p>
+                No submissions were found for your assignments. Submissions
+                will appear here when students submit their work.
+              </p>
+            )}
+
+            <div style={{ display: 'grid', gap: 14 }}>
+              {submissions.map((submission) => {
+                const homework = assignments.find(
+                  (item) => item.id === submission.assignment_id,
+                );
+
+                const value = grading[submission.id] ?? {
+                  score: '',
+                  feedback: '',
+                };
+
+                return (
+                  <article
+                    key={submission.id}
+                    style={{
+                      border: '1px solid #dce5dd',
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    <h3 style={{ marginTop: 0 }}>
+                      {homework?.title ?? 'Assignment'}
+                    </h3>
+
+                    <p>
+                      Student admission number:{' '}
+                      {studentNumber(submission.student_id)}
+                    </p>
+
+                    <p>
+                      Class: {homework ? className(homework.class_id) : '—'}
+                      {' · '}Subject:{' '}
+                      {homework ? subjectName(homework.subject_id) : '—'}
+                    </p>
+
+                    <p>
+                      Submitted:{' '}
+                      {submission.submitted_at
+                        ? new Date(submission.submitted_at).toLocaleString()
+                        : 'Submission time unavailable'}
+                    </p>
+
+                    <p>
+                      Status: <strong>{submission.status}</strong>
+                    </p>
+
+                    {submission.submission_text && (
+                      <div
+                        style={{
+                          background: '#f5f8f5',
+                          borderRadius: 8,
+                          padding: 12,
+                          marginBottom: 12,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        <strong>Student response</strong>
+                        <p style={{ marginBottom: 0 }}>
+                          {submission.submission_text}
+                        </p>
+                      </div>
+                    )}
+
+                    {submission.attachment_url && (
+                      <p>
+                        <a
+                          href={submission.attachment_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open submitted attachment
+                        </a>
+                      </p>
+                    )}
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          'repeat(auto-fit, minmax(150px, 1fr))',
+                        gap: 12,
+                      }}
+                    >
+                      <label style={labelStyle}>
+                        Score (maximum {homework?.max_score ?? 100})
+                        <input
+                          style={fieldStyle}
+                          type="number"
+                          min="0"
+                          max={homework?.max_score ?? 100}
+                          value={value.score}
+                          onChange={(event) =>
+                            setGrading((previous) => ({
+                              ...previous,
+                              [submission.id]: {
+                                ...value,
+                                score: event.target.value,
+                              },
+                            }))
+                          }
+                          required
+                        />
+                      </label>
+
+                      <label style={labelStyle}>
+                        Feedback for student
+                        <textarea
+                          style={fieldStyle}
+                          value={value.feedback}
+                          onChange={(event) =>
+                            setGrading((previous) => ({
+                              ...previous,
+                              [submission.id]: {
+                                ...value,
+                                feedback: event.target.value,
+                              },
+                            }))
+                          }
+                          placeholder="Teacher comments"
+                        />
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      style={buttonStyle}
+                      disabled={saving}
+                      onClick={() => void handleGradeSubmission(submission)}
+                    >
+                      {saving ? 'Saving…' : 'Save grade and feedback'}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'Timetable' && (
+          <section style={panelStyle}>
+            <h2 style={sectionTitleStyle}>My teaching timetable</h2>
+
+            {!loading && timetable.length === 0 && (
+              <p>
+                No timetable entries are linked to your staff record yet. An
+                administrator needs to assign timetable periods to you.
+              </p>
+            )}
+
+            <div style={{ display: 'grid', gap: 12 }}>
+              {timetable.map((entry) => (
+                <article
+                  key={entry.id}
+                  style={{
+                    border: '1px solid #e0e7e0',
+                    borderRadius: 10,
+                    padding: 14,
+                  }}
+                >
+                  <h3 style={{ marginTop: 0 }}>
+                    {className(entry.class_id)}
+                  </h3>
+                  <p>{subjectName(entry.subject_id)}</p>
+                  <p>
+                    {dayName(entry.day_of_week)}
+                    {' · '}
+                    {entry.start_time ?? 'Start time unavailable'}
+                    {' – '}
+                    {entry.end_time ?? 'End time unavailable'}
+                  </p>
+                  {entry.room && <p>Room: {entry.room}</p>}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <footer
+          style={{
+            textAlign: 'center',
+            color: '#68766b',
+            padding: 12,
+          }}
+        >
+          RESA Teacher Workspace · JETAB TECH
+        </footer>
+      </div>
+    </main>
   );
 }
