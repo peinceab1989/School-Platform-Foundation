@@ -61,6 +61,7 @@ export default function StaffInvitationsPage({
   const [phone, setPhone] = useState("");
   const [jobTitle, setJobTitle] = useState("Teacher");
   const [department, setDepartment] = useState("ICT");
+  const [recoveryEmail, setRecoveryEmail] = useState("usunobunisaac36@gmail.com");
 
   const [submitting, setSubmitting] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(true);
@@ -157,6 +158,49 @@ export default function StaffInvitationsPage({
   useEffect(() => {
     void loadStaff();
   }, [loadStaff]);
+
+  async function handleExistingInvitation(action: "remove" | "resend") {
+    const targetEmail = recoveryEmail.trim().toLowerCase();
+    if (!targetEmail) { setError("Enter the teacher's email address first."); return; }
+    const confirmed = window.confirm(action === "remove"
+      ? `Remove only the incomplete RESA invitation for ${targetEmail}? Active and suspended teacher records are protected. The global sign-in account, if any, will not be deleted.`
+      : `Send a password setup/recovery email to ${targetEmail}? This only works for a linked existing account.`);
+    if (!confirmed) return;
+    setError(""); setMessage(""); setSubmitting(true);
+    try {
+      const client = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Your session has expired. Please sign in again.");
+      const { data, error: functionError } = await client.functions.invoke("resa-manage-staff-invitation", {
+        body: { action, school_id: schoolId, email: targetEmail },
+      });
+      if (functionError) {
+        let details = functionError.message;
+        try {
+          const response = functionError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            details = body?.error || body?.message || details;
+          }
+        } catch { /* retain original function error */ }
+        throw new Error(details || "The request could not be completed.");
+      }
+      if (data?.error) throw new Error(String(data.error));
+      if (action === "remove") {
+        setMessage("Incomplete invitation removed from this school. The global sign-in account was retained. You can now use Invite a Teacher below to send a fresh invitation.");
+      } else {
+        const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, {
+          redirectTo: "https://resa-school-portal.netlify.app/accept-invitation",
+        });
+        if (resetError) throw resetError;
+        setMessage("Password setup/recovery email requested for " + targetEmail + ". Ask the teacher to check their inbox and spam folder. If no email arrives, remove the incomplete school invitation and send a fresh invitation below.");
+      }
+      await loadStaff();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "The invitation action failed. Please try again."));
+    } finally { setSubmitting(false); }
+  }
 
   async function handleInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -657,6 +701,31 @@ export default function StaffInvitationsPage({
               {suspendedStaff.length}
             </p>
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Recover an Existing Invitation</h2>
+              <p className="mt-1 text-sm text-slate-600">Use this when the email already exists but the teacher is missing from Pending Approval. Active or suspended staff accounts are protected.</p>
+            </div>
+          </div>
+          <label className="mt-4 block text-sm font-semibold">
+            Teacher email address
+            <input type="email" required value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 font-normal outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100" placeholder="teacher@example.com" />
+          </label>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button type="button" onClick={() => void handleExistingInvitation("resend")} disabled={submitting || !recoveryEmail.trim()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-800 px-4 py-3 text-sm font-bold text-white hover:bg-green-900 disabled:opacity-60">
+              {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Resend Password Setup
+            </button>
+            <button type="button" onClick={() => void handleExistingInvitation("remove")} disabled={submitting || !recoveryEmail.trim()} className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-3 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-60">
+              {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+              Remove Incomplete Invitation
+            </button>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-500">Removal affects only pending invitation records for this school. It never deletes the global authentication account or active/suspended staff.</p>
         </section>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
