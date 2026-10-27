@@ -23,6 +23,7 @@ const options = [
   { title: "Computer Based Test", description: "Open online assessments and CBT activities.", href: "/student-cbt", icon: Laptop, tone: "slate", group: "Student services" },
   { title: "Test Drilling & Practice", description: "Practise questions and review answer explanations.", href: "/practice-drills", icon: BookOpenCheck, tone: "green", group: "Student services" },
   { title: "Assignments", description: "Go to your student learning area.", href: "/student-dashboard", icon: GraduationCap, tone: "blue", group: "Student services" },
+  { title: "Test Drilling & Practice", description: "Practise questions and check answers with explanations.", href: "/practice-drills", icon: BookOpen, tone: "green", group: "Student services" },
   { title: "Live Classes", description: "Continue to the school learning portal.", href: "/portal", icon: Video, tone: "gold", group: "Student services" },
   { title: "School Fees", description: "Continue to the secure school portal.", href: "/portal", icon: WalletCards, tone: "sand", group: "Student services" },
   { title: "Staff Platform", description: "Sign in to staff tools and teaching resources.", href: "/portal", icon: UsersRound, tone: "green", group: "Staff & administration" },
@@ -95,6 +96,18 @@ export default function PortalOptionsPage() {
             </Link>;
           })}
         </div>
+
+        <section className="mt-8 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex items-start gap-3">
+            <span className="rounded-xl bg-emerald-50 p-3 text-emerald-800"><MessageCircle size={22} /></span>
+            <div><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-amber-700">We are here to help</p><h2 className="mt-1 text-xl font-extrabold">RESA Customer Care</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Contact the school directly by WhatsApp message, phone call or email. In-app live chat and voice/video calling are not yet available, so these links take you to the school's direct contact channels.</p></div>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl border border-emerald-100 p-4 font-bold text-emerald-900 transition hover:bg-emerald-50"><MessageCircle size={20}/><span><span className="block">WhatsApp</span><span className="mt-1 block text-xs font-medium text-slate-500">Send a message</span></span></a>
+            <a href="tel:+2348058422691" className="flex items-center gap-3 rounded-xl border border-emerald-100 p-4 font-bold text-emerald-900 transition hover:bg-emerald-50"><Phone size={20}/><span><span className="block">Call the school</span><span className="mt-1 block text-xs font-medium text-slate-500">+234 805 842 2691</span></span></a>
+            <a href="mailto:rhemaexploitsacademy@gmail.com" className="flex items-center gap-3 rounded-xl border border-emerald-100 p-4 font-bold text-emerald-900 transition hover:bg-emerald-50"><Mail size={20}/><span><span className="block">Email</span><span className="mt-1 block text-xs font-medium text-slate-500">Send an enquiry</span></span></a>
+          </div>
+        </section>
 
         <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="flex items-start gap-3"><span className="rounded-xl bg-white p-2 text-amber-800 shadow-sm"><CalendarDays size={20} /></span><div><p className="font-bold text-slate-900">Need help accessing the portal?</p><p className="mt-1 text-sm leading-6 text-slate-600">Use your school account to sign in. If your account is not active, contact the school administrator.</p></div></div>
