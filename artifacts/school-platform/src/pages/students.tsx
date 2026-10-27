@@ -158,6 +158,32 @@ export default function StudentsPage({
         throw new Error("Supabase is not configured.");
       }
 
+      // Defense in depth: never load student records unless the current user
+      // is an active administrator of this exact school.
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        setStudents([]);
+        setLocation("/portal");
+        return;
+      }
+
+      const { data: adminMembership, error: membershipError } = await supabase
+        .from("school_memberships")
+        .select("id")
+        .eq("school_id", schoolId)
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (membershipError) throw membershipError;
+      if (!adminMembership) {
+        setStudents([]);
+        setError("Access denied. Student Management is available to active school administrators only.");
+        setLocation("/teacher-dashboard");
+        return;
+      }
+
       const { data: studentRows, error: studentError } = await supabase
         .from("students")
         .select(
