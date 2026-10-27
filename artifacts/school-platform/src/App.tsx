@@ -37,6 +37,7 @@ import TeacherDashboard from '@/pages/teacher-dashboard';
 import AcceptInvitationPage from '@/pages/accept-invitation';
 import StudentCbtPage from '@/pages/student-cbt';
 import Home from '@/pages/home';
+import PortalOptionsPage from '@/pages/portal-options';
 import NotFound from '@/pages/not-found';
 
 import {
@@ -1807,6 +1808,7 @@ function AppRoutes() {
         <Route path="/activities-gallery" component={ActivitiesGalleryPage} />
         <Route path="/admissions" component={AdmissionsPage} />
         <Route path="/contact" component={ContactPage} />
+        <Route path="/portal-options" component={PortalOptionsPage} />
 
         {/* Staff invitation acceptance */}
         <Route
