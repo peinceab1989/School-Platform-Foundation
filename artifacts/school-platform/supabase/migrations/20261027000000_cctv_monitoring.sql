@@ -78,10 +78,12 @@ for delete to authenticated using (
 );
 
 drop policy if exists cctv_parent_access_admin_manage on public.cctv_parent_camera_access;
-create policy cctv_parent_access_admin_manage on public.cctv_parent_camera_access
-for all to authenticated using (
-  public.has_school_role(school_id, array['admin']::public.school_role[])
-) with check (
+drop policy if exists cctv_parent_access_admin_insert on public.cctv_parent_camera_access;
+drop policy if exists cctv_parent_access_admin_update on public.cctv_parent_camera_access;
+drop policy if exists cctv_parent_access_admin_delete on public.cctv_parent_camera_access;
+
+create policy cctv_parent_access_admin_insert on public.cctv_parent_camera_access
+for insert to authenticated with check (
   public.has_school_role(school_id, array['admin']::public.school_role[])
   and granted_by = (select auth.uid())
   and exists (
@@ -90,8 +92,19 @@ for all to authenticated using (
   )
   and exists (
     select 1 from public.parents_guardians pg
-    where pg.id = parent_guardian_id and pg.school_id = school_id and pg.portal_enabled
+    where pg.id = cctv_parent_camera_access.parent_guardian_id
+      and pg.school_id = cctv_parent_camera_access.school_id and pg.portal_enabled
   )
+);
+create policy cctv_parent_access_admin_update on public.cctv_parent_camera_access
+for update to authenticated using (
+  public.has_school_role(school_id, array['admin']::public.school_role[])
+) with check (
+  public.has_school_role(school_id, array['admin']::public.school_role[])
+);
+create policy cctv_parent_access_admin_delete on public.cctv_parent_camera_access
+for delete to authenticated using (
+  public.has_school_role(school_id, array['admin']::public.school_role[])
 );
 
 drop policy if exists cctv_parent_access_read_own on public.cctv_parent_camera_access;
