@@ -254,6 +254,9 @@ function StudentDashboard({
           <p style={{ color: '#536456', lineHeight: 1.7, margin: 0 }}>
             Access your learning services here. Open Student CBT to take published examinations assigned to your enrolled class.
           </p>
+          <Link href="/student-cbt" style={{ display: 'inline-block', marginTop: 14, borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>
+            Open Student CBT
+          </Link>
         </section>
 
         <div
