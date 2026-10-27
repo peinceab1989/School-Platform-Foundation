@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft, Camera, CircleAlert, LockKeyhole, Plus, RefreshCw, ShieldCheck, VideoOff } from "lucide-react";
+import { ArrowLeft, BellRing, Camera, CircleAlert, LockKeyhole, Plus, RefreshCw, ShieldCheck, VideoOff } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -95,6 +95,7 @@ export default function SchoolCctvPage({ schoolId, role = "admin" }: { schoolId:
   return <main className="min-h-screen bg-[#f5f7f2] text-slate-900">
     <header className="bg-gradient-to-br from-emerald-950 to-emerald-700 text-white"><div className="mx-auto max-w-5xl px-4 py-6">
       <Link href={role === "admin" ? "/dashboard" : "/portal"} className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-50"><ArrowLeft size={16}/> {role === "admin" ? "Admin dashboard" : "Parent portal"}</Link>
+      <Link href="/notifications" className="ml-4 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white"><BellRing size={15}/> Notifications</Link>
       <div className="mt-5 flex items-center gap-3"><span className="rounded-2xl bg-white/10 p-3 text-amber-200"><Camera size={28}/></span><div><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA safety & visibility</p><h1 className="text-2xl font-extrabold sm:text-3xl">{role === "admin" ? "CCTV & Live Monitoring" : "Approved School Camera Views"}</h1></div></div>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50">{role === "admin" ? "Register camera locations and control parent permissions. This dashboard does not claim a camera is online unless a secure streaming service is connected." : "Only camera locations explicitly approved for your parent account are listed. Live video will appear after the school connects its secure camera streaming service."}</p>
     </div></header>
