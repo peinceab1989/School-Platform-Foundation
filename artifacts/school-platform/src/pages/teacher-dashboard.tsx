@@ -653,7 +653,7 @@ export default function TeacherDashboard({
     try {
       const client = getSupabaseClient();
 
-      const { error } = await client.from('assignments').insert({
+      const { error } = await (client as any).from('assignments').insert({
         school_id: schoolId,
         academic_session_id: currentSessionId,
         class_id: homeworkForm.classId,
@@ -879,7 +879,7 @@ export default function TeacherDashboard({
     try {
       const client = getSupabaseClient();
 
-      const { error } = await client
+      const { error } = await (client as any)
         .from('assignment_submissions')
         .update({
           score,
