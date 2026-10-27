@@ -262,18 +262,6 @@ export default function AdminDashboard({
       iconStyle: "bg-green-50 text-green-700",
     },
     {
-      title: "School Reports",
-      description: "View school record summaries and export attendance and module counts.",
-      href: "/school-reports",
-      icon: FileText,
-    },
-    {
-      title: "HR & Employee Records",
-      description: "Maintain employee records, staff IDs, departments and employment status.",
-      href: "/hr-management",
-      icon: UserCog,
-    },
-    {
       title: "Teachers & Staff",
       stat: stats.staff,
       description: "Staff records",
@@ -297,6 +285,18 @@ export default function AdminDashboard({
   ];
 
   const managementCards = [
+    {
+      title: "School Reports",
+      description: "View school record summaries and export attendance and module counts.",
+      href: "/school-reports",
+      icon: FileText,
+    },
+    {
+      title: "HR & Employee Records",
+      description: "Maintain employee records, staff IDs, departments and employment status.",
+      href: "/hr-management",
+      icon: UserCog,
+    },
     {
       title: "Students",
       description: "View and manage student records.",
