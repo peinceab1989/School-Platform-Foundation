@@ -1544,7 +1544,15 @@ function FoundationPage() {
     ].includes(currentPath)
   ) {
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
-    return <TeacherDashboard schoolId={teacherMembership.schoolId} />;
+    return (
+      <TeacherDashboard
+        schoolId={teacherMembership.schoolId}
+        schoolName={teacherMembership.schoolName}
+        userId={session.user.id}
+        email={session.user.email ?? undefined}
+        onSignOut={() => void signOut()}
+      />
+    );
   }
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/school-communication') {
