@@ -13,6 +13,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { Link } from "wouter";
+import { SchoolLogo } from "@/components/school-logo";
 
 const options = [
   { title: "Check Results", description: "View academic results and progress.", href: "/results", icon: ClipboardCheck, tone: "blue", group: "Student services" },
@@ -40,7 +41,7 @@ export default function PortalOptionsPage() {
       <header className="border-b border-emerald-950/10 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href="/" className="flex min-w-0 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-900 text-lg font-black text-amber-200 shadow-sm">R</div>
+            <SchoolLogo alt="Official RESA crest" className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-amber-300/70 shadow-sm" />
             <div className="min-w-0">
               <p className="truncate text-sm font-extrabold tracking-wide text-emerald-950 sm:text-base">RHEMA EXPLOITS SCIENCE ACADEMY</p>
               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.17em] text-amber-700 sm:text-xs">Passion • Skills • Excellent Spirit</p>
