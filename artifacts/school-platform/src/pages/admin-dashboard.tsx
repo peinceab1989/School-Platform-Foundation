@@ -25,6 +25,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Database,
+  Video,
 } from "lucide-react";
 
 type AdminDashboardProps = {
@@ -97,6 +98,11 @@ const navigation = [
     label: "Parent Management",
     href: "/parent-management",
     icon: UserCog,
+  },
+  {
+    label: "CCTV & Live Monitoring",
+    href: "/school-cctv",
+    icon: Video,
   },
   { label: "Classes", href: "/classes", icon: School },
   { label: "Subjects", href: "/subjects", icon: BookOpen },
@@ -367,6 +373,12 @@ export default function AdminDashboard({
       description: "Access parent management.",
       href: "/parent-management",
       icon: UserCog,
+    },
+    {
+      title: "CCTV & Live Monitoring",
+      description: "Register school camera locations and approve or revoke individual parent viewing access. Live video requires camera installation and a secure streaming connection.",
+      href: "/school-cctv",
+      icon: Video,
     },
     {
       title: "Classes",
