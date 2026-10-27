@@ -31,6 +31,9 @@ export default function StudentCbtPage() {
   const [result, setResult] = useState<{score:number;total_marks:number;manual_marking_required:boolean;message:string}|null>(null);
   const [offlineSaved, setOfflineSaved] = useState(false);
   const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const draftKey = "resa-cbt-draft-v1";
+  const [offlineSaved, setOfflineSaved] = useState(false);
+  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const cacheKey = "resa-cbt-active-attempt-v1";
 
   const load = useCallback(async () => {
@@ -97,7 +100,9 @@ export default function StudentCbtPage() {
       const { data, error: invokeError } = await getSupabaseClient().functions.invoke("resa-student-cbt", { body: { action: "start", exam_id: examId } });
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
-      setActive(data as ActiveExam); setAnswers({});
+      setActive(data as ActiveExam);
+      setAnswers({});
+      try { window.localStorage.setItem(draftKey, JSON.stringify({ active: data, answers: {}, saved_at: new Date().toISOString() })); } catch { /* continue without device storage */ }
       try {
         window.localStorage.setItem(cacheKey, JSON.stringify({ active: data as ActiveExam, answers: {}, savedAt: new Date().toISOString() }));
         setOfflineSaved(true);
@@ -152,7 +157,11 @@ export default function StudentCbtPage() {
       {active ? <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs font-bold uppercase tracking-wide text-green-800">{active.exam.total_marks} marks</p><h2 className="mt-1 text-xl font-bold">{active.exam.title}</h2>{active.exam.instructions && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{active.exam.instructions}</p>}</div>
           <div className={`flex items-center gap-2 rounded-lg px-3 py-2 font-bold tabular-nums ${remaining !== null && remaining < 60 ? "bg-red-100 text-red-800" : "bg-green-50 text-green-900"}`}><Clock3 size={18}/>{remaining === null ? "--:--" : formatTime(remaining)}</div></div>
-        <p className="my-4 text-sm text-slate-600">Answer every question you can. The timer is based on the server-recorded start time.</p>
+        <div className="my-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+          <p className="text-slate-600">Answer every question you can. The timer is based on the server-recorded start time.</p>
+          <span className={`rounded-full px-3 py-1 text-xs font-bold ${isOnline ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{isOnline ? "Online" : "Offline · answers saved locally"}</span>
+          {offlineSaved && <span className="text-xs font-semibold text-emerald-800">Draft saved on this device</span>}
+        </div>
         <div className="space-y-5">{active.questions.map((q,index) => <fieldset key={q.id} className="rounded-xl border p-4"><legend className="px-1 text-sm font-bold">Question {index+1} · {q.marks} mark(s)</legend><p className="mb-3 whitespace-pre-wrap">{q.question_text}</p>
           {q.question_type === "multiple_choice" ? <div className="space-y-2">{([{key:"A",value:q.option_a},{key:"B",value:q.option_b},{key:"C",value:q.option_c},{key:"D",value:q.option_d}] as const).map(option => option.value !== null && <label key={option.key} className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-slate-50"><input type="radio" name={q.id} value={option.key} checked={(answers[q.id] ?? "")===option.key} onChange={()=>setAnswers(p=>({...p,[q.id]:option.key}))} className="mt-1"/><span><strong>{option.key}.</strong> {option.value}</span></label>)}</div> : <textarea rows={3} maxLength={10000} className="w-full rounded-lg border p-3 text-sm" value={answers[q.id] ?? ""} onChange={e=>setAnswers(p=>({...p,[q.id]:e.target.value}))} placeholder="Type your answer here"/>}
         </fieldset>)}</div>
