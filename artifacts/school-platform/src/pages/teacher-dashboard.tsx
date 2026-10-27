@@ -6,6 +6,7 @@ import {
   useState,
   type FormEvent,
 } from 'react';
+import { Link } from 'wouter';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 type TeacherStaff = {
@@ -1024,6 +1025,8 @@ export default function TeacherDashboard({
               {loading ? 'Refreshing…' : 'Refresh dashboard'}
             </button>
 
+            <Link href="/notifications" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Notifications</Link>
+            <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>School messages</Link>
             <button
               type="button"
               onClick={onSignOut}
