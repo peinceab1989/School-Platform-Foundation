@@ -99,6 +99,8 @@ type StudentRecord = {
   admission_number: string;
 };
 
+type StaffPrintPermission = { document_type: 'id_card' | 'admission_letter'; can_print: boolean };
+
 type TeacherDashboardProps = {
   schoolId: string;
   schoolName?: string;
@@ -193,6 +195,8 @@ export default function TeacherDashboard({
   onSignOut,
 }: TeacherDashboardProps) {
   const [staff, setStaff] = useState<TeacherStaff | null>(null);
+  const [printPermissions, setPrintPermissions] = useState({ id_card: false, admission_letter: false });
+  const [printDocument, setPrintDocument] = useState<'id_card' | 'admission_letter' | null>(null);
   const [teacherName, setTeacherName] = useState<string | null>(null);
   const [teachingAssignments, setTeachingAssignments] = useState<
     TeachingAssignment[]
@@ -346,6 +350,18 @@ export default function TeacherDashboard({
       }
 
       setStaff(staffRecord);
+
+      const { data: permissionRows, error: permissionError } = await client
+        .from('staff_document_permissions')
+        .select('document_type, can_print')
+        .eq('school_id', schoolId)
+        .eq('staff_id', staffRecord.id);
+      if (permissionError) throw permissionError;
+      const granted = { id_card: false, admission_letter: false };
+      for (const permission of (permissionRows ?? []) as StaffPrintPermission[]) {
+        granted[permission.document_type] = permission.can_print;
+      }
+      setPrintPermissions(granted);
 
       // Resolve the teacher's real name from the linked people record.
       const { data: teacherPerson, error: teacherPersonError } = await client
@@ -910,8 +926,61 @@ export default function TeacherDashboard({
     );
   };
 
+  useEffect(() => {
+    if (!printDocument) return;
+    const timer = window.setTimeout(() => window.print(), 120);
+    const clearAfterPrint = () => setPrintDocument(null);
+    window.addEventListener('afterprint', clearAfterPrint);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('afterprint', clearAfterPrint);
+    };
+  }, [printDocument]);
+
   return (
     <main style={pageStyle}>
+      <style>{`
+        .resa-print-document { display: none; }
+        @media print {
+          body { background: #fff !important; }
+          body * { visibility: hidden !important; }
+          .resa-print-document, .resa-print-document * { visibility: visible !important; }
+          .resa-print-document { display: block !important; position: absolute; inset: 0; width: 100%; padding: 18mm; box-sizing: border-box; background: #fff; color: #111; font-family: Arial, sans-serif; }
+          .resa-print-document[data-kind="id_card"] { width: 85.6mm; min-height: 54mm; padding: 6mm; border: 1px solid #164e36; border-radius: 3mm; }
+          @page { size: auto; margin: 12mm; }
+        }
+      `}</style>
+      {printDocument === 'id_card' && staff && (
+        <section className="resa-print-document" data-kind="id_card">
+          <div style={{ borderBottom: '2px solid #d6b75a', paddingBottom: 5, marginBottom: 8, color: '#164e36', fontWeight: 800, fontSize: 11 }}>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</div>
+          <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 14, marginBottom: 8 }}>STAFF IDENTIFICATION CARD</div>
+          <div style={{ fontSize: 11, lineHeight: 1.7 }}>
+            <div><strong>Name:</strong> {teacherName || 'Staff member'}</div>
+            <div><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}</div>
+            <div><strong>Designation:</strong> {staff.job_title || 'Staff'}</div>
+            <div><strong>Department:</strong> {staff.department || 'Not specified'}</div>
+            <div><strong>Status:</strong> {staff.status || 'Not specified'}</div>
+          </div>
+          <div style={{ marginTop: 8, borderTop: '1px solid #d6b75a', paddingTop: 5, textAlign: 'center', fontSize: 8 }}>School identification · If found, return to RESA administration</div>
+        </section>
+      )}
+      {printDocument === 'admission_letter' && staff && (
+        <section className="resa-print-document" data-kind="admission_letter">
+          <header style={{ borderBottom: '3px solid #166534', paddingBottom: 14, marginBottom: 26 }}>
+            <h1 style={{ margin: 0, color: '#14532d', fontSize: 22 }}>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</h1>
+            <p style={{ margin: '6px 0 0', fontSize: 11 }}>PASSION • SKILLS • EXCELLENT SPIRIT</p>
+            <p style={{ margin: '5px 0 0', fontSize: 10 }}>1, Smiling George Way, Opposite Winners’ Chapel, Behind Matice, Sapele Road, Benin City</p>
+          </header>
+          <p style={{ textAlign: 'right' }}>Date: {new Date().toLocaleDateString()}</p>
+          <h2 style={{ textAlign: 'center', textDecoration: 'underline', fontSize: 17 }}>STAFF ADMISSION LETTER</h2>
+          <p>Dear {teacherName || 'Staff Member'},</p>
+          <p>This letter confirms that the RESA staff record below has been approved for staff-document access by the school administration.</p>
+          <p><strong>Name:</strong> {teacherName || 'Staff member'}<br/><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}<br/><strong>Position:</strong> {staff.job_title || 'Not specified'}<br/><strong>Department:</strong> {staff.department || 'Not specified'}</p>
+          <p>Please retain this letter for your records. For any employment terms, reporting date, or other official conditions, refer to the separate written notice issued by the school administration.</p>
+          <p style={{ marginTop: 48 }}>Yours faithfully,</p>
+          <p style={{ marginTop: 28 }}><strong>Human Resources / School Administration</strong><br/>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p>
+        </section>
+      )}
       <div style={{ maxWidth: 1150, margin: '0 auto' }}>
         <header
           style={{
@@ -1026,6 +1095,21 @@ export default function TeacherDashboard({
           <>
             <section style={panelStyle}>
               <h2 style={sectionTitleStyle}>My staff profile</h2>
+
+              {staff && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 14px' }}>
+                  {printPermissions.id_card ? (
+                    <button type="button" style={buttonStyle} onClick={() => setPrintDocument('id_card')}>Print staff ID card</button>
+                  ) : (
+                    <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>ID card printing awaits HR/admin approval</span>
+                  )}
+                  {printPermissions.admission_letter ? (
+                    <button type="button" style={buttonStyle} onClick={() => setPrintDocument('admission_letter')}>Print admission letter</button>
+                  ) : (
+                    <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>Admission letter awaits HR/admin approval</span>
+                  )}
+                </div>
+              )}
 
               {loading && !staff ? (
                 <p>Loading your staff profile…</p>
