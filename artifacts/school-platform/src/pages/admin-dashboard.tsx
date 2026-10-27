@@ -79,6 +79,8 @@ const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Students", href: "/students", icon: Users },
   { label: "Attendance", href: "/attendance", icon: CalendarCheck },
+  { label: "Staff Attendance", href: "/staff-attendance", icon: CalendarCheck },
+  { label: "School Messages", href: "/school-communication", icon: BellRing },
   { label: "HR & Employee Records", href: "/hr-management", icon: UserCog },
   { label: "School Reports", href: "/school-reports", icon: FileText },
   { label: "Additional School Services", href: "/school-services", icon: Database },
@@ -292,6 +294,18 @@ export default function AdminDashboard({
       description: "Open fees, timetables, library, inventory, transport, admissions, payroll, RESA Drive and biometric record modules.",
       href: "/school-services",
       icon: Database,
+    },
+    {
+      title: "Staff Attendance",
+      description: "Record staff presence, late arrivals, absences and check-in/check-out times.",
+      href: "/staff-attendance",
+      icon: CalendarCheck,
+    },
+    {
+      title: "School Messages",
+      description: "Send and receive private messages with authorised school members.",
+      href: "/school-communication",
+      icon: BellRing,
     },
     {
       title: "School Reports",
