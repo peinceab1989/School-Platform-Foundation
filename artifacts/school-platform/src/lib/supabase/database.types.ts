@@ -317,6 +317,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      parents_guardians: {
+        Row: { id: string; school_id: string; person_id: string; relationship: string | null; created_at: string; occupation: string | null; portal_enabled: boolean };
+        Insert: { id?: string; school_id: string; person_id: string; relationship?: string | null; created_at?: string; occupation?: string | null; portal_enabled?: boolean };
+        Update: { id?: string; school_id?: string; person_id?: string; relationship?: string | null; created_at?: string; occupation?: string | null; portal_enabled?: boolean };
+        Relationships: [];
+      };
+      parent_portal_accounts: {
+        Row: { id: string; school_id: string; parent_guardian_id: string; user_id: string; is_active: boolean; created_at: string };
+        Insert: { id?: string; school_id: string; parent_guardian_id: string; user_id: string; is_active?: boolean; created_at?: string };
+        Update: { id?: string; school_id?: string; parent_guardian_id?: string; user_id?: string; is_active?: boolean; created_at?: string };
+        Relationships: [];
+      };
+      cctv_cameras: {
+        Row: { id: string; school_id: string; camera_name: string; location: string; notes: string; is_enabled: boolean; created_by: string; created_at: string; updated_at: string };
+        Insert: { id?: string; school_id: string; camera_name: string; location: string; notes?: string; is_enabled?: boolean; created_by?: string; created_at?: string; updated_at?: string };
+        Update: { id?: string; school_id?: string; camera_name?: string; location?: string; notes?: string; is_enabled?: boolean; created_by?: string; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      cctv_parent_camera_access: {
+        Row: { id: string; school_id: string; camera_id: string; parent_guardian_id: string; is_active: boolean; granted_by: string; granted_at: string; revoked_at: string | null };
+        Insert: { id?: string; school_id: string; camera_id: string; parent_guardian_id: string; is_active?: boolean; granted_by?: string; granted_at?: string; revoked_at?: string | null };
+        Update: { id?: string; school_id?: string; camera_id?: string; parent_guardian_id?: string; is_active?: boolean; granted_by?: string; granted_at?: string; revoked_at?: string | null };
+        Relationships: [];
+      };
     };
 
     Views: Record<string, never>;
