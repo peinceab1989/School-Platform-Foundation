@@ -107,6 +107,12 @@ for delete to authenticated using (
   public.has_school_role(school_id, array['admin']::public.school_role[])
 );
 
+drop policy if exists cctv_parent_access_admin_select on public.cctv_parent_camera_access;
+create policy cctv_parent_access_admin_select on public.cctv_parent_camera_access
+for select to authenticated using (
+  public.has_school_role(school_id, array['admin']::public.school_role[])
+);
+
 drop policy if exists cctv_parent_access_read_own on public.cctv_parent_camera_access;
 create policy cctv_parent_access_read_own on public.cctv_parent_camera_access
 for select to authenticated using (
