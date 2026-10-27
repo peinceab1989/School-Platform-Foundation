@@ -3,6 +3,8 @@ import { Link } from "wouter";
 import { ArrowLeft, BriefcaseBusiness, RefreshCw, Search, UserPlus, Users, X } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
+type DocumentPermission = { staff_id: string; document_type: "id_card" | "admission_letter"; can_print: boolean };
+
 type Employee = {
   id: string; person_id: string; user_id: string | null; staff_number: string | null;
   job_title: string | null; department: string | null; status: string; created_at: string;
@@ -22,6 +24,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [documentPermissions, setDocumentPermissions] = useState<Record<string, { id_card: boolean; admission_letter: boolean }>>({});
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -41,7 +44,16 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
         .eq("school_id", schoolId).order("created_at", { ascending: false });
       if (staffError) throw staffError;
       const rows = staffRows ?? [];
-      if (!rows.length) { setEmployees([]); return; }
+      if (!rows.length) { setEmployees([]); setDocumentPermissions({}); return; }
+      const { data: permissionRows, error: permissionError } = await client.from("staff_document_permissions")
+        .select("staff_id,document_type,can_print").eq("school_id", schoolId);
+      if (permissionError) throw permissionError;
+      const permissionMap: Record<string, { id_card: boolean; admission_letter: boolean }> = {};
+      for (const permission of (permissionRows ?? []) as DocumentPermission[]) {
+        permissionMap[permission.staff_id] ??= { id_card: false, admission_letter: false };
+        permissionMap[permission.staff_id][permission.document_type] = permission.can_print;
+      }
+      setDocumentPermissions(permissionMap);
       const personIds = [...new Set(rows.map((r) => r.person_id).filter(Boolean))];
       const { data: people, error: peopleError } = await client.from("people")
         .select("id, first_name, middle_name, last_name, email, phone, address")
@@ -69,6 +81,29 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
       return matchesStatus && (!q || text.includes(q));
     });
   }, [employees, search, statusFilter]);
+
+  async function setDocumentPermission(employee: Employee, documentType: "id_card" | "admission_letter", canPrint: boolean) {
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const client = getSupabaseClient();
+      const { data: { user }, error: userError } = await client.auth.getUser();
+      if (userError || !user) throw userError ?? new Error("Please sign in again.");
+      const { error: permissionError } = await client.from("staff_document_permissions").upsert({
+        school_id: schoolId,
+        staff_id: employee.id,
+        document_type: documentType,
+        can_print: canPrint,
+        granted_by: canPrint ? user.id : null,
+        granted_at: canPrint ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "school_id,staff_id,document_type" });
+      if (permissionError) throw permissionError;
+      setNotice(`${documentType === "id_card" ? "Staff ID card" : "Staff admission letter"} print permission ${canPrint ? "granted" : "revoked"} for ${employee.first_name} ${employee.last_name}.`);
+      await loadEmployees();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update staff document permission.");
+    } finally { setSaving(false); }
+  }
 
   async function addEmployee(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(""); setNotice("");
@@ -159,6 +194,14 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
           {filtered.map(e=><article key={e.id} className="rounded-xl border border-slate-200 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{e.first_name} {e.middle_name ? e.middle_name+" " : ""}{e.last_name}</h3><p className="mt-1 text-xs font-semibold text-green-800">{e.staff_number || "No staff ID assigned"}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${e.status.toLowerCase()==="active"?"bg-green-100 text-green-800":e.status.toLowerCase()==="suspended"?"bg-red-100 text-red-800":"bg-amber-100 text-amber-800"}`}>{e.status}</span></div>
             <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-slate-600 sm:grid-cols-2"><p><span className="font-semibold text-slate-800">Job:</span> {e.job_title || "Not set"}</p><p><span className="font-semibold text-slate-800">Department:</span> {e.department || "Not set"}</p><p className="break-all"><span className="font-semibold text-slate-800">Email:</span> {e.email || "Not provided"}</p><p><span className="font-semibold text-slate-800">Phone:</span> {e.phone || "Not provided"}</p><p className="sm:col-span-2"><span className="font-semibold text-slate-800">Record created:</span> {new Date(e.created_at).toLocaleDateString()}</p></div>
+            <div className="mt-4 rounded-xl bg-slate-50 p-3">
+              <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-600">Teacher document permissions</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={saving} onClick={() => void setDocumentPermission(e, "id_card", !(documentPermissions[e.id]?.id_card ?? false))} className={`rounded-lg border px-3 py-2 text-xs font-bold ${documentPermissions[e.id]?.id_card ? "border-green-300 bg-green-50 text-green-800" : "border-slate-300 bg-white text-slate-700"}`}>{documentPermissions[e.id]?.id_card ? "Revoke ID card printing" : "Grant ID card printing"}</button>
+                <button type="button" disabled={saving} onClick={() => void setDocumentPermission(e, "admission_letter", !(documentPermissions[e.id]?.admission_letter ?? false))} className={`rounded-lg border px-3 py-2 text-xs font-bold ${documentPermissions[e.id]?.admission_letter ? "border-green-300 bg-green-50 text-green-800" : "border-slate-300 bg-white text-slate-700"}`}>{documentPermissions[e.id]?.admission_letter ? "Revoke admission letter" : "Grant admission letter"}</button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Teachers can print only documents explicitly enabled here.</p>
+            </div>
             <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">{e.status.toLowerCase()!=="active" && <button onClick={()=>void changeStatus(e,"active")} className="rounded-lg border border-green-200 px-3 py-2 text-xs font-bold text-green-800 hover:bg-green-50">Set active</button>}{e.status.toLowerCase()!=="suspended" && <button onClick={()=>void changeStatus(e,"suspended")} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50">Suspend</button>}{!["left","inactive","terminated"].includes(e.status.toLowerCase()) && <button onClick={()=>void changeStatus(e,"left")} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-50">Mark as left</button>}</div>
           </article>)}
         </div>}
