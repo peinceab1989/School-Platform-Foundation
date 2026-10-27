@@ -1183,10 +1183,12 @@ function FoundationPage() {
       return;
     }
 
-    if (adminMembership) {
-      setLocation('/dashboard');
-    } else if (teacherMembership) {
+    // Keep the portal landing redirect consistent with protected-route
+    // handling: teacher membership takes priority over any stale admin row.
+    if (teacherMembership) {
       setLocation('/teacher-dashboard');
+    } else if (adminMembership) {
+      setLocation('/dashboard');
     } else if (studentMembership) {
       setLocation('/student-dashboard');
     }
