@@ -31,9 +31,6 @@ export default function StudentCbtPage() {
   const [result, setResult] = useState<{score:number;total_marks:number;manual_marking_required:boolean;message:string}|null>(null);
   const [offlineSaved, setOfflineSaved] = useState(false);
   const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
-  const draftKey = "resa-cbt-draft-v1";
-  const [offlineSaved, setOfflineSaved] = useState(false);
-  const [isOnline, setIsOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const cacheKey = "resa-cbt-active-attempt-v1";
 
   const load = useCallback(async () => {
@@ -102,7 +99,6 @@ export default function StudentCbtPage() {
       if (data?.error) throw new Error(data.error);
       setActive(data as ActiveExam);
       setAnswers({});
-      try { window.localStorage.setItem(draftKey, JSON.stringify({ active: data, answers: {}, saved_at: new Date().toISOString() })); } catch { /* continue without device storage */ }
       try {
         window.localStorage.setItem(cacheKey, JSON.stringify({ active: data as ActiveExam, answers: {}, savedAt: new Date().toISOString() }));
         setOfflineSaved(true);
