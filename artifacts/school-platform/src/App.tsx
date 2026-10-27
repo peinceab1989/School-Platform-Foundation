@@ -42,6 +42,7 @@ import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
 import SchoolCctvPage from '@/pages/school-cctv';
+import NotificationsPage from '@/pages/notifications';
 import NotFound from '@/pages/not-found';
 
 import {
@@ -132,6 +133,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-dashboard',
   '/student-cbt',
   '/school-communication',
+  '/notifications',
   '/school-cctv',
 ];
 
@@ -1461,8 +1463,9 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    currentPath === '/school-cctv'
+    (currentPath === '/school-cctv' || currentPath === '/notifications')
   ) {
+    if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     return <SchoolCctvPage schoolId={parentMembership.schoolId} role="parent" />;
   }
 
@@ -1476,6 +1479,8 @@ function FoundationPage() {
     !teacherMembership &&
     !membershipsLoading
   ) {
+    if (currentPath === '/notifications') return <NotificationsPage schoolId={adminMembership.schoolId} role="admin" />;
+
     if (currentPath === '/school-cctv') {
       return <SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />;
     }
@@ -1578,6 +1583,7 @@ function FoundationPage() {
     ].includes(currentPath)
   ) {
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
+    if (currentPath === '/notifications') return <NotificationsPage schoolId={teacherMembership.schoolId} role="teacher" />;
     return (
       <TeacherDashboard
         schoolId={teacherMembership.schoolId}
@@ -1591,6 +1597,10 @@ function FoundationPage() {
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/school-communication') {
     return <SchoolCommunicationPage schoolId={studentMembership.schoolId} role="student" />;
+  }
+
+  if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/notifications') {
+    return <NotificationsPage schoolId={studentMembership.schoolId} role="student" />;
   }
 
   /*
