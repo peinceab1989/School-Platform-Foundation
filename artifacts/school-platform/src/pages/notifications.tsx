@@ -66,7 +66,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
             void load();
           }
         })
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
+        .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
           if (payload.new?.is_published) {
             if ("Notification" in window && Notification.permission === "granted") new Notification("RESA announcement: " + payload.new.title, { body: payload.new.content || "A new school announcement is available." });
             void load();
