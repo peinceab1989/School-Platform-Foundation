@@ -25,6 +25,7 @@ import HrManagementPage from '@/pages/hr-management';
 import SchoolReportsPage from '@/pages/school-reports';
 import SchoolServicesPage from '@/pages/school-services';
 import SchoolCommunicationPage from '@/pages/school-communication';
+import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
@@ -119,6 +120,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/hr-management',
   '/school-reports',
   '/school-services',
+  '/staff-attendance',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -1458,6 +1460,10 @@ function FoundationPage() {
 
     if (currentPath === '/school-communication') {
       return <SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />;
+    }
+
+    if (currentPath === '/staff-attendance') {
+      return <StaffAttendancePage schoolId={adminMembership.schoolId} />;
     }
 
     if (currentPath === '/staff-invitations') {
