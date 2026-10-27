@@ -1120,19 +1120,8 @@ function FoundationPage() {
       return;
     }
 
-    // Admin access takes precedence.
-    if (adminMembership) {
-      if (
-        currentPath === '/teacher-dashboard' ||
-        currentPath === '/student-dashboard' ||
-        currentPath === '/student-cbt'
-      ) {
-        setLocation('/dashboard');
-      }
-      return;
-    }
-
-    // Teacher access takes precedence over student access.
+    // A teacher account must never be routed into administrator pages,
+    // even if an old or duplicate admin membership is also present.
     if (teacherMembership) {
       if (
         currentPath === '/dashboard' ||
@@ -1141,6 +1130,18 @@ function FoundationPage() {
         ADMIN_SCHOOL_PATHS.includes(currentPath)
       ) {
         setLocation('/teacher-dashboard');
+      }
+      return;
+    }
+
+    // Only accounts without an active teacher membership may use admin routes.
+    if (adminMembership) {
+      if (
+        currentPath === '/teacher-dashboard' ||
+        currentPath === '/student-dashboard' ||
+        currentPath === '/student-cbt'
+      ) {
+        setLocation('/dashboard');
       }
       return;
     }
@@ -1428,6 +1429,7 @@ function FoundationPage() {
     authState === 'signed-in' &&
     accessCheckState === 'success' &&
     adminMembership &&
+    !teacherMembership &&
     !membershipsLoading
   ) {
     if (currentPath === '/staff-invitations') {
@@ -1499,7 +1501,6 @@ function FoundationPage() {
     authState === 'signed-in' &&
     accessCheckState === 'success' &&
     !membershipsLoading &&
-    !adminMembership &&
     teacherMembership &&
     session &&
     [
