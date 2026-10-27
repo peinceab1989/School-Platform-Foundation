@@ -21,6 +21,7 @@ import {
 
 import AdminDashboard from '@/pages/admin-dashboard';
 import StaffInvitationsPage from '@/pages/staff-invitations';
+import HrManagementPage from '@/pages/hr-management';
 import StudentsPage from '@/pages/students';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
@@ -110,6 +111,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/parents',
   '/parent-management',
   '/staff-invitations',
+  '/hr-management',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -1432,6 +1434,10 @@ function FoundationPage() {
     !teacherMembership &&
     !membershipsLoading
   ) {
+    if (currentPath === '/hr-management') {
+      return <HrManagementPage schoolId={adminMembership.schoolId} />;
+    }
+
     if (currentPath === '/staff-invitations') {
       return (
         <StaffInvitationsPage
@@ -1812,6 +1818,7 @@ function AppRoutes() {
         <Route path="/parents" component={FoundationPage} />
         <Route path="/parent-management" component={FoundationPage} />
         <Route path="/staff-invitations" component={FoundationPage} />
+        <Route path="/hr-management" component={FoundationPage} />
 
         {/* Private control centre */}
         <Route path="/jetab-engine-room" component={FoundationPage} />
