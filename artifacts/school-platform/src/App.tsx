@@ -177,15 +177,81 @@ const statNumberStyle: CSSProperties = {
    STUDENT DASHBOARD
 ========================================================= */
 
+type StudentAcademicSummary = {
+  average_score: number | string | null;
+  position: number | null;
+  teacher_comment: string | null;
+  principal_comment: string | null;
+  created_at: string;
+};
+
 function StudentDashboard({
+  schoolId,
   schoolName,
+  userId,
   email,
   onSignOut,
 }: {
+  schoolId: string;
   schoolName: string;
+  userId: string;
   email?: string;
   onSignOut: () => void;
 }) {
+  const [academicSummary, setAcademicSummary] = useState<StudentAcademicSummary | null>(null);
+  const [academicLoading, setAcademicLoading] = useState(true);
+  const [academicError, setAcademicError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadAcademicSummary() {
+      setAcademicLoading(true);
+      setAcademicError(null);
+
+      try {
+        const client = getSupabaseClient();
+        const { data: student, error: studentError } = await (client as any)
+          .from('students')
+          .select('id')
+          .eq('school_id', schoolId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (studentError) throw studentError;
+        if (!student) {
+          if (active) setAcademicSummary(null);
+          return;
+        }
+
+        const { data, error } = await (client as any)
+          .from('student_term_results')
+          .select('average_score, position, teacher_comment, principal_comment, created_at')
+          .eq('school_id', schoolId)
+          .eq('student_id', student.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (active) setAcademicSummary((data as StudentAcademicSummary | null) ?? null);
+      } catch (error) {
+        if (active) {
+          setAcademicError(
+            error instanceof Error ? error.message : 'Academic progress could not be loaded.',
+          );
+        }
+      } finally {
+        if (active) setAcademicLoading(false);
+      }
+    }
+
+    void loadAcademicSummary();
+    return () => {
+      active = false;
+    };
+  }, [schoolId, userId]);
+
   return (
     <main
       style={{
@@ -207,54 +273,19 @@ function StudentDashboard({
             marginBottom: 22,
           }}
         >
-          <div
-            style={{
-              color: '#e6c66b',
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: 1.5,
-            }}
-          >
+          <div style={{ color: '#e6c66b', fontSize: 12, fontWeight: 700, letterSpacing: 1.5 }}>
             RESA SCHOOL PORTAL
           </div>
-
-          <h1
-            style={{
-              fontSize: 27,
-              lineHeight: 1.3,
-              margin: '12px 0',
-            }}
-          >
-            Student Dashboard
-          </h1>
-
-          <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>
-            Welcome to your learning portal.
-          </p>
-
-          <p
-            style={{
-              margin: '0 0 18px',
-              color: '#e8eee8',
-              overflowWrap: 'anywhere',
-            }}
-          >
+          <h1 style={{ fontSize: 27, lineHeight: 1.3, margin: '12px 0' }}>Student Dashboard</h1>
+          <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>Welcome to your learning portal.</p>
+          <p style={{ margin: '0 0 18px', color: '#e8eee8', overflowWrap: 'anywhere' }}>
             {schoolName}
           </p>
-
           {email && (
-            <p
-              style={{
-                fontSize: 13,
-                color: '#e8eee8',
-                overflowWrap: 'anywhere',
-                margin: '0 0 18px',
-              }}
-            >
+            <p style={{ fontSize: 13, color: '#e8eee8', overflowWrap: 'anywhere', margin: '0 0 18px' }}>
               Signed in as: {email}
             </p>
           )}
-
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications</Link>
             <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>School messages</Link>
@@ -263,68 +294,68 @@ function StudentDashboard({
         </header>
 
         <section style={panelStyle}>
-          <h2 style={{ margin: '0 0 10px', fontSize: 21 }}>
-            My Learning
-          </h2>
-
+          <h2 style={{ margin: '0 0 10px', fontSize: 21 }}>My Learning</h2>
           <p style={{ color: '#536456', lineHeight: 1.7, margin: 0 }}>
-            Access your learning services here. Open Student CBT to take published examinations assigned to your enrolled class.
+            Open your practice activities or take published examinations assigned to your enrolled class.
           </p>
-          <Link href="/student-cbt" style={{ display: 'inline-block', marginTop: 14, borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>
-            Open Student CBT
-          </Link>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
+            <Link href="/practice-drills" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>Practice Drills</Link>
+            <Link href="/student-cbt" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Student CBT</Link>
+          </div>
         </section>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: 14,
-          }}
-        >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <section style={panelStyle}>
             <div style={{ fontSize: 25, marginBottom: 10 }}>📚</div>
             <h3 style={{ margin: '0 0 8px' }}>Learning Resources</h3>
             <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
-              A place for your learning materials and study resources.
+              Practise your skills with the available learning drills.
             </p>
+            <Link href="/practice-drills" style={{ display: 'inline-block', marginTop: 12, color: '#17623d', fontWeight: 700 }}>Open practice drills</Link>
           </section>
 
           <section style={panelStyle}>
             <div style={{ fontSize: 25, marginBottom: 10 }}>📝</div>
             <h3 style={{ margin: '0 0 8px' }}>Assignments and CBT</h3>
             <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
-              Student assessment features can be connected here.
+              View available computer-based tests for your enrolled class.
             </p>
+            <Link href="/student-cbt" style={{ display: 'inline-block', marginTop: 12, color: '#17623d', fontWeight: 700 }}>Open CBT</Link>
           </section>
 
           <section style={panelStyle}>
             <div style={{ fontSize: 25, marginBottom: 10 }}>📊</div>
             <h3 style={{ margin: '0 0 8px' }}>My Academic Progress</h3>
-            <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
-              Results and academic records will appear when the student
-              records and results modules are connected.
-            </p>
+            {academicLoading ? (
+              <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>Loading your latest published result…</p>
+            ) : academicError ? (
+              <p role="alert" style={{ color: '#9b2c2c', lineHeight: 1.6, margin: 0 }}>{academicError}</p>
+            ) : academicSummary ? (
+              <div style={{ color: '#536456', lineHeight: 1.6 }}>
+                <p style={{ margin: '0 0 6px' }}>Latest average: <strong>{academicSummary.average_score === null ? 'Not recorded' : Number(academicSummary.average_score).toFixed(1)}%</strong></p>
+                {academicSummary.position !== null && <p style={{ margin: '0 0 6px' }}>Class position: <strong>{academicSummary.position}</strong></p>}
+                <p style={{ fontSize: 12, margin: '0 0 8px' }}>Updated {new Date(academicSummary.created_at).toLocaleDateString()}</p>
+                {academicSummary.teacher_comment && <p style={{ margin: '8px 0 0' }}>Teacher: {academicSummary.teacher_comment}</p>}
+                {academicSummary.principal_comment && <p style={{ margin: '8px 0 0' }}>Principal: {academicSummary.principal_comment}</p>}
+              </div>
+            ) : (
+              <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
+                No published term result is available for this account yet. Check again after the school releases results.
+              </p>
+            )}
           </section>
 
           <section style={panelStyle}>
             <div style={{ fontSize: 25, marginBottom: 10 }}>📅</div>
             <h3 style={{ margin: '0 0 8px' }}>Attendance</h3>
             <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
-              Attendance information can be displayed here when the student
-              attendance feature is connected.
+              For your current attendance record, contact your class teacher or school office.
             </p>
+            <Link href="/school-communication" style={{ display: 'inline-block', marginTop: 12, color: '#17623d', fontWeight: 700 }}>Message the school</Link>
           </section>
         </div>
 
-        <footer
-          style={{
-            textAlign: 'center',
-            color: '#68766b',
-            fontSize: 12,
-            padding: '12px 0 20px',
-          }}
-        >
+        <footer style={{ textAlign: 'center', color: '#68766b', fontSize: 12, padding: '12px 0 20px' }}>
           RHEMA EXPLOITS SCIENCE ACADEMY (RESA)
           <br />
           PASSION • SKILLS • EXCELLENT SPIRIT
@@ -1632,7 +1663,9 @@ function FoundationPage() {
   ) {
     return (
       <StudentDashboard
+        schoolId={studentMembership.schoolId}
         schoolName={studentMembership.schoolName}
+        userId={session.user.id}
         email={session.user.email}
         onSignOut={() => void signOut()}
       />
