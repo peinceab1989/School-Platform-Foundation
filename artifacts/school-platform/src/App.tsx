@@ -1907,6 +1907,7 @@ function AppRoutes() {
         <Route path="/hr-management" component={FoundationPage} />
         <Route path="/school-reports" component={FoundationPage} />
         <Route path="/school-services" component={FoundationPage} />
+        <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
         <Route path="/school-cctv" component={FoundationPage} />
