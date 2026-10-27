@@ -10,6 +10,7 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 
 type TeacherStaff = {
   id: string;
+  person_id: string;
   staff_number: string | null;
   job_title: string | null;
   department: string | null;
@@ -192,6 +193,7 @@ export default function TeacherDashboard({
   onSignOut,
 }: TeacherDashboardProps) {
   const [staff, setStaff] = useState<TeacherStaff | null>(null);
+  const [teacherName, setTeacherName] = useState<string | null>(null);
   const [teachingAssignments, setTeachingAssignments] = useState<
     TeachingAssignment[]
   >([]);
@@ -290,7 +292,7 @@ export default function TeacherDashboard({
       // Resolve the signed-in teacher's staff record.
       const { data: directStaff, error: directStaffError } = await client
         .from('staff')
-        .select('id, staff_number, job_title, department, status')
+        .select('id, person_id, staff_number, job_title, department, status')
         .eq('school_id', schoolId)
         .eq('user_id', userId)
         .limit(1)
@@ -344,6 +346,24 @@ export default function TeacherDashboard({
       }
 
       setStaff(staffRecord);
+
+      // Resolve the teacher's real name from the linked people record.
+      const { data: teacherPerson, error: teacherPersonError } = await client
+        .from('people')
+        .select('first_name, middle_name, last_name')
+        .eq('school_id', schoolId)
+        .eq('id', staffRecord.person_id)
+        .maybeSingle();
+
+      if (teacherPersonError) throw teacherPersonError;
+
+      const fullTeacherName = [
+        teacherPerson?.first_name,
+        teacherPerson?.middle_name,
+        teacherPerson?.last_name,
+      ].filter((part) => typeof part === 'string' && part.trim()).join(' ').trim();
+
+      setTeacherName(fullTeacherName || null);
 
       // Read the current academic session.
       const { data: session, error: sessionError } = await client
@@ -922,7 +942,7 @@ export default function TeacherDashboard({
           </p>
 
           <p style={{ margin: '0 0 16px', overflowWrap: 'anywhere' }}>
-            Signed in as: {email || 'Teacher account'}
+            Signed in as: {teacherName || email || 'Teacher account'}
           </p>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
