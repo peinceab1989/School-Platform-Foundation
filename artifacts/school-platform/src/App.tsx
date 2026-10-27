@@ -24,6 +24,9 @@ import StaffInvitationsPage from '@/pages/staff-invitations';
 import StudentsPage from '@/pages/students';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
+import ResultsPage from '@/pages/results';
+import ExamsPage from '@/pages/examinations';
+import SchoolSettingsPage from '@/pages/school-settings';
 import ClassManagementPage from '@/pages/class-management';
 import SubjectManagementPage from '@/pages/subject-management';
 import ParentManagementPage from '@/pages/parent-management';
@@ -96,6 +99,9 @@ const ADMIN_SCHOOL_PATHS = [
   '/students',
   '/attendance',
   '/announcements',
+  '/results',
+  '/examinations',
+  '/school-settings',
   '/classes',
   '/subjects',
   '/subject-management',
@@ -1440,6 +1446,18 @@ function FoundationPage() {
       return <AnnouncementsPage schoolId={adminMembership.schoolId} />;
     }
 
+    if (currentPath === '/results') {
+      return <ResultsPage schoolId={adminMembership.schoolId} />;
+    }
+
+    if (currentPath === '/examinations') {
+      return <ExamsPage schoolId={adminMembership.schoolId} />;
+    }
+
+    if (currentPath === '/school-settings') {
+      return <SchoolSettingsPage schoolId={adminMembership.schoolId} />;
+    }
+
     if (currentPath === '/classes') {
       return <ClassManagementPage schoolId={adminMembership.schoolId} />;
     }
@@ -1765,6 +1783,9 @@ function AppRoutes() {
         <Route path="/students" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
         <Route path="/announcements" component={FoundationPage} />
+        <Route path="/results" component={FoundationPage} />
+        <Route path="/examinations" component={FoundationPage} />
+        <Route path="/school-settings" component={FoundationPage} />
         <Route path="/classes" component={FoundationPage} />
         <Route path="/subjects" component={FoundationPage} />
         <Route path="/subject-management" component={FoundationPage} />
