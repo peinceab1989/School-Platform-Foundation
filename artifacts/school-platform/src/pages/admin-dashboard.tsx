@@ -78,6 +78,7 @@ const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Students", href: "/students", icon: Users },
   { label: "Attendance", href: "/attendance", icon: CalendarCheck },
+  { label: "HR & Employee Records", href: "/hr-management", icon: UserCog },
   { label: "Announcements", href: "/announcements", icon: BellRing },
   { label: "Examinations & CBT", href: "/examinations", icon: ClipboardList },
   { label: "Academic Results", href: "/results", icon: FileText },
@@ -258,6 +259,12 @@ export default function AdminDashboard({
       description: "Student records",
       icon: Users,
       iconStyle: "bg-green-50 text-green-700",
+    },
+    {
+      title: "HR & Employee Records",
+      description: "Maintain employee records, staff IDs, departments and employment status.",
+      href: "/hr-management",
+      icon: UserCog,
     },
     {
       title: "Teachers & Staff",
