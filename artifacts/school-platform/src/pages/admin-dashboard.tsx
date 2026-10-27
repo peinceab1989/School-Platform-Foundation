@@ -11,6 +11,7 @@ import {
   School,
   BookOpen,
   ClipboardCheck,
+  CalendarCheck,
   LogOut,
   Menu,
   X,
@@ -72,6 +73,7 @@ function lagosDate(): string {
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Students", href: "/students", icon: Users },
+  { label: "Attendance", href: "/attendance", icon: CalendarCheck },
   {
     label: "Teachers & Staff",
     href: "/staff-invitations",
@@ -278,6 +280,12 @@ export default function AdminDashboard({
       description: "View and manage student records.",
       href: "/students",
       icon: Users,
+    },
+    {
+      title: "Attendance",
+      description: "Record and review daily student attendance by class.",
+      href: "/attendance",
+      icon: CalendarCheck,
     },
     {
       title: "Teachers & Staff",
