@@ -24,6 +24,7 @@ import StaffInvitationsPage from '@/pages/staff-invitations';
 import HrManagementPage from '@/pages/hr-management';
 import SchoolReportsPage from '@/pages/school-reports';
 import SchoolServicesPage from '@/pages/school-services';
+import SchoolCommunicationPage from '@/pages/school-communication';
 import StudentsPage from '@/pages/students';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
@@ -126,6 +127,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/teacher-dashboard',
   '/student-dashboard',
   '/student-cbt',
+  '/school-communication',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -1155,7 +1157,7 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication') {
         setLocation('/student-dashboard');
       }
       return;
@@ -1454,6 +1456,10 @@ function FoundationPage() {
       return <SchoolServicesPage schoolId={adminMembership.schoolId} />;
     }
 
+    if (currentPath === '/school-communication') {
+      return <SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />;
+    }
+
     if (currentPath === '/staff-invitations') {
       return (
         <StaffInvitationsPage
@@ -1531,7 +1537,12 @@ function FoundationPage() {
       '/portal',
     ].includes(currentPath)
   ) {
+    if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
     return <TeacherDashboard schoolId={teacherMembership.schoolId} />;
+  }
+
+  if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/school-communication') {
+    return <SchoolCommunicationPage schoolId={studentMembership.schoolId} role="student" />;
   }
 
   /*
