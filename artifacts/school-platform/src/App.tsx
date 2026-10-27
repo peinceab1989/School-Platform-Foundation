@@ -1174,7 +1174,7 @@ function FoundationPage() {
     }
 
     if (parentMembership) {
-      if (currentPath !== '/school-cctv') setLocation('/school-cctv');
+      if (!['/school-cctv', '/notifications', '/school-communication'].includes(currentPath)) setLocation('/school-cctv');
       return;
     }
 
@@ -1579,6 +1579,8 @@ function FoundationPage() {
       '/teacher-dashboard',
       '/dashboard',
       '/portal',
+      '/notifications',
+      '/school-communication',
     ].includes(currentPath)
   ) {
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
