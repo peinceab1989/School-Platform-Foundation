@@ -1,5 +1,3 @@
-Filename: "artifacts/school-platform/src/pages/admin-dashboard.tsx"
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
