@@ -31,6 +31,7 @@ const options = [
   { title: "School Fees", description: "Continue to the secure school portal.", href: "/portal", icon: WalletCards, tone: "sand", group: "Student services" },
   { title: "Staff Platform", description: "Sign in to staff tools and teaching resources.", href: "/portal", icon: UsersRound, tone: "green", group: "Staff & administration" },
   { title: "Admin Platform", description: "Manage school records and operations.", href: "/dashboard", icon: ShieldCheck, tone: "green", group: "Staff & administration" },
+  { title: "CCTV & Live Monitoring", description: "Authorized school camera access for administrators and approved parents.", href: "/school-cctv", icon: Video, tone: "green", group: "Staff & administration" },
 ];
 
 const toneClasses: Record<string, string> = {
