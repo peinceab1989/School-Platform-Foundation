@@ -24,6 +24,7 @@ import {
   GraduationCap,
   AlertCircle,
   CheckCircle2,
+  Database,
 } from "lucide-react";
 
 type AdminDashboardProps = {
@@ -80,6 +81,7 @@ const navigation = [
   { label: "Attendance", href: "/attendance", icon: CalendarCheck },
   { label: "HR & Employee Records", href: "/hr-management", icon: UserCog },
   { label: "School Reports", href: "/school-reports", icon: FileText },
+  { label: "Additional School Services", href: "/school-services", icon: Database },
   { label: "Announcements", href: "/announcements", icon: BellRing },
   { label: "Examinations & CBT", href: "/examinations", icon: ClipboardList },
   { label: "Academic Results", href: "/results", icon: FileText },
@@ -285,6 +287,12 @@ export default function AdminDashboard({
   ];
 
   const managementCards = [
+    {
+      title: "Additional School Services",
+      description: "Open fees, timetables, library, inventory, transport, admissions, payroll, RESA Drive and biometric record modules.",
+      href: "/school-services",
+      icon: Database,
+    },
     {
       title: "School Reports",
       description: "View school record summaries and export attendance and module counts.",
