@@ -341,6 +341,12 @@ export interface Database {
         Update: { id?: string; school_id?: string; camera_id?: string; parent_guardian_id?: string; is_active?: boolean; granted_by?: string; granted_at?: string; revoked_at?: string | null };
         Relationships: [];
       };
+      staff_document_permissions: {
+        Row: { id: string; school_id: string; staff_id: string; document_type: string; can_print: boolean; granted_by: string | null; granted_at: string | null; updated_at: string };
+        Insert: { id?: string; school_id: string; staff_id: string; document_type: string; can_print?: boolean; granted_by?: string | null; granted_at?: string | null; updated_at?: string };
+        Update: { id?: string; school_id?: string; staff_id?: string; document_type?: string; can_print?: boolean; granted_by?: string | null; granted_at?: string | null; updated_at?: string };
+        Relationships: [];
+      };
     };
 
     Views: Record<string, never>;
