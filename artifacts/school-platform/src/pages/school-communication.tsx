@@ -21,7 +21,7 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const db = getSupabaseClient();
+      const db = getSupabaseClient() as any;
       const { data: auth, error: authError } = await db.auth.getUser();
       if (authError || !auth.user) throw new Error("Please sign in again.");
       setUserId(auth.user.id);
@@ -46,7 +46,7 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
     if (!recipient || !subject.trim() || !body.trim()) { setError("Choose a recipient and enter a subject and message."); return; }
     setSending(true);
     try {
-      const db = getSupabaseClient();
+      const db = getSupabaseClient() as any;
       const { error: sendError } = await db.from("school_messages").insert({ school_id: schoolId, sender_id: userId, recipient_id: recipient, subject: subject.trim(), message: body.trim() });
       if (sendError) throw sendError;
       setSubject(""); setBody(""); setNotice("Message sent inside the RESA portal."); setTab("sent"); await load();
@@ -57,7 +57,7 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
   async function markRead(message: Message) {
     if (message.recipient_id !== userId || message.is_read) return;
     try {
-      const db = getSupabaseClient();
+      const db = getSupabaseClient() as any;
       const { error: updateError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() } as any).eq("id", message.id).eq("recipient_id", userId);
       if (updateError) throw updateError;
       await load();
