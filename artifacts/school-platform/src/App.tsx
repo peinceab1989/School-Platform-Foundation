@@ -1461,9 +1461,10 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications')
+    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication')
   ) {
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
+    if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
     return <SchoolCctvPage schoolId={parentMembership.schoolId} role="parent" />;
   }
 
