@@ -33,7 +33,7 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
       if (profileError) throw profileError;
       const names = new Map((profiles ?? []).map((p: any) => [p.id, p.display_name]));
       setContacts(memberRows.filter((m: any) => m.user_id !== auth.user.id).map((m: any) => ({ user_id: m.user_id, role: m.role, display_name: names.get(m.user_id) || (m.role.charAt(0).toUpperCase()+m.role.slice(1))+" member" })));
-      const { data: rows, error: messagesError } = await db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at").eq("school_id", schoolId).order("sent_at", { ascending: false }).limit(150);
+      const { data: rows, error: messagesError } = await db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at").eq("school_id", schoolId).or(`sender_id.eq.${auth.user.id},recipient_id.eq.${auth.user.id}`).order("sent_at", { ascending: false }).limit(150);
       if (messagesError) throw messagesError;
       setMessages((rows ?? []) as Message[]);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load school messages."); }
