@@ -117,6 +117,7 @@ const PROTECTED_SCHOOL_PATHS = [
   ...ADMIN_SCHOOL_PATHS,
   '/teacher-dashboard',
   '/student-dashboard',
+  '/student-cbt',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -1797,6 +1798,7 @@ function AppRoutes() {
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/teacher-dashboard" component={FoundationPage} />
         <Route path="/student-dashboard" component={FoundationPage} />
+        <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
         <Route path="/announcements" component={FoundationPage} />
