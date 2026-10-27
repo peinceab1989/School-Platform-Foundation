@@ -341,6 +341,18 @@ export interface Database {
         Update: { id?: string; school_id?: string; camera_id?: string; parent_guardian_id?: string; is_active?: boolean; granted_by?: string; granted_at?: string; revoked_at?: string | null };
         Relationships: [];
       };
+      assignments: {
+        Row: { id: string; school_id: string; academic_session_id: string; class_id: string; subject_id: string; staff_id: string | null; title: string; description: string | null; instructions: string | null; due_date: string | null; max_score: number; attachment_url: string | null; status: string; created_at: string };
+        Insert: { id?: string; school_id: string; academic_session_id: string; class_id: string; subject_id: string; staff_id?: string | null; title: string; description?: string | null; instructions?: string | null; due_date?: string | null; max_score?: number; attachment_url?: string | null; status?: string; created_at?: string };
+        Update: { id?: string; school_id?: string; academic_session_id?: string; class_id?: string; subject_id?: string; staff_id?: string | null; title?: string; description?: string | null; instructions?: string | null; due_date?: string | null; max_score?: number; attachment_url?: string | null; status?: string; created_at?: string };
+        Relationships: [];
+      };
+      assignment_submissions: {
+        Row: { id: string; school_id: string; assignment_id: string; student_id: string; submission_text: string | null; attachment_url: string | null; submitted_at: string | null; score: number | null; feedback: string | null; status: string; graded_by: string | null; graded_at: string | null; created_at: string };
+        Insert: { id?: string; school_id: string; assignment_id: string; student_id: string; submission_text?: string | null; attachment_url?: string | null; submitted_at?: string | null; score?: number | null; feedback?: string | null; status?: string; graded_by?: string | null; graded_at?: string | null; created_at?: string };
+        Update: { id?: string; school_id?: string; assignment_id?: string; student_id?: string; submission_text?: string | null; attachment_url?: string | null; submitted_at?: string | null; score?: number | null; feedback?: string | null; status?: string; graded_by?: string | null; graded_at?: string | null; created_at?: string };
+        Relationships: [];
+      };
       staff_document_permissions: {
         Row: { id: string; school_id: string; staff_id: string; document_type: string; can_print: boolean; granted_by: string | null; granted_at: string | null; updated_at: string };
         Insert: { id?: string; school_id: string; staff_id: string; document_type: string; can_print?: boolean; granted_by?: string | null; granted_at?: string | null; updated_at?: string };
