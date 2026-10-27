@@ -41,6 +41,7 @@ import StudentCbtPage from '@/pages/student-cbt';
 import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
+import SchoolCctvPage from '@/pages/school-cctv';
 import NotFound from '@/pages/not-found';
 
 import {
@@ -121,6 +122,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/school-reports',
   '/school-services',
   '/staff-attendance',
+  '/school-cctv',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -130,6 +132,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-dashboard',
   '/student-cbt',
   '/school-communication',
+  '/school-cctv',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -1039,6 +1042,11 @@ function FoundationPage() {
       membership.role === 'student' && membership.status === 'active',
   );
 
+  const parentMembership = memberships.find(
+    (membership) =>
+      membership.role === 'parent' && membership.status === 'active',
+  );
+
   useEffect(() => {
     if (!hasSupabaseConfig) {
       setAuthState('needs-config');
@@ -1165,6 +1173,11 @@ function FoundationPage() {
       return;
     }
 
+    if (parentMembership) {
+      if (currentPath !== '/school-cctv') setLocation('/school-cctv');
+      return;
+    }
+
     setLocation('/portal');
   }, [
     authState,
@@ -1174,6 +1187,7 @@ function FoundationPage() {
     adminMembership,
     teacherMembership,
     studentMembership,
+    parentMembership,
     setLocation,
   ]);
 
@@ -1199,6 +1213,8 @@ function FoundationPage() {
       setLocation('/dashboard');
     } else if (studentMembership) {
       setLocation('/student-dashboard');
+    } else if (parentMembership) {
+      setLocation('/school-cctv');
     }
   }, [
     currentPath,
@@ -1208,6 +1224,7 @@ function FoundationPage() {
     adminMembership,
     teacherMembership,
     studentMembership,
+    parentMembership,
     setLocation,
   ]);
 
@@ -1436,6 +1453,19 @@ function FoundationPage() {
     );
   }
 
+  if (
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    parentMembership &&
+    !teacherMembership &&
+    !adminMembership &&
+    !studentMembership &&
+    !membershipsLoading &&
+    currentPath === '/school-cctv'
+  ) {
+    return <SchoolCctvPage schoolId={parentMembership.schoolId} role="parent" />;
+  }
+
   /*
    * Administrator pages remain available only to active admins.
    */
@@ -1446,6 +1476,10 @@ function FoundationPage() {
     !teacherMembership &&
     !membershipsLoading
   ) {
+    if (currentPath === '/school-cctv') {
+      return <SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />;
+    }
+
     if (currentPath === '/hr-management') {
       return <HrManagementPage schoolId={adminMembership.schoolId} />;
     }
@@ -1866,6 +1900,7 @@ function AppRoutes() {
         <Route path="/school-services" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
+        <Route path="/school-cctv" component={FoundationPage} />
 
         {/* Private control centre */}
         <Route path="/jetab-engine-room" component={FoundationPage} />
