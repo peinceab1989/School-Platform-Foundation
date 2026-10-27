@@ -1277,25 +1277,37 @@ function FoundationPage() {
   }, []);
 
   const signOut = useCallback(async () => {
+    setErrorText(null);
+    setStatusText(null);
+
+    // Clear protected UI state immediately so a slow network request cannot
+    // leave the previous account's dashboard visible after Sign out is tapped.
+    setSession(null);
+    setMemberships([]);
+    setMembershipsLoading(false);
+    setAccessCheckState('idle');
+    setAuthState(hasSupabaseConfig ? 'signed-out' : 'needs-config');
+    setLocation('/portal');
+
     if (!hasSupabaseConfig) return;
 
-    setErrorText(null);
-
     try {
-      const { error } = await getSupabaseClient().auth.signOut();
+      const { error } = await getSupabaseClient().auth.signOut({
+        scope: 'local',
+      });
 
       if (error) {
-        setErrorText(error.message);
-      } else {
-        setMemberships([]);
-        setAccessCheckState('idle');
-        setLocation('/portal');
+        // Keep the local UI signed out even if the server request fails.
+        setErrorText(
+          `You have been signed out on this device, but Supabase reported: ${error.message}`,
+        );
       }
     } catch (error) {
+      // The local state is already cleared; surface the connection problem.
       setErrorText(
         error instanceof Error
-          ? error.message
-          : 'Could not sign out safely.',
+          ? `You have been signed out on this device. ${error.message}`
+          : 'You have been signed out on this device, but the sign-out service could not be reached.',
       );
     }
   }, [setLocation]);
