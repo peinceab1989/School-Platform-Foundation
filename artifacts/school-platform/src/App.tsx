@@ -38,6 +38,7 @@ import AcceptInvitationPage from '@/pages/accept-invitation';
 import StudentCbtPage from '@/pages/student-cbt';
 import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
+import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
 import NotFound from '@/pages/not-found';
 
 import {
@@ -1809,6 +1810,7 @@ function AppRoutes() {
         <Route path="/admissions" component={AdmissionsPage} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/portal-options" component={PortalOptionsPage} />
+        <Route path="/practice-drills" component={StudentPracticeDrillsPage} />
 
         {/* Staff invitation acceptance */}
         <Route
