@@ -32,6 +32,7 @@ import SubjectManagementPage from '@/pages/subject-management';
 import ParentManagementPage from '@/pages/parent-management';
 import TeacherDashboard from '@/pages/teacher-dashboard';
 import AcceptInvitationPage from '@/pages/accept-invitation';
+import StudentCbtPage from '@/pages/student-cbt';
 import Home from '@/pages/home';
 import NotFound from '@/pages/not-found';
 
@@ -47,6 +48,7 @@ import {
 } from '@/pages/public-pages';
 
 import {
+  Link,
   Route,
   Switch,
   Router as WouterRouter,
@@ -250,9 +252,7 @@ function StudentDashboard({
           </h2>
 
           <p style={{ color: '#536456', lineHeight: 1.7, margin: 0 }}>
-            Your student portal is ready. Learning resources, assignments,
-            attendance, CBT, results and other student services can be
-            connected here as their individual modules become available.
+            Access your learning services here. Open Student CBT to take published examinations assigned to your enrolled class.
           </p>
         </section>
 
@@ -1120,7 +1120,8 @@ function FoundationPage() {
     if (adminMembership) {
       if (
         currentPath === '/teacher-dashboard' ||
-        currentPath === '/student-dashboard'
+        currentPath === '/student-dashboard' ||
+        currentPath === '/student-cbt'
       ) {
         setLocation('/dashboard');
       }
@@ -1132,6 +1133,7 @@ function FoundationPage() {
       if (
         currentPath === '/dashboard' ||
         currentPath === '/student-dashboard' ||
+        currentPath === '/student-cbt' ||
         ADMIN_SCHOOL_PATHS.includes(currentPath)
       ) {
         setLocation('/teacher-dashboard');
@@ -1140,7 +1142,7 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt') {
         setLocation('/student-dashboard');
       }
       return;
@@ -1509,6 +1511,18 @@ function FoundationPage() {
    * Active students receive the student dashboard.
    * This requires successful membership access verification.
    */
+  if (
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    !membershipsLoading &&
+    !adminMembership &&
+    !teacherMembership &&
+    studentMembership &&
+    currentPath === '/student-cbt'
+  ) {
+    return <StudentCbtPage />;
+  }
+
   if (
     authState === 'signed-in' &&
     accessCheckState === 'success' &&
