@@ -974,9 +974,9 @@ export default function TeacherDashboard({
           <p style={{ textAlign: 'right' }}>Date: {new Date().toLocaleDateString()}</p>
           <h2 style={{ textAlign: 'center', textDecoration: 'underline', fontSize: 17 }}>STAFF ADMISSION LETTER</h2>
           <p>Dear {teacherName || 'Staff Member'},</p>
-          <p>This letter confirms that the RESA staff record below has been approved for staff-document access by the school administration.</p>
+          <p>We are pleased to confirm your admission to the staff of RESA in the position listed below. This staff admission confirmation is issued for your records by the school administration.</p>
           <p><strong>Name:</strong> {teacherName || 'Staff member'}<br/><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}<br/><strong>Position:</strong> {staff.job_title || 'Not specified'}<br/><strong>Department:</strong> {staff.department || 'Not specified'}</p>
-          <p>Please retain this letter for your records. For any employment terms, reporting date, or other official conditions, refer to the separate written notice issued by the school administration.</p>
+          <p>Please retain this letter for your records. Detailed employment terms, reporting date, and any other conditions remain as stated in the separate official notice issued by Human Resources or the school administration.</p>
           <p style={{ marginTop: 48 }}>Yours faithfully,</p>
           <p style={{ marginTop: 28 }}><strong>Human Resources / School Administration</strong><br/>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p>
         </section>
