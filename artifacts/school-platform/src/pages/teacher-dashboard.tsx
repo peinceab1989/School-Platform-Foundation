@@ -382,18 +382,32 @@ export default function TeacherDashboard({
 
       setTeacherName(fullTeacherName || null);
 
-      // Read the current academic session.
-      const { data: session, error: sessionError } = await client
-        .from('academic_sessions')
-        .select('id')
+      // Honour the academic session selected in School Settings first.
+      // Older data may still rely on academic_sessions.is_current, so keep
+      // that as a safe fallback for schools that have not selected a default.
+      const { data: schoolSettings, error: settingsError } = await (client as any)
+        .from('school_settings')
+        .select('current_academic_session_id')
         .eq('school_id', schoolId)
-        .eq('is_current', true)
-        .limit(1)
         .maybeSingle();
 
-      if (sessionError) throw sessionError;
+      if (settingsError) throw settingsError;
 
-      setCurrentSessionId(session?.id ?? null);
+      let currentSessionId = schoolSettings?.current_academic_session_id ?? null;
+      if (!currentSessionId) {
+        const { data: currentSession, error: sessionError } = await client
+          .from('academic_sessions')
+          .select('id')
+          .eq('school_id', schoolId)
+          .eq('is_current', true)
+          .limit(1)
+          .maybeSingle();
+
+        if (sessionError) throw sessionError;
+        currentSessionId = currentSession?.id ?? null;
+      }
+
+      setCurrentSessionId(currentSessionId);
 
       // Teacher assignments determine the classes and subjects
       // this teacher is allowed to work with.
