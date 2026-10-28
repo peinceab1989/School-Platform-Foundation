@@ -402,6 +402,12 @@ export default function AdminDashboard({
       href: "/subjects",
       icon: BookOpen,
     },
+    {
+      title: "Teaching Assignments",
+      description: "Assign teachers to classes and subjects and review teaching allocations.",
+      href: "/teaching-assignments",
+      icon: ClipboardCheck,
+    },
   ];
 
   function Sidebar() {
@@ -710,8 +716,14 @@ export default function AdminDashboard({
 
               <p className="mt-1 text-sm text-slate-600">Your most-used school tools, one tap away.</p></div><span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">Admin workspace</span></div>
 
-              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {managementCards.filter((card) => ["/students", "/attendance", "/examinations", "/results"].includes(card.href)).map((card) => {
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                {[
+                  { title: "Students", description: "View and manage student records.", href: "/students", icon: Users },
+                  { title: "Teachers & Staff", description: "Invite staff and manage approvals.", href: "/staff-invitations", icon: GraduationCap },
+                  { title: "Parent Management", description: "Manage parent accounts and access.", href: "/parent-management", icon: UserCog },
+                  { title: "Classes", description: "View and manage school classes.", href: "/classes", icon: School },
+                  { title: "Subjects", description: "Manage subjects and class assignments.", href: "/subjects", icon: BookOpen },
+                ].map((card) => {
                   const Icon = card.icon;
 
                   return (
@@ -749,7 +761,7 @@ export default function AdminDashboard({
               <p className="mt-1 text-sm text-slate-600">All available modules and administration tools.</p></div><span className="text-xs font-semibold text-slate-500">Choose a module to open it</span></div>
 
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {managementCards.map((card) => {
+                {managementCards.filter((card) => !["/students", "/staff-invitations", "/parent-management", "/classes", "/subjects"].includes(card.href)).map((card) => {
                   const Icon = card.icon;
 
                   return (
