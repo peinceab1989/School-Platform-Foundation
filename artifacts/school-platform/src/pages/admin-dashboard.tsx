@@ -108,6 +108,7 @@ const navigation = [
   },
   { label: "Classes", href: "/classes", icon: School },
   { label: "Subjects", href: "/subjects", icon: BookOpen },
+  { label: "Teaching Assignments", href: "/teaching-assignments", icon: Users },
   { label: "AI Learning & Practice", href: "/practice-drills", icon: Sparkles },
 ];
 
