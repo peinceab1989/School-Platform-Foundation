@@ -21,6 +21,7 @@ import {
   X,
   UserPlus,
   ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -131,6 +132,7 @@ export default function StudentsPage({
   const [creatingLoginId, setCreatingLoginId] = useState<string | null>(
     null,
   );
+  const [resettingPasswordId, setResettingPasswordId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(
     null,
@@ -465,6 +467,54 @@ export default function StudentsPage({
     }
   }
 
+
+  async function handleResetStudentPassword(student: Student) {
+    setError("");
+    setSuccess("");
+    if (resettingPasswordId || saving || creatingLoginId) return;
+    if (!student.user_id) {
+      setError("This student has no linked portal login. Create the login first.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Send a password-reset email for ${fullName(student)} (admission no. ${student.admission_number}) to the email linked to their portal account?`,
+    );
+    if (!confirmed) return;
+    setResettingPasswordId(student.id);
+    try {
+      const supabase = getSupabaseClient();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("Your administrator session has expired. Sign in again and retry.");
+      const { data, error: lookupError } = await supabase.functions.invoke(
+        "resa-admin-reset-student-password",
+        { body: { student_id: student.id } },
+      );
+      if (lookupError) {
+        let message = lookupError.message;
+        try {
+          const response = lookupError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            if (typeof body?.error === "string") message = body.error;
+          }
+        } catch { /* Keep original function error. */ }
+        throw new Error(message || "Could not verify the student's login email.");
+      }
+      const email = typeof data?.email === "string" ? data.email.trim() : "";
+      if (!email) throw new Error("No email address is linked to this portal login.");
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (resetError) throw resetError;
+      setSuccess(`Password-reset email sent for ${fullName(student)} to the email registered to their portal login. Ask the student to check their inbox and spam folder.`);
+    } catch (err) {
+      console.error("Unable to request student password reset:", err);
+      setError(`Password reset could not be started: ${errorMessage(err)}`);
+    } finally {
+      setResettingPasswordId(null);
+    }
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -617,14 +667,26 @@ export default function StudentsPage({
 
   function renderLoginAction(student: Student, mobile = false) {
     if (student.user_id) {
+      const resetting = resettingPasswordId === student.id;
       return (
-        <span
-          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"
-          title="A user account is linked to this student"
-        >
-          <ShieldCheck className="h-4 w-4" />
-          Login linked
-        </span>
+        <div className={`flex flex-col items-start gap-2 ${mobile ? "w-full" : ""}`}>
+          <span
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"
+            title="A user account is linked to this student"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Login linked
+          </span>
+          <button
+            type="button"
+            onClick={() => void handleResetStudentPassword(student)}
+            disabled={Boolean(resettingPasswordId) || saving || Boolean(creatingLoginId)}
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-amber-600 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 ${mobile ? "w-full sm:w-auto" : ""}`}
+          >
+            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+            {resetting ? "Sending reset…" : "Reset Password"}
+          </button>
+        </div>
       );
     }
 
@@ -634,7 +696,7 @@ export default function StudentsPage({
       <button
         type="button"
         onClick={() => void handleCreateStudentLogin(student)}
-        disabled={Boolean(creatingLoginId) || saving}
+        disabled={Boolean(creatingLoginId) || Boolean(resettingPasswordId) || saving}
         className={`inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${
           mobile ? "w-full sm:w-auto" : ""
         }`}
