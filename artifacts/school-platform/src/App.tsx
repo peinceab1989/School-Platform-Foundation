@@ -38,6 +38,7 @@ import SubjectManagementPage from '@/pages/subject-management';
 import ParentManagementPage from '@/pages/parent-management';
 import TeacherDashboard from '@/pages/teacher-dashboard';
 import AcceptInvitationPage from '@/pages/accept-invitation';
+import ResetPasswordPage from '@/pages/reset-password';
 import StudentCbtPage from '@/pages/student-cbt';
 import StudentAssignmentsPanel from '@/pages/student-assignments-panel';
 import Home from '@/pages/home';
@@ -1924,11 +1925,12 @@ function AppRoutes() {
         <Route path="/portal-options" component={PortalOptionsPage} />
         <Route path="/practice-drills" component={StudentPracticeDrillsPage} />
 
-        {/* Staff invitation acceptance */}
+        {/* Staff invitation acceptance and password recovery */}
         <Route
           path="/accept-invitation"
           component={AcceptInvitationPage}
         />
+        <Route path="/reset-password" component={ResetPasswordPage} />
 
         {/* School portal */}
         <Route path="/portal" component={FoundationPage} />
