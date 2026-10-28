@@ -59,6 +59,8 @@ export default function ResetPasswordPage() {
         );
         if (completionError) throw completionError;
         if (data?.error) throw new Error(String(data.error));
+        const { error: refreshError } = await client.auth.refreshSession();
+        if (refreshError) throw refreshError;
       }
       setSuccess(true);
       setMessage(mustChangePassword ? "Your temporary password has been replaced. You can now continue to RESA." : "Your password has been updated successfully. You can now sign in to RESA.");
