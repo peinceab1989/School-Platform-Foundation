@@ -146,7 +146,11 @@ function SignInView({
       if (error) throw error;
       setResetMessage('If this email is registered, a password-reset link has been sent. Check your inbox and spam folder.');
     } catch (error) {
-      setResetMessage(error instanceof Error ? error.message : 'Password reset could not be started. Please try again.');
+      const details = error instanceof Error ? error.message : 'Password reset could not be started.';
+      const rateLimited = /rate limit|too many requests|email.*limit/i.test(details);
+      setResetMessage(rateLimited
+        ? 'The RESA email service has temporarily limited reset emails. Please wait before requesting another link, or contact your school administrator for help.'
+        : details);
     } finally {
       setResetBusy(false);
     }
