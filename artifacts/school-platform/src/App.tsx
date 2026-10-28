@@ -1648,7 +1648,7 @@ function FoundationPage() {
     studentMembership &&
     currentPath === '/student-cbt'
   ) {
-    return <StudentCbtPage />;
+    return <StudentCbtPage schoolId={studentMembership.schoolId} />;
   }
 
   if (
