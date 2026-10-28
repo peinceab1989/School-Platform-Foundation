@@ -423,9 +423,9 @@ export default function TeacherDashboard({
 
       const allTeacherRows = (teacherRows ?? []) as TeachingAssignment[];
 
-      const sessionRows = session?.id
+      const sessionRows = currentSessionId
         ? allTeacherRows.filter(
-            (item) => item.academic_session_id === session.id,
+            (item) => item.academic_session_id === currentSessionId,
           )
         : allTeacherRows;
 
