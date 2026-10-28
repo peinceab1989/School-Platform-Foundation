@@ -14,7 +14,7 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let mounted = true;
-    let client;
+    let client: ReturnType<typeof getSupabaseClient>;
     try {
       client = getSupabaseClient();
     } catch (error) {
