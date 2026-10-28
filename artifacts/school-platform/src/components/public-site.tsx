@@ -12,9 +12,9 @@ import type { ReactNode } from "react";
 import { SchoolLogo } from "@/components/school-logo";
 
 const FACEBOOK_URL = "https://www.facebook.com/share/1H2v8eruwR/";
-const SCHOOL_EMAIL = "Resainternational2024@gmail.com";
+const SCHOOL_EMAIL = "rhemaexploitsacademy@gmail.com";
 const SCHOOL_PHONE = "+2348058422691";
-const SCHOOL_WHATSAPP = "https://wa.me/2347010945774";
+const SCHOOL_WHATSAPP = "https://wa.me/2348058422691";
 const PORTAL_PATH = "/portal-options";
 
 const JETAB_WHATSAPP =
@@ -317,7 +317,7 @@ RHEMA EXPLOITS SCIENCE ACADEMY INTERNATIONAL
         </h2>
 
         <p className="mt-3 text-sm leading-6 text-[#d6dfd1]">
-          1, Smiling George Way, Behind Mat Ice, Opposite Winners&apos;
+          1, Smiling George Way, Behind Matice, Opposite Winners&apos;
           Chapel, Sapele Road, Benin City, Edo State, Nigeria.
         </p>
 
