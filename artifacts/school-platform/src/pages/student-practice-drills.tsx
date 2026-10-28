@@ -80,7 +80,19 @@ export default function StudentPracticeDrillsPage() {
       const { data, error } = await getSupabaseClient().functions.invoke("resa-ai-practice", {
         body: { level, subject, count, topic: aiTopic.trim() },
       });
-      if (error) throw new Error(error.message || "The AI question service could not be reached.");
+      if (error) {
+        let message = error.message || "The AI question service could not be reached.";
+        const context = (error as { context?: unknown }).context;
+        if (context instanceof Response) {
+          try {
+            const body = await context.clone().json();
+            if (typeof body?.error === "string") message = body.error;
+          } catch {
+            // Keep the SDK's original error message if the response is not JSON.
+          }
+        }
+        throw new Error(message);
+      }
       const rawQuestions = data?.questions;
       if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
         throw new Error(data?.error || "The AI service returned no questions. Please try again.");
