@@ -28,10 +28,10 @@ import { PublicLayout } from "@/components/public-site";
 const SCHOOL = "RHEMA EXPLOITS SCIENCE ACADEMY INT’L";
 const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
 const ADDRESS =
-  "1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.";
-const EMAIL = "Resainternational2024@gmail.com";
+  "1, Smiling George Way, Behind Matice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.";
+const EMAIL = "rhemaexploitsacademy@gmail.com";
 const PHONE = "08058422691";
-const WHATSAPP = "07010945774";
+const WHATSAPP = "08058422691";
 const ADMISSIONS_PHONE = "08052159511";
 const FACEBOOK = "https://www.facebook.com/share/1H2v8eruwR/";
 
@@ -599,7 +599,7 @@ export function AdmissionsPage() {
             <a href={`tel:${ADMISSIONS_PHONE}`} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#163c2e] px-5 py-4 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-1">
               <Phone size={18} /> Call Admissions
             </a>
-            <a href={`https://wa.me/2347010945774`} target="_blank" rel="noreferrer" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d] transition hover:bg-[#e0ebdc]">
+            <a href={`https://wa.me/2348058422691`} target="_blank" rel="noreferrer" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d] transition hover:bg-[#e0ebdc]">
               Enquire on WhatsApp <ArrowRight size={18} />
             </a>
           </aside>
@@ -631,7 +631,7 @@ export function ContactPage() {
             <a href={`tel:${PHONE}`} className="flex items-center justify-center gap-3 rounded-2xl bg-[#163c2e] p-5 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-1">
               <Phone size={20} /> Call RESA
             </a>
-            <a href="https://wa.me/2347010945774" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 rounded-2xl border border-[#d7dfd3] bg-[#eaf2e7] p-5 font-extrabold text-[#20553d] transition hover:-translate-y-1">
+            <a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 rounded-2xl border border-[#d7dfd3] bg-[#eaf2e7] p-5 font-extrabold text-[#20553d] transition hover:-translate-y-1">
               <Phone size={20} /> WhatsApp: {WHATSAPP}
             </a>
             <a href={`mailto:${EMAIL}`} className="flex items-center justify-center gap-3 rounded-2xl border border-[#e7dec9] bg-white p-5 font-extrabold text-[#163c2e] transition hover:-translate-y-1">
