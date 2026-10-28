@@ -33,8 +33,11 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at").eq("school_id", schoolId).eq("recipient_id", uid).order("sent_at", { ascending: false }).limit(100),
         db.from("announcements").select("id,title,content,announcement_type,is_published,published_at,created_at,expires_at").eq("school_id", schoolId).eq("is_published", true).order("published_at", { ascending: false }).limit(50),
       ]);
-      if (messageResult.error) throw messageResult.error;
-      if (announcementResult.error) throw announcementResult.error;
+      if (messageResult.error && announcementResult.error) {
+        throw new Error("Messages and announcements could not be loaded. " + messageResult.error.message + " / " + announcementResult.error.message);
+      }
+      if (messageResult.error) setNotice("Announcements are available, but the message inbox could not be loaded: " + messageResult.error.message);
+      else if (announcementResult.error) setNotice("Your messages are available, but announcements could not be loaded: " + announcementResult.error.message);
       const now = Date.now();
       const messages: Notice[] = (messageResult.data ?? []).map((m: any) => ({
         id: m.id, kind: "message", title: m.subject, body: m.message, createdAt: m.sent_at,
