@@ -1100,6 +1100,7 @@ function FoundationPage() {
 
       setSession(nextSession);
       setAuthState(nextSession ? 'signed-in' : 'signed-out');
+      if (nextSession?.user.app_metadata?.must_change_password === true) setLocation('/reset-password');
       setErrorText(null);
       setStatusText(null);
       setAccessCheckState('idle');
@@ -1124,6 +1125,7 @@ function FoundationPage() {
 
         setSession(data.session);
         setAuthState(data.session ? 'signed-in' : 'signed-out');
+        if (data.session?.user.app_metadata?.must_change_password === true) setLocation('/reset-password');
       })
       .catch((error: unknown) => {
         if (!active) return;
