@@ -21,6 +21,7 @@ import {
 
 import AdminDashboard from '@/pages/admin-dashboard';
 import StaffInvitationsPage from '@/pages/staff-invitations';
+import TeachingAssignmentsPage from '@/pages/teaching-assignments';
 import HrManagementPage from '@/pages/hr-management';
 import SchoolReportsPage from '@/pages/school-reports';
 import SchoolServicesPage from '@/pages/school-services';
@@ -119,6 +120,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/parents',
   '/parent-management',
   '/staff-invitations',
+  '/teaching-assignments',
   '/hr-management',
   '/school-reports',
   '/school-services',
@@ -1535,6 +1537,10 @@ function FoundationPage() {
       return <StaffAttendancePage schoolId={adminMembership.schoolId} />;
     }
 
+    if (currentPath === '/teaching-assignments') {
+      return <TeachingAssignmentsPage schoolId={adminMembership.schoolId} />;
+    }
+
     if (currentPath === '/staff-invitations') {
       return (
         <StaffInvitationsPage
@@ -1939,6 +1945,7 @@ function AppRoutes() {
         <Route path="/parents" component={FoundationPage} />
         <Route path="/parent-management" component={FoundationPage} />
         <Route path="/staff-invitations" component={FoundationPage} />
+        <Route path="/teaching-assignments" component={FoundationPage} />
         <Route path="/hr-management" component={FoundationPage} />
         <Route path="/school-reports" component={FoundationPage} />
         <Route path="/school-services" component={FoundationPage} />
