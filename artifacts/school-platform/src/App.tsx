@@ -39,6 +39,7 @@ import ParentManagementPage from '@/pages/parent-management';
 import TeacherDashboard from '@/pages/teacher-dashboard';
 import AcceptInvitationPage from '@/pages/accept-invitation';
 import StudentCbtPage from '@/pages/student-cbt';
+import StudentAssignmentsPanel from '@/pages/student-assignments-panel';
 import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
@@ -294,6 +295,8 @@ function StudentDashboard({
             <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
           </div>
         </header>
+
+        <StudentAssignmentsPanel schoolId={schoolId} userId={userId} />
 
         <section style={panelStyle}>
           <h2 style={{ margin: '0 0 10px', fontSize: 21 }}>My Learning</h2>
