@@ -342,6 +342,54 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+
+        <section id="explore-resa" className="bg-white px-5 py-12 sm:px-8 sm:py-16">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto mb-8 max-w-3xl text-center">
+              <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#98782c]">
+                Explore RESA
+              </p>
+              <h2 className="mt-3 text-2xl font-extrabold text-[#215641] sm:text-3xl">
+                Everything You Need to Know, in One Place
+              </h2>
+              <p className="mt-3 leading-7 text-[#5d6a60]">
+                Scroll through the school website or open any public section below to learn about our school, learning programmes, admissions and ways to contact us.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { title: "About RESA", description: "Learn about our school, values, vision and learning environment.", href: "/about" },
+                { title: "Academics & Development", description: "Explore academic learning and student development.", href: "/academics" },
+                { title: "Innovation & Technology", description: "Discover computing, coding, digital literacy and technology.", href: "/innovation-technology" },
+                { title: "Practical Skills", description: "Explore science activities, creativity and hands-on skills.", href: "/practical-skills" },
+                { title: "Wisdom & Inspiration", description: "Read about character, leadership and personal development.", href: "/wisdom-inspiration" },
+                { title: "School Activities & Gallery", description: "See school activities and learning highlights.", href: "/activities-gallery" },
+                { title: "Admissions", description: "Find admissions information and the next steps for applying.", href: "/admissions" },
+                { title: "Contact & Enquiries", description: "Reach the school for directions, questions and enquiries.", href: "/contact" },
+              ].map((item) => (
+                <article key={item.href} className="group flex h-full flex-col rounded-2xl border border-[#e2dece] bg-gradient-to-br from-white to-[#f5f6ee] p-5 shadow-[0_10px_24px_-18px_rgba(16,59,45,0.35)] transition duration-200 hover:-translate-y-1 hover:border-[#c9d9c8] hover:shadow-lg">
+                  <h3 className="text-lg font-extrabold text-[#215641]">{item.title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-6 text-[#657066]">{item.description}</p>
+                  <Link href={item.href} className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#215641] hover:text-[#98782c]">
+                    Open section <ArrowRight size={15} aria-hidden="true" />
+                  </Link>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-2xl bg-[#174b35] p-6 text-white shadow-xl sm:flex-row sm:items-center sm:p-8">
+              <div>
+                <h3 className="text-xl font-extrabold">Already have a RESA portal account?</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/80">Use the secure portal entry to continue to the available student, parent, teacher or administrator sign-in options.</p>
+              </div>
+              <Link href="/portal-options" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#e7cd83] px-5 py-3 font-bold text-[#173e2d] transition hover:bg-white">
+                Portal & Services <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
       </main>
     </PublicLayout>
   );
