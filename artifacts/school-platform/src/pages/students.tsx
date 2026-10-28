@@ -509,7 +509,11 @@ export default function StudentsPage({
       setSuccess(`Password-reset email sent for ${fullName(student)} to the email registered to their portal login. Ask the student to check their inbox and spam folder.`);
     } catch (err) {
       console.error("Unable to request student password reset:", err);
-      setError(`Password reset could not be started: ${errorMessage(err)}`);
+      const details = errorMessage(err);
+      const rateLimited = /rate limit|too many requests|email.*limit/i.test(details);
+      setError(rateLimited
+        ? "RESA email service has temporarily limited password-reset emails. Do not tap Reset Password again now. Wait for the email limit to clear, or ask the administrator to use the temporary-password option when it is enabled."
+        : `Password reset could not be started: ${details}`);
     } finally {
       setResettingPasswordId(null);
     }
