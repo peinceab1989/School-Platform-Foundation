@@ -463,17 +463,17 @@ export default function AdminDashboard({
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f7f1] text-slate-900">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-emerald-50 via-[#f4f7f1] to-slate-100 text-slate-900">
       <div className="flex min-h-screen">
-        <aside className="hidden w-[270px] shrink-0 border-r border-emerald-950/10 bg-white lg:block">
+        <aside className="hidden w-[286px] shrink-0 border-r border-emerald-950/10 bg-white shadow-[8px_0_28px_rgba(6,78,59,0.06)] lg:block">
           <div className="sticky top-0 h-screen">
             <Sidebar />
           </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="sticky top-0 z-30 border-b border-emerald-100 bg-white/95 shadow-sm backdrop-blur">
-            <div className="flex min-h-[76px] items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+          <header className="sticky top-0 z-30 border-b border-white/80 bg-white/90 shadow-[0_8px_28px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+            <div className="flex min-h-[82px] items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
               <div className="flex min-w-0 items-center gap-3">
                 <button
                   type="button"
@@ -530,11 +530,15 @@ export default function AdminDashboard({
             </div>
           )}
 
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-            <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-800 to-emerald-700 p-6 text-white shadow-xl shadow-emerald-950/10 sm:p-8 lg:p-10">
+          <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-9">
+            <section className="group relative isolate overflow-hidden rounded-[2rem] border border-emerald-700/30 bg-gradient-to-br from-[#092e22] via-[#0d5a3d] to-[#148153] p-6 text-white shadow-[0_24px_60px_-20px_rgba(6,78,59,0.65)] ring-1 ring-white/40 transition duration-300 hover:shadow-[0_30px_75px_-22px_rgba(6,78,59,0.7)] sm:p-8 lg:p-10">
               <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full border border-amber-200/20" />
               <div aria-hidden="true" className="pointer-events-none absolute -right-2 -top-10 h-44 w-44 rounded-full border border-amber-200/20" />
-              <p className="relative text-sm font-bold uppercase tracking-[0.18em] text-amber-200">
+              <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 right-24 h-64 w-64 rounded-full bg-emerald-300/10 blur-3xl" />
+              <div aria-hidden="true" className="pointer-events-none absolute right-8 top-8 h-40 w-40 rounded-full bg-white/5 blur-2xl" />
+              <div className="relative z-10 grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_230px]">
+                <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-amber-200">
                 School Administration
               </p>
 
@@ -547,15 +551,29 @@ export default function AdminDashboard({
                 daily school operations from one place.
               </p>
 
-              <p className="relative mt-5 inline-flex max-w-full break-words rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-emerald-50">
-                {schoolName}
+              <p className="mt-5 inline-flex max-w-full break-words items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-emerald-50 shadow-inner backdrop-blur">
+                <School className="h-4 w-4 shrink-0 text-amber-200" /> {schoolName}
               </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link href="/students" className="inline-flex items-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-sm font-extrabold text-emerald-950 shadow-[0_8px_0_rgba(120,83,12,0.25)] transition hover:-translate-y-0.5 hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">Manage students <ArrowRight className="h-4 w-4" /></Link>
+                <Link href="/practice-drills" className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-3 text-sm font-bold text-white shadow-lg backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"><Sparkles className="h-4 w-4 text-amber-200" /> AI Learning & Practice</Link>
+              </div>
+                </div>
+                <div className="relative mx-auto hidden w-full max-w-[210px] lg:block">
+                  <div className="absolute inset-3 rounded-[2rem] bg-amber-300/20 blur-2xl" />
+                  <div className="relative rounded-[2rem] border border-white/25 bg-gradient-to-br from-white/25 to-white/5 p-3 shadow-[0_22px_45px_rgba(0,0,0,0.25)] backdrop-blur-md transition duration-300 group-hover:-translate-y-1 group-hover:rotate-1">
+                    <div className="rounded-[1.5rem] border border-amber-200/40 bg-white p-3 shadow-inner"><img src="/media/logo/resa-logo.jpg" alt="RESA official school crest" className="aspect-square w-full rounded-2xl object-contain" /></div>
+                    <p className="mt-3 text-center text-xs font-extrabold tracking-[0.18em] text-amber-100">PASSION • SKILLS</p>
+                    <p className="mt-1 text-center text-[10px] font-semibold tracking-[0.12em] text-white/75">EXCELLENT SPIRIT</p>
+                  </div>
+                </div>
+              </div>
             </section>
 
-            <section className="mt-10">
+            <section className="mt-9">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
+                  <h2 className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
                     School Overview
                   </h2>
 
@@ -594,7 +612,7 @@ export default function AdminDashboard({
                   return (
                     <article
                       key={card.title}
-                      className="group rounded-2xl border border-white bg-white p-5 shadow-md shadow-emerald-950/[0.04] ring-1 ring-slate-900/[0.03] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                      className="group relative overflow-hidden rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white to-emerald-50/70 p-5 shadow-[0_12px_28px_-14px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_40px_-16px_rgba(6,78,59,0.25)]"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold text-slate-600">
@@ -602,13 +620,13 @@ export default function AdminDashboard({
                         </h3>
 
                         <span
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${card.iconStyle}`}
+                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-inner ring-1 ring-black/[0.03] transition duration-300 group-hover:rotate-3 group-hover:scale-105 ${card.iconStyle}`}
                         >
                           <Icon className="h-5 w-5" />
                         </span>
                       </div>
 
-                      <p className="mt-4 break-words text-3xl font-extrabold text-slate-900">
+                      <p className="mt-4 break-words text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
                         {formatCount(card.stat)}
                       </p>
 
@@ -667,14 +685,12 @@ export default function AdminDashboard({
               )}
             </section>
 
-            <section className="mt-8">
-              <h2 className="text-xl font-bold">Quick Actions</h2>
+            <section className="mt-9 rounded-[1.75rem] border border-white bg-white/70 p-4 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-sm sm:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black tracking-tight text-slate-900">Quick Actions</h2>
 
-              <p className="mt-1 text-sm text-slate-600">
-                Quickly open the main management areas.
-              </p>
+              <p className="mt-1 text-sm text-slate-600">Your most-used school tools, one tap away.</p></div><span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">Admin workspace</span></div>
 
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {managementCards.slice(0, 4).map((card) => {
                   const Icon = card.icon;
 
@@ -682,10 +698,10 @@ export default function AdminDashboard({
                     <Link
                       key={card.href}
                       href={card.href}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-green-300 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+                      className="group flex min-h-[116px] items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-[0_10px_22px_-16px_rgba(15,23,42,0.45)] transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:bg-emerald-50 hover:shadow-[0_18px_32px_-18px_rgba(6,78,59,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
                     >
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className="rounded-lg bg-green-100 p-2 text-green-800">
+                        <span className="rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-50 p-2.5 text-emerald-800 shadow-inner ring-1 ring-emerald-900/5 transition group-hover:scale-105">
                           <Icon className="h-5 w-5" />
                         </span>
 
@@ -700,21 +716,19 @@ export default function AdminDashboard({
                         </span>
                       </span>
 
-                      <ArrowRight className="h-5 w-5 shrink-0 text-slate-400" />
+                      <ArrowRight className="h-5 w-5 shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-emerald-700" />
                     </Link>
                   );
                 })}
               </div>
             </section>
 
-            <section className="mt-8">
-              <h2 className="text-xl font-bold">Management</h2>
+            <section className="mt-9">
+              <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black tracking-tight text-slate-900">School Management</h2>
 
-              <p className="mt-1 text-sm text-slate-600">
-                Access the available school management sections.
-              </p>
+              <p className="mt-1 text-sm text-slate-600">All available modules and administration tools.</p></div><span className="text-xs font-semibold text-slate-500">Choose a module to open it</span></div>
 
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {managementCards.map((card) => {
                   const Icon = card.icon;
 
@@ -722,9 +736,9 @@ export default function AdminDashboard({
                     <Link
                       key={card.href}
                       href={card.href}
-                      className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-green-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+                      className="group relative overflow-hidden rounded-2xl border border-white bg-gradient-to-br from-white via-white to-emerald-50/60 p-5 shadow-[0_14px_30px_-20px_rgba(15,23,42,0.45)] ring-1 ring-slate-900/[0.04] transition duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-[0_24px_42px_-20px_rgba(6,78,59,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
                     >
-                      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-800">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-white text-emerald-800 shadow-[inset_0_1px_2px_rgba(6,78,59,0.08),0_5px_12px_rgba(6,78,59,0.08)] ring-1 ring-emerald-900/5 transition duration-300 group-hover:-rotate-3 group-hover:scale-105">
                         <Icon className="h-5 w-5" />
                       </span>
 
@@ -747,8 +761,9 @@ export default function AdminDashboard({
             </section>
 
 
-            <footer className="mt-8 border-t border-slate-200 py-5 text-center text-xs text-slate-500">
-              RESA School Portal · {new Date().getFullYear()}
+            <footer className="mt-10 border-t border-slate-200/80 py-6 text-center text-xs text-slate-500">
+              <p className="font-semibold text-slate-600">RESA School Portal · {new Date().getFullYear()}</p>
+              <p className="mt-1">Designed &amp; Powered by <span className="font-extrabold tracking-wide text-emerald-800">JETAB TECH</span></p>
             </footer>
           </main>
         </div>
