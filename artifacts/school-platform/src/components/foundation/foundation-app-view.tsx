@@ -19,6 +19,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { SchoolLogo } from '@/components/school-logo';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
 export type FoundationRole = 'admin' | 'teacher' | 'student' | 'parent';
 
@@ -121,10 +122,34 @@ function SignInView({
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSignIn(email, password);
+  }
+
+  async function handlePasswordReset() {
+    setResetMessage('');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setResetMessage('Enter your registered email address above, then tap Forgot password.');
+      return;
+    }
+    setResetBusy(true);
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setResetMessage('If this email is registered, a password-reset link has been sent. Check your inbox and spam folder.');
+    } catch (error) {
+      setResetMessage(error instanceof Error ? error.message : 'Password reset could not be started. Please try again.');
+    } finally {
+      setResetBusy(false);
+    }
   }
 
   return (
@@ -306,6 +331,23 @@ function SignInView({
                   )}
                 </button>
               </form>
+
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => void handlePasswordReset()}
+                  disabled={resetBusy || isLoading || needsConfig}
+                  className="text-sm font-semibold text-emerald-800 underline underline-offset-4 disabled:opacity-50"
+                  data-testid="button-forgot-password"
+                >
+                  {resetBusy ? 'Sending reset link…' : 'Forgot password?'}
+                </button>
+                {resetMessage && (
+                  <p className="mt-2 text-sm text-[#536456]" role="status" aria-live="polite">
+                    {resetMessage}
+                  </p>
+                )}
+              </div>
 
               {statusText && (
                 <p
