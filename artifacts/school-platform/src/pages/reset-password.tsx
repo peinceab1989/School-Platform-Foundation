@@ -6,6 +6,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 export default function ResetPasswordPage() {
   const [ready, setReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,12 +26,14 @@ export default function ResetPasswordPage() {
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setHasSession(Boolean(session));
+      setMustChangePassword(session?.user.app_metadata?.must_change_password === true);
       setReady(true);
     });
     void client.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
       if (error) setMessage("The reset link could not be verified. Request a new link and try again.");
       setHasSession(Boolean(data.session));
+      setMustChangePassword(data.session?.user.app_metadata?.must_change_password === true);
       setReady(true);
     });
     return () => {
@@ -46,10 +49,19 @@ export default function ResetPasswordPage() {
     if (password !== confirmPassword) return setMessage("The passwords do not match.");
     setBusy(true);
     try {
-      const { error } = await getSupabaseClient().auth.updateUser({ password });
+      const client = getSupabaseClient();
+      const { error } = await client.auth.updateUser({ password });
       if (error) throw error;
+      if (mustChangePassword) {
+        const { data, error: completionError } = await client.functions.invoke(
+          "resa-admin-reset-student-password",
+          { body: { action: "complete_password_change" } },
+        );
+        if (completionError) throw completionError;
+        if (data?.error) throw new Error(String(data.error));
+      }
       setSuccess(true);
-      setMessage("Your password has been updated successfully. You can now sign in to RESA.");
+      setMessage(mustChangePassword ? "Your temporary password has been replaced. You can now continue to RESA." : "Your password has been updated successfully. You can now sign in to RESA.");
       setPassword("");
       setConfirmPassword("");
     } catch (error) {
@@ -74,7 +86,7 @@ export default function ResetPasswordPage() {
           <div className="space-y-4"><p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert">{message || "This reset link is invalid, expired, or already used. Return to the portal and request a new link."}</p><Link href="/portal" className="block w-full rounded-lg bg-emerald-800 px-4 py-3 text-center font-semibold text-white hover:bg-emerald-900">Return to portal</Link></div>
         ) : (
           <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
-            <p className="text-sm leading-6 text-slate-600">Choose a new password for your RESA portal account.</p>
+            <p className="text-sm leading-6 text-slate-600">{mustChangePassword ? "For your security, you must replace the temporary password before using the RESA portal." : "Choose a new password for your RESA portal account."}</p>
             <label className="block text-sm font-semibold" htmlFor="new-password">New password</label>
             <input id="new-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" placeholder="At least 8 characters" />
             <label className="block text-sm font-semibold" htmlFor="confirm-password">Confirm new password</label>
