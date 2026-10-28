@@ -40,6 +40,7 @@ export default function StudentPracticeDrillsPage() {
   const [started, setStarted] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
   const available = useMemo(
@@ -54,6 +55,7 @@ export default function StudentPracticeDrillsPage() {
     const shuffled = [...available].sort(() => Math.random() - 0.5);
     const count = requestedCount === "all" ? shuffled.length : Math.min(Number(requestedCount), shuffled.length);
     setQuestions(shuffled.slice(0, count));
+    setAiGenerated(false);
     setPicked({});
     setIndex(0);
     setSubmitted(false);
@@ -63,6 +65,7 @@ export default function StudentPracticeDrillsPage() {
 
   const reset = () => {
     setQuestions([]);
+    setAiGenerated(false);
     setPicked({});
     setIndex(0);
     setSubmitted(false);
@@ -100,6 +103,7 @@ export default function StudentPracticeDrillsPage() {
         };
       });
       setQuestions(generated);
+      setAiGenerated(true);
       setPicked({});
       setIndex(0);
       setSubmitted(false);
@@ -189,7 +193,7 @@ export default function StudentPracticeDrillsPage() {
         <div className="mt-6 space-y-4">{questions.map((q,i)=><article key={q.id} className="rounded-xl border p-4">
           <div className="flex items-start gap-2"><span className="mt-0.5 text-sm font-bold text-slate-500">{i+1}.</span><div className="min-w-0 flex-1"><p className="font-bold">{q.prompt}</p><p className={`mt-2 text-sm font-semibold ${picked[q.id]===q.answer ? "text-emerald-800" : "text-rose-700"}`}>{picked[q.id]===undefined ? "Not answered" : picked[q.id]===q.answer ? "Correct" : "Your answer: " + q.options[picked[q.id]]}</p><p className="mt-1 text-sm text-slate-700">Correct answer: <strong>{q.options[q.answer]}</strong></p><p className="mt-2 text-sm leading-6 text-slate-600">{q.explanation}</p><p className="mt-2 text-xs text-slate-400">Source: {q.source}</p></div></div>
         </article>)}</div>
-        <div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={startDrill} className="inline-flex items-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white"><RotateCcw size={16}/> Try another drill</button><button type="button" onClick={reset} className="rounded-xl border px-4 py-3 text-sm font-bold">Change drill settings</button></div>
+        <div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={()=>aiGenerated ? void generateAiDrill() : startDrill()} disabled={aiBusy} className="inline-flex items-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"><RotateCcw size={16}/> {aiBusy ? "Generating…" : "Try another drill"}</button><button type="button" onClick={reset} className="rounded-xl border px-4 py-3 text-sm font-bold">Change drill settings</button></div>
       </section>}
 
       <p className="mt-5 text-center text-xs leading-5 text-slate-500">RESA learning hub · Practice is optional and does not affect official results. The built-in bank currently contains starter questions; online resources open separately and are not represented as imported or verified quiz questions.</p>
