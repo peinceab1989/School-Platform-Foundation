@@ -6,6 +6,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 type Exam = {
   id: string; title: string; instructions: string | null; duration_minutes: number | null;
   total_marks: number; start_at: string | null; end_at: string | null; subject_name: string;
+  class_id?: string; class_name?: string;
   attempt_id: string | null; attempt_status: string | null; score: number | null;
 };
 type Question = {
@@ -19,7 +20,7 @@ type ActiveExam = {
   questions: Question[];
 };
 
-export default function StudentCbtPage() {
+export default function StudentCbtPage({ schoolId }: { schoolId: string }) {
   const [exams, setExams] = useState<Exam[]>([]);
   const [active, setActive] = useState<ActiveExam | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -39,7 +40,17 @@ export default function StudentCbtPage() {
       const { data, error: invokeError } = await getSupabaseClient().functions.invoke("resa-student-cbt", { body: { action: "list" } });
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
-      setExams((data?.exams ?? []) as Exam[]);
+      const listed = (data?.exams ?? []) as Exam[];
+      const classIds = [...new Set(listed.map((exam) => exam.class_id).filter((id): id is string => Boolean(id)))];
+      if (classIds.length) {
+        const { data: classRows, error: classError } = await getSupabaseClient()
+          .from("school_classes").select("id,name").eq("school_id", schoolId).in("id", classIds);
+        if (classError) throw classError;
+        const classNames = new Map((classRows ?? []).map((row) => [row.id, row.name]));
+        setExams(listed.map((exam) => ({ ...exam, class_name: exam.class_id ? classNames.get(exam.class_id) ?? "Class unavailable" : "Class not provided by exam service" })));
+      } else {
+        setExams(listed.map((exam) => ({ ...exam, class_name: "Class not provided by exam service" })));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load available examinations.");
     } finally { setLoading(false); }
@@ -164,7 +175,7 @@ export default function StudentCbtPage() {
         {!active.questions.length && <p className="rounded-lg bg-amber-50 p-4 text-sm">No questions are attached to this exam. Contact your teacher before submitting.</p>}
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t pt-4"><p className="text-sm text-slate-600">{Object.values(answers).filter(v=>v.trim()).length} answer(s) entered</p><button type="button" disabled={busy} onClick={()=>void submit()} className="flex items-center gap-2 rounded-lg bg-green-800 px-5 py-3 font-bold text-white disabled:opacity-50"><Send size={16}/>{busy?"Submitting…":"Submit examination"}</button></div>
       </section> : <><div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">Available examinations</h2><p className="text-sm text-slate-600">Only published exams scheduled for your currently enrolled class are shown.</p></div><button onClick={()=>void load()} disabled={loading} className="flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm"><RefreshCw size={15}/> Refresh</button></div>
-        {loading ? <p className="rounded-xl border bg-white p-8 text-center text-slate-500">Loading available examinations…</p> : !exams.length ? <p className="rounded-xl border bg-white p-8 text-center text-slate-600">No examinations are currently available for your class and session.</p> : <div className="grid gap-4 md:grid-cols-2">{exams.map(exam=><article key={exam.id} className="rounded-xl border bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-green-800">{exam.subject_name}</p><h3 className="mt-1 text-lg font-bold">{exam.title}</h3></div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{exam.total_marks} marks</span></div>{exam.instructions && <p className="mt-3 line-clamp-3 text-sm text-slate-600">{exam.instructions}</p>}<p className="mt-3 text-sm text-slate-600">Duration: {exam.duration_minutes ?? 30} minutes</p>
+        {loading ? <p className="rounded-xl border bg-white p-8 text-center text-slate-500">Loading available examinations…</p> : !exams.length ? <p className="rounded-xl border bg-white p-8 text-center text-slate-600">No examinations are currently available for your class and session.</p> : <div className="grid gap-4 md:grid-cols-2">{exams.map(exam=><article key={exam.id} className="rounded-xl border bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-green-800">{exam.subject_name || "Subject unavailable"}</p><p className="mt-1 text-xs font-semibold text-slate-500">{exam.class_name || "Class unavailable"}</p><h3 className="mt-1 text-lg font-bold">{exam.title}</h3></div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{exam.total_marks} marks</span></div>{exam.instructions && <p className="mt-3 line-clamp-3 text-sm text-slate-600">{exam.instructions}</p>}<p className="mt-3 text-sm text-slate-600">Duration: {exam.duration_minutes ?? 30} minutes</p>
           {exam.attempt_status === "submitted" ? <div className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-900">Submitted. Auto-graded score: {exam.score ?? 0} marks. {exam.attempt_id ? "" : ""}</div> : <button disabled={busy} onClick={()=>void start(exam.id)} className="mt-4 w-full rounded-lg bg-green-800 px-4 py-3 font-bold text-white disabled:opacity-50">{exam.attempt_status === "in_progress" ? "Resume examination" : "Start examination"}</button>}
         </article>)}</div>}</>}
     </div>
