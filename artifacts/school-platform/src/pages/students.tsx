@@ -519,6 +519,56 @@ export default function StudentsPage({
     }
   }
 
+  async function handleSetTemporaryPassword(student: Student) {
+    setError("");
+    setSuccess("");
+    if (resettingPasswordId || saving || creatingLoginId) return;
+    if (!student.user_id) {
+      setError("This student has no linked portal login. Create the login first.");
+      return;
+    }
+    if (normalizedStatus(student.status) !== "active") {
+      setError("Only active students can receive a temporary password.");
+      return;
+    }
+    const confirmed = window.confirm(
+      "Set a temporary password for " + fullName(student) + "? Their current password will stop working. They must choose a new password at their next sign-in.",
+    );
+    if (!confirmed) return;
+    setResettingPasswordId(student.id);
+    try {
+      const supabase = getSupabaseClient();
+      if (!supabase) throw new Error("Supabase is not configured.");
+      const { data, error: functionError } = await supabase.functions.invoke(
+        "resa-admin-reset-student-password",
+        { body: { action: "set_temporary_password", student_id: student.id } },
+      );
+      if (functionError) {
+        let message = functionError.message;
+        try {
+          const response = functionError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            if (typeof body?.error === "string") message = body.error;
+          }
+        } catch { /* Keep the original function error. */ }
+        throw new Error(message || "Could not set a temporary password.");
+      }
+      if (data?.error) throw new Error(String(data.error));
+      const temporaryPassword = typeof data?.temporary_password === "string" ? data.temporary_password : "";
+      if (!temporaryPassword) throw new Error("The server did not return a temporary password. Contact support before retrying.");
+      window.alert(
+        "TEMPORARY PASSWORD — " + fullName(student) + "\n\n" + temporaryPassword + "\n\nCopy it now and give it privately to the student. It is shown only once. The student must change it after signing in.",
+      );
+      setSuccess("A temporary password was set for " + fullName(student) + ". Share it privately; the student must change it at first sign-in.");
+    } catch (err) {
+      console.error("Unable to set student temporary password:", err);
+      setError("Temporary password could not be set: " + errorMessage(err));
+    } finally {
+      setResettingPasswordId(null);
+    }
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -689,6 +739,15 @@ export default function StudentsPage({
           >
             {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
             {resetting ? "Sending reset…" : "Reset Password"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSetTemporaryPassword(student)}
+            disabled={Boolean(resettingPasswordId) || saving || Boolean(creatingLoginId)}
+            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${mobile ? "w-full sm:w-auto" : ""}`}
+          >
+            <KeyRound className="h-4 w-4" />
+            Set Temporary Password
           </button>
         </div>
       );
