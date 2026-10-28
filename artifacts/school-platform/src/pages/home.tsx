@@ -94,8 +94,7 @@ export default function HomePage() {
 
   return (
     <PublicLayout>
-      <main>
-        <section className="relative overflow-hidden bg-[#174b35] text-white">
+      <section className="relative overflow-hidden bg-[#174b35] text-white">
           <div className="mx-auto grid max-w-7xl items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-2 lg:gap-12 lg:py-20">
             <div>
               <p className="text-xs font-bold tracking-[0.2em] text-[#e7cd83] sm:text-sm">
@@ -390,7 +389,6 @@ export default function HomePage() {
           </div>
         </section>
 
-      </main>
     </PublicLayout>
   );
 }
