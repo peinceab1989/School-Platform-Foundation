@@ -26,6 +26,7 @@ import {
   CheckCircle2,
   Database,
   Video,
+  Sparkles,
 } from "lucide-react";
 
 type AdminDashboardProps = {
@@ -107,6 +108,7 @@ const navigation = [
   },
   { label: "Classes", href: "/classes", icon: School },
   { label: "Subjects", href: "/subjects", icon: BookOpen },
+  { label: "AI Learning & Practice", href: "/practice-drills", icon: Sparkles },
 ];
 
 export default function AdminDashboard({
@@ -297,6 +299,12 @@ export default function AdminDashboard({
 
   const managementCards = [
     {
+      title: "AI Learning & Practice",
+      description: "Create extra practice questions with answer explanations, revise subjects, and prepare for class tests and entrance examinations.",
+      href: "/practice-drills",
+      icon: Sparkles,
+    },
+    {
       title: "Additional School Services",
       description: "Open fees, timetables, library, inventory, transport, admissions, payroll, RESA Drive and biometric record modules.",
       href: "/school-services",
@@ -399,7 +407,7 @@ export default function AdminDashboard({
     return (
       <div className="flex h-full flex-col bg-white">
         <div className="border-b border-emerald-100 bg-gradient-to-br from-emerald-950 to-emerald-800 px-5 py-7 text-white">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-300/40 bg-white/10 text-xl font-black tracking-tight text-amber-200 shadow-inner">R</div>
+          <div className="mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-amber-300/40 bg-white p-1 shadow-inner"><img src="/media/logo/resa-logo.jpg" alt="RESA school crest" className="h-full w-full rounded-xl object-contain" /></div>
           <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-200">
             RESA SCHOOL PORTAL
           </p>
@@ -667,7 +675,7 @@ export default function AdminDashboard({
               </p>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {managementCards.slice(0, 2).map((card) => {
+                {managementCards.slice(0, 4).map((card) => {
                   const Icon = card.icon;
 
                   return (
