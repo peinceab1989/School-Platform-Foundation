@@ -25,16 +25,27 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
       const { data: auth, error: authError } = await db.auth.getUser();
       if (authError || !auth.user) throw new Error("Please sign in again.");
       setUserId(auth.user.id);
-      const { data: contactsData, error: contactsError } = await db.rpc("get_school_message_contacts", { p_school_id: schoolId });
-      if (contactsError) throw contactsError;
-      setContacts((contactsData ?? []).filter((m: any) => m.user_id !== auth.user.id).map((m: any) => ({
-        user_id: m.user_id,
-        role: m.role,
-        display_name: m.display_name || (String(m.role).charAt(0).toUpperCase() + String(m.role).slice(1) + " member"),
-      })));
-      const { data: rows, error: messagesError } = await db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at").eq("school_id", schoolId).or(`sender_id.eq.${auth.user.id},recipient_id.eq.${auth.user.id}`).order("sent_at", { ascending: false }).limit(150);
-      if (messagesError) throw messagesError;
-      setMessages((rows ?? []) as Message[]);
+      // Load the inbox independently of the recipient directory. If the contacts
+      // RPC is unavailable, users must still be able to read existing messages.
+      const [contactsResult, messagesResult] = await Promise.all([
+        db.rpc("get_school_message_contacts", { p_school_id: schoolId }),
+        db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at")
+          .eq("school_id", schoolId)
+          .or(`sender_id.eq.${auth.user.id},recipient_id.eq.${auth.user.id}`)
+          .order("sent_at", { ascending: false }).limit(150),
+      ]);
+      if (contactsResult.error) {
+        setContacts([]);
+        setNotice("Your message inbox loaded, but the recipient directory is unavailable. An administrator should check the school messaging contacts permission.");
+      } else {
+        setContacts((contactsResult.data ?? []).filter((m: any) => m.user_id !== auth.user.id).map((m: any) => ({
+          user_id: m.user_id,
+          role: m.role,
+          display_name: m.display_name || (String(m.role).charAt(0).toUpperCase() + String(m.role).slice(1) + " member"),
+        })));
+      }
+      if (messagesResult.error) throw messagesResult.error;
+      setMessages((messagesResult.data ?? []) as Message[]);
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load school messages."); }
     finally { setLoading(false); }
   }, [schoolId]);
