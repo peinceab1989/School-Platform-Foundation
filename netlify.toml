@@ -4,3 +4,10 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Serve the React application for direct visits to client-side routes.
+# Netlify serves existing files/assets normally and falls back to index.html for app routes.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
