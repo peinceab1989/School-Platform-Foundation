@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, BookOpenCheck, CheckCircle2, RotateCcw, ExternalLink, Trophy } from "lucide-react";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { ArrowLeft, BookOpenCheck, CheckCircle2, RotateCcw, ExternalLink, Trophy, Sparkles, LoaderCircle } from "lucide-react";
 
 type DrillQuestion = {
   id: string;
@@ -37,6 +38,9 @@ export default function StudentPracticeDrillsPage() {
   const [picked, setPicked] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
   const [started, setStarted] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const available = useMemo(
     () => bank.filter(q => (level === "All levels" || q.level === level) && (subject === "All subjects" || q.subject === subject)),
@@ -65,6 +69,49 @@ export default function StudentPracticeDrillsPage() {
     setStarted(false);
   };
 
+  const generateAiDrill = async () => {
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const count = requestedCount === "all" ? 10 : Math.min(30, Math.max(1, Number(requestedCount) || 5));
+      const { data, error } = await getSupabaseClient().functions.invoke("resa-ai-practice", {
+        body: { level, subject, count, topic: aiTopic.trim() },
+      });
+      if (error) throw new Error(error.message || "The AI question service could not be reached.");
+      const rawQuestions = data?.questions;
+      if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
+        throw new Error(data?.error || "The AI service returned no questions. Please try again.");
+      }
+      const generated: DrillQuestion[] = rawQuestions.map((q: any, i: number) => {
+        const options = Array.isArray(q.options) ? q.options.map((option: unknown) => String(option)) : [];
+        const answer = Number(q.answer);
+        if (!q.prompt || options.length < 2 || !Number.isInteger(answer) || answer < 0 || answer >= options.length) {
+          throw new Error("The AI returned a question in an unexpected format. Please generate another set.");
+        }
+        return {
+          id: `ai-${Date.now()}-${i}`,
+          level: String(q.level || level),
+          subject: String(q.subject || subject),
+          prompt: String(q.prompt),
+          options,
+          answer,
+          explanation: String(q.explanation || "Review this answer with your teacher if you are unsure."),
+          source: "AI-generated original practice question — review for accuracy",
+        };
+      });
+      setQuestions(generated);
+      setPicked({});
+      setIndex(0);
+      setSubmitted(false);
+      setStarted(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "AI question generation failed. Please try again.");
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   return <main className="min-h-screen bg-[#f5f7f2] text-slate-900">
     <header className="bg-gradient-to-br from-emerald-950 to-emerald-700 text-white"><div className="mx-auto max-w-3xl px-4 py-6">
       <Link href="/portal-options" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-50 hover:text-amber-200"><ArrowLeft size={16}/> Portal & Services</Link>
@@ -88,6 +135,23 @@ export default function StudentPracticeDrillsPage() {
               <option value="all">All available ({available.length})</option>
             </select>
           </label>
+        </div>
+        <div className="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <span className="rounded-xl bg-emerald-900 p-2.5 text-amber-200"><Sparkles size={22}/></span>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-extrabold text-emerald-950">AI Question Generator</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Generate fresh practice questions with multiple-choice answers and explanations for revision. These are practice materials, not official exam questions or grades.</p>
+            </div>
+          </div>
+          <label className="mt-4 flex flex-col gap-1.5 text-sm font-bold">Topic (optional)
+            <input value={aiTopic} onChange={e=>setAiTopic(e.target.value)} placeholder="e.g. fractions, photosynthesis, grammar, algebra" maxLength={120} className="rounded-xl border border-slate-300 bg-white px-3 py-3 font-medium outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"/>
+          </label>
+          <button type="button" onClick={()=>void generateAiDrill()} disabled={aiBusy} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-900 px-5 py-3.5 font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">
+            {aiBusy ? <><LoaderCircle size={18} className="animate-spin"/> Generating questions…</> : <><Sparkles size={18}/> Generate AI practice questions</>}
+          </button>
+          {aiError && <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{aiError}</p>}
+          <p className="mt-2 text-xs leading-5 text-slate-500">Requires a signed-in RESA account and the school’s AI service configuration. AI-generated answers should be reviewed by a teacher.</p>
         </div>
         <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-950"><strong>{available.length}</strong> question(s) currently available for this selection. Questions are shuffled for each drill.</div>
         <button type="button" onClick={startDrill} disabled={!available.length} className="mt-5 w-full rounded-xl bg-emerald-900 px-5 py-3.5 font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Start optional practice drill</button>
