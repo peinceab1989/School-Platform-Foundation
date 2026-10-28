@@ -23,7 +23,7 @@ export default function SchoolReportsPage({ schoolId }: { schoolId: string }) {
         db.from("students").select("id",{count:"exact",head:true}).eq("school_id",schoolId),
         db.from("staff").select("id",{count:"exact",head:true}).eq("school_id",schoolId),
         db.from("school_classes").select("id",{count:"exact",head:true}).eq("school_id",schoolId),
-        db.from("school_subjects").select("id",{count:"exact",head:true}).eq("school_id",schoolId),
+        db.from("subjects").select("id",{count:"exact",head:true}).eq("school_id",schoolId),
         db.from("online_exams").select("id",{count:"exact",head:true}).eq("school_id",schoolId),
         db.from("announcements").select("id",{count:"exact",head:true}).eq("school_id",schoolId),
         db.from("student_attendance").select("id",{count:"exact",head:true}).eq("school_id",schoolId).eq("attendance_date",today),
