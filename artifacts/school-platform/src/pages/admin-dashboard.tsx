@@ -423,29 +423,48 @@ export default function AdminDashboard({
 
         <nav
           aria-label="Administrator navigation"
-          className="flex-1 space-y-1 overflow-y-auto px-3 py-4"
+          className="flex-1 space-y-5 overflow-y-auto px-3 py-5"
         >
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const active = location === item.href;
+          {[
+            { label: "WORKSPACE", items: navigation.filter((item) => item.href === "/dashboard") },
+            { label: "PEOPLE", items: navigation.filter((item) => ["/students", "/staff-invitations", "/parent-management", "/hr-management"].includes(item.href)) },
+            { label: "ACADEMICS", items: navigation.filter((item) => ["/attendance", "/classes", "/subjects", "/examinations", "/results", "/practice-drills"].includes(item.href)) },
+            { label: "COMMUNICATION", items: navigation.filter((item) => ["/school-communication", "/notifications", "/announcements"].includes(item.href)) },
+            { label: "OPERATIONS", items: navigation.filter((item) => ["/staff-attendance", "/school-reports", "/school-services", "/school-cctv", "/school-settings"].includes(item.href)) },
+          ].map((group) => (
+            <div key={group.label}>
+              <p className="mb-2 px-3 text-[10px] font-extrabold tracking-[0.2em] text-slate-400">
+                {group.label}
+              </p>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = location === item.href;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition ${
-                  active
-                    ? "bg-green-50 text-green-800"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition duration-200 ${
+                        active
+                          ? "border-emerald-100 bg-gradient-to-r from-emerald-50 to-white text-emerald-900 shadow-[0_5px_14px_rgba(6,78,59,0.08)]"
+                          : "border-transparent text-slate-600 hover:border-slate-100 hover:bg-slate-50 hover:text-slate-950"
+                      }`}
+                    >
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
+                        active ? "bg-emerald-800 text-white shadow-md" : "bg-slate-100 text-slate-500 group-hover:bg-emerald-50 group-hover:text-emerald-800"
+                      }`}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span>{item.label}</span>
+                      {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-amber-400" />}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="border-t border-slate-200 p-3">
@@ -691,7 +710,7 @@ export default function AdminDashboard({
               <p className="mt-1 text-sm text-slate-600">Your most-used school tools, one tap away.</p></div><span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">Admin workspace</span></div>
 
               <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {managementCards.slice(0, 4).map((card) => {
+                {managementCards.filter((card) => ["/students", "/attendance", "/examinations", "/results"].includes(card.href)).map((card) => {
                   const Icon = card.icon;
 
                   return (
