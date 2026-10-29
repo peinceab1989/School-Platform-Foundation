@@ -986,7 +986,7 @@ export default function TeacherDashboard({
           <header style={{ borderBottom: '3px solid #166534', paddingBottom: 14, marginBottom: 26 }}>
             <h1 style={{ margin: 0, color: '#14532d', fontSize: 22 }}>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</h1>
             <p style={{ margin: '6px 0 0', fontSize: 11 }}>PASSION • SKILLS • EXCELLENT SPIRIT</p>
-            <p style={{ margin: '5px 0 0', fontSize: 10 }}>1, Smiling George Way, Opposite Winners’ Chapel, Behind Matice, Sapele Road, Benin City</p>
+            <p style={{ margin: '5px 0 0', fontSize: 10 }}>1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria</p>
           </header>
           <p style={{ textAlign: 'right' }}>Date: {new Date().toLocaleDateString()}</p>
           <h2 style={{ textAlign: 'center', textDecoration: 'underline', fontSize: 17 }}>STAFF ADMISSION LETTER</h2>
