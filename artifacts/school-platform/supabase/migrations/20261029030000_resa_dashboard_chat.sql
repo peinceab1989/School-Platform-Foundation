@@ -82,3 +82,11 @@ drop policy if exists "participants update last message time" on public.resa_cha
 create policy "participants update last message time" on public.resa_chat_conversations for update to authenticated
 using (exists (select 1 from public.resa_chat_settings cs where cs.school_id=resa_chat_conversations.school_id and cs.chat_enabled=true) and auth.uid() in (participant_one,participant_two))
 with check (auth.uid() in (participant_one,participant_two));
+
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='resa_chat_messages') then
+    alter publication supabase_realtime add table public.resa_chat_messages;
+  end if;
+end $$;
