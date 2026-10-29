@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { ArrowRight } from "lucide-react";
 
-const admissionsEmail = "rhemaexploitsacademy@gmail.com";
+const admissionsEmail = "Resainternational2024@gmail.com";
 
 export default function AdmissionEnquiryForm() {
   const [enquiryPrepared, setEnquiryPrepared] = useState(false);
