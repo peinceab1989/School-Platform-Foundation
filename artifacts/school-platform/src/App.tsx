@@ -52,6 +52,7 @@ import ResaChatPage from '@/pages/resa-chat';
 import TestDataSetupPage from '@/pages/test-data-setup';
 import SchoolCctvPage from '@/pages/school-cctv';
 import NotificationsPage from '@/pages/notifications';
+import UnreadMessageBadge from '@/components/unread-message-badge';
 import NotFound from '@/pages/not-found';
 
 import {
@@ -302,7 +303,7 @@ function StudentDashboard({
             </p>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications</Link>
+            <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={studentMembership.schoolId} /></Link>
             <Link href="/my-results" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>My Report Cards</Link>
             <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>School messages</Link>
             <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
