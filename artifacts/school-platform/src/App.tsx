@@ -32,6 +32,7 @@ import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
 import ResultsPage from '@/pages/results';
 import ResultsManagementPage from '@/pages/results-management';
+import MyPublishedResultsPage from '@/pages/my-published-results';
 import FormTeacherAttendancePage from '@/pages/form-teacher-attendance';
 import ExamsPage from '@/pages/examinations';
 import SchoolSettingsPage from '@/pages/school-settings';
@@ -139,6 +140,7 @@ const PROTECTED_SCHOOL_PATHS = [
   ...ADMIN_SCHOOL_PATHS,
   '/teacher-dashboard',
   '/student-dashboard',
+  '/my-results',
   '/student-cbt',
   '/school-communication',
   '/notifications',
@@ -1210,14 +1212,14 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication' && currentPath !== '/my-results') {
         setLocation('/student-dashboard');
       }
       return;
     }
 
     if (parentMembership) {
-      if (!['/school-cctv', '/notifications', '/school-communication'].includes(currentPath)) setLocation('/school-cctv');
+      if (!['/school-cctv', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) setLocation('/school-cctv');
       return;
     }
 
@@ -1504,8 +1506,9 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication')
+    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results')
   ) {
+    if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
     return <SchoolCctvPage schoolId={parentMembership.schoolId} role="parent" />;
@@ -1665,6 +1668,10 @@ function FoundationPage() {
    * Active students receive the student dashboard.
    * This requires successful membership access verification.
    */
+  if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && session && currentPath === '/my-results') {
+    return <MyPublishedResultsPage schoolId={studentMembership.schoolId} userId={session.user.id} role="student" />;
+  }
+
   if (
     authState === 'signed-in' &&
     accessCheckState === 'success' &&
@@ -1953,6 +1960,7 @@ function AppRoutes() {
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/teacher-dashboard" component={FoundationPage} />
         <Route path="/student-dashboard" component={FoundationPage} />
+        <Route path="/my-results" component={FoundationPage} />
         <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
