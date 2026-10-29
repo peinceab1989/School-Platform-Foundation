@@ -46,7 +46,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       const staffIds = (staffRes.data ?? []).map((x: any) => x.id);
       if (staffIds.length) {
         const assignment = await (db as any).from("teacher_assignments").select("class_id").eq("school_id", schoolId).in("staff_id", staffIds);
-        const classIds = [...new Set((assignment.data ?? []).map((x: any) => x.class_id).filter(Boolean))];
+        const classIds: string[] = [...new Set<string>((assignment.data ?? []).map((x: any) => String(x.class_id)).filter(Boolean))];
         if (classIds.length) {
           const enrollment = await (db as any).from("student_enrollments").select("student_id").eq("school_id", schoolId).eq("status", "active").in("class_id", classIds);
           const studentIds = [...new Set((enrollment.data ?? []).map((x: any) => x.student_id).filter(Boolean))];
@@ -60,7 +60,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       const studentRes = await (db as any).from("students").select("id").eq("school_id", schoolId).eq("user_id", userId).maybeSingle();
       if (studentRes.data?.id) {
         const enrollments = await (db as any).from("student_enrollments").select("class_id").eq("school_id", schoolId).eq("student_id", studentRes.data.id).eq("status", "active");
-        const classIds = [...new Set((enrollments.data ?? []).map((x: any) => x.class_id).filter(Boolean))];
+        const classIds: string[] = [...new Set<string>((enrollments.data ?? []).map((x: any) => String(x.class_id)).filter(Boolean))];
         if (classIds.length) {
           const assignment = await (db as any).from("teacher_assignments").select("staff_id").eq("school_id", schoolId).in("class_id", classIds);
           const staffIds = [...new Set((assignment.data ?? []).map((x: any) => x.staff_id).filter(Boolean))];
