@@ -778,16 +778,15 @@ export default function SubjectsPage({
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-5">
-            <h2 className="text-lg font-bold">
-              1. Add a subject to the catalogue
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
+          <details>
+            <summary className="cursor-pointer list-none flex items-center justify-between gap-3 rounded-xl bg-emerald-50 p-3 font-bold text-slate-900">
+              <span>1. Add a subject to the catalogue</span>
+              <span className="text-sm font-semibold text-emerald-800">Tap to open</span>
+            </summary>
+            <p className="mt-3 mb-4 text-sm text-slate-500">
               Add each subject once, then assign it to any applicable class or
               senior-secondary pathway.
             </p>
-          </div>
-
           <form
             onSubmit={handleAddSubject}
             className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]"
@@ -842,6 +841,7 @@ export default function SubjectsPage({
               </button>
             </div>
           </form>
+          </details>
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
