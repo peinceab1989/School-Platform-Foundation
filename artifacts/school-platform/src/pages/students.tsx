@@ -23,7 +23,6 @@ import {
   ShieldCheck,
   KeyRound,
   MoreVertical,
-  Eye,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -762,61 +761,6 @@ export default function StudentsPage({
           </>
         )}
       </div>
-    );
-  }
-
-  function renderLoginAction(student: Student, mobile = false) {
-    if (student.user_id) {
-      const resetting = resettingPasswordId === student.id;
-      return (
-        <div className={`flex flex-col items-start gap-2 ${mobile ? "w-full" : ""}`}>
-          <span
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"
-            title="A user account is linked to this student"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Login linked
-          </span>
-          <button
-            type="button"
-            onClick={() => void handleResetStudentPassword(student)}
-            disabled={Boolean(resettingPasswordId) || saving || Boolean(creatingLoginId)}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-amber-600 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 ${mobile ? "w-full sm:w-auto" : ""}`}
-          >
-            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-            {resetting ? "Sending reset…" : "Reset Password"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSetTemporaryPassword(student)}
-            disabled={Boolean(resettingPasswordId) || saving || Boolean(creatingLoginId)}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${mobile ? "w-full sm:w-auto" : ""}`}
-          >
-            <KeyRound className="h-4 w-4" />
-            Set Temporary Password
-          </button>
-        </div>
-      );
-    }
-
-    const busy = creatingLoginId === student.id;
-
-    return (
-      <button
-        type="button"
-        onClick={() => void handleCreateStudentLogin(student)}
-        disabled={Boolean(creatingLoginId) || Boolean(resettingPasswordId) || saving}
-        className={`inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${
-          mobile ? "w-full sm:w-auto" : ""
-        }`}
-      >
-        {busy ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <UserPlus className="h-4 w-4" />
-        )}
-        {busy ? "Creating..." : "Create Login"}
-      </button>
     );
   }
 
