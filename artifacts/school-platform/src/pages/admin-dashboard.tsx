@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
+import UnreadMessageBadge from "@/components/unread-message-badge";
 import {
   getSupabaseClient,
   hasSupabaseConfig,
@@ -476,6 +477,7 @@ export default function AdminDashboard({
                         <Icon className="h-4 w-4" />
                       </span>
                       <span>{item.label}</span>
+                      {item.href === "/notifications" && <UnreadMessageBadge schoolId={schoolId} />}
                       {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-amber-400" />}
                     </Link>
                   );
