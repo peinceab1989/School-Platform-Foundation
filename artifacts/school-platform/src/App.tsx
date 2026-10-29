@@ -48,6 +48,7 @@ import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
 import TeachingMaterialsPage from '@/pages/teaching-materials';
+import ResaChatPage from '@/pages/resa-chat';
 import TestDataSetupPage from '@/pages/test-data-setup';
 import SchoolCctvPage from '@/pages/school-cctv';
 import NotificationsPage from '@/pages/notifications';
@@ -140,6 +141,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/dashboard',
   '/results-management',
   '/teaching-materials',
+  '/resa-chat',
   ...ADMIN_SCHOOL_PATHS,
   '/teacher-dashboard',
   '/student-dashboard',
@@ -1217,7 +1219,7 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication' && currentPath !== '/my-results' && currentPath !== '/teaching-materials') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat') {
         setLocation('/student-dashboard');
       }
       return;
@@ -1542,6 +1544,7 @@ function FoundationPage() {
   ) {
     if (currentPath === '/notifications') return <NotificationsPage schoolId={adminMembership.schoolId} role="admin" />;
     if (currentPath === '/teaching-materials' && session) return <TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
+    if (currentPath === '/resa-chat' && session) return <ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
 
     if (currentPath === '/school-cctv') {
       return <SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />;
@@ -1658,10 +1661,12 @@ function FoundationPage() {
       '/notifications',
       '/school-communication',
       '/teaching-materials',
+      '/resa-chat',
     ].includes(currentPath)
   ) {
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/teaching-materials') return <TeachingMaterialsPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
+    if (currentPath === '/resa-chat') return <ResaChatPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
     if (currentPath === '/form-teacher-attendance') return <FormTeacherAttendancePage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={teacherMembership.schoolId} role="teacher" />;
@@ -1678,6 +1683,10 @@ function FoundationPage() {
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/school-communication') {
     return <SchoolCommunicationPage schoolId={studentMembership.schoolId} role="student" />;
+  }
+
+  if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/resa-chat') {
+    return <ResaChatPage schoolId={studentMembership.schoolId} userId={session?.user.id ?? ''} role="student" />;
   }
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/teaching-materials') {
@@ -1972,6 +1981,7 @@ function AppRoutes() {
         <Route path="/portal-options" component={PortalOptionsPage} />
         <Route path="/practice-drills" component={StudentPracticeDrillsPage} />
         <Route path="/teaching-materials" component={FoundationPage} />
+        <Route path="/resa-chat" component={FoundationPage} />
 
         {/* Staff invitation acceptance and password recovery */}
         <Route
