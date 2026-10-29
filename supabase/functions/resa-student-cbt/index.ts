@@ -42,6 +42,10 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+  const { data: moduleControl, error: moduleControlError } = await admin.from("nexus_module_controls").select("is_enabled").eq("module_key", "student_cbt").maybeSingle();
+  if (moduleControlError || !moduleControl) return reply(503, { error: "Could not verify student cbt availability." });
+  if (!moduleControl.is_enabled) return reply(403, { error: "Student CBT is currently disabled by the system administrator." });
+
     const body = await req.json().catch(() => null) as null | {
       action?: string;
       exam_id?: string;
