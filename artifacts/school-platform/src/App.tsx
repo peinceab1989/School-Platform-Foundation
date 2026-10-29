@@ -31,6 +31,7 @@ import StudentsPage from '@/pages/students';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
 import ResultsPage from '@/pages/results';
+import FormTeacherAttendancePage from '@/pages/form-teacher-attendance';
 import ExamsPage from '@/pages/examinations';
 import SchoolSettingsPage from '@/pages/school-settings';
 import ClassManagementPage from '@/pages/class-management';
@@ -112,6 +113,7 @@ function normalizePath(path: string): string {
 const ADMIN_SCHOOL_PATHS = [
   '/students',
   '/attendance',
+  '/form-teacher-attendance',
   '/announcements',
   '/results',
   '/examinations',
@@ -1565,6 +1567,10 @@ function FoundationPage() {
       return <AttendancePage schoolId={adminMembership.schoolId} />;
     }
 
+    if (currentPath === '/form-teacher-attendance' && session) {
+      return <FormTeacherAttendancePage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
+    }
+
     if (currentPath === '/announcements') {
       return <AnnouncementsPage schoolId={adminMembership.schoolId} />;
     }
@@ -1620,6 +1626,7 @@ function FoundationPage() {
     session &&
     [
       '/teacher-dashboard',
+      '/form-teacher-attendance',
       '/dashboard',
       '/portal',
       '/notifications',
@@ -1627,6 +1634,7 @@ function FoundationPage() {
     ].includes(currentPath)
   ) {
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
+    if (currentPath === '/form-teacher-attendance') return <FormTeacherAttendancePage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={teacherMembership.schoolId} role="teacher" />;
     return (
       <TeacherDashboard
