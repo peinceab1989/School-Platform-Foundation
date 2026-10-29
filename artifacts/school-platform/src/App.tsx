@@ -31,6 +31,7 @@ import StudentsPage from '@/pages/students';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
 import ResultsPage from '@/pages/results';
+import ResultsManagementPage from '@/pages/results-management';
 import FormTeacherAttendancePage from '@/pages/form-teacher-attendance';
 import ExamsPage from '@/pages/examinations';
 import SchoolSettingsPage from '@/pages/school-settings';
@@ -116,6 +117,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/form-teacher-attendance',
   '/announcements',
   '/results',
+  '/results-management',
   '/examinations',
   '/school-settings',
   '/classes',
@@ -1579,6 +1581,10 @@ function FoundationPage() {
       return <ResultsPage schoolId={adminMembership.schoolId} />;
     }
 
+    if (currentPath === '/results-management') {
+      return <ResultsManagementPage schoolId={adminMembership.schoolId} />;
+    }
+
     if (currentPath === '/examinations') {
       return <ExamsPage schoolId={adminMembership.schoolId} />;
     }
@@ -1952,6 +1958,7 @@ function AppRoutes() {
         <Route path="/attendance" component={FoundationPage} />
         <Route path="/announcements" component={FoundationPage} />
         <Route path="/results" component={FoundationPage} />
+        <Route path="/results-management" component={FoundationPage} />
         <Route path="/examinations" component={FoundationPage} />
         <Route path="/school-settings" component={FoundationPage} />
         <Route path="/classes" component={FoundationPage} />
