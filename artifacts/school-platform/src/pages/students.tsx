@@ -140,6 +140,8 @@ export default function StudentsPage({
   );
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [form, setForm] = useState<StudentForm>(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -273,6 +275,14 @@ export default function StudentsPage({
       return matchesSearch && matchesStatus;
     });
   }, [students, search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+  const paginatedStudents = useMemo(
+    () => filteredStudents.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredStudents, currentPage],
+  );
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter]);
+  useEffect(() => { if (currentPage > totalPages) setCurrentPage(totalPages); }, [currentPage, totalPages]);
 
   const activeCount = students.filter(
     (student) => normalizedStatus(student.status) === "active",
@@ -893,7 +903,7 @@ export default function StudentsPage({
           <div className="border-b border-slate-200 px-4 py-4 sm:px-5">
             <h3 className="font-bold">Student records</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Showing {filteredStudents.length} of {students.length} students
+              Showing {filteredStudents.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredStudents.length)} of {filteredStudents.length} matching students ({students.length} total)
             </p>
           </div>
 
@@ -948,7 +958,7 @@ export default function StudentsPage({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredStudents.map((student) => (
+                    {paginatedStudents.map((student) => (
                       <tr key={student.id} className="hover:bg-slate-50">
                         <td className="px-5 py-4">
                           <p className="font-semibold">
