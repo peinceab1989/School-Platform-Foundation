@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from 'react';
 import { Link } from 'wouter';
+import UnreadMessageBadge from '@/components/unread-message-badge';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 type TeacherStaff = {
@@ -1040,7 +1041,7 @@ export default function TeacherDashboard({
               {loading ? 'Refreshing…' : 'Refresh dashboard'}
             </button>
 
-            <Link href="/notifications" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Notifications</Link>
+            <Link href="/notifications" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
             <Link href="/form-teacher-attendance" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Form Teacher Attendance</Link>
             <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>School messages</Link>
             <button
