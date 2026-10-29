@@ -93,6 +93,7 @@ const navigation = [
   { label: "Academic Results", href: "/results", icon: FileText },
   { label: "Results Entry & Publication", href: "/results-management", icon: FileText },
   { label: "Teaching Materials & AI Drills", href: "/teaching-materials", icon: BookOpen },
+  { label: "School Chat & Activation", href: "/resa-chat", icon: MessageCircle },
   { label: "School Settings", href: "/school-settings", icon: Settings2 },
   {
     label: "Teachers & Staff",
