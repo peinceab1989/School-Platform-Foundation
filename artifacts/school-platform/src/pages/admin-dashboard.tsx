@@ -640,13 +640,13 @@ export default function AdminDashboard({
                 aria-live="polite"
                 aria-busy={isRefreshing}
               >
-                {statCards.map((card) => {
+                {statCards.map((card, index) => {
                   const Icon = card.icon;
 
                   return (
                     <article
                       key={card.title}
-                      className="group relative overflow-hidden rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white to-emerald-50/70 p-5 shadow-[0_12px_28px_-14px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_40px_-16px_rgba(6,78,59,0.25)]"
+                      className={`group relative overflow-hidden rounded-2xl border border-white/90 bg-gradient-to-br ${["from-sky-50 via-white to-sky-100/80", "from-violet-50 via-white to-violet-100/80", "from-amber-50 via-white to-amber-100/80", "from-emerald-50 via-white to-emerald-100/80"][index % 4]} p-5 shadow-[0_12px_28px_-14px_rgba(15,23,42,0.28)] ring-1 ring-slate-900/[0.04] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_40px_-16px_rgba(6,78,59,0.25)]` }
                     >
                       <div className="flex items-center justify-between gap-3">
                         <h3 className="text-sm font-semibold text-slate-600">
