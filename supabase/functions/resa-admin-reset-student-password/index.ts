@@ -1,146 +1,66 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function reply(status: number, body: Record<string, unknown>) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-function makeTemporaryPassword() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
-  const values = crypto.getRandomValues(new Uint8Array(18));
-  let password = "";
-  for (const value of values) password += alphabet[value % alphabet.length];
-  return password;
-}
-
+const URL = Deno.env.get("SUPABASE_URL");
+const ANON = Deno.env.get("SUPABASE_ANON_KEY");
+const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS", "Content-Type": "application/json" };
+function reply(status: number, body: Record<string, unknown>) { return new Response(JSON.stringify(body), { status, headers }); }
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply(405, { error: "Method not allowed." });
-
+  if (!URL || !ANON || !SERVICE) return reply(500, { error: "Server configuration is incomplete." });
   const authorization = req.headers.get("Authorization");
-  if (!authorization?.startsWith("Bearer ")) {
-    return reply(401, { error: "Please sign in again before managing a student password." });
-  }
-
+  if (!authorization?.startsWith("Bearer ")) return reply(401, { error: "Sign in as a school administrator first." });
+  const userClient = createClient(URL, ANON, { global: { headers: { Authorization: authorization } }, auth: { persistSession: false, autoRefreshToken: false } });
+  const adminClient = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
   try {
-    const token = authorization.slice("Bearer ".length).trim();
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: authData, error: authError } = await userClient.auth.getUser(token);
-    const actor = authData?.user;
-    if (authError || !actor?.id) {
-      return reply(401, { error: "Your session is invalid or expired. Sign in again." });
-    }
-
-    let body: { action?: unknown; student_id?: unknown };
-    try {
-      body = await req.json();
-    } catch {
-      return reply(400, { error: "A valid request body is required." });
-    }
-
+    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    if (authError || !user) return reply(401, { error: "Your session is invalid or expired." });
+    let body: Record<string, unknown>;
+    try { const parsed = await req.json(); if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return reply(400, { error: "A JSON object is required." }); body = parsed as Record<string, unknown>; }
+    catch { return reply(400, { error: "A valid JSON request body is required." }); }
     const action = typeof body.action === "string" ? body.action : "lookup_email";
-    const studentId = typeof body.student_id === "string" ? body.student_id.trim() : "";
-    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    // Completion is allowed only to the signed-in user who has a pending
-    // temporary-password change. Never trust a client-supplied user ID.
+    if (action !== "complete_password_change") {
+      const { data: moduleControl, error: moduleControlError } = await adminClient.from("nexus_module_controls").select("is_enabled").eq("module_key", "student_password_management").maybeSingle();
+      if (moduleControlError || !moduleControl) return reply(503, { error: "Could not verify student password management availability." });
+      if (!moduleControl.is_enabled) return reply(403, { error: "Student password management is currently disabled by the system administrator." });
+    }
     if (action === "complete_password_change") {
-      if (actor.app_metadata?.must_change_password !== true) {
-        return reply(400, { error: "There is no pending temporary-password change for this account." });
-      }
-      const { error: metadataError } = await adminClient.auth.admin.updateUserById(actor.id, {
-        app_metadata: { ...(actor.app_metadata ?? {}), must_change_password: false },
+      if (user.app_metadata?.must_change_password !== true) return reply(403, { error: "No temporary-password change is pending for this account." });
+      const { error: clearError } = await adminClient.auth.admin.updateUserById(user.id, {
+        app_metadata: { ...user.app_metadata, must_change_password: false }
       });
-      if (metadataError) {
-        console.error("Could not clear temporary-password flag:", metadataError.message);
-        return reply(500, { error: "Your password was updated, but the account status could not be finalized. Contact the administrator." });
-      }
+      if (clearError) throw new Error("Could not complete the required password change.");
       return reply(200, { success: true });
     }
-
-    if (!studentId) return reply(400, { error: "A student record is required." });
-
-    const { data: student, error: studentError } = await adminClient
-      .from("students")
-      .select("id, school_id, user_id, status")
-      .eq("id", studentId)
-      .maybeSingle();
-
-    if (studentError) {
-      console.error("Student lookup failed:", studentError.message);
-      return reply(500, { error: "Could not verify this student record." });
+    if (action !== "lookup_email" && action !== "set_temporary_password") return reply(400, { error: "Unsupported password action." });
+    const studentId = typeof body.student_id === "string" ? body.student_id.trim() : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId)) return reply(400, { error: "A valid student_id is required." });
+    const { data: student, error: studentError } = await adminClient.from("students").select("id, school_id, user_id, status").eq("id", studentId).maybeSingle();
+    if (studentError) throw new Error("Could not verify the student record.");
+    if (!student) return reply(404, { error: "Student record not found." });
+    const { data: membership, error: membershipError } = await adminClient.from("school_memberships").select("id").eq("school_id", student.school_id).eq("user_id", user.id).eq("role", "admin").eq("status", "active").maybeSingle();
+    if (membershipError) throw new Error("Could not verify school administrator permissions.");
+    if (!membership) return reply(403, { error: "Only an active administrator of this student's school can request a reset." });
+    if (!student.user_id) return reply(409, { error: "This student has no linked portal login. Create the login first." });
+    if (action === "set_temporary_password") {
+      if (student.status !== "active") return reply(409, { error: "Only active students can receive a temporary password." });
+      const { data: authUser, error: authUserError } = await adminClient.auth.admin.getUserById(student.user_id);
+      if (authUserError || !authUser.user) return reply(404, { error: "The linked portal account could not be found." });
+      const bytes = crypto.getRandomValues(new Uint8Array(18));
+      const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+      const temporaryPassword = "RESA-" + hex.slice(0, 18) + "-" + hex.slice(18);
+      const { error: updateError } = await adminClient.auth.admin.updateUserById(student.user_id, {
+        password: temporaryPassword,
+        app_metadata: { ...authUser.user.app_metadata, must_change_password: true }
+      });
+      if (updateError) return reply(500, { error: "Could not set the temporary password. The current password remains unchanged if the update failed." });
+      return reply(200, { success: true, temporary_password: temporaryPassword, must_change_password: true });
     }
-    if (!student?.user_id) return reply(404, { error: "This student has no linked portal login." });
-
-    const { data: membership, error: membershipError } = await adminClient
-      .from("school_memberships")
-      .select("id")
-      .eq("school_id", student.school_id)
-      .eq("user_id", actor.id)
-      .eq("role", "admin")
-      .eq("status", "active")
-      .maybeSingle();
-
-    if (membershipError) {
-      console.error("Administrator membership lookup failed:", membershipError.message);
-      return reply(500, { error: "Could not verify administrator access." });
-    }
-    if (!membership) return reply(403, { error: "Access denied. Only an active administrator of this school can manage student passwords." });
-
-    if (action === "lookup_email") {
-      const { data: target, error: targetError } = await adminClient.auth.admin.getUserById(student.user_id);
-      if (targetError || !target.user?.email) {
-        return reply(404, { error: "No email address is linked to this student portal login." });
-      }
-      return reply(200, { email: target.user.email });
-    }
-
-    if (action !== "set_temporary_password") {
-      return reply(400, { error: "Unsupported password action." });
-    }
-    if ((student.status ?? "").toLowerCase() !== "active") {
-      return reply(400, { error: "Only active students can receive a temporary password." });
-    }
-
-    const temporaryPassword = makeTemporaryPassword();
-    const { data: target, error: targetError } = await adminClient.auth.admin.getUserById(student.user_id);
-    if (targetError || !target.user) {
-      return reply(404, { error: "The student's linked authentication account could not be found." });
-    }
-
-    const existingMetadata = target.user.app_metadata ?? {};
-    const { error: updateError } = await adminClient.auth.admin.updateUserById(student.user_id, {
-      password: temporaryPassword,
-      app_metadata: { ...existingMetadata, must_change_password: true },
-    });
-    if (updateError) {
-      console.error("Temporary password update failed:", updateError.message);
-      return reply(500, { error: "Could not set the temporary password. No password was returned." });
-    }
-
-    // The password is returned once only. The administrator must deliver it
-    // privately; never log it or store it in student profile fields.
-    return reply(200, { success: true, temporary_password: temporaryPassword });
+    const { data: authUser, error: authUserError } = await adminClient.auth.admin.getUserById(student.user_id);
+    if (authUserError || !authUser.user?.email) return reply(404, { error: "The linked portal account has no usable email address." });
+    return reply(200, { success: true, email: authUser.user.email });
   } catch (error) {
     console.error("resa-admin-reset-student-password failed:", error instanceof Error ? error.message : "Unknown error");
-    return reply(500, { error: "The password operation failed. Please try again or contact support." });
+    return reply(500, { error: "Could not verify this student's login for password reset." });
   }
 });
