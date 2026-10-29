@@ -471,3 +471,49 @@ button { -webkit-tap-highlight-color: transparent; }
 .resa-action-menu button:hover { background: #edf4ef; }
 .resa-action-menu button:disabled { cursor: not-allowed; opacity: .5; }
 @media (max-width: 640px) { input, select, textarea { max-width: 100%; } }
+
+
+/* RESA admin-module finish: consistent controls, tables, notices and mobile overflow. */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+  min-width: 0;
+  border-color: #d8e2da;
+  border-radius: 10px;
+}
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):focus {
+  border-color: var(--resa-forest);
+  box-shadow: 0 0 0 3px rgba(36, 88, 63, .10);
+}
+:where(input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: .68;
+}
+:where(table) {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+:where(th) {
+  color: #52675a;
+  background: #f3f7f3;
+  font-size: .75rem;
+  font-weight: 650;
+  letter-spacing: .025em;
+}
+:where(td, th) {
+  padding: .75rem .85rem;
+  border-bottom: 1px solid #e8eee9;
+  text-align: left;
+  vertical-align: middle;
+}
+:where(tbody tr:last-child td) { border-bottom: 0; }
+:where(tbody tr:hover) { background-color: rgba(234, 243, 237, .45); }
+:where(button) { transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease; }
+:where(button:disabled) { cursor: not-allowed; opacity: .62; }
+:where(a) { text-underline-offset: 3px; }
+:where(img, svg, video, canvas) { max-width: 100%; }
+.resa-surface :where(input, select, textarea),
+[data-resa-card="true"] :where(input, select, textarea) { width: 100%; }
+@media (max-width: 640px) {
+  :where(td, th) { padding: .65rem .6rem; }
+  :where(table) { font-size: .875rem; }
+}
