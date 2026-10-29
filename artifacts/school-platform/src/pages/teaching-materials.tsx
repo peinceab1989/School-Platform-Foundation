@@ -71,7 +71,7 @@ export default function TeachingMaterialsPage({ schoolId, userId, role }: { scho
         const upload = await client.storage.from("resa-teaching-materials").upload(storagePath, file, { upsert: false, contentType: file.type || undefined });
         if (upload.error) throw upload.error;
       }
-      const insert = await client.from("teaching_materials").insert({
+      const insert = await (client as any).from("teaching_materials").insert({
         id: recordId, school_id: schoolId, title: form.title.trim(), material_type: form.type,
         class_id: form.classId || null, subject_id: form.subjectId || null,
         topic: form.topic.trim() || null, description: form.description.trim() || null,
@@ -92,7 +92,7 @@ export default function TeachingMaterialsPage({ schoolId, userId, role }: { scho
 
   async function togglePublish(item: Material) {
     setBusyId(item.id); setError(""); setNotice("");
-    const result = await client.from("teaching_materials").update({ is_published: !item.is_published, updated_at: new Date().toISOString() }).eq("id", item.id).eq("school_id", schoolId);
+    const result = await (client as any).from("teaching_materials").update({ is_published: !item.is_published, updated_at: new Date().toISOString() }).eq("id", item.id).eq("school_id", schoolId);
     if (result.error) setError(result.error.message);
     else { setNotice(item.is_published ? "Material unpublished." : "Material published for students."); await load(); }
     setBusyId("");
