@@ -1007,7 +1007,7 @@ export default function StudentsPage({
               </div>
 
               <div className="divide-y divide-slate-100 md:hidden">
-                {filteredStudents.map((student) => (
+                {paginatedStudents.map((student) => (
                   <article
                     key={student.id}
                     className="space-y-3 p-4"
@@ -1057,6 +1057,16 @@ export default function StudentsPage({
                   </article>
                 ))}
               </div>
+              {filteredStudents.length > pageSize && (
+                <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <span className="text-sm text-slate-600">Showing {Math.min(pageSize, filteredStudents.length)} records per page</span>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">Previous</button>
+                    <span className="min-w-24 text-center text-sm text-slate-600">Page {currentPage} of {totalPages}</span>
+                    <button type="button" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">Next</button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </section>
