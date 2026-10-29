@@ -1647,8 +1647,7 @@ function FoundationPage() {
     session &&
     [
       '/teacher-dashboard',
-      '/results-management',
-      '/form-teacher-attendance',
+          '/form-teacher-attendance',
       '/dashboard',
       '/portal',
       '/notifications',
