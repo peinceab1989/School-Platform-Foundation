@@ -240,7 +240,7 @@ export function PublicFooter() {
         <div>
           <h2 className="text-sm font-bold text-[#e4c879]">Contact RESA</h2>
           <address className="mt-4 not-italic text-sm leading-7 text-[#d6dfd1]">
-            1, Smiling George Way, Opposite Winners’ Chapel, Behind Matice, Sapele Road, Benin City, Edo State, Nigeria.
+            1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.
           </address>
           <a href={`tel:${SCHOOL_PHONE}`} className="mt-3 block w-fit text-sm font-semibold text-[#e4c879] hover:text-white">
             +234 805 842 2691
@@ -312,6 +312,8 @@ function FloatingCustomerCare() {
   }
 
   return (
+    <>
+    <style>{`@keyframes resaCarePulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } } @media (prefers-reduced-motion: reduce) { .resa-care-pulse { animation: none !important; } }`}</style>
     <div className="z-[70]" style={position ? { position: "fixed", left: position.left, top: position.top } : { position: "fixed", right: 16, bottom: 92 }}>
       {open && (
         <div
@@ -350,12 +352,13 @@ function FloatingCustomerCare() {
         aria-label={open ? "Close customer care options" : "Open customer care options"}
         aria-expanded={open}
         title="Drag to move; tap for customer care"
-        className="flex h-10 touch-none select-none items-center gap-2 rounded-full border border-[#f2df9b] bg-[#174b35] px-3 text-xs font-extrabold text-white shadow-[0_5px_18px_rgba(16,59,45,.28)] transition hover:bg-[#103b2d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b765] focus-visible:ring-offset-2"
+        className="resa-care-pulse flex h-10 touch-none select-none items-center gap-2 rounded-full border border-[#f2df9b] bg-[#174b35] px-3 text-xs font-extrabold text-white shadow-[0_5px_18px_rgba(16,59,45,.28)] transition hover:scale-110 hover:bg-[#103b2d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b765] focus-visible:ring-offset-2" style={{ animation: "resaCarePulse 2.4s ease-in-out infinite" }}
       >
         <MessageCircle size={16} aria-hidden="true" />
         Help
       </button>
     </div>
+    </>
   );
 }
 
