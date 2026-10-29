@@ -35,7 +35,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     setLoading(true); setError("");
     try {
       const db = getSupabaseClient() as any;
-      const result = await db.from(active.table).select("*").eq("school_id", schoolId).limit(100).order("created_at", { ascending: false });
+      const query = db.from(active.table).select("*").eq("school_id", schoolId).limit(100);\n      const result = activeKey === "drive" ? await query.order("created_at", { ascending: false }) : await query;
       if (result.error) throw result.error;
       setRows((result.data ?? []) as RowRecord[]);
     } catch (e) {
