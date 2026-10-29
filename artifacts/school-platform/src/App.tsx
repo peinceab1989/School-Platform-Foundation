@@ -49,6 +49,7 @@ import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
 import TeachingMaterialsPage from '@/pages/teaching-materials';
 import ResaChatPage from '@/pages/resa-chat';
+import PublicationCentre from '@/pages/publication-centre';
 import TestDataSetupPage from '@/pages/test-data-setup';
 import SchoolCctvPage from '@/pages/school-cctv';
 import NotificationsPage from '@/pages/notifications';
@@ -133,6 +134,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/hr-management',
   '/school-reports',
   '/school-services',
+  '/publication-centre',
   '/staff-attendance',
   '/school-cctv',
 ];
@@ -1555,6 +1557,7 @@ function FoundationPage() {
     if (currentPath === '/notifications') return <NotificationsPage schoolId={adminMembership.schoolId} role="admin" />;
     if (currentPath === '/teaching-materials' && session) return <TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
     if (currentPath === '/resa-chat' && session) return <ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
+    if (currentPath === '/publication-centre' && session) return <PublicationCentre schoolId={adminMembership.schoolId} userId={session.user.id} />;
 
     if (currentPath === '/school-cctv') {
       return <SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />;
