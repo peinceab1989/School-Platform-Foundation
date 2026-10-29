@@ -79,6 +79,7 @@ export default function ParentManagementPage({
   const [parents, setParents] = useState<ParentRecord[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState("");
   const [editingPersonId, setEditingPersonId] = useState("");
@@ -206,6 +207,10 @@ export default function ParentManagementPage({
         .some((value) => String(value).toLowerCase().includes(term)),
     );
   }, [parents, search]);
+
+  const pageSize = 8;
+  const pageCount = Math.max(1, Math.ceil(filteredParents.length / pageSize));
+  const paginatedParents = filteredParents.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   function updateField(
     field: keyof typeof emptyForm,
@@ -673,7 +678,7 @@ export default function ParentManagementPage({
             <Search className="h-4 w-4 shrink-0 text-slate-400" />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               placeholder="Search name, phone, email, relationship or student..."
               className="w-full border-0 bg-transparent py-2 text-sm outline-none"
             />
@@ -691,7 +696,7 @@ export default function ParentManagementPage({
             </p>
           ) : (
             <div className="mt-5 space-y-3">
-              {filteredParents.map(({ parent, person, studentNames }) => (
+              {paginatedParents.map(({ parent, person, studentNames }) => (
                 <article
                   key={parent.id}
                   className="rounded-xl border border-slate-200 p-4"
@@ -816,6 +821,7 @@ export default function ParentManagementPage({
               ))}
             </div>
           )}
+          {!loading && filteredParents.length > pageSize && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><p className="text-sm text-slate-500">Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredParents.length)} of {filteredParents.length} parents</p><div className="flex items-center gap-2"><button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage <= 1} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">Previous</button><span className="text-sm text-slate-600">Page {currentPage}/{pageCount}</span><button type="button" onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))} disabled={currentPage >= pageCount} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">Next</button></div></div>}
         </section>
       </div>
     </main>
