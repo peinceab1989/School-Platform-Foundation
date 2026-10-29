@@ -29,6 +29,7 @@ import {
   Database,
   Video,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 
 type AdminDashboardProps = {
