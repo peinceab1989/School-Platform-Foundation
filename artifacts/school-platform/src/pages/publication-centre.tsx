@@ -30,7 +30,7 @@ export default function PublicationCentre({ schoolId, userId }: Props) {
     ]);
     if (chat.error) setError("Chat status could not be loaded: " + chat.error.message);
     else setChatEnabled(Boolean(chat.data?.chat_enabled));
-    if (access.error) setError((previous => previous ? previous + " · " : "") + "Student message access could not be loaded: " + access.error.message);
+    if (access.error) setError(previous => (previous ? previous + " · " : "") + "Student message access could not be loaded: " + access.error.message);
     else setStudentsEnabled(Boolean(access.data?.allow_all_students));
     setLoading(false);
   }, [schoolId]);
