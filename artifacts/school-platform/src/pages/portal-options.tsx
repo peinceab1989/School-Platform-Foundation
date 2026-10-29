@@ -54,7 +54,7 @@ function CustomerCareWidget() {
     const clean = message.trim();
     if (!clean) return;
     const text = "Hello RESA Customer Care.\\nTopic: " + topic + "\\nMessage: " + clean;
-    window.open("https://wa.me/2348058422691?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
+    window.open("https://wa.me/2347010945774?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
   };
   return <>
     {open && <section aria-label="RESA customer care chat" className="fixed bottom-24 right-4 z-[100] flex max-h-[min(620px,calc(100dvh-7rem))] w-[min(370px,calc(100vw-2rem))] flex-col overflow-hidden rounded-3xl border border-emerald-900/15 bg-white shadow-2xl sm:bottom-24 sm:right-6">
