@@ -10,6 +10,7 @@ import {
   UserCog,
   School,
   BookOpen,
+  MessageCircle,
   ClipboardCheck,
   CalendarCheck,
   BellRing,
