@@ -67,6 +67,7 @@ using (
 with check (
   public.has_school_role(school_id, array['teacher']::public.school_role[])
   and uploaded_by = auth.uid()
+  and is_published = false
   and exists (
     select 1 from public.staff st
     join public.teacher_assignments ta on ta.staff_id = st.id and ta.school_id = st.school_id
