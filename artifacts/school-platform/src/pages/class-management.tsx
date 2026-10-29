@@ -183,7 +183,6 @@ Back to dashboard
       <summary className="cursor-pointer list-none flex items-center justify-between gap-3 rounded-xl bg-emerald-50 p-3 font-bold text-slate-900"><span className="flex items-center gap-2"><Plus className="h-5 w-5 text-emerald-700" />Create a class</span><span className="text-sm font-semibold text-emerald-800">Tap to open</span></summary>
       <div className="pt-3">
       <h2 className="sr-only">Create a class</h2>
-      </h2>
 
       <p className="mt-1 text-sm text-slate-500">
         Choose a class level and add it to your school.
