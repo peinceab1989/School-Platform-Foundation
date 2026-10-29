@@ -50,6 +50,7 @@ schoolId,
 schoolId: string;
 }) {
 const [classes, setClasses] = useState<SchoolClass[]>([]);
+const [classSearch, setClassSearch] = useState("");
 const [selectedClass, setSelectedClass] = useState("Primary 1");
 const [error, setError] = useState("");
 const [message, setMessage] = useState("");
@@ -144,6 +145,8 @@ try {
 function handleBackToDashboard() {
 window.location.assign("/dashboard");
 }
+const normalizedClassSearch = classSearch.trim().toLowerCase();
+const filteredClasses = classes.filter((item) => [item.name, item.level].some((value) => String(value ?? "").toLowerCase().includes(normalizedClassSearch)));
 
 return (
 <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
@@ -264,9 +267,13 @@ Back to dashboard
         </button>
       </div>
 
+      <label className="relative mt-5 block">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+        <input value={classSearch} onChange={(event) => setClassSearch(event.target.value)} placeholder="Search class name or level…" aria-label="Search classes" className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100" />
+      </label>
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {LEVELS.map((level) => {
-          const levelClasses = classes.filter(
+          const levelClasses = filteredClasses.filter(
             (item) => item.level === level,
           );
 
@@ -306,9 +313,9 @@ Back to dashboard
         })}
       </div>
 
-      {!loading && classes.length === 0 && !error && (
+      {!loading && filteredClasses.length === 0 && !error && (
         <p className="mt-5 rounded-lg bg-slate-50 p-4 text-center text-sm text-slate-500">
-          No classes have been created yet. Select a class above to get started.
+          {classSearch.trim() ? "No classes match your search." : "No classes have been created yet. Select a class above to get started."}
         </p>
       )}
 
