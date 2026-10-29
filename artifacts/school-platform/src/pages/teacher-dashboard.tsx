@@ -172,6 +172,7 @@ const tabs = [
   'Assignments',
   'Online CBT',
   'Marking',
+  'Results',
   'Timetable',
 ] as const;
 
@@ -2023,6 +2024,20 @@ export default function TeacherDashboard({
                   </article>
                 );
               })}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'Results' && (
+          <section style={panelStyle}>
+            <h2 style={sectionTitleStyle}>Results and broadsheets</h2>
+            <p style={{ color: '#536456', lineHeight: 1.7, margin: '0 0 14px' }}>
+              Enter CA and examination scores for your assigned classes and subjects, save drafts, and submit completed results for administrator approval. You can export a broadsheet for the classes and subjects assigned to you.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              <Link href="/results-management" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>
+                Open Results & Broadsheet
+              </Link>
             </div>
           </section>
         )}
