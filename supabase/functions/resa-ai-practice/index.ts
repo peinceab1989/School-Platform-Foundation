@@ -39,6 +39,15 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "Your sign-in session is invalid or expired. Please sign in again." }, 401);
   }
 
+  // Only active RESA student, teacher, or admin accounts may use the school's AI quota.
+  const { data: canUseResa, error: membershipError } = await supabase.rpc("has_school_role", {
+    p_school_id: "469a9ed9-8e6c-45b8-a76c-89536adb1d3d",
+    p_roles: ["admin", "teacher", "student"],
+  });
+  if (membershipError || canUseResa !== true) {
+    return jsonResponse({ error: "Your account does not have active RESA student, teacher, or admin access." }, 403);
+  }
+
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!serviceKey) return jsonResponse({ error: "System module controls are not configured." }, 503);
   const controlClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
