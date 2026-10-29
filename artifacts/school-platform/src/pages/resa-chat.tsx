@@ -71,6 +71,10 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
         }
       }
     }
+    if (!isAdmin) {
+      const admins = await (db as any).from("school_memberships").select("user_id").eq("school_id", schoolId).eq("status", "active").eq("role", "admin");
+      contactIds = [...new Set<string>([...contactIds, ...(admins.data ?? []).map((x: any) => String(x.user_id)).filter((id: string) => id !== userId)])];
+    }
     if (contactIds.length) {
       const members = await (db as any).from("school_memberships").select("user_id,role").eq("school_id", schoolId).eq("status", "active").in("user_id", contactIds);
       const ids = (members.data ?? []).map((x: any) => x.user_id);
