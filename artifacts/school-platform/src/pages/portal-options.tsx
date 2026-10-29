@@ -23,15 +23,19 @@ import { Link } from "wouter";
 import { SchoolLogo } from "@/components/school-logo";
 
 const options = [
-  { title: "Check Results", description: "View academic results and progress.", href: "/results", icon: ClipboardCheck, tone: "blue", group: "Student services" },
+  { title: "Check Results", description: "View published academic results and progress.", href: "/results", icon: ClipboardCheck, tone: "blue", group: "Student services" },
   { title: "E-learning", description: "Lessons, study resources and practice activities.", href: "/student-dashboard", icon: BookOpen, tone: "orange", group: "Student services" },
   { title: "Computer Based Test", description: "Open online assessments and CBT activities.", href: "/student-cbt", icon: Laptop, tone: "slate", group: "Student services" },
-  { title: "Assignments", description: "View and track your class assignments separately from CBT.", href: "/student-assignments", icon: GraduationCap, tone: "blue", group: "Student services" },
-  { title: "Live Classes", description: "Continue to the school learning portal.", href: "/portal", icon: Video, tone: "gold", group: "Student services" },
-  { title: "School Fees", description: "Continue to the secure school portal.", href: "/portal", icon: WalletCards, tone: "sand", group: "Student services" },
-  { title: "Staff Platform", description: "Sign in to staff tools and teaching resources.", href: "/portal", icon: UsersRound, tone: "green", group: "Staff & administration" },
-  { title: "Admin Platform", description: "Manage school records and operations.", href: "/dashboard", icon: ShieldCheck, tone: "green", group: "Staff & administration" },
-  { title: "CCTV & Live Monitoring", description: "Authorized school camera access for administrators and approved parents.", href: "/school-cctv", icon: Video, tone: "green", group: "Staff & administration" },
+  { title: "Assignments", description: "View and track class assignments separately from CBT.", href: "/student-assignments", icon: GraduationCap, tone: "blue", group: "Student services" },
+  { title: "Admin Platform", description: "Secure sign-in for school staff and administration.", href: "/portal", icon: ShieldCheck, tone: "green", group: "Staff & administration" },
+];
+
+const learningWebsites = [
+  { title: "Zoom", description: "Join a live class using a meeting link from your teacher.", href: "https://zoom.us/join" },
+  { title: "Google Meet", description: "Join a teacher-provided Google Meet session.", href: "https://meet.google.com/" },
+  { title: "Microsoft Teams", description: "Join online lessons and class meetings.", href: "https://teams.microsoft.com/" },
+  { title: "Canva", description: "Create presentations, posters and learning projects.", href: "https://www.canva.com/" },
+  { title: "YouTube", description: "Watch teacher-approved educational videos.", href: "https://www.youtube.com/" },
 ];
 
 const toneClasses: Record<string, string> = {
@@ -139,6 +143,22 @@ export default function PortalOptionsPage() {
           })}
         </div>
 
+        <section aria-labelledby="learning-websites-heading" className="mt-8 rounded-2xl border border-emerald-900/10 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-4">
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-amber-700">Approved external tools</p>
+            <h2 id="learning-websites-heading" className="mt-1 text-xl font-extrabold tracking-tight">Online classes & learning websites</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Use these services when a teacher or the school provides a class link or learning activity. RESA account details should only be entered on the official service websites.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {learningWebsites.map((site) => (
+              <a key={site.title} href={site.href} target="_blank" rel="noopener noreferrer" className="group flex min-h-[104px] items-start justify-between gap-3 rounded-xl border border-slate-200 p-4 transition hover:border-emerald-300 hover:bg-emerald-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
+                <span><span className="block font-extrabold text-slate-900">{site.title}</span><span className="mt-1 block text-sm leading-5 text-slate-500">{site.description}</span></span>
+                <ArrowUpRight size={18} aria-hidden="true" className="shrink-0 text-slate-400 group-hover:text-emerald-800" />
+              </a>
+            ))}
+          </div>
+        </section>
+
         <h3 className="mb-3 mt-8 text-sm font-bold text-slate-500">STAFF & ADMINISTRATION</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {options.filter((item) => item.group === "Staff & administration").map((item) => {
@@ -154,7 +174,7 @@ export default function PortalOptionsPage() {
 
       </section>
 
-      <footer className="border-t border-emerald-950/10 bg-white px-4 py-5 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3">Designed &amp; Powered by JETAB TECH</p></footer>
+      <footer className="border-t border-emerald-950/10 bg-white px-4 py-5 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3 text-[10px]">Designed &amp; Powered by <a href="https://wa.me/2347054078988" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 underline underline-offset-2">JETAB TECH</a></p></footer>
       <CustomerCareWidget />
     </main>
   );
