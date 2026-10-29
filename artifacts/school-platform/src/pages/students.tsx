@@ -22,6 +22,7 @@ import {
   UserPlus,
   ShieldCheck,
   KeyRound,
+  MoreVertical,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -142,6 +143,7 @@ export default function StudentsPage({
   const [form, setForm] = useState<StudentForm>(emptyForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [openActionStudentId, setOpenActionStudentId] = useState<string | null>(null);
 
   const loadStudents = useCallback(async () => {
     if (!schoolId) {
@@ -719,58 +721,46 @@ export default function StudentsPage({
     }
   }
 
-  function renderLoginAction(student: Student, mobile = false) {
-    if (student.user_id) {
-      const resetting = resettingPasswordId === student.id;
-      return (
-        <div className={`flex flex-col items-start gap-2 ${mobile ? "w-full" : ""}`}>
-          <span
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800"
-            title="A user account is linked to this student"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Login linked
-          </span>
-          <button
-            type="button"
-            onClick={() => void handleResetStudentPassword(student)}
-            disabled={Boolean(resettingPasswordId) || saving || Boolean(creatingLoginId)}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-amber-600 px-3 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 ${mobile ? "w-full sm:w-auto" : ""}`}
-          >
-            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-            {resetting ? "Sending reset…" : "Reset Password"}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSetTemporaryPassword(student)}
-            disabled={Boolean(resettingPasswordId) || saving || Boolean(creatingLoginId)}
-            className={`inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${mobile ? "w-full sm:w-auto" : ""}`}
-          >
-            <KeyRound className="h-4 w-4" />
-            Set Temporary Password
-          </button>
-        </div>
-      );
-    }
-
-    const busy = creatingLoginId === student.id;
-
+  function renderStudentActions(student: Student) {
+    const isOpen = openActionStudentId === student.id;
+    const busy = creatingLoginId === student.id || resettingPasswordId === student.id;
     return (
-      <button
-        type="button"
-        onClick={() => void handleCreateStudentLogin(student)}
-        disabled={Boolean(creatingLoginId) || Boolean(resettingPasswordId) || saving}
-        className={`inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 ${
-          mobile ? "w-full sm:w-auto" : ""
-        }`}
-      >
-        {busy ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <UserPlus className="h-4 w-4" />
+      <div className="relative inline-flex justify-end">
+        <button
+          type="button"
+          aria-label={`Actions for ${fullName(student)}`}
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          onClick={() => setOpenActionStudentId(isOpen ? null : student.id)}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
+        >
+          <MoreVertical className="h-5 w-5" />
+        </button>
+        {isOpen && (
+          <>
+            <button type="button" aria-label="Close actions menu" className="fixed inset-0 z-20 cursor-default" onClick={() => setOpenActionStudentId(null)} />
+            <div role="menu" className="resa-action-menu absolute right-0 top-11 z-30">
+              <button role="menuitem" type="button" onClick={() => { setOpenActionStudentId(null); void openEditForm(student); }}>
+                <Pencil className="h-4 w-4" /> Edit student details
+              </button>
+              {student.user_id ? (
+                <>
+                  <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleSetTemporaryPassword(student); }}>
+                    <KeyRound className="h-4 w-4" /> Set temporary password
+                  </button>
+                  <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleResetStudentPassword(student); }}>
+                    <RefreshCw className="h-4 w-4" /> Reset password
+                  </button>
+                </>
+              ) : (
+                <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleCreateStudentLogin(student); }}>
+                  <UserPlus className="h-4 w-4" /> Create portal login
+                </button>
+              )}
+            </div>
+          </>
         )}
-        {busy ? "Creating..." : "Create Login"}
-      </button>
+      </div>
     );
   }
 
@@ -992,17 +982,13 @@ export default function StudentsPage({
                           </span>
                         </td>
                         <td className="px-5 py-4">
-                          {renderLoginAction(student)}
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${student.user_id ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${student.user_id ? "bg-emerald-600" : "bg-amber-500"}`} />
+                            {student.user_id ? "Login linked" : "Not linked"}
+                          </span>
                         </td>
                         <td className="px-5 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => void openEditForm(student)}
-                            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 font-semibold hover:bg-slate-100"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Edit
-                          </button>
+                          {renderStudentActions(student)}
                         </td>
                       </tr>
                     ))}
@@ -1056,15 +1042,7 @@ export default function StudentsPage({
                     </p>
 
                     <div className="flex flex-col gap-2 sm:flex-row">
-                      {renderLoginAction(student, true)}
-                      <button
-                        type="button"
-                        onClick={() => void openEditForm(student)}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-100"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Edit student
-                      </button>
+                      {renderStudentActions(student)}
                     </div>
                   </article>
                 ))}
