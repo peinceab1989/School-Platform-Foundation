@@ -137,6 +137,7 @@ const ADMIN_SCHOOL_PATHS = [
 
 const PROTECTED_SCHOOL_PATHS = [
   '/dashboard',
+  '/results-management',
   ...ADMIN_SCHOOL_PATHS,
   '/teacher-dashboard',
   '/student-dashboard',
