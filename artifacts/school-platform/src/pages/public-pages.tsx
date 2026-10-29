@@ -29,9 +29,10 @@ const SCHOOL = "RHEMA EXPLOITS SCIENCE ACADEMY INT’L";
 const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
 const ADDRESS =
   "1, Smiling George Way, Behind Matice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.";
-const EMAIL = "rhemaexploitsacademy@gmail.com";
+const EMAIL = "Resainternational2024@gmail.com";
 const PHONE = "08058422691";
-const WHATSAPP = "08058422691";
+const WHATSAPP = "07010945774";
+const WHATSAPP_URL = "https://wa.me/2347010945774?text=Hello%20RESA%20Customer%20Care%2C%20I%20would%20like%20to%20make%20an%20enquiry.";
 const ADMISSIONS_PHONE = "08052159511";
 const FACEBOOK = "https://www.facebook.com/share/1H2v8eruwR/";
 
@@ -376,6 +377,20 @@ export function AboutPage() {
           </div>
         </div>
       </section>
+      <section className="bg-white px-5 py-14 sm:px-8">
+        <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-2">
+          <article className="rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-6">
+            <p className="text-sm font-bold uppercase tracking-wider text-[#a17c32]">Our beginnings</p>
+            <h3 className="mt-2 text-xl font-black text-[#163c2e]">Established 9 September 2026</h3>
+            <p className="mt-3 leading-7 text-slate-600">RHEMA EXPLOITS SCIENCE ACADEMY INT’L was established to nurture learners through science and technology-focused education, practical skills, character development and entrepreneurial thinking.</p>
+          </article>
+          <article className="rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-6">
+            <p className="text-sm font-bold uppercase tracking-wider text-[#a17c32]">Educational philosophy</p>
+            <h3 className="mt-2 text-xl font-black text-[#163c2e]">Learn, practise, create and serve</h3>
+            <p className="mt-3 leading-7 text-slate-600">We connect strong academic foundations with hands-on science, technology, digital literacy, problem-solving, godly character and practical entrepreneurial skills so learners can apply knowledge responsibly.</p>
+          </article>
+        </div>
+      </section>
       <CallToAction />
     </PublicLayout>
   );
@@ -599,7 +614,7 @@ export function AdmissionsPage() {
             <a href={`tel:${ADMISSIONS_PHONE}`} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#163c2e] px-5 py-4 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-1">
               <Phone size={18} /> Call Admissions
             </a>
-            <a href={`https://wa.me/2348058422691`} target="_blank" rel="noreferrer" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d] transition hover:bg-[#e0ebdc]">
+            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d] transition hover:bg-[#e0ebdc]">
               Enquire on WhatsApp <ArrowRight size={18} />
             </a>
           </aside>
@@ -624,14 +639,14 @@ export function ContactPage() {
           <SectionHeading eyebrow="Get in touch" title="We would love to hear from you" description="Contact the appropriate school line or send an email. For current admissions details, please speak directly with the school." />
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <FeatureCard number="01" icon={MapPin} title="Visit the school" description={ADDRESS} />
-            <FeatureCard number="02" icon={Phone} title="Call the school" description={`Main line: ${PHONE}. Admissions and customer care: ${ADMISSIONS_PHONE}.`} />
+            <FeatureCard number="02" icon={Phone} title="Call the school" description={`Main line: ${PHONE}. Admissions: ${PHONE}, ${WHATSAPP} (WhatsApp), and ${ADMISSIONS_PHONE}.`} />
             <FeatureCard number="03" icon={Mail} title="Send an email" description={EMAIL} />
           </div>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             <a href={`tel:${PHONE}`} className="flex items-center justify-center gap-3 rounded-2xl bg-[#163c2e] p-5 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-1">
               <Phone size={20} /> Call RESA
             </a>
-            <a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 rounded-2xl border border-[#d7dfd3] bg-[#eaf2e7] p-5 font-extrabold text-[#20553d] transition hover:-translate-y-1">
+            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 rounded-2xl border border-[#d7dfd3] bg-[#eaf2e7] p-5 font-extrabold text-[#20553d] transition hover:-translate-y-1">
               <Phone size={20} /> WhatsApp: {WHATSAPP}
             </a>
             <a href={`mailto:${EMAIL}`} className="flex items-center justify-center gap-3 rounded-2xl border border-[#e7dec9] bg-white p-5 font-extrabold text-[#163c2e] transition hover:-translate-y-1">
