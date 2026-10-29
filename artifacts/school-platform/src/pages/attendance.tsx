@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarCheck, Check, RefreshCw, Save } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Check, RefreshCw, Save, Search } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -39,6 +39,7 @@ export default function AttendancePage({ schoolId }: { schoolId: string }) {
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [studentSearch, setStudentSearch] = useState("");
   const [classId, setClassId] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [date, setDate] = useState(todayInLagos);
@@ -255,11 +256,12 @@ export default function AttendancePage({ schoolId }: { schoolId: string }) {
             <div><h2 className="font-bold">{selectedClass?.name ?? "Class register"}</h2><p className="mt-1 text-sm text-slate-600">{students.length} active student{students.length === 1 ? "" : "s"}</p></div>
             <button type="button" onClick={() => void saveRegister()} disabled={saving || loading || !students.length || !sessionId} className="inline-flex items-center gap-2 rounded-lg bg-green-800 px-4 py-2.5 text-sm font-bold text-white hover:bg-green-900 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{saving ? "Saving…" : "Save attendance"}</button>
           </div>
-          {loading ? <p className="p-8 text-center text-sm text-slate-500">Loading attendance register…</p> : !students.length ? <p className="p-8 text-center text-sm text-slate-500">No active student records were found. Add students first or check the selected school.</p> : (
+          <label className="relative mx-4 mt-4 block print:hidden"><Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18}/><input value={studentSearch} onChange={e=>setStudentSearch(e.target.value)} placeholder="Search student name or admission number…" aria-label="Search attendance students" className="w-full rounded-xl border px-3 py-3 pl-10 text-sm"/></label>
+          {loading ? <p className="p-8 text-center text-sm text-slate-500">Loading attendance register…</p> : !students.length ? <p className="p-8 text-center text-sm text-slate-500">No active student records were found. Add students first or check the selected school.</p> : !students.some(student=>[fullName(student),student.admission_number].some(value=>value.toLowerCase().includes(studentSearch.trim().toLowerCase()))) ? <p className="p-8 text-center text-sm text-slate-500">No students match your search.</p> : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600"><tr><th className="px-4 py-3">Admission No.</th><th className="px-4 py-3">Student</th><th className="px-4 py-3">Attendance status</th><th className="px-4 py-3">Remarks (optional)</th></tr></thead>
-                <tbody className="divide-y divide-slate-100">{students.map((student) => <tr key={student.id} className="hover:bg-slate-50"><td className="whitespace-nowrap px-4 py-3 font-medium">{student.admission_number}</td><td className="px-4 py-3 font-semibold">{fullName(student)}</td><td className="px-4 py-3"><select aria-label={`Attendance status for ${fullName(student)}`} className={`max-w-44 ${fieldClass}`} value={statuses[student.id] ?? "present"} onChange={(event) => setStatuses((previous) => ({ ...previous, [student.id]: event.target.value as AttendanceStatus }))}>{statusOptions.map((status) => <option key={status} value={status}>{labelStatus(status)}</option>)}</select></td><td className="px-4 py-3"><input aria-label={`Remarks for ${fullName(student)}`} className={`min-w-52 ${fieldClass}`} value={remarks[student.id] ?? ""} onChange={(event) => setRemarks((previous) => ({ ...previous, [student.id]: event.target.value }))} placeholder="Add a note" maxLength={500} /></td></tr>)}</tbody>
+                <tbody className="divide-y divide-slate-100">{students.filter(student=>[fullName(student),student.admission_number].some(value=>value.toLowerCase().includes(studentSearch.trim().toLowerCase()))).map((student) => <tr key={student.id} className="hover:bg-slate-50"><td className="whitespace-nowrap px-4 py-3 font-medium">{student.admission_number}</td><td className="px-4 py-3 font-semibold">{fullName(student)}</td><td className="px-4 py-3"><select aria-label={`Attendance status for ${fullName(student)}`} className={`max-w-44 ${fieldClass}`} value={statuses[student.id] ?? "present"} onChange={(event) => setStatuses((previous) => ({ ...previous, [student.id]: event.target.value as AttendanceStatus }))}>{statusOptions.map((status) => <option key={status} value={status}>{labelStatus(status)}</option>)}</select></td><td className="px-4 py-3"><input aria-label={`Remarks for ${fullName(student)}`} className={`min-w-52 ${fieldClass}`} value={remarks[student.id] ?? ""} onChange={(event) => setRemarks((previous) => ({ ...previous, [student.id]: event.target.value }))} placeholder="Add a note" maxLength={500} /></td></tr>)}</tbody>
               </table>
             </div>
           )}
