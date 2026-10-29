@@ -89,7 +89,7 @@ Deno.serve(async (req: Request) => {
     if (role === "teacher") {
       const staffId = await insertTracked("staff", {
         school_id: SCHOOL_ID, person_id: personId, user_id: authId,
-        staff_number: `TEST-STAFF-${String(n).padStart(3, "0")}`,
+        staff_number: `TEST-${runId.slice(0, 4).toUpperCase()}-STAFF-${String(n).padStart(3, "0")}`,
         job_title: "Teacher (TEST)", department: "Testing", status: "active",
       }, "test_staff");
       await insertTracked("teacher_assignments", {
@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
     } else {
       const studentId = await insertTracked("students", {
         school_id: SCHOOL_ID, person_id: personId, user_id: authId,
-        admission_number: `TEST-2026-${String(n).padStart(3, "0")}`,
+        admission_number: `TEST-${runId.slice(0, 4).toUpperCase()}-${String(n).padStart(3, "0")}`,
         admission_date: new Date().toISOString().slice(0, 10), status: "active",
       }, "test_student");
       await insertTracked("student_enrollments", {
