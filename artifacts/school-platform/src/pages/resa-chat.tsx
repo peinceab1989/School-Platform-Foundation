@@ -49,10 +49,10 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
         const classIds: string[] = [...new Set<string>((assignment.data ?? []).map((x: any) => String(x.class_id)).filter(Boolean))];
         if (classIds.length) {
           const enrollment = await (db as any).from("student_enrollments").select("student_id").eq("school_id", schoolId).eq("status", "active").in("class_id", classIds);
-          const studentIds = [...new Set((enrollment.data ?? []).map((x: any) => x.student_id).filter(Boolean))];
+          const studentIds: string[] = [...new Set<string>((enrollment.data ?? []).map((x: any) => String(x.student_id)).filter(Boolean))];
           if (studentIds.length) {
             const students = await (db as any).from("students").select("user_id").eq("school_id", schoolId).in("id", studentIds);
-            contactIds = [...new Set((students.data ?? []).map((x: any) => x.user_id).filter((id: string) => id && id !== userId))];
+            contactIds = [...new Set<string>((students.data ?? []).map((x: any) => String(x.user_id ?? "")).filter((id: string) => id && id !== userId))];
           }
         }
       }
@@ -63,10 +63,10 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
         const classIds: string[] = [...new Set<string>((enrollments.data ?? []).map((x: any) => String(x.class_id)).filter(Boolean))];
         if (classIds.length) {
           const assignment = await (db as any).from("teacher_assignments").select("staff_id").eq("school_id", schoolId).in("class_id", classIds);
-          const staffIds = [...new Set((assignment.data ?? []).map((x: any) => x.staff_id).filter(Boolean))];
+          const staffIds: string[] = [...new Set<string>((assignment.data ?? []).map((x: any) => String(x.staff_id)).filter(Boolean))];
           if (staffIds.length) {
             const staff = await (db as any).from("staff").select("user_id").eq("school_id", schoolId).eq("status", "active").in("id", staffIds);
-            contactIds = [...new Set((staff.data ?? []).map((x: any) => x.user_id).filter((id: string) => id && id !== userId))];
+            contactIds = [...new Set<string>((staff.data ?? []).map((x: any) => String(x.user_id ?? "")).filter((id: string) => id && id !== userId))];
           }
         }
       }
