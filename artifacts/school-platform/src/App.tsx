@@ -1662,6 +1662,7 @@ function FoundationPage() {
       '/portal',
       '/notifications',
       '/school-communication',
+      '/results-management',
       '/teaching-materials',
       '/resa-chat',
     ].includes(currentPath)
