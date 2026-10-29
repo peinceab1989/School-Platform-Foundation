@@ -36,10 +36,11 @@ drop policy if exists "members create allowed chat conversations" on public.resa
 create policy "members create allowed chat conversations" on public.resa_chat_conversations for insert to authenticated
 with check (
   created_by=auth.uid() and participant_one=auth.uid()
-  and exists (select 1 from public.school_memberships target where target.school_id=resa_chat_conversations.school_id and target.user_id=resa_chat_conversations.participant_two and target.status='active' and target.role in ('teacher','student'))
+  and exists (select 1 from public.school_memberships target where target.school_id=resa_chat_conversations.school_id and target.user_id=resa_chat_conversations.participant_two and target.status='active' and target.role in ('admin','teacher','student'))
   and exists (select 1 from public.resa_chat_settings cs where cs.school_id=resa_chat_conversations.school_id and cs.chat_enabled=true)
   and (
     public.has_school_role(resa_chat_conversations.school_id,array['admin']::public.school_role[])
+    or (exists (select 1 from public.school_memberships target where target.school_id=resa_chat_conversations.school_id and target.user_id=resa_chat_conversations.participant_two and target.role='admin' and target.status='active') and public.has_school_role(resa_chat_conversations.school_id,array['teacher','student']::public.school_role[]))
     or (public.has_school_role(resa_chat_conversations.school_id,array['teacher']::public.school_role[]) and exists (
       select 1 from public.staff st join public.teacher_assignments ta on ta.staff_id=st.id and ta.school_id=st.school_id
       join public.student_enrollments se on se.school_id=ta.school_id and se.class_id=ta.class_id and se.status='active'
