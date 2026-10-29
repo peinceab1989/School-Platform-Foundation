@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { SchoolLogo } from "@/components/school-logo";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 const FACEBOOK_URL = "https://www.facebook.com/share/1H2v8eruwR/";
 const SCHOOL_EMAIL = "Resainternational2024@gmail.com";
@@ -276,6 +277,18 @@ export function PublicFooter() {
 
 function FloatingCustomerCare() {
   const [open, setOpen] = useState(false);
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const db = getSupabaseClient() as any;
+    db.rpc("get_public_customer_care_status", { p_school_id: "469a9ed9-8e6c-45b8-a76c-89536adb1d3d" })
+      .then(({ data, error }: { data: boolean | null; error: unknown }) => {
+        if (active) setEnabled(error ? false : data === true);
+      })
+      .catch(() => { if (active) setEnabled(false); });
+    return () => { active = false; };
+  }, []);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   const drag = useRef<{ offsetX: number; offsetY: number; moved: boolean; startX: number; startY: number } | null>(null);
   const suppressClick = useRef(false);
@@ -310,6 +323,8 @@ function FloatingCustomerCare() {
     suppressClick.current = Boolean(drag.current?.moved);
     drag.current = null;
   }
+
+  if (enabled !== true) return null;
 
   return (
     <>
