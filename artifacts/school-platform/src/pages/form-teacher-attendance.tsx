@@ -43,7 +43,7 @@ export default function FormTeacherAttendancePage({ schoolId, userId, role }: Pr
       const [c, s, st, a] = await Promise.all([
         db.from("school_classes").select("id,name,level").eq("school_id", schoolId).order("name"),
         db.from("academic_sessions").select("id,name,is_current").eq("school_id", schoolId).order("start_date", { ascending: false }),
-        db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).eq("status", "active").order("created_at", { ascending: false }),
+        (role === "teacher" ? db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).eq("user_id", userId).eq("status", "active") : db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).eq("status", "active").order("created_at", { ascending: false })),
         db.from("class_form_teachers").select("id,staff_id,class_id,academic_session_id").eq("school_id", schoolId),
       ]);
       for (const x of [c, s, st, a]) if (x.error) throw x.error;
@@ -60,10 +60,16 @@ export default function FormTeacherAttendancePage({ schoolId, userId, role }: Pr
       const allStaff: StaffRow[] = staffRows.map((x: any) => ({ id: x.id, person_id: x.person_id, staff_number: x.staff_number, name: people.get(x.person_id) || x.staff_number || "Staff member" }));
       const assignmentRows = (a.data ?? []) as FormTeacherRow[];
       setClasses(classRows); setSessions(sessionRows); setStaff(allStaff);
-      setAssignments(role === "admin" ? assignmentRows : assignmentRows.filter(x => allStaff.some(s => s.id === x.staff_id && (staffRows.find((r: any) => r.id === s.id)?.user_id === userId))));
+      const allowedAssignments = role === "admin" ? assignmentRows : assignmentRows.filter(x => allStaff.some(s => s.id === x.staff_id));
+      setAssignments(allowedAssignments);
       const preferred = sessionRows.find(x => x.is_current)?.id || sessionRows[0]?.id || "";
       setSessionId(prev => sessionRows.some(x => x.id === prev) ? prev : preferred);
-      setClassId(prev => classRows.some(x => x.id === prev) ? prev : classRows[0]?.id || "");
+      setClassId(prev => {
+        if (role === "admin") return classRows.some(x => x.id === prev) ? prev : classRows[0]?.id || "";
+        if (allowedAssignments.some(a => a.class_id === prev && a.academic_session_id === preferred)) return prev;
+        return classRows.find(c => allowedAssignments.some(a => a.class_id === c.id && a.academic_session_id === preferred))?.id
+          || classRows.find(c => allowedAssignments.some(a => a.class_id === c.id))?.id || "";
+      });
       setStaffId(prev => allStaff.some(x => x.id === prev) ? prev : allStaff[0]?.id || "");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load form-teacher assignments.");
