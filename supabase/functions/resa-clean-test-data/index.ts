@@ -62,11 +62,15 @@ Deno.serve(async (req: Request) => {
     .eq("school_id", SCHOOL_ID);
   if (markerError) return reply(500, { error: "Could not read the test-data cleanup register. No records were deleted." });
   const rows = markers ?? [];
-  const counts: Record<string, number> = {};
+  const countIds: Record<string, Set<string>> = {};
   for (const row of rows) {
     if (row.entity_type === "test_run_created_by") continue;
-    counts[row.entity_table] = (counts[row.entity_table] ?? 0) + 1;
+    if (!countIds[row.entity_table]) countIds[row.entity_table] = new Set<string>();
+    countIds[row.entity_table].add(row.entity_id);
   }
+  const counts: Record<string, number> = Object.fromEntries(
+    Object.entries(countIds).map(([table, ids]) => [table, ids.size]),
+  );
   const uniqueAuthIds = [...new Set(rows
     .filter((row: any) => row.entity_table === "auth.users" && ["test_auth_user", "legacy_test_auth_user"].includes(row.entity_type))
     .map((row: any) => row.entity_id))];
