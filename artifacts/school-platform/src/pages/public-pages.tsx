@@ -28,7 +28,7 @@ import { PublicLayout } from "@/components/public-site";
 const SCHOOL = "RHEMA EXPLOITS SCIENCE ACADEMY INT’L";
 const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
 const ADDRESS =
-  "1, Smiling George Way, Behind Matice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.";
+  "1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.";
 const EMAIL = "Resainternational2024@gmail.com";
 const PHONE = "08058422691";
 const WHATSAPP = "07010945774";
