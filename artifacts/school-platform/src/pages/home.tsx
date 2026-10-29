@@ -361,7 +361,7 @@ export default function HomePage() {
               <a href="mailto:Resainternational2024@gmail.com" className="rounded-2xl border border-[#e2dece] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#eaf1e8] text-[#215641]"><Mail size={21} aria-hidden="true" /></span>
                 <h3 className="mt-4 font-extrabold text-[#215641]">Email the school</h3>
-                <p className="mt-2 break-words text-sm text-[#657066]">rhemaexploitsacademy@gmail.com</p>
+                <p className="mt-2 break-words text-sm text-[#657066]">Resainternational2024@gmail.com</p>
               </a>
               <a href="https://www.google.com/maps/search/?api=1&query=1%2C+Smiling+George+Way%2C+Behind+Mat+Ice%2C+Opposite+Winners%27+Chapel%2C+Sapele+Road%2C+Benin+City%2C+Edo+State%2C+Nigeria" target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-[#e2dece] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#eaf1e8] text-[#215641]"><MapPin size={21} aria-hidden="true" /></span>
