@@ -1582,7 +1582,7 @@ function FoundationPage() {
     }
 
     if (currentPath === '/results-management') {
-      return <ResultsManagementPage schoolId={adminMembership.schoolId} />;
+      return <ResultsManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} />;
     }
 
     if (currentPath === '/examinations') {
