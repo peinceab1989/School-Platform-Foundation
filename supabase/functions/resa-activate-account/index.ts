@@ -48,8 +48,12 @@ Deno.serve(async (req: Request) => {
     }
 
     const password = typeof body.password === "string" ? body.password : "";
-    if (password.length < 8) return reply(400, { error: "Choose a password with at least 8 characters." });
-    if (password.length > 128) return reply(400, { error: "Password is too long." });
+    if (password.length < 8) {
+      return reply(400, { error: "Choose a password with at least 8 characters." });
+    }
+    if (password.length > 128) {
+      return reply(400, { error: "Password is too long." });
+    }
     if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
       return reply(400, { error: "Choose a password containing at least one letter and one number." });
     }
@@ -58,6 +62,10 @@ Deno.serve(async (req: Request) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
+  const { data: moduleControl, error: moduleControlError } = await adminClient.from("nexus_module_controls").select("is_enabled").eq("module_key", "account_activation").maybeSingle();
+  if (moduleControlError || !moduleControl) return reply(503, { error: "Could not verify account activation availability." });
+  if (!moduleControl.is_enabled) return reply(403, { error: "Account activation is currently disabled by the system administrator." });
+
     // Eligibility comes from trusted school records, never editable user metadata.
     // Invited teachers can set a password before approval, but invited status does
     // not grant access to protected school features.
@@ -65,13 +73,18 @@ Deno.serve(async (req: Request) => {
       { data: membershipRows, error: membershipError },
       { data: studentRows, error: studentError },
     ] = await Promise.all([
-      adminClient.from("school_memberships")
+      adminClient
+        .from("school_memberships")
         .select("role,status")
         .eq("user_id", user.id)
         .in("role", ["student", "teacher"])
         .in("status", ["invited", "active"])
         .limit(5),
-      adminClient.from("students").select("id").eq("user_id", user.id).limit(1),
+      adminClient
+        .from("students")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1),
     ]);
 
     if (membershipError || studentError) {
