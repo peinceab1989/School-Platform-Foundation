@@ -119,7 +119,6 @@ function normalizePath(path: string): string {
 const ADMIN_SCHOOL_PATHS = [
   '/students',
   '/attendance',
-  '/form-teacher-attendance',
   '/announcements',
   '/results',
   '/examinations',
@@ -144,6 +143,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/teaching-materials',
   '/resa-chat',
   ...ADMIN_SCHOOL_PATHS,
+  '/form-teacher-attendance',
   '/teacher-dashboard',
   '/student-dashboard',
   '/my-results',
