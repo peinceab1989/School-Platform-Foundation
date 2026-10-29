@@ -109,6 +109,10 @@ export function PublicHeader() {
                 <Link
                   key={page.href}
                   href={page.href}
+                  onClick={(event) => {
+                    const menu = event.currentTarget.closest("details");
+                    if (menu) menu.open = false;
+                  }}
                   aria-current={location === page.href ? "page" : undefined}
                   className="block rounded-xl px-3 py-3 text-sm font-medium text-[#526258] transition hover:bg-[#f3f5ef] hover:text-[#1e6845] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#245b40]"
                 >
