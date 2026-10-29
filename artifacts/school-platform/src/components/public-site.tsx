@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import {
   ArrowRight,
   ChevronDown,
@@ -11,9 +11,9 @@ import {
 import { SchoolLogo } from "@/components/school-logo";
 
 const FACEBOOK_URL = "https://www.facebook.com/share/1H2v8eruwR/";
-const SCHOOL_EMAIL = "rhemaexploitsacademy@gmail.com";
+const SCHOOL_EMAIL = "Resainternational2024@gmail.com";
 const SCHOOL_PHONE = "+2348058422691";
-const SCHOOL_WHATSAPP = "https://wa.me/2348058422691";
+const SCHOOL_WHATSAPP = "https://wa.me/2347010945774?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance.";
 const PORTAL_PATH = "/portal-options";
 const JETAB_WHATSAPP =
   "https://wa.me/2347054078988?text=Hello%20JETAB%20TECH%2C%20I%20would%20like%20to%20request%20a%20service%20or%20training.";
@@ -271,6 +271,91 @@ export function PublicFooter() {
         </p>
       </div>
     </footer>
+  );
+}
+
+function FloatingCustomerCare() {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const drag = useRef<{ offsetX: number; offsetY: number; moved: boolean; startX: number; startY: number } | null>(null);
+  const suppressClick = useRef(false);
+
+  function startDrag(event: PointerEvent<HTMLButtonElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    drag.current = {
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      moved: false,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (!drag.current) return;
+    const dx = event.clientX - drag.current.startX;
+    const dy = event.clientY - drag.current.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.current.moved = true;
+    if (!drag.current.moved) return;
+    const width = 86;
+    const height = 42;
+    setPosition({
+      left: Math.max(8, Math.min(window.innerWidth - width - 8, event.clientX - drag.current.offsetX)),
+      top: Math.max(8, Math.min(window.innerHeight - height - 8, event.clientY - drag.current.offsetY)),
+    });
+  }
+
+  function endDrag() {
+    suppressClick.current = Boolean(drag.current?.moved);
+    drag.current = null;
+  }
+
+  return (
+    <div className="z-[70]" style={position ? { position: "fixed", left: position.left, top: position.top } : { position: "fixed", right: 16, bottom: 92 }}>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="RESA customer care options"
+          className="absolute bottom-[50px] right-0 w-[min(280px,calc(100vw-24px))] rounded-2xl border border-[#e7e1d3] bg-[#fffdf7] p-4 text-[#263b2f] shadow-2xl"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-[#174b35]">RESA Customer Care</p>
+              <p className="mt-1 text-xs leading-5 text-[#657066]">Choose how you would like to contact us.</p>
+            </div>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Close customer care" className="rounded-lg p-1 text-[#526258] hover:bg-[#edf2e9]">
+              <X size={17} />
+            </button>
+          </div>
+          <Link href="/school-communication" onClick={() => setOpen(false)} className="mt-4 flex items-center gap-3 rounded-xl bg-[#174b35] px-3 py-3 text-sm font-bold text-white transition hover:bg-[#103b2d]">
+            <MessageCircle size={18} /> Chat with admin
+          </Link>
+          <a href={SCHOOL_WHATSAPP} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className="mt-2 flex items-center gap-3 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-3 py-3 text-sm font-bold text-[#20553d] transition hover:bg-[#e0ebdc]">
+            <MessageCircle size={18} /> WhatsApp RESA
+          </a>
+          <p className="mt-3 text-[11px] leading-4 text-[#6b756c]">WhatsApp: 0701 094 5774</p>
+        </div>
+      )}
+      <button
+        type="button"
+        onPointerDown={startDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onClick={() => {
+          if (suppressClick.current) { suppressClick.current = false; return; }
+          setOpen(value => !value);
+        }}
+        aria-label={open ? "Close customer care options" : "Open customer care options"}
+        aria-expanded={open}
+        title="Drag to move; tap for customer care"
+        className="flex h-10 touch-none select-none items-center gap-2 rounded-full border border-[#f2df9b] bg-[#174b35] px-3 text-xs font-extrabold text-white shadow-[0_5px_18px_rgba(16,59,45,.28)] transition hover:bg-[#103b2d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d8b765] focus-visible:ring-offset-2"
+      >
+        <MessageCircle size={16} aria-hidden="true" />
+        Help
+      </button>
+    </div>
   );
 }
 
