@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import {
+Search,
 ArrowLeft,
 BookOpen,
 GraduationCap,
