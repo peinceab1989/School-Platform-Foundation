@@ -23,7 +23,7 @@ const DELETE_ORDER = [
   "teacher_assignments", "assignment_submissions", "student_parent_guardians",
   "parent_student_portal_access", "parent_portal_accounts",
   "biometric_parent_notifications", "biometric_attendance_events",
-  "school_event_participants", "school_messages", "announcements",
+  "school_event_participants", "school_events", "school_messages", "announcements",
   "online_exams", "assignments", "assessments", "academic_terms",
   "staff_attendance", "biometric_devices", "parents_guardians",
   "staff", "students", "people", "school_memberships", "profiles",
