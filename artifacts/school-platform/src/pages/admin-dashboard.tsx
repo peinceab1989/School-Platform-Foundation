@@ -81,6 +81,7 @@ const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Students", href: "/students", icon: Users },
   { label: "Attendance", href: "/attendance", icon: CalendarCheck },
+  { label: "Form Teacher & Attendance Comparison", href: "/form-teacher-attendance", icon: ClipboardCheck },
   { label: "Staff Attendance", href: "/staff-attendance", icon: CalendarCheck },
   { label: "School Messages", href: "/school-communication", icon: BellRing },
   { label: "Notifications", href: "/notifications", icon: BellRing },
