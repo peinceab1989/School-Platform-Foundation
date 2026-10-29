@@ -156,7 +156,7 @@ export default function FormTeacherAttendancePage({ schoolId, userId, role }: Pr
     for (const row of attendance) {
       const item = byStudent.get(row.student_id); if (!item) continue;
       const status = row.status.toLowerCase() as "present" | "absent" | "late" | "excused";
-      if (status in item && status !== "records") item[status]++;
+      if (status in item) item[status]++;
       item.records++;
     }
     return byStudent;
