@@ -47,6 +47,7 @@ import StudentAssignmentsPanel from '@/pages/student-assignments-panel';
 import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
+import TestDataSetupPage from '@/pages/test-data-setup';
 import SchoolCctvPage from '@/pages/school-cctv';
 import NotificationsPage from '@/pages/notifications';
 import NotFound from '@/pages/not-found';
@@ -1347,8 +1348,19 @@ function FoundationPage() {
     setStatusText(null);
 
     try {
+      const identifier = email.trim();
+      const authEmail = identifier.includes('@')
+        ? identifier.toLowerCase()
+        : `${identifier.toLowerCase()}@accounts.resa.invalid`;
+
+      if (!identifier.includes('@') && !/^[a-z0-9][a-z0-9._-]{2,39}$/.test(identifier.toLowerCase())) {
+        setAuthState('signed-out');
+        setErrorText('Enter a valid username (3–40 letters, numbers, dots, underscores or hyphens) or email address.');
+        return false;
+      }
+
       const { error } = await getSupabaseClient().auth.signInWithPassword({
-        email: email.trim(),
+        email: authEmail,
         password,
       });
 
@@ -1957,6 +1969,7 @@ function AppRoutes() {
         <Route path="/reset-password" component={ResetPasswordPage} />
 
         {/* School portal */}
+        <Route path="/test-data-setup" component={TestDataSetupPage} />
         <Route path="/portal" component={FoundationPage} />
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/teacher-dashboard" component={FoundationPage} />
