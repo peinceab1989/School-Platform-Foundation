@@ -12,6 +12,8 @@ import {
   RefreshCw,
   RotateCcw,
   Send,
+  Search,
+  ChevronDown,
   ShieldCheck,
   UserCheck,
   Users,
@@ -61,7 +63,9 @@ export default function StaffInvitationsPage({
   const [phone, setPhone] = useState("");
   const [jobTitle, setJobTitle] = useState("Teacher");
   const [department, setDepartment] = useState("ICT");
-  const [recoveryEmail, setRecoveryEmail] = useState("usunobunisaac36@gmail.com");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [staffSearch, setStaffSearch] = useState("");
+  const [staffPage, setStaffPage] = useState(1);
 
   const [submitting, setSubmitting] = useState(false);
   const [loadingStaff, setLoadingStaff] = useState(true);
@@ -468,6 +472,16 @@ export default function StaffInvitationsPage({
     (staff) => staff.membership_status === "suspended",
   );
 
+  const directoryStaff = [...activeStaff, ...suspendedStaff].filter((staff) => {
+    const query = staffSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [staff.staff_number, staff.job_title, staff.department, staff.staff_status, staff.membership_status, staff.user_id]
+      .some((value) => String(value ?? "").toLowerCase().includes(query));
+  });
+  const staffPageSize = 8;
+  const staffPageCount = Math.max(1, Math.ceil(directoryStaff.length / staffPageSize));
+  const visibleDirectoryStaff = directoryStaff.slice((staffPage - 1) * staffPageSize, staffPage * staffPageSize);
+
   function renderStaffCard(staff: StaffMember) {
     const isProcessing = processingUser === staff.user_id;
     const isInvited = staff.membership_status === "invited";
@@ -703,7 +717,9 @@ export default function StaffInvitationsPage({
           </div>
         </section>
 
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm sm:p-6">
+        <details className="group rounded-2xl border border-amber-200 bg-amber-50 shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 sm:p-6"><span className="flex items-center gap-3"><AlertCircle className="h-5 w-5 text-amber-700" /><span><span className="block font-bold text-slate-900">Recover an Existing Invitation</span><span className="block text-sm text-slate-600">Password setup or remove an incomplete invitation</span></span></span><ChevronDown className="h-5 w-5 transition group-open:rotate-180" /></summary>
+          <div className="border-t border-amber-200 p-5 sm:p-6">
           <div className="flex items-start gap-3">
             <AlertCircle className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
             <div>
@@ -726,11 +742,13 @@ export default function StaffInvitationsPage({
             </button>
           </div>
           <p className="mt-3 text-xs leading-5 text-slate-500">Removal affects only pending invitation records for this school. It never deletes the global authentication account or active/suspended staff.</p>
-        </section>
-
+                  </div>
+        </details>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex items-center gap-3">
+          <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 sm:p-6"><span className="flex items-center gap-3"><span className="rounded-xl bg-green-50 p-3 text-green-800"><Mail className="h-6 w-6" /></span><span><span className="block font-bold">Invite a Teacher</span><span className="block text-sm text-slate-500">Tap to enter a new staff member</span></span></span><ChevronDown className="h-5 w-5 transition group-open:rotate-180" /></summary>
+            <div className="border-t border-slate-200 p-5 sm:p-6">
+<div className="flex items-center gap-3">
               <span className="rounded-xl bg-green-50 p-3 text-green-800">
                 <Mail className="h-6 w-6" />
               </span>
@@ -829,10 +847,12 @@ export default function StaffInvitationsPage({
                 {submitting ? "Sending invitation…" : "Send Staff Invitation"}
               </button>
             </form>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex items-center gap-3">
+                      </div>
+          </details>
+          <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 sm:p-6"><span className="flex items-center gap-3"><span className="rounded-xl bg-amber-50 p-3 text-amber-700"><Clock3 className="h-6 w-6" /></span><span><span className="block font-bold">Pending Approval</span><span className="block text-sm text-slate-500">{pendingStaff.length} invitations awaiting review</span></span></span><ChevronDown className="h-5 w-5 transition group-open:rotate-180" /></summary>
+            <div className="border-t border-slate-200 p-5 sm:p-6">
+<div className="flex items-center gap-3">
               <span className="rounded-xl bg-amber-50 p-3 text-amber-700">
                 <Clock3 className="h-6 w-6" />
               </span>
@@ -864,7 +884,8 @@ export default function StaffInvitationsPage({
                 {pendingStaff.map(renderStaffCard)}
               </div>
             )}
-          </section>
+                      </div>
+          </details>
         </div>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -881,16 +902,20 @@ export default function StaffInvitationsPage({
             </span>
           </div>
 
+          <label className="relative mt-4 block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <input value={staffSearch} onChange={(event) => { setStaffSearch(event.target.value); setStaffPage(1); }} placeholder="Search staff number, job title, department, status or user ID…" aria-label="Search staff directory" className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100" />
+          </label>
           {loadingStaff ? (
             <div className="flex items-center gap-2 py-10 text-sm text-slate-500">
               <LoaderCircle className="h-5 w-5 animate-spin" />
               Loading staff directory…
             </div>
-          ) : activeStaff.length === 0 && suspendedStaff.length === 0 ? (
+          ) : directoryStaff.length === 0 ? (
             <div className="py-10 text-center">
               <Users className="mx-auto h-10 w-10 text-slate-300" />
               <p className="mt-3 font-semibold text-slate-700">
-                No active or suspended teachers
+                {staffSearch.trim() ? "No matching staff found" : "No active or suspended teachers"}
               </p>
               <p className="mt-1 text-sm text-slate-500">
                 Approved teachers will appear here.
@@ -898,9 +923,10 @@ export default function StaffInvitationsPage({
             </div>
           ) : (
             <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-              {[...activeStaff, ...suspendedStaff].map(renderStaffCard)}
+              {visibleDirectoryStaff.map(renderStaffCard)}
             </div>
           )}
+          {!loadingStaff && directoryStaff.length > staffPageSize && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><p className="text-sm text-slate-500">Showing {(staffPage - 1) * staffPageSize + 1}–{Math.min(staffPage * staffPageSize, directoryStaff.length)} of {directoryStaff.length}</p><div className="flex items-center gap-2"><button type="button" onClick={() => setStaffPage((page) => Math.max(1, page - 1))} disabled={staffPage <= 1} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">Previous</button><span className="text-sm text-slate-600">Page {staffPage}/{staffPageCount}</span><button type="button" onClick={() => setStaffPage((page) => Math.min(staffPageCount, page + 1))} disabled={staffPage >= staffPageCount} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">Next</button></div></div>}
         </section>
 
         <p className="text-xs leading-5 text-slate-500">
