@@ -72,7 +72,8 @@ Deno.serve(async (req: Request) => {
     `Class/exam level: ${level}.`,
     `Subject: ${subject}.`,
     topic ? `Focus topic: ${topic}.` : "Choose a sensible range of core topics for this subject and level.",
-    "Mix recall, understanding, and application. Do not repeat questions.",
+    sourceText ? `Use this teacher-provided material as the primary source. Ground questions in it and avoid contradicting it:\n${sourceText}` : "No source material was provided; use established curriculum knowledge for this class level.",
+    "Mix recall, understanding, and application. Do not repeat questions. Avoid duplicates and do not pad with unsupported facts.",
   ].join("\n");
 
   try {
