@@ -47,6 +47,7 @@ import StudentAssignmentsPanel from '@/pages/student-assignments-panel';
 import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
+import TeachingMaterialsPage from '@/pages/teaching-materials';
 import TestDataSetupPage from '@/pages/test-data-setup';
 import SchoolCctvPage from '@/pages/school-cctv';
 import NotificationsPage from '@/pages/notifications';
@@ -138,6 +139,7 @@ const ADMIN_SCHOOL_PATHS = [
 const PROTECTED_SCHOOL_PATHS = [
   '/dashboard',
   '/results-management',
+  '/teaching-materials',
   ...ADMIN_SCHOOL_PATHS,
   '/teacher-dashboard',
   '/student-dashboard',
@@ -1214,7 +1216,7 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication' && currentPath !== '/my-results') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication' && currentPath !== '/my-results' && currentPath !== '/teaching-materials') {
         setLocation('/student-dashboard');
       }
       return;
@@ -1538,6 +1540,7 @@ function FoundationPage() {
     !membershipsLoading
   ) {
     if (currentPath === '/notifications') return <NotificationsPage schoolId={adminMembership.schoolId} role="admin" />;
+    if (currentPath === '/teaching-materials' && session) return <TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
 
     if (currentPath === '/school-cctv') {
       return <SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />;
@@ -1653,9 +1656,11 @@ function FoundationPage() {
       '/portal',
       '/notifications',
       '/school-communication',
+      '/teaching-materials',
     ].includes(currentPath)
   ) {
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
+    if (currentPath === '/teaching-materials') return <TeachingMaterialsPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
     if (currentPath === '/form-teacher-attendance') return <FormTeacherAttendancePage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={teacherMembership.schoolId} role="teacher" />;
@@ -1672,6 +1677,10 @@ function FoundationPage() {
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/school-communication') {
     return <SchoolCommunicationPage schoolId={studentMembership.schoolId} role="student" />;
+  }
+
+  if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/teaching-materials') {
+    return <TeachingMaterialsPage schoolId={studentMembership.schoolId} userId={session?.user.id ?? ''} role="student" />;
   }
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/notifications') {
@@ -1961,6 +1970,7 @@ function AppRoutes() {
         <Route path="/contact" component={ContactPage} />
         <Route path="/portal-options" component={PortalOptionsPage} />
         <Route path="/practice-drills" component={StudentPracticeDrillsPage} />
+        <Route path="/teaching-materials" component={FoundationPage} />
 
         {/* Staff invitation acceptance and password recovery */}
         <Route
