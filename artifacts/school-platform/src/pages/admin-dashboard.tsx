@@ -719,12 +719,12 @@ export default function AdminDashboard({
               )}
             </section>
 
-            <section className="mt-9 rounded-[1.75rem] border border-white bg-white/70 p-4 shadow-[0_18px_40px_-24px_rgba(15,23,42,0.25)] backdrop-blur-sm sm:p-6">
+            <section className="resa-surface mt-8 p-4 sm:p-6">
               <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black tracking-tight text-slate-900">Quick Actions</h2>
 
               <p className="mt-1 text-sm text-slate-600">Your most-used school tools, one tap away.</p></div><span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">Admin workspace</span></div>
 
-              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {[
                   { title: "Students", description: "View and manage student records.", href: "/students", icon: Users },
                   { title: "Teachers & Staff", description: "Invite staff and manage approvals.", href: "/staff-invitations", icon: GraduationCap },
