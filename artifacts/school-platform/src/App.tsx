@@ -119,7 +119,6 @@ const ADMIN_SCHOOL_PATHS = [
   '/form-teacher-attendance',
   '/announcements',
   '/results',
-  '/results-management',
   '/examinations',
   '/school-settings',
   '/classes',
@@ -1598,7 +1597,7 @@ function FoundationPage() {
     }
 
     if (currentPath === '/results-management') {
-      return <ResultsManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} />;
+      return <ResultsManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} role="admin" />;
     }
 
     if (currentPath === '/examinations') {
@@ -1648,6 +1647,7 @@ function FoundationPage() {
     session &&
     [
       '/teacher-dashboard',
+      '/results-management',
       '/form-teacher-attendance',
       '/dashboard',
       '/portal',
@@ -1655,6 +1655,7 @@ function FoundationPage() {
       '/school-communication',
     ].includes(currentPath)
   ) {
+    if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
     if (currentPath === '/form-teacher-attendance') return <FormTeacherAttendancePage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={teacherMembership.schoolId} role="teacher" />;
