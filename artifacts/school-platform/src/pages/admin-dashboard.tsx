@@ -91,6 +91,7 @@ const navigation = [
   { label: "Announcements", href: "/announcements", icon: BellRing },
   { label: "Examinations & CBT", href: "/examinations", icon: ClipboardList },
   { label: "Academic Results", href: "/results", icon: FileText },
+  { label: "Results Entry & Publication", href: "/results-management", icon: FileText },
   { label: "School Settings", href: "/school-settings", icon: Settings2 },
   {
     label: "Teachers & Staff",
@@ -436,7 +437,7 @@ export default function AdminDashboard({
           {[
             { label: "WORKSPACE", items: navigation.filter((item) => item.href === "/dashboard") },
             { label: "PEOPLE", items: navigation.filter((item) => ["/students", "/staff-invitations", "/parent-management", "/hr-management"].includes(item.href)) },
-            { label: "ACADEMICS", items: navigation.filter((item) => ["/attendance", "/classes", "/subjects", "/examinations", "/results", "/practice-drills"].includes(item.href)) },
+            { label: "ACADEMICS", items: navigation.filter((item) => ["/attendance", "/classes", "/subjects", "/examinations", "/results", "/results-management", "/practice-drills"].includes(item.href)) },
             { label: "COMMUNICATION", items: navigation.filter((item) => ["/school-communication", "/notifications", "/announcements"].includes(item.href)) },
             { label: "OPERATIONS", items: navigation.filter((item) => ["/staff-attendance", "/school-reports", "/school-services", "/school-cctv", "/school-settings"].includes(item.href)) },
           ].map((group) => (
