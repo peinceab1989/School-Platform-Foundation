@@ -137,6 +137,10 @@ function SignInView({
       setResetMessage('Enter your registered email address above, then tap Forgot password. Username accounts must ask the school administrator to reset their password.');
       return;
     }
+    if (!normalizedEmail.includes('@')) {
+      setResetMessage('This account uses a username, not an email address. Ask the school administrator to reset its password.');
+      return;
+    }
     setResetBusy(true);
     try {
       const supabase = getSupabaseClient();
