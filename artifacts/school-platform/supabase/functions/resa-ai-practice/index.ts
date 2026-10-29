@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
     }, 503);
   }
 
-  let input: { level?: unknown; subject?: unknown; count?: unknown; topic?: unknown };
+  let input: { level?: unknown; subject?: unknown; count?: unknown; topic?: unknown; sourceText?: unknown };
   try {
     input = await req.json();
   } catch {
@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
 
   const level = typeof input.level === "string" ? input.level.trim().slice(0, 100) : "All levels";
   const subject = typeof input.subject === "string" ? input.subject.trim().slice(0, 100) : "General Studies";
-  const topic = typeof input.topic === "string" ? input.topic.trim().slice(0, 120) : "";
+  const topic = typeof input.topic === "string" ? input.topic.trim().slice(0, 120) : "";\n  const sourceText = typeof input.sourceText === "string" ? input.sourceText.trim().slice(0, 12000) : "";
   const count = Number.isInteger(input.count) ? Math.min(30, Math.max(1, Number(input.count))) : 5;
 
   if (!level || !subject) return jsonResponse({ error: "Choose a class level and subject." }, 400);
