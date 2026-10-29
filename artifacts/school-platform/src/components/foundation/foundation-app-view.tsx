@@ -134,7 +134,7 @@ function SignInView({
     setResetMessage('');
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      setResetMessage('Enter your registered email address above, then tap Forgot password.');
+      setResetMessage('Enter your registered email address above, then tap Forgot password. Username accounts must ask the school administrator to reset their password.');
       return;
     }
     setResetBusy(true);
@@ -262,8 +262,7 @@ function SignInView({
                   <div>
                     <strong>Secure school sign-in</strong>
                     <p>
-                      Use the email address and password registered
-                      for your school account.
+                      Use your school username or registered email address and password.
                     </p>
                   </div>
                 </div>
@@ -273,18 +272,18 @@ function SignInView({
                     htmlFor="foundation-email"
                     className="text-[12px] font-semibold text-[#43594e]"
                   >
-                    Email address
+                    Username or email address
                   </label>
 
                   <input
                     id="foundation-email"
                     name="email"
-                    type="email"
-                    autoComplete="email"
+                    type="text"
+                    autoComplete="username"
                     required
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    placeholder="Enter your registered email"
+                    placeholder="Enter your username or email"
                     className="w-full rounded-lg border border-[#e8e5da] bg-[#fffefa] px-3 py-3 text-[14px] text-[#30473d] placeholder:text-[#9ba39b] focus:border-[#789888] focus:outline-none focus:ring-2 focus:ring-[#789888]/20"
                     data-testid="input-sign-in-email"
                   />
