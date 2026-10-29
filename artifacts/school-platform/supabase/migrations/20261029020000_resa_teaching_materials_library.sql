@@ -26,7 +26,22 @@ create policy "teaching materials visible to school staff or published students"
 on public.teaching_materials for select to authenticated
 using (
   public.has_school_role(school_id, array['admin','teacher']::public.school_role[])
-  or (is_published = true and public.has_school_role(school_id, array['student']::public.school_role[]))
+  or (
+    is_published = true
+    and public.has_school_role(school_id, array['student']::public.school_role[])
+    and (
+      class_id is null
+      or exists (
+        select 1
+        from public.students s
+        join public.student_enrollments se on se.student_id = s.id and se.school_id = s.school_id
+        where s.school_id = teaching_materials.school_id
+          and s.user_id = auth.uid()
+          and se.class_id = teaching_materials.class_id
+          and se.status = 'active'
+      )
+    )
+  )
 );
 
 drop policy if exists "admins manage teaching materials" on public.teaching_materials;
