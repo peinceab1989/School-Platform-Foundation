@@ -40,16 +40,28 @@ export default function FormTeacherAttendancePage({ schoolId, userId, role }: Pr
     setLoading(true); setError("");
     try {
       const db = getSupabaseClient() as any;
+      const staffQuery = role === "teacher"
+        ? db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).eq("user_id", userId).eq("status", "active")
+        : db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).eq("status", "active").order("created_at", { ascending: false });
       const [c, s, st, a] = await Promise.all([
         db.from("school_classes").select("id,name,level").eq("school_id", schoolId).order("name"),
         db.from("academic_sessions").select("id,name,is_current").eq("school_id", schoolId).order("start_date", { ascending: false }),
-        (role === "teacher" ? db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).eq("user_id", userId).eq("status", "active") : db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).eq("status", "active").order("created_at", { ascending: false })),
+        staffQuery,
         db.from("class_form_teachers").select("id,staff_id,class_id,academic_session_id").eq("school_id", schoolId),
       ]);
       for (const x of [c, s, st, a]) if (x.error) throw x.error;
       const classRows = (c.data ?? []) as ClassRow[];
       const sessionRows = (s.data ?? []) as SessionRow[];
-      const staffRows = st.data ?? [];
+      let staffRows = st.data ?? [];
+      if (role === "teacher" && !staffRows.length) {
+        const ownPerson = await db.from("people").select("id").eq("school_id", schoolId).eq("user_id", userId).maybeSingle();
+        if (ownPerson.error) throw ownPerson.error;
+        if (ownPerson.data?.id) {
+          const linkedStaff = await db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).eq("person_id", ownPerson.data.id).eq("status", "active").maybeSingle();
+          if (linkedStaff.error) throw linkedStaff.error;
+          staffRows = linkedStaff.data ? [linkedStaff.data] : [];
+        }
+      }
       const peopleIds = [...new Set(staffRows.map((x: any) => x.person_id).filter(Boolean))];
       let people = new Map<string, string>();
       if (peopleIds.length) {
