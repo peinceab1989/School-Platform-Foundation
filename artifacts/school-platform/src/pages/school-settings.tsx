@@ -245,18 +245,27 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
                 </div>
                 <div className="mt-6 flex justify-end"><button disabled={saving} className={primaryButton}><Save size={16} />{saving ? "Saving…" : "Save school settings"}</button></div>
               </form>}
-              {tab === "school" && <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="max-w-xl">
-                    <h3 className="text-base font-extrabold text-emerald-950">Public Customer Care</h3>
-                    <p className="mt-1 text-sm leading-6 text-emerald-900">Control the movable Help handle shown on the public RESA website. Turning this off hides the entire Customer Care widget, including the admin-chat and WhatsApp options. It does not disable private school messaging inside the signed-in portal.</p>
-                    <p className="mt-2 text-sm font-bold">{customerCareEnabled ? "Status: Active on public pages" : "Status: Deactivated"}</p>
+              {tab === "school" && <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="mb-4 flex items-start gap-3 border-b border-slate-100 pb-4">
+                  <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><Settings2 size={20} /></div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-extrabold text-slate-900">Public Customer Care</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">Manage whether the floating Help handle appears on the public RESA website. This setting does not affect private messages inside the signed-in school portal.</p>
                   </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <button type="button" role="switch" aria-checked={customerCareEnabled} onClick={() => setCustomerCareEnabled(v => !v)} className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${customerCareEnabled ? "bg-emerald-800" : "bg-slate-400"}`} aria-label="Toggle public Customer Care">
+                </div>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${customerCareEnabled ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>{customerCareEnabled ? "Active" : "Deactivated"}</span>
+                      <span className="text-sm text-slate-600">{customerCareEnabled ? "Visitors can contact RESA through the public Help handle." : "The public Help handle is hidden from visitors."}</span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">Includes public admin-chat and WhatsApp contact options.</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button type="button" role="switch" aria-checked={customerCareEnabled} onClick={() => setCustomerCareEnabled(v => !v)} className={`relative inline-flex h-7 w-12 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-green-700 focus:ring-offset-2 ${customerCareEnabled ? "bg-green-800" : "bg-slate-300"}`} aria-label="Toggle public Customer Care">
                       <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${customerCareEnabled ? "translate-x-6" : "translate-x-1"}`} />
                     </button>
-                    <button type="button" onClick={() => void saveCustomerCareSetting()} disabled={customerCareSaving || loading} className={primaryButton}><Save size={16}/>{customerCareSaving ? "Saving…" : "Save Customer Care"}</button>
+                    <button type="button" onClick={() => void saveCustomerCareSetting()} disabled={customerCareSaving || loading} className={primaryButton}><Save size={16}/>{customerCareSaving ? "Saving…" : "Save changes"}</button>
                   </div>
                 </div>
               </section>}
