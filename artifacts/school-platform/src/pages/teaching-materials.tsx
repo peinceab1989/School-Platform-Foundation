@@ -37,7 +37,7 @@ export default function TeachingMaterialsPage({ schoolId, userId, role }: { scho
   const load = useCallback(async () => {
     setLoading(true); setError("");
     const [materialResult, classResult, subjectResult] = await Promise.all([
-      client.from("teaching_materials").select("id,title,material_type,class_id,subject_id,topic,description,storage_path,extracted_text,uploaded_by,is_published,created_at").eq("school_id", schoolId).order("created_at", { ascending: false }),
+      (client as any).from("teaching_materials").select("id,title,material_type,class_id,subject_id,topic,description,storage_path,extracted_text,uploaded_by,is_published,created_at").eq("school_id", schoolId).order("created_at", { ascending: false }),
       client.from("school_classes").select("id,name,level").eq("school_id", schoolId).order("name"),
       client.from("subjects").select("id,name").eq("school_id", schoolId).order("name"),
     ]);
