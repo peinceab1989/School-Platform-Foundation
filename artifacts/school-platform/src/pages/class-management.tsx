@@ -179,9 +179,10 @@ Back to dashboard
     </header>
 
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-        <Plus className="h-5 w-5 text-emerald-700" />
-        Create a class
+      <details>
+      <summary className="cursor-pointer list-none flex items-center justify-between gap-3 rounded-xl bg-emerald-50 p-3 font-bold text-slate-900"><span className="flex items-center gap-2"><Plus className="h-5 w-5 text-emerald-700" />Create a class</span><span className="text-sm font-semibold text-emerald-800">Tap to open</span></summary>
+      <div className="pt-3">
+      <h2 className="sr-only">Create a class</h2>
       </h2>
 
       <p className="mt-1 text-sm text-slate-500">
@@ -241,6 +242,8 @@ Back to dashboard
           {message}
         </p>
       )}
+      </div>
+      </details>
     </section>
 
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
