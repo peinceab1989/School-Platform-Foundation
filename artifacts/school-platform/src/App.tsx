@@ -2040,6 +2040,7 @@ function AppRoutes() {
         <Route path="/student-dashboard" component={FoundationPage} />
         <Route path="/my-results" component={FoundationPage} />
         <Route path="/student-cbt" component={FoundationPage} />
+        <Route path="/student-assignments" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
         <Route path="/form-teacher-attendance" component={FoundationPage} />
