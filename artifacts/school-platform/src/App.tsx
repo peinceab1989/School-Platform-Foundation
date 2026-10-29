@@ -1347,8 +1347,19 @@ function FoundationPage() {
     setStatusText(null);
 
     try {
+      const identifier = email.trim();
+      const authEmail = identifier.includes('@')
+        ? identifier.toLowerCase()
+        : `${identifier.toLowerCase()}@accounts.resa.invalid`;
+
+      if (!identifier.includes('@') && !/^[a-z0-9][a-z0-9._-]{2,39}$/.test(identifier.toLowerCase())) {
+        setAuthState('signed-out');
+        setErrorText('Enter a valid username (3–40 letters, numbers, dots, underscores or hyphens) or email address.');
+        return false;
+      }
+
       const { error } = await getSupabaseClient().auth.signInWithPassword({
-        email: email.trim(),
+        email: authEmail,
         password,
       });
 
