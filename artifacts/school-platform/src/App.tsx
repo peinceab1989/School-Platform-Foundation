@@ -148,6 +148,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-dashboard',
   '/my-results',
   '/student-cbt',
+  '/student-assignments',
   '/school-communication',
   '/notifications',
   '/school-cctv',
@@ -310,8 +311,6 @@ function StudentDashboard({
           </div>
         </header>
 
-        <StudentAssignmentsPanel schoolId={schoolId} userId={userId} />
-
         <section style={panelStyle}>
           <h2 style={{ margin: '0 0 10px', fontSize: 21 }}>My Learning</h2>
           <p style={{ color: '#536456', lineHeight: 1.7, margin: 0 }}>
@@ -321,6 +320,7 @@ function StudentDashboard({
             <Link href="/practice-drills" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>Practice Drills</Link>
             <Link href="/teaching-materials" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Learning Resources</Link>
             <Link href="/resa-chat" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#d9efe2', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>School Chat</Link>
+            <Link href="/student-assignments" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#17623d', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Assignments</Link>
             <Link href="/student-cbt" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Student CBT</Link>
           </div>
         </section>
@@ -337,9 +337,17 @@ function StudentDashboard({
 
           <section style={panelStyle}>
             <div style={{ fontSize: 25, marginBottom: 10 }}>📝</div>
-            <h3 style={{ margin: '0 0 8px' }}>Assignments and CBT</h3>
+            <h3 style={{ margin: '0 0 8px' }}>Assignments</h3>
             <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
-              View available computer-based tests for your enrolled class.
+              View published class assignments, instructions, due dates, submission status, scores and teacher feedback.
+            </p>
+            <Link href="/student-assignments" style={{ display: 'inline-block', marginTop: 12, color: '#17623d', fontWeight: 700 }}>Open assignments</Link>
+          </section>
+          <section style={panelStyle}>
+            <div style={{ fontSize: 25, marginBottom: 10 }}>💻</div>
+            <h3 style={{ margin: '0 0 8px' }}>Computer-Based Tests (CBT)</h3>
+            <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
+              Take published computer-based tests in a separate assessment area.
             </p>
             <Link href="/student-cbt" style={{ display: 'inline-block', marginTop: 12, color: '#17623d', fontWeight: 700 }}>Open CBT</Link>
           </section>
@@ -1706,6 +1714,34 @@ function FoundationPage() {
    */
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && session && currentPath === '/my-results') {
     return <MyPublishedResultsPage schoolId={studentMembership.schoolId} userId={session.user.id} role="student" />;
+  }
+
+  if (
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    !membershipsLoading &&
+    !adminMembership &&
+    !teacherMembership &&
+    studentMembership &&
+    session &&
+    currentPath === '/student-assignments'
+  ) {
+    return (
+      <main style={{ minHeight: '100vh', padding: 16, boxSizing: 'border-box', background: '#f4f7f1', color: '#17251b', fontFamily: 'Arial, sans-serif' }}>
+        <div style={{ maxWidth: 1050, margin: '0 auto' }}>
+          <header style={{ background: '#123d2b', color: '#fff', borderRadius: 16, padding: '22px 20px', marginBottom: 18 }}>
+            <div style={{ color: '#e6c66b', fontSize: 12, fontWeight: 700, letterSpacing: 1.5 }}>RESA STUDENT LEARNING</div>
+            <h1 style={{ fontSize: 27, lineHeight: 1.3, margin: '10px 0' }}>My Assignments</h1>
+            <p style={{ margin: '0 0 14px', lineHeight: 1.6, color: '#e8eee8' }}>Published assignments for your enrolled class. This area is separate from CBT examinations.</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              <Link href="/student-dashboard" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '10px 14px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Back to dashboard</Link>
+              <Link href="/student-cbt" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '10px 14px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Open CBT separately</Link>
+            </div>
+          </header>
+          <StudentAssignmentsPanel schoolId={studentMembership.schoolId} userId={session.user.id} />
+        </div>
+      </main>
+    );
   }
 
   if (
