@@ -47,6 +47,8 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
   const [accountSaving, setAccountSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [signingOutOthers, setSigningOutOthers] = useState(false);
+  const [customerCareEnabled, setCustomerCareEnabled] = useState(true);
+  const [customerCareSaving, setCustomerCareSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -70,6 +72,9 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
       setCurrentEmail(user?.email ?? "");
       setNewEmail(user?.email ?? "");
       setDisplayName(String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? ""));
+      const { data: careData, error: careError } = await (db as any).from("resa_chat_settings").select("customer_care_enabled").eq("school_id", schoolId).maybeSingle();
+      if (careError) throw careError;
+      setCustomerCareEnabled(careData?.customer_care_enabled !== false);
       setForm(schoolData ? { ...blank, ...schoolData } : blank);
       setSessions(sessionData ?? []);
       setTerms(termData ?? []);
@@ -108,6 +113,28 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save school settings.");
     } finally { setSaving(false); }
+  }
+
+  async function saveCustomerCareSetting() {
+    setCustomerCareSaving(true); setError(""); setNotice("");
+    try {
+      const db = getSupabaseClient();
+      const { data: authData, error: authError } = await db.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Your administrator session has expired. Please sign in again.");
+      const { error: updateError } = await (db as any).from("resa_chat_settings").update({
+        customer_care_enabled: customerCareEnabled,
+        updated_by: authData.user.id,
+        updated_at: new Date().toISOString(),
+      }).eq("school_id", schoolId);
+      if (updateError) throw updateError;
+      setNotice(customerCareEnabled
+        ? "Public Customer Care has been activated. The floating Help handle will appear on public pages."
+        : "Public Customer Care has been deactivated. The floating Help handle is now hidden from public pages.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update Customer Care availability.");
+      await load();
+    } finally { setCustomerCareSaving(false); }
   }
 
   async function saveAccount(e: FormEvent) {
@@ -218,6 +245,21 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
                 </div>
                 <div className="mt-6 flex justify-end"><button disabled={saving} className={primaryButton}><Save size={16} />{saving ? "Saving…" : "Save school settings"}</button></div>
               </form>}
+              {tab === "school" && <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="max-w-xl">
+                    <h3 className="text-base font-extrabold text-emerald-950">Public Customer Care</h3>
+                    <p className="mt-1 text-sm leading-6 text-emerald-900">Control the movable Help handle shown on the public RESA website. Turning this off hides the entire Customer Care widget, including the admin-chat and WhatsApp options. It does not disable private school messaging inside the signed-in portal.</p>
+                    <p className="mt-2 text-sm font-bold">{customerCareEnabled ? "Status: Active on public pages" : "Status: Deactivated"}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <button type="button" role="switch" aria-checked={customerCareEnabled} onClick={() => setCustomerCareEnabled(v => !v)} className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${customerCareEnabled ? "bg-emerald-800" : "bg-slate-400"}`} aria-label="Toggle public Customer Care">
+                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${customerCareEnabled ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                    <button type="button" onClick={() => void saveCustomerCareSetting()} disabled={customerCareSaving || loading} className={primaryButton}><Save size={16}/>{customerCareSaving ? "Saving…" : "Save Customer Care"}</button>
+                  </div>
+                </div>
+              </section>}
 
               {tab === "account" && <form onSubmit={saveAccount}>
                 <div className="mb-5 border-b border-slate-100 pb-4"><h3 className="text-lg font-extrabold">Administrator profile</h3><p className="mt-1 text-sm text-slate-500">Change the name attached to your signed-in account or request a login email change.</p></div>
