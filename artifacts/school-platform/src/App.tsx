@@ -47,6 +47,7 @@ import StudentAssignmentsPanel from '@/pages/student-assignments-panel';
 import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
+import TestDataSetupPage from '@/pages/test-data-setup';
 import SchoolCctvPage from '@/pages/school-cctv';
 import NotificationsPage from '@/pages/notifications';
 import NotFound from '@/pages/not-found';
@@ -1968,6 +1969,7 @@ function AppRoutes() {
         <Route path="/reset-password" component={ResetPasswordPage} />
 
         {/* School portal */}
+        <Route path="/test-data-setup" component={TestDataSetupPage} />
         <Route path="/portal" component={FoundationPage} />
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/teacher-dashboard" component={FoundationPage} />
