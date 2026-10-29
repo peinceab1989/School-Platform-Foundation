@@ -95,6 +95,7 @@ const navigation = [
   { label: "Academic Results", href: "/results", icon: FileText },
   { label: "Results Entry & Publication", href: "/results-management", icon: FileText },
   { label: "Teaching Materials & AI Drills", href: "/teaching-materials", icon: BookOpen },
+  { label: "Publication & Activation Centre", href: "/publication-centre", icon: ShieldCheck },
   { label: "School Chat & Activation", href: "/resa-chat", icon: MessageCircle },
   { label: "School Settings", href: "/school-settings", icon: Settings2 },
   {
@@ -305,6 +306,12 @@ export default function AdminDashboard({
   ];
 
   const managementCards = [
+    {
+      title: "Publication & Activation Centre",
+      description: "One place to activate school chat and student messaging, and open publication controls for announcements, teaching materials, examinations and results.",
+      href: "/publication-centre",
+      icon: ShieldCheck,
+    },
     {
       title: "RESA Test Accounts & Results",
       description: "TESTING ONLY: create sample teacher/student logins, attendance, CA marks, CBT attempts and published sample results.",
