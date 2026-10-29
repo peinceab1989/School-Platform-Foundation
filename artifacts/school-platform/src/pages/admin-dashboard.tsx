@@ -302,6 +302,12 @@ export default function AdminDashboard({
 
   const managementCards = [
     {
+      title: "RESA Test Accounts & Results",
+      description: "TESTING ONLY: create sample teacher/student logins, attendance, CA marks, CBT attempts and published sample results.",
+      href: "/test-data-setup",
+      icon: Database,
+    },
+    {
       title: "AI Learning & Practice",
       description: "Create extra practice questions with answer explanations, revise subjects, and prepare for class tests and entrance examinations.",
       href: "/practice-drills",
