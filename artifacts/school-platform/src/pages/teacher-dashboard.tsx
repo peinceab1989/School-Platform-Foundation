@@ -962,7 +962,7 @@ export default function TeacherDashboard({
   }, [printDocument]);
 
   return (
-    <main style={pageStyle}>
+    <main className="resa-teacher-portal" style={pageStyle}>
       <style>{`
         .resa-print-document { display: none; }
         @media print {
