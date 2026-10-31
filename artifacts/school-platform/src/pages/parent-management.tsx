@@ -9,6 +9,7 @@ import {
   Loader2,
   UserRound,
   Link2,
+  Mail,
   Save,
 } from "lucide-react";
 import { useLocation } from "wouter";
@@ -54,6 +55,7 @@ type ParentRecord = {
   parent: Parent;
   person: Person;
   studentNames: string[];
+  portalStatus: "active" | "pending" | "not_invited";
 };
 
 const emptyForm = {
@@ -88,6 +90,7 @@ export default function ParentManagementPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [linkingId, setLinkingId] = useState("");
+  const [invitingParentId, setInvitingParentId] = useState("");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -117,6 +120,27 @@ export default function ParentManagementPage({
 
       const allParentRows = (parentData ?? []) as Parent[];
       const allStudentRows = (studentData ?? []) as Student[];
+
+      const { data: portalAccounts, error: portalAccountsError } = await client
+        .from("parent_portal_accounts")
+        .select("parent_guardian_id, user_id, is_active")
+        .eq("school_id", schoolId);
+      if (portalAccountsError) throw portalAccountsError;
+
+      const parentUserIds = [...new Set((portalAccounts ?? []).map((row: any) => row.user_id).filter(Boolean))];
+      const { data: parentMemberships, error: parentMembershipsError } = parentUserIds.length
+        ? await client
+            .from("school_memberships")
+            .select("user_id, status")
+            .eq("school_id", schoolId)
+            .eq("role", "parent")
+            .in("user_id", parentUserIds)
+        : { data: [], error: null };
+      if (parentMembershipsError) throw parentMembershipsError;
+
+      const portalAccountByParent = new Map((portalAccounts ?? []).map((row: any) => [row.parent_guardian_id, row]));
+      const membershipStatusByUser = new Map((parentMemberships ?? []).map((row: any) => [row.user_id, row.status]));
+
       const personIds = [
         ...new Set([
           ...allParentRows.map((item) => item.person_id),
@@ -168,7 +192,18 @@ export default function ParentManagementPage({
           })
           .filter(Boolean);
 
-        return [{ parent, person, studentNames }];
+        const portalAccount = portalAccountByParent.get(parent.id) as any;
+        const membershipStatus = portalAccount?.user_id
+          ? membershipStatusByUser.get(portalAccount.user_id)
+          : null;
+        const portalStatus: ParentRecord["portalStatus"] =
+          portalAccount?.is_active && membershipStatus === "active"
+            ? "active"
+            : portalAccount
+              ? "pending"
+              : "not_invited";
+
+        return [{ parent, person, studentNames, portalStatus }];
       });
 
       setParents(records);
@@ -245,6 +280,64 @@ export default function ParentManagementPage({
     });
     setLinkingId("");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleInviteParent(parentId: string) {
+    setError("");
+    setMessage("");
+    const record = parents.find((item) => item.parent.id === parentId);
+    if (!record) {
+      setError("The parent record could not be found. Refresh and try again.");
+      return;
+    }
+    if (!record.person.email?.trim()) {
+      setError("Add the parent's real email address before sending a portal invitation.");
+      return;
+    }
+    if (!record.studentNames.length) {
+      setError("Link this parent to at least one student before sending an invitation.");
+      return;
+    }
+    if (record.portalStatus !== "not_invited") {
+      setError(record.portalStatus === "active"
+        ? "This parent already has active portal access."
+        : "An invitation already exists for this parent. Resolve the pending invitation before sending another.");
+      return;
+    }
+
+    const email = record.person.email.trim().toLowerCase();
+    const confirmed = window.confirm(
+      "Send a secure RESA Parent Portal invitation to " + email + "? The parent will set their own password from the invitation email.",
+    );
+    if (!confirmed) return;
+
+    setInvitingParentId(parentId);
+    try {
+      const client = getSupabaseClient();
+      const { data, error: functionError } = await client.functions.invoke("resa-invite-parent", {
+        body: { school_id: schoolId, parent_guardian_id: parentId },
+      });
+      if (functionError) {
+        let details = functionError.message;
+        try {
+          const response = functionError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            details = body?.error || body?.message || details;
+          }
+        } catch { /* Keep the original function error. */ }
+        throw new Error(details || "The parent invitation could not be sent.");
+      }
+      if (data?.error || data?.success !== true) {
+        throw new Error(String(data?.error || "The parent invitation could not be completed."));
+      }
+      setMessage("Parent invitation sent to " + email + ". Portal access activates only after the parent verifies the email and creates a password.");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The parent invitation could not be sent.");
+    } finally {
+      setInvitingParentId("");
+    }
   }
 
   async function ensureParentPortalAccessLink(
@@ -752,7 +845,7 @@ export default function ParentManagementPage({
             </p>
           ) : (
             <div className="mt-5 space-y-3">
-              {paginatedParents.map(({ parent, person, studentNames }) => (
+              {paginatedParents.map(({ parent, person, studentNames, portalStatus }) => (
                 <article
                   key={parent.id}
                   className="rounded-xl border border-slate-200 p-4"
@@ -781,21 +874,35 @@ export default function ParentManagementPage({
                         {studentNames.length ? studentNames.join(", ") : "None linked"}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                        <span
-                          className={`rounded-full px-2 py-1 ${
-                            parent.portal_enabled
-                              ? "bg-emerald-100 text-emerald-800"
+                        <span className={`rounded-full px-2 py-1 ${
+                          portalStatus === "active"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : portalStatus === "pending"
+                              ? "bg-amber-100 text-amber-800"
                               : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          Portal flag: {parent.portal_enabled ? "Enabled" : "Disabled"}
+                        }`}>
+                          Parent login: {portalStatus === "active" ? "Active" : portalStatus === "pending" ? "Invitation pending" : "Not invited"}
+                        </span>
+                        <span className={`rounded-full px-2 py-1 ${
+                          parent.portal_enabled ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"
+                        }`}>
+                          Portal access: {parent.portal_enabled ? "Enabled" : "Disabled"}
                         </span>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => startEdit({ parent, person, studentNames })}
+                        disabled={invitingParentId === parent.id || portalStatus !== "not_invited" || !person.email || !studentNames.length}
+                        onClick={() => void handleInviteParent(parent.id)}
+                        className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {invitingParentId === parent.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                        {portalStatus === "active" ? "Portal active" : portalStatus === "pending" ? "Invitation pending" : "Invite to Parent Portal"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startEdit({ parent, person, studentNames, portalStatus })}
                         className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
                       >
                         Edit
