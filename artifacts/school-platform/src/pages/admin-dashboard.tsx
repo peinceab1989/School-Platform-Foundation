@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Users, GraduationCap, School, ClipboardCheck, RefreshCw, ArrowUpRight, CalendarDays, FileText, ClipboardList, BookOpen, MessageSquare, Megaphone, Settings, BriefcaseBusiness, ShieldCheck, ChartNoAxesCombined, Bell, CircleAlert, CheckCircle2, Wallet, UserRound, type LucideIcon } from "lucide-react";
+import { Users, GraduationCap, School, ClipboardCheck, RefreshCw, ArrowUpRight, CalendarDays, FileText, ClipboardList, BookOpen, MessageSquare, Megaphone, Settings, BriefcaseBusiness, ChartNoAxesCombined, Bell, CircleAlert, CheckCircle2, Wallet, UserRound, type LucideIcon } from "lucide-react";
 import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 type Props={schoolId:string;schoolName?:string;email?:string|null;onSignOut:()=>void};
 type Stat={loading:boolean;count:number|null;error:string|null};
