@@ -131,8 +131,16 @@ Deno.serve(async (req: Request) => {
       return reply(409, { success: false, error: "This email already belongs to a RESA sign-in account. Use a separate email for the parent; never attach a parent role to an administrator, teacher or student login." });
     }
 
+    const requestOrigin = req.headers.get("origin") ?? "";
+    const allowedOrigins = new Set([
+      "https://resa-school-portal.netlify.app",
+      "https://deploy-preview-9--resa-school-portal.netlify.app",
+    ]);
+    const redirectOrigin = allowedOrigins.has(requestOrigin)
+      ? requestOrigin
+      : "https://resa-school-portal.netlify.app";
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: "https://resa-school-portal.netlify.app/accept-invitation",
+      redirectTo: `${redirectOrigin}/accept-invitation`,
       data: {
         first_name: person.first_name,
         last_name: person.last_name,
