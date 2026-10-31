@@ -634,3 +634,41 @@ body { background: var(--resa-page); color: var(--resa-ink); font-family: Inter,
 @media(max-width:760px){.resa-sidebar-desktop{display:none}.resa-mobile-menu{display:inline-flex}.resa-close-menu{display:inline-flex;margin-left:auto}.resa-topbar{min-height:60px;padding:0 13px}.resa-topbar-actions{gap:7px}.resa-user-meta{display:none}.resa-user-profile{gap:0}.resa-page-content{padding:17px 13px 30px}.resa-welcome-panel{min-height:0;padding:22px;gap:14px}.resa-welcome-crest{width:85px}.resa-welcome-crest img{width:74px;height:74px}.resa-welcome-crest span{font-size:7px}.resa-welcome-copy h1{font-size:27px}.resa-welcome-copy>p{font-size:12px}.resa-stat-card{padding:14px;min-height:112px}.resa-module-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.resa-quick-strip{align-items:flex-start;flex-direction:column}.resa-app-footer{padding:13px;flex-direction:column;gap:5px}}
 @media(max-width:480px){.resa-welcome-panel{align-items:flex-start}.resa-welcome-crest{width:65px}.resa-welcome-crest img{width:58px;height:58px;border-radius:12px}.resa-welcome-crest span{display:none}.resa-welcome-meta{gap:8px;flex-direction:column}.resa-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.resa-stat-card{gap:9px;padding:12px}.resa-stat-icon{width:34px;height:34px}.resa-stat-icon svg{width:18px}.resa-stat-label{font-size:10px}.resa-stat-value{font-size:23px}.resa-stat-description{font-size:9px}.resa-module-grid{grid-template-columns:1fr}.resa-module-card{min-height:86px}.resa-section-heading{align-items:flex-start}.resa-section-heading h2{font-size:18px}.resa-quick-links{width:100%}.resa-quick-links a{flex:1 1 calc(50% - 5px);justify-content:center}.resa-breadcrumb{font-size:11px}.resa-notification-link,.resa-top-signout{width:36px;height:36px}}
 @media(prefers-reduced-motion:reduce){.resa-portal *, .resa-portal *::before,.resa-portal *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* RESA role workspaces: consistent family and learner experience */
+.resa-parent-portal,
+.resa-student-portal {
+  min-height: 100vh;
+  background: #f6f8fb !important;
+  color: #172b43 !important;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+.resa-parent-hero,
+.resa-student-hero {
+  background: linear-gradient(115deg, #123d2b 0%, #176b45 68%, #245f80 100%) !important;
+  border: 1px solid rgba(212, 175, 55, .28);
+  box-shadow: 0 10px 30px rgba(15, 40, 70, .09);
+}
+.resa-parent-portal a:focus-visible,
+.resa-student-portal a:focus-visible,
+.resa-parent-portal button:focus-visible,
+.resa-student-portal button:focus-visible,
+.resa-parent-portal input:focus-visible,
+.resa-student-portal input:focus-visible {
+  outline: 3px solid rgba(10, 77, 140, .28);
+  outline-offset: 3px;
+}
+.resa-parent-portal :where(button, a),
+.resa-student-portal :where(button, a) {
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.resa-parent-portal section a,
+.resa-student-portal section a {
+  min-height: 44px;
+}
+@media (max-width: 640px) {
+  .resa-parent-portal,
+  .resa-student-portal { padding-left: 12px !important; padding-right: 12px !important; }
+  .resa-parent-hero,
+  .resa-student-hero { border-radius: 14px !important; padding: 20px !important; }
+}
