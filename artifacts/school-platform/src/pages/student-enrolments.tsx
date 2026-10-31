@@ -49,7 +49,7 @@ export default function StudentEnrolmentsPage({ schoolId }:{schoolId:string}) {
         const next={...previous};
         for(const s of nextStudents){
           const current=nextEnrollments.find(e=>e.student_id===s.id);
-          if(!next[s.id])next[s.id]={class_id:current?.class_id||nextClasses[0]?.id||"",academic_session_id:current?.academic_session_id||nextSessions.find(x=>x.is_current)?.id||nextSessions[0]?.id||""};
+          if(!next[s.id])next[s.id]={class_id:current?.class_id||"",academic_session_id:current?.academic_session_id||""};
         }
         return next;
       });
