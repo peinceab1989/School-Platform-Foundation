@@ -166,6 +166,7 @@ export default function TestDataSetupPage() {
               <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">Teachers</dt><dd className="text-xl font-bold">{result.counts?.teachers ?? 0}</dd></div>
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">Students</dt><dd className="text-xl font-bold">{result.counts?.students ?? 0}</dd></div>
+                <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">Parents / Guardians</dt><dd className="text-xl font-bold">{result.counts?.parents ?? 0}</dd></div>
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">CBT submissions</dt><dd className="text-xl font-bold">{result.counts?.cbtAttempts ?? 0}</dd></div>
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">CA marks</dt><dd className="text-xl font-bold">{result.counts?.caScores ?? 0}</dd></div>
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">Published test results</dt><dd className="text-xl font-bold">{result.counts?.publishedResults ?? 0}</dd></div>
