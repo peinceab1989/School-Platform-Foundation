@@ -142,6 +142,7 @@ function SignInView({
     }
     try { window.sessionStorage.removeItem(RESET_COOLDOWN_KEY); } catch { /* Storage may be unavailable. */ }
     setResetCooldown(false);
+    return undefined;
   }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
