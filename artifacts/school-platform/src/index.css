@@ -672,3 +672,313 @@ body { background: var(--resa-page); color: var(--resa-ink); font-family: Inter,
   .resa-parent-hero,
   .resa-student-hero { border-radius: 14px !important; padding: 20px !important; }
 }
+
+
+/* =========================================================
+   RESA COMPLETE EXPERIENCE DESIGN SYSTEM
+   Shared visual language for public pages, authentication,
+   portal selection, every role workspace and module pages.
+   ========================================================= */
+:root {
+  --resa-forest: #145338;
+  --resa-forest-deep: #0d3828;
+  --resa-leaf: #238456;
+  --resa-gold: #d7b45f;
+  --resa-gold-soft: #f7efd9;
+  --resa-navy: #173b62;
+  --resa-ink: #1c2d3d;
+  --resa-muted: #65758a;
+  --resa-page: #f5f7fa;
+  --resa-line: #e1e8ef;
+  --resa-card: #ffffff;
+  --resa-elevation-1: 0 2px 8px rgba(15, 39, 58, .045);
+  --resa-elevation-2: 0 12px 28px rgba(15, 39, 58, .085);
+  --resa-elevation-3: 0 22px 55px rgba(8, 33, 25, .16);
+}
+
+/* Consistent baseline across the entire application. */
+html { scroll-behavior: smooth; }
+body { overflow-x: hidden; }
+#root { min-width: 320px; overflow-x: clip; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, [role="button"] { touch-action: manipulation; }
+
+/* Public website: more dimensional surfaces without heavy visual noise. */
+.resa-public-site {
+  min-height: 100dvh;
+  background: #fbfaf6;
+  color: var(--resa-ink);
+}
+.resa-public-site main section:not(:first-child) { position: relative; }
+.resa-public-site main a[class*="rounded-xl"],
+.resa-public-site main a[class*="rounded-2xl"] {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
+}
+.resa-public-site main a[class*="rounded-xl"]:hover,
+.resa-public-site main a[class*="rounded-2xl"]:hover {
+  transform: translateY(-2px);
+}
+.resa-public-site main img {
+  max-width: 100%;
+}
+.resa-public-site main :where(h1,h2,h3) {
+  text-wrap: balance;
+}
+.resa-public-site header {
+  box-shadow: 0 4px 22px rgba(17, 54, 38, .055);
+}
+.resa-public-site footer {
+  background-image: linear-gradient(145deg, #103d2c, #174f38 60%, #123b32);
+}
+.resa-public-site :where(a,button):focus-visible {
+  outline: 3px solid rgba(215,180,95,.75);
+  outline-offset: 3px;
+}
+
+/* Sign-in and account selection: consistent elevated glass-like panels. */
+.foundation-auth-main {
+  background:
+    radial-gradient(circle at 85% 12%, rgba(215,180,95,.13), transparent 27%),
+    linear-gradient(145deg, #f8fafc, #eef3f7) !important;
+}
+.foundation-auth-aside {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(145deg, #0d3828 0%, #145338 58%, #1c6847 100%) !important;
+}
+.foundation-auth-aside::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 420px;
+  height: 420px;
+  right: -210px;
+  bottom: -170px;
+  border: 1px solid rgba(239,215,151,.2);
+  border-radius: 50%;
+  box-shadow: 0 0 0 34px rgba(239,215,151,.045), 0 0 0 78px rgba(239,215,151,.03);
+  pointer-events: none;
+}
+.foundation-auth-card {
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid rgba(220,229,237,.9);
+  border-radius: 22px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 22px 60px rgba(19,48,70,.1);
+}
+.foundation-auth-card h2 { color: var(--resa-forest-deep) !important; }
+.foundation-auth-card input {
+  min-height: 48px;
+  border: 1px solid #d9e3eb;
+  border-radius: 11px;
+  background: #fbfdff;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.foundation-auth-card input:focus {
+  border-color: #438c68;
+  box-shadow: 0 0 0 4px rgba(35,132,86,.1);
+}
+.foundation-primary-button,
+.foundation-check-button {
+  min-height: 47px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #145338, #238456);
+  box-shadow: 0 5px 0 #0d3828, 0 12px 22px rgba(20,83,56,.16);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+.foundation-primary-button:hover,
+.foundation-check-button:hover {
+  transform: translateY(-2px);
+  filter: saturate(1.08);
+  box-shadow: 0 7px 0 #0d3828, 0 17px 28px rgba(20,83,56,.2);
+}
+.foundation-brand .foundation-resa-logo {
+  border-radius: 13px;
+  box-shadow: 0 5px 15px rgba(0,0,0,.14);
+}
+
+/* Admin modules: polish every page rendered inside the shared workspace. */
+.resa-page-content {
+  background:
+    radial-gradient(ellipse at 95% 0%, rgba(215,180,95,.055), transparent 30%),
+    var(--resa-page);
+}
+.resa-page-content > main,
+.resa-page-content > section {
+  border-radius: 16px;
+}
+.resa-page-content :where(.rounded-lg,.rounded-xl,.rounded-2xl) {
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.resa-page-content :where(.border,.border-slate-100,.border-slate-200) {
+  border-color: #e2e9ef;
+}
+.resa-page-content :where(.shadow-sm) {
+  box-shadow: var(--resa-elevation-1);
+}
+.resa-page-content :where(.shadow-md,.shadow-lg) {
+  box-shadow: var(--resa-elevation-2);
+}
+.resa-page-content :where(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  min-height: 44px;
+  border-radius: 10px;
+  background-color: #fff;
+}
+.resa-page-content :where(button,a[class*="bg-"]) {
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+.resa-page-content :where(button:not(:disabled):hover,a[class*="bg-"]:hover) {
+  filter: saturate(1.04);
+}
+.resa-page-content :where(h1) {
+  color: #173b62;
+  letter-spacing: -.035em;
+  text-wrap: balance;
+}
+.resa-page-content :where(h2,h3) {
+  letter-spacing: -.02em;
+  text-wrap: balance;
+}
+.resa-page-content :where(table) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.resa-page-content :where(th) {
+  color: #52677d;
+  background: #f5f8fb;
+  font-weight: 750;
+}
+.resa-page-content :where(td,th) {
+  overflow-wrap: anywhere;
+}
+.resa-page-content :where(.overflow-x-auto) {
+  border-radius: 12px;
+  border: 1px solid #e5ebf1;
+  background: #fff;
+}
+.resa-page-content :where(.bg-white) {
+  box-shadow: var(--resa-elevation-1);
+}
+
+/* Teacher workspace: retain all existing functionality and inline data logic. */
+.resa-teacher-portal {
+  min-height: 100dvh;
+  padding: clamp(12px, 2.5vw, 26px) !important;
+  background:
+    radial-gradient(circle at 95% 3%, rgba(215,180,95,.13), transparent 23%),
+    linear-gradient(145deg, #f5f8fb, #eef3f7) !important;
+  color: var(--resa-ink) !important;
+}
+.resa-teacher-portal > main,
+.resa-teacher-portal > section,
+.resa-teacher-portal [style*="borderRadius: 12"],
+.resa-teacher-portal [style*="borderRadius: 14"] {
+  border-radius: 15px;
+}
+.resa-teacher-portal > header,
+.resa-teacher-portal header:not(.resa-print-document) {
+  border: 1px solid rgba(215,180,95,.38);
+  background: linear-gradient(120deg, #0d3828, #145338 68%, #1e6348) !important;
+  box-shadow: 0 14px 34px rgba(13,56,40,.15);
+}
+.resa-teacher-portal button {
+  min-height: 44px;
+  border-radius: 10px;
+}
+.resa-teacher-portal input,
+.resa-teacher-portal select,
+.resa-teacher-portal textarea {
+  min-height: 44px;
+  border-radius: 10px;
+}
+.resa-teacher-portal :where(button,a,input,select,textarea):focus-visible {
+  outline: 3px solid rgba(35,132,86,.28);
+  outline-offset: 3px;
+}
+
+/* Parent and learner spaces use the same branded elevation and typography. */
+.resa-parent-portal,
+.resa-student-portal {
+  padding-top: clamp(14px, 2.5vw, 28px) !important;
+  padding-bottom: 32px !important;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(215,180,95,.12), transparent 25%),
+    linear-gradient(145deg, #f5f8fb, #eef3f7) !important;
+}
+.resa-parent-hero,
+.resa-student-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(120deg, #0d3828, #145338 66%, #1d6549) !important;
+  box-shadow: 0 16px 38px rgba(13,56,40,.17) !important;
+}
+.resa-parent-hero::after,
+.resa-student-hero::after {
+  content: "";
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  top: -145px;
+  right: -55px;
+  border: 1px solid rgba(247,239,217,.22);
+  border-radius: 50%;
+  box-shadow: 0 0 0 24px rgba(247,239,217,.045), 0 0 0 52px rgba(247,239,217,.03);
+  pointer-events: none;
+}
+.resa-parent-portal section > a,
+.resa-student-portal section > a {
+  border-radius: 15px !important;
+  border-color: #e0e8ef !important;
+  box-shadow: var(--resa-elevation-1);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.resa-parent-portal section > a:hover,
+.resa-student-portal section > a:hover {
+  transform: translateY(-3px);
+  border-color: rgba(35,132,86,.45) !important;
+  box-shadow: var(--resa-elevation-2);
+}
+.resa-parent-portal :where(button,a),
+.resa-student-portal :where(button,a) { min-height: 44px; }
+
+/* Portal selector and invitation/reset screens. */
+body:has(.min-h-screen.bg-\[\#f5f7f2\]) { background: #f5f7fa; }
+body:has(.min-h-screen.bg-\[\#f5f7f2\]) main {
+  background-image: radial-gradient(circle at 92% 5%, rgba(215,180,95,.12), transparent 24%);
+}
+body:has(.min-h-screen.bg-\[\#f5f7f2\]) main a[class*="rounded-2xl"] {
+  box-shadow: var(--resa-elevation-1);
+}
+body:has(.min-h-screen.bg-\[\#f5f7f2\]) main a[class*="rounded-2xl"]:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--resa-elevation-2);
+}
+
+/* Subtle dimensional details and restrained motion. */
+.resa-stat-card, .resa-module-card, .resa-welcome-panel, .resa-quick-strip {
+  box-shadow: var(--resa-elevation-1);
+}
+.resa-stat-card:hover, .resa-module-card:hover {
+  box-shadow: var(--resa-elevation-2);
+}
+.resa-welcome-panel {
+  background: linear-gradient(125deg, #fff 0%, #f5f9fd 68%, #f6f1e5 100%);
+  border-color: #e0e8ee;
+}
+.resa-welcome-crest img {
+  border-radius: 20px;
+  box-shadow: 0 10px 24px rgba(20,55,90,.12);
+}
+@media (max-width: 680px) {
+  .foundation-auth-card { padding: 20px 17px; border-radius: 17px; box-shadow: 0 12px 34px rgba(19,48,70,.08); }
+  .foundation-auth-mobile-brand { margin-bottom: 28px; }
+  .resa-teacher-portal { padding: 12px !important; }
+  .resa-parent-hero, .resa-student-hero { border-radius: 16px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .resa-public-site *, .resa-teacher-portal *, .resa-parent-portal *, .resa-student-portal * {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
