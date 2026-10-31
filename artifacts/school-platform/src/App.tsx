@@ -939,11 +939,28 @@ function NexusDashboard({
             <section style={panelStyle}>
               <h2 style={{ marginTop: 0 }}>Module settings</h2>
 
-              <p>
-                These settings are stored in Supabase, and changes are
-                recorded in the audit log. The enabled/disabled settings are
-                not automatically enforced across every portal feature unless
-                that feature has its own enforcement logic.
+              <div role="note" style={{ margin: '12px 0 16px', padding: 14, borderRadius: 10, border: '1px solid #e5c66b', background: '#fff9e8', color: '#614b12' }}>
+                <strong>Control scope: configuration and audit only</strong>
+                <p style={{ margin: '6px 0 0', lineHeight: 1.6 }}>
+                  A module marked Enabled is not automatically proven operational. A Disabled setting blocks access only where that feature checks the Nexus control. Each module must pass its own access, workflow and data-isolation tests before it can be marked launch-ready.
+                </p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginBottom: 16 }}>
+                <div style={{ ...statStyle, background: '#eef5ef' }}>
+                  <div style={statLabelStyle}>Owner verification</div>
+                  <strong style={{ display: 'block', marginTop: 7, color: '#155b30' }}>Verified for this session</strong>
+                </div>
+                <div style={{ ...statStyle, background: '#eef5ef' }}>
+                  <div style={statLabelStyle}>Configuration source</div>
+                  <strong style={{ display: 'block', marginTop: 7 }}>Supabase database</strong>
+                </div>
+                <div style={{ ...statStyle, background: '#fff9e8' }}>
+                  <div style={statLabelStyle}>Audit history displayed</div>
+                  <strong style={{ display: 'block', marginTop: 7 }}>Latest 30 entries</strong>
+                </div>
+              </div>
+              <p style={{ color: '#536456', lineHeight: 1.6 }}>
+                Changes are recorded in the database audit log. Before relying on a switch to restrict a feature, confirm that the feature checks the corresponding module key on the server or through a protected database policy. UI-only hiding is not sufficient security.
               </p>
 
               {loading && modules.length === 0 && <p>Loading modules…</p>}
