@@ -19,6 +19,7 @@ import {
   type FoundationMembership,
 } from '@/components/foundation/foundation-app-view';
 
+import AdminPortalShell from '@/components/admin-portal-shell';
 import AdminDashboard from '@/pages/admin-dashboard';
 import ProfilePhotoCard from '@/components/profile-photo-card';
 import StaffInvitationsPage from '@/pages/staff-invitations';
