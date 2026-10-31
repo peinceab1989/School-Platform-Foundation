@@ -1610,6 +1610,11 @@ function FoundationPage() {
     return <SchoolCctvPage schoolId={parentMembership.schoolId} role="parent" />;
   }
 
+  /* Shared presentation shell for all administrator routes; role checks remain above this UI layer. */
+  const withAdminShell = (content: ReactNode) => adminMembership ? (
+    <AdminPortalShell schoolId={adminMembership.schoolId} schoolName={adminMembership.schoolName} email={session?.user.email} onSignOut={() => void signOut()}>{content}</AdminPortalShell>
+  ) : content;
+
   /*
    * Administrator pages remain available only to active admins.
    */
@@ -1620,41 +1625,41 @@ function FoundationPage() {
     !teacherMembership &&
     !membershipsLoading
   ) {
-    if (currentPath === '/notifications') return <NotificationsPage schoolId={adminMembership.schoolId} role="admin" />;
-    if (currentPath === '/teaching-materials' && session) return <TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
-    if (currentPath === '/resa-chat' && session) return <ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
-    if (currentPath === '/publication-centre' && session) return <PublicationCentre schoolId={adminMembership.schoolId} userId={session.user.id} />;
+    if (currentPath === '/notifications') return withAdminShell(<NotificationsPage schoolId={adminMembership.schoolId} role="admin" />);
+    if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
+    if (currentPath === '/resa-chat' && session) return withAdminShell(<ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
+    if (currentPath === '/publication-centre' && session) return withAdminShell(<PublicationCentre schoolId={adminMembership.schoolId} userId={session.user.id} />);
 
     if (currentPath === '/school-cctv') {
-      return <SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />;
+      return withAdminShell(<SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />);
     }
 
     if (currentPath === '/hr-management') {
-      return <HrManagementPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<HrManagementPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/school-reports') {
-      return <SchoolReportsPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<SchoolReportsPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/school-services') {
-      return <SchoolServicesPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<SchoolServicesPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/school-communication') {
-      return <SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />;
+      return withAdminShell(<SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />);
     }
 
     if (currentPath === '/staff-attendance') {
-      return <StaffAttendancePage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<StaffAttendancePage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/teaching-assignments') {
-      return <TeachingAssignmentsPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<TeachingAssignmentsPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/staff-invitations') {
-      return (
+      return withAdminShell(
         <StaffInvitationsPage
           schoolId={adminMembership.schoolId}
           schoolName={adminMembership.schoolName}
@@ -1664,56 +1669,56 @@ function FoundationPage() {
     }
 
     if (currentPath === '/students') {
-      return <StudentsPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<StudentsPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/attendance') {
-      return <AttendancePage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<AttendancePage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/form-teacher-attendance' && session) {
-      return <FormTeacherAttendancePage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />;
+      return withAdminShell(<FormTeacherAttendancePage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     }
 
     if (currentPath === '/announcements') {
-      return <AnnouncementsPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<AnnouncementsPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/results') {
-      return <ResultsPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<ResultsPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/results-management') {
-      return <ResultsManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} role="admin" />;
+      return withAdminShell(<ResultsManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} role="admin" />);
     }
 
     if (currentPath === '/examinations') {
-      return <ExamsPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<ExamsPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/school-settings') {
-      return <SchoolSettingsPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<SchoolSettingsPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/classes') {
-      return <ClassManagementPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<ClassManagementPage schoolId={adminMembership.schoolId} />);
     }
 
     if (
       currentPath === '/subjects' ||
       currentPath === '/subject-management'
     ) {
-      return <SubjectManagementPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<SubjectManagementPage schoolId={adminMembership.schoolId} />);
     }
 
     if (
       currentPath === '/parents' ||
       currentPath === '/parent-management'
     ) {
-      return <ParentManagementPage schoolId={adminMembership.schoolId} />;
+      return withAdminShell(<ParentManagementPage schoolId={adminMembership.schoolId} />);
     }
 
-    return (
+    return withAdminShell(
       <AdminDashboard
         schoolId={adminMembership.schoolId}
         schoolName={adminMembership.schoolName}
