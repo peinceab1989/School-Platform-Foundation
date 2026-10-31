@@ -29,7 +29,7 @@ const SCHOOL = "RHEMA EXPLOITS SCIENCE ACADEMY INT’L";
 const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
 const ADDRESS =
   "1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.";
-const EMAIL = "Resainternational2024@gmail.com";
+const EMAIL = "rhemaexploitsacademy@gmail.com";
 const PHONE = "08058422691";
 const WHATSAPP = "07010945774";
 const WHATSAPP_URL = "https://wa.me/2347010945774?text=Hello%20RESA%20Customer%20Care%2C%20I%20would%20like%20to%20make%20an%20enquiry.";
@@ -379,11 +379,6 @@ export function AboutPage() {
       </section>
       <section className="bg-white px-5 py-14 sm:px-8">
         <div className="mx-auto grid max-w-5xl gap-5 md:grid-cols-2">
-          <article className="rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-6">
-            <p className="text-sm font-bold uppercase tracking-wider text-[#a17c32]">Our beginnings</p>
-            <h3 className="mt-2 text-xl font-black text-[#163c2e]">Established 9 September 2026</h3>
-            <p className="mt-3 leading-7 text-slate-600">RHEMA EXPLOITS SCIENCE ACADEMY INT’L was established to nurture learners through science and technology-focused education, practical skills, character development and entrepreneurial thinking.</p>
-          </article>
           <article className="rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-6">
             <p className="text-sm font-bold uppercase tracking-wider text-[#a17c32]">Educational philosophy</p>
             <h3 className="mt-2 text-xl font-black text-[#163c2e]">Learn, practise, create and serve</h3>
