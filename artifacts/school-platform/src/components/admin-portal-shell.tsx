@@ -5,7 +5,7 @@ import {
   ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
   MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
   Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight,
-  Search, CircleHelp,
+  CircleHelp,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
 
