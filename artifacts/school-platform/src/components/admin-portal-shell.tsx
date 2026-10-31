@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, GraduationCap, UserRound, School, BookOpen,
   ClipboardCheck, CalendarDays, FileText, ClipboardList, MessageSquare,
   Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
-  Settings, Database, ShieldCheck, Menu, X, LogOut, ChevronRight,
+  Settings, Database, Menu, X, LogOut, ChevronRight,
   CircleHelp,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
@@ -45,7 +45,6 @@ const groups = [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
     ["Reports", "/school-reports", ChartNoAxesCombined],
     ["RESA Drive", "/school-services", Database],
-    ["Publication Centre", "/publication-centre", ShieldCheck],
     ["School Settings", "/school-settings", Settings],
   ]},
 ];
