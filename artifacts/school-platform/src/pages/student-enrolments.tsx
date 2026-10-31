@@ -95,7 +95,7 @@ export default function StudentEnrolmentsPage({ schoolId }:{schoolId:string}) {
         ...previous.map(e=>({school_id:schoolId,student_id:student.id,academic_session_id:e.academic_session_id,class_id:e.class_id,enrollment_date:e.enrollment_date,exit_date:today,status:"completed",reason:"Class/session reassignment",recorded_by:user.id})),
         {school_id:schoolId,student_id:student.id,academic_session_id:draft.academic_session_id,class_id:draft.class_id,enrollment_date:today,status:"active",reason:oldClass?"New class/session assignment":"Initial class assignment",recorded_by:user.id}
       ];
-      const history=await db.from("student_enrollment_history").insert(historyRows);
+      const history=await (db as any).from("student_enrollment_history").insert(historyRows);
       if(history.error){
         setNotice("Enrolment saved, but the history log could not be written. Please alert the administrator: "+history.error.message);
       }else{
