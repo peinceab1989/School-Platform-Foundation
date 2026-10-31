@@ -113,6 +113,15 @@ type SecurityTestStatus =
   | 'fail'
   | 'inconclusive';
 
+type NexusReadinessMetrics = {
+  activeParentAccounts: number | null;
+  portalEnabledGuardians: number | null;
+  assignedFormTeachers: number | null;
+  trackedTestRecords: number | null;
+  publishedTermResults: number | null;
+  subjectResultRows: number | null;
+};
+
 function normalizePath(path: string): string {
   const pathname = path.split('?')[0].split('#')[0];
   const normalized = pathname.replace(/\/+$/, '');
@@ -479,6 +488,7 @@ function NexusDashboard({
 
   const [modules, setModules] = useState<NexusModule[]>([]);
   const [auditEntries, setAuditEntries] = useState<NexusAuditEntry[]>([]);
+  const [readiness, setReadiness] = useState<NexusReadinessMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyModule, setBusyModule] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -631,7 +641,16 @@ function NexusDashboard({
     try {
       const client = getSupabaseClient();
 
-      const [moduleResult, auditResult] = await Promise.all([
+      const [
+        moduleResult,
+        auditResult,
+        parentAccountsResult,
+        parentGuardiansResult,
+        formTeachersResult,
+        testRecordsResult,
+        publishedResultsResult,
+        subjectResultsResult,
+      ] = await Promise.all([
         client
           .from('nexus_module_controls')
           .select('id, module_key, display_name, is_enabled, updated_at')
@@ -642,6 +661,33 @@ function NexusDashboard({
           .select('id, action, target_type, target_id, details, created_at')
           .order('created_at', { ascending: false })
           .limit(30),
+
+        client
+          .from('parent_portal_accounts')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_active', true),
+
+        client
+          .from('parents_guardians')
+          .select('id', { count: 'exact', head: true })
+          .eq('portal_enabled', true),
+
+        client
+          .from('class_form_teachers')
+          .select('id', { count: 'exact', head: true }),
+
+        client
+          .from('resa_test_data_records')
+          .select('id', { count: 'exact', head: true }),
+
+        client
+          .from('student_term_results')
+          .select('id', { count: 'exact', head: true })
+          .eq('workflow_status', 'published'),
+
+        client
+          .from('student_subject_results')
+          .select('id', { count: 'exact', head: true }),
       ]);
 
       if (moduleResult.error) throw moduleResult.error;
@@ -649,6 +695,14 @@ function NexusDashboard({
 
       setModules((moduleResult.data ?? []) as NexusModule[]);
       setAuditEntries((auditResult.data ?? []) as NexusAuditEntry[]);
+      setReadiness({
+        activeParentAccounts: parentAccountsResult.error ? null : parentAccountsResult.count ?? 0,
+        portalEnabledGuardians: parentGuardiansResult.error ? null : parentGuardiansResult.count ?? 0,
+        assignedFormTeachers: formTeachersResult.error ? null : formTeachersResult.count ?? 0,
+        trackedTestRecords: testRecordsResult.error ? null : testRecordsResult.count ?? 0,
+        publishedTermResults: publishedResultsResult.error ? null : publishedResultsResult.count ?? 0,
+        subjectResultRows: subjectResultsResult.error ? null : subjectResultsResult.count ?? 0,
+      });
     } catch (error) {
       setErrorText(
         error instanceof Error
@@ -665,6 +719,51 @@ function NexusDashboard({
       void loadData();
     }
   }, [ownerCheck, loadData]);
+
+  const readinessChecks = [
+    {
+      label: 'Active parent portal accounts',
+      value: readiness?.activeParentAccounts ?? null,
+      detail: 'Parent access records that are currently active.',
+      good: (readiness?.activeParentAccounts ?? 0) > 0,
+      action: 'Activate parent accounts and verify each linked learner.',
+    },
+    {
+      label: 'Guardians enabled for portal access',
+      value: readiness?.portalEnabledGuardians ?? null,
+      detail: 'Guardian records with portal access enabled.',
+      good: (readiness?.portalEnabledGuardians ?? 0) > 0,
+      action: 'Enable portal access only after confirming guardian identity and links.',
+    },
+    {
+      label: 'Form-teacher assignments',
+      value: readiness?.assignedFormTeachers ?? null,
+      detail: 'Classes with an assigned form teacher.',
+      good: (readiness?.assignedFormTeachers ?? 0) > 0,
+      action: 'Assign and verify form teachers for the active academic session.',
+    },
+    {
+      label: 'Tracked test/demo records',
+      value: readiness?.trackedTestRecords ?? null,
+      detail: 'Records explicitly registered by the RESA test-data process.',
+      good: readiness?.trackedTestRecords === 0,
+      action: 'Review and clean demo data before real school operations.',
+    },
+    {
+      label: 'Published term results',
+      value: readiness?.publishedTermResults ?? null,
+      detail: 'Term result records currently marked published.',
+      good: (readiness?.publishedTermResults ?? 0) > 0,
+      action: 'Complete score entry, approval and publication for each real class.',
+    },
+    {
+      label: 'Subject score records',
+      value: readiness?.subjectResultRows ?? null,
+      detail: 'Subject-level score rows available for report generation.',
+      good: (readiness?.subjectResultRows ?? 0) > 0,
+      action: 'Check that scores belong to the correct learners, subjects and term.',
+    },
+  ];
 
   const changeModuleStatus = useCallback(
     async (module: NexusModule) => {
@@ -908,6 +1007,51 @@ function NexusDashboard({
                   </strong>
                 </div>
               </div>
+            </section>
+
+            <section style={panelStyle}>
+              <h2 style={{ marginTop: 0 }}>Operational readiness checks</h2>
+              <p style={{ color: '#536456', lineHeight: 1.6 }}>
+                Live counts from the connected RESA database. These checks show setup gaps; they do not replace role-based workflow testing.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                {readinessChecks.map((check) => {
+                  const verified = check.value !== null;
+                  const passed = verified && check.good;
+                  return (
+                    <article
+                      key={check.label}
+                      style={{
+                        border: '1px solid ' + (passed ? '#b9d9c1' : '#e5c66b'),
+                        borderRadius: 10,
+                        padding: 14,
+                        background: passed ? '#f1f8f2' : '#fffaf0',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                        <strong style={{ fontSize: 14 }}>{check.label}</strong>
+                        <span style={{ fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', color: passed ? '#155b30' : '#76550c' }}>
+                          {!verified ? 'NOT VERIFIED' : passed ? 'CHECKED' : 'ACTION REQUIRED'}
+                        </span>
+                      </div>
+                      <strong style={{ display: 'block', fontSize: 27, marginTop: 10 }}>
+                        {verified ? check.value : '—'}
+                      </strong>
+                      <p style={{ margin: '7px 0', fontSize: 12, color: '#536456', lineHeight: 1.5 }}>
+                        {check.detail}
+                      </p>
+                      {!passed && (
+                        <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#76550c', lineHeight: 1.5 }}>
+                          Next: {check.action}
+                        </p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <p style={{ marginBottom: 0, marginTop: 14, fontSize: 12, color: '#68766b' }}>
+                Latest recorded Engine Room action: {auditEntries[0]?.created_at ? new Date(auditEntries[0].created_at).toLocaleString() : 'No audit activity found'}.
+              </p>
             </section>
 
             {errorText && (
