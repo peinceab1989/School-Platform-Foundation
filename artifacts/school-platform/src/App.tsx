@@ -20,6 +20,7 @@ import {
 } from '@/components/foundation/foundation-app-view';
 
 import AdminDashboard from '@/pages/admin-dashboard';
+import ProfilePhotoCard from '@/components/profile-photo-card';
 import StaffInvitationsPage from '@/pages/staff-invitations';
 import TeachingAssignmentsPage from '@/pages/teaching-assignments';
 import HrManagementPage from '@/pages/hr-management';
@@ -220,6 +221,28 @@ function StudentDashboard({
   const [academicSummary, setAcademicSummary] = useState<StudentAcademicSummary | null>(null);
   const [academicLoading, setAcademicLoading] = useState(true);
   const [academicError, setAcademicError] = useState<string | null>(null);
+  const [publishedCbtCount, setPublishedCbtCount] = useState<number | null>(null);
+  const [cbtNoticeError, setCbtNoticeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getSupabaseClient().functions.invoke("resa-student-cbt", { body: { action: "list" } })
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error || data?.error) {
+          setCbtNoticeError(error?.message || data?.error || "Published CBT status is temporarily unavailable.");
+          setPublishedCbtCount(null);
+          return;
+        }
+        setPublishedCbtCount(Array.isArray(data?.exams) ? data.exams.length : 0);
+        setCbtNoticeError(null);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setCbtNoticeError(error instanceof Error ? error.message : "Published CBT status is temporarily unavailable.");
+      });
+    return () => { active = false; };
+  }, [schoolId, userId]);
 
   useEffect(() => {
     let active = true;
@@ -312,6 +335,25 @@ function StudentDashboard({
             <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
           </div>
         </header>
+
+        <div style={{ display: 'grid', gap: 14, marginBottom: 18 }}>
+          <ProfilePhotoCard userId={userId} displayName={email} roleLabel="Student" />
+          <section style={{ ...panelStyle, borderColor: publishedCbtCount ? '#d6b75a' : '#dce5dd', background: publishedCbtCount ? '#fffaf0' : '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 0, flex: '1 1 220px' }}>
+                <h2 style={{ margin: '0 0 6px', fontSize: 19 }}>Published CBT examinations</h2>
+                <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
+                  {publishedCbtCount === null ? (cbtNoticeError || 'Checking examinations assigned to your active class…') :
+                    publishedCbtCount > 0 ? `${publishedCbtCount} published examination${publishedCbtCount === 1 ? '' : 's'} available for your class. Open CBT to begin.` :
+                    'No published examination is currently assigned to your active class and academic session. This area checks automatically when you open the dashboard.'}
+                </p>
+              </div>
+              <Link href="/student-cbt" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 9, padding: '12px 17px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                {publishedCbtCount ? 'Take published CBT' : 'Check CBT'}
+              </Link>
+            </div>
+          </section>
+        </div>
 
         <section style={panelStyle}>
           <h2 style={{ margin: '0 0 10px', fontSize: 21 }}>My Learning</h2>
