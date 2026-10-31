@@ -343,7 +343,7 @@ Deno.serve(async (req: Request) => {
 
     return reply(200, {
       success: true, run_id: runId,
-      message: "Created clearly labelled RESA test accounts and simulated attendance, CA scores, submitted CBT attempts, and published test results. Credentials are shown once; copy them now.",
+      message: "Created clearly labelled RESA demo teacher, student and parent logins, simulated attendance, CA scores, submitted CBT attempts and published demo results. Credentials are shown once; copy them now.",
       counts: { teachers: 10, students: 20, parents: demoParents.length, cbtAttempts: students.length, caScores: students.length * 2, publishedResults: students.length },
       credentials,
     });
