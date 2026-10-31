@@ -13,7 +13,7 @@ type SeedResult = {
 };
 type CleanupPreview = {
   success?: boolean; dry_run?: boolean; message?: string; error?: string;
-  trackedMarkerRows?: number; uniqueTestLoginAccounts?: number;
+  trackedDemoMarkerRows?: number; preservedLegacyMarkerRows?: number; uniqueDemoLoginAccounts?: number;
   counts?: Record<string, number>; requiredConfirmation?: string;
   deletedCounts?: Record<string, number>; deletedLoginAccounts?: number;
 };
@@ -110,7 +110,7 @@ export default function TestDataSetupPage() {
     if (cleanupConfirmation !== "CLEAN RESA TEST DATA") {
       setError('Type exactly "CLEAN RESA TEST DATA" to confirm.'); return;
     }
-    if (!window.confirm("Final confirmation: delete only records tracked as RESA test data? This cannot be undone. School settings, classes, subjects and administrator accounts will be preserved.")) return;
+    if (!window.confirm("Final confirmation: delete only explicitly marked demo_* records? Legacy_test_* and unmarked RESA records will be preserved. This cannot be undone.")) return;
     setCleanupBusy(true); setError(""); setCleanupMessage("");
     try {
       const { data, error: invokeError } = await getSupabaseClient().functions.invoke("resa-clean-test-data", {
@@ -190,18 +190,18 @@ export default function TestDataSetupPage() {
           <section className="mt-8 rounded-2xl border border-red-200 bg-white p-5 sm:p-8">
             <div className="mb-3 inline-flex rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-800">Launch cleanup — use only when testing is finished</div>
             <h2 className="text-xl font-bold">Remove tracked test data</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Preview first. Cleanup deletes only records in the test-data register and associated test login accounts. It is designed to preserve school settings, classes, subjects, school/owner records and administrator accounts.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Preview first. Cleanup is restricted to explicitly registered demo_* records and demo login accounts. All legacy_test_* markers and unmarked records are excluded and preserved, alongside school settings, classes, subjects, school/owner records and administrator accounts.</p>
             <button type="button" onClick={() => void previewCleanup()} disabled={cleanupBusy} className="mt-4 rounded-lg border border-red-700 px-4 py-2 text-sm font-semibold text-red-800 disabled:opacity-60">{cleanupBusy ? "Checking…" : "Preview test-data cleanup"}</button>
             {cleanupPreview && (
               <div className="mt-4 rounded-lg bg-slate-50 p-4">
                 <p className="font-semibold">{cleanupPreview.message}</p>
-                <p className="mt-1 text-sm">Tracked markers: {cleanupPreview.trackedMarkerRows ?? 0} · Test login accounts: {cleanupPreview.uniqueTestLoginAccounts ?? 0}</p>
+                <p className="mt-1 text-sm">Demo markers: {cleanupPreview.trackedDemoMarkerRows ?? 0} · Legacy markers preserved: {cleanupPreview.preservedLegacyMarkerRows ?? 0} · Demo login accounts: {cleanupPreview.uniqueDemoLoginAccounts ?? 0}</p>
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {Object.entries(cleanupPreview.counts || {}).map(([table, count]) => <div key={table} className="flex justify-between gap-3 rounded border bg-white p-2 text-sm"><span className="break-all">{table}</span><strong>{count}</strong></div>)}
                 </div>
                 <label htmlFor="cleanup-confirmation" className="mt-4 block text-sm font-semibold">To permanently clean the tracked test records, type: CLEAN RESA TEST DATA</label>
                 <input id="cleanup-confirmation" value={cleanupConfirmation} onChange={event => setCleanupConfirmation(event.target.value)} placeholder="CLEAN RESA TEST DATA" className="mt-2 w-full rounded-lg border px-3 py-2 text-sm" autoComplete="off" />
-                <button type="button" onClick={() => void runCleanup()} disabled={cleanupBusy || cleanupConfirmation !== "CLEAN RESA TEST DATA"} className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{cleanupBusy ? "Cleaning…" : "Permanently remove tracked test data"}</button>
+                <button type="button" onClick={() => void runCleanup()} disabled={cleanupBusy || cleanupConfirmation !== "CLEAN RESA TEST DATA"} className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{cleanupBusy ? "Cleaning…" : "Permanently remove tracked demo data"}</button>
               </div>
             )}
             {cleanupMessage && <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">{cleanupMessage}</p>}
