@@ -123,6 +123,7 @@ function SignInView({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [resetBusy, setResetBusy] = useState(false);
+  const [resetCooldown, setResetCooldown] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -130,7 +131,13 @@ function SignInView({
     onSignIn(email, password);
   }
 
+  function startResetCooldown() {
+    setResetCooldown(true);
+    window.setTimeout(() => setResetCooldown(false), 60_000);
+  }
+
   async function handlePasswordReset() {
+    if (resetBusy || resetCooldown) return;
     setResetMessage('');
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -148,12 +155,14 @@ function SignInView({
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
-      setResetMessage('If this email is registered, a password-reset link has been sent. Check your inbox and spam folder.');
+      startResetCooldown();
+      setResetMessage('If this email is registered, a password-reset link has been sent. Check your inbox and spam folder. Wait 60 seconds before requesting another link.');
     } catch (error) {
       const details = error instanceof Error ? error.message : 'Password reset could not be started.';
       const rateLimited = /rate limit|too many requests|email.*limit/i.test(details);
+      if (rateLimited) startResetCooldown();
       setResetMessage(rateLimited
-        ? 'The RESA email service has temporarily limited reset emails. Please wait before requesting another link, or contact your school administrator for help.'
+        ? 'The RESA email service has temporarily limited reset emails. Wait at least 60 seconds before trying again, or contact your school administrator for help.'
         : details);
     } finally {
       setResetBusy(false);
@@ -343,11 +352,11 @@ function SignInView({
                 <button
                   type="button"
                   onClick={() => void handlePasswordReset()}
-                  disabled={resetBusy || isLoading || needsConfig}
+                  disabled={resetBusy || resetCooldown || isLoading || needsConfig}
                   className="text-sm font-semibold text-emerald-800 underline underline-offset-4 disabled:opacity-50"
                   data-testid="button-forgot-password"
                 >
-                  {resetBusy ? 'Sending reset link…' : 'Forgot password?'}
+                  {resetBusy ? 'Sending reset link…' : resetCooldown ? 'Please wait before requesting again' : 'Forgot password?'}
                 </button>
                 {resetMessage && (
                   <p className="mt-2 text-sm text-[#536456]" role="status" aria-live="polite">
