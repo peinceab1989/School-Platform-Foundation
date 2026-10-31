@@ -142,6 +142,7 @@ const ADMIN_SCHOOL_PATHS = [
 
 const PROTECTED_SCHOOL_PATHS = [
   '/dashboard',
+  '/parent-dashboard',
   '/results-management',
   '/teaching-materials',
   '/resa-chat',
@@ -192,6 +193,28 @@ const statNumberStyle: CSSProperties = {
   fontSize: 28,
   marginTop: 8,
 };
+
+function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { schoolId: string; schoolName: string; userId: string; email?: string; onSignOut: () => void }) {
+  return <main className="min-h-screen bg-stone-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
+    <div className="mx-auto grid w-full max-w-5xl gap-5">
+      <header className="rounded-3xl bg-emerald-950 p-5 text-white shadow-sm sm:p-8">
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA · Parent & Guardian Portal</p>
+        <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">Your child's school connection</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Stay informed about school communication, published academic results and important updates for the learners linked to your account.</p>
+        <p className="mt-3 break-words text-xs text-emerald-100">{schoolName} {email ? "· " + email : ""}</p>
+        <button type="button" onClick={onSignOut} className="mt-5 min-h-11 rounded-xl bg-amber-200 px-4 py-2 text-sm font-bold text-emerald-950">Sign out</button>
+      </header>
+      <ProfilePhotoCard userId={userId} displayName={email} roleLabel="Parent / Guardian" />
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/my-results" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Published results</h2><p className="mt-2 text-sm leading-6 text-slate-600">View report cards for learners linked to your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View results →</span></Link>
+        <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School messages</h2><p className="mt-2 text-sm leading-6 text-slate-600">Communicate with authorised school staff.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open messages →</span></Link>
+        <Link href="/notifications" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Notifications</h2><p className="mt-2 text-sm leading-6 text-slate-600">Check important school notices and account updates.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View notifications →</span></Link>
+        <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School monitoring</h2><p className="mt-2 text-sm leading-6 text-slate-600">Access monitoring services when enabled and authorised.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
+      </section>
+      <footer className="py-3 text-center text-xs text-slate-500">Designed & Powered by JETAB TECH</footer>
+    </div>
+  </main>;
+}
 
 /* =========================================================
    STUDENT DASHBOARD
@@ -1578,8 +1601,9 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results')
+    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
+    if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
