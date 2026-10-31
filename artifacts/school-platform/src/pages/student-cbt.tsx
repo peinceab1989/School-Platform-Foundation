@@ -41,6 +41,8 @@ export default function StudentCbtPage({ schoolId }: { schoolId: string }) {
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
       const listed = (data?.exams ?? []) as Exam[];
+      if (typeof data?.message === "string") setNotice(data.message);
+      else if (!listed.length) setNotice("No published examinations are currently available for your enrolled class.");
       const classIds = [...new Set(listed.map((exam) => exam.class_id).filter((id): id is string => Boolean(id)))];
       if (classIds.length) {
         const { data: classRows, error: classError } = await getSupabaseClient()
@@ -54,7 +56,7 @@ export default function StudentCbtPage({ schoolId }: { schoolId: string }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load available examinations.");
     } finally { setLoading(false); }
-  }, []);
+  }, [schoolId]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
