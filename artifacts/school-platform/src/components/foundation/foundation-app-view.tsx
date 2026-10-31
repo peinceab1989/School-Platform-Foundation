@@ -131,18 +131,33 @@ function SignInView({
 
   useEffect(() => {
     let until = 0;
-    try { until = Number(window.sessionStorage.getItem(RESET_COOLDOWN_KEY) || 0); } catch { until = 0; }
-    if (until > Date.now()) {
-      setResetCooldown(true);
-      const timeout = window.setTimeout(() => {
-        try { window.sessionStorage.removeItem(RESET_COOLDOWN_KEY); } catch { /* Storage may be unavailable. */ }
-        setResetCooldown(false);
-      }, until - Date.now());
-      return () => window.clearTimeout(timeout);
+    try {
+      until = Number(window.sessionStorage.getItem(RESET_COOLDOWN_KEY) || 0);
+    } catch {
+      until = 0;
     }
-    try { window.sessionStorage.removeItem(RESET_COOLDOWN_KEY); } catch { /* Storage may be unavailable. */ }
-    setResetCooldown(false);
-    return undefined;
+
+    if (until <= Date.now()) {
+      try {
+        window.sessionStorage.removeItem(RESET_COOLDOWN_KEY);
+      } catch {
+        // Session storage may be unavailable in a restricted browser.
+      }
+      setResetCooldown(false);
+      return;
+    }
+
+    setResetCooldown(true);
+    const timeout = window.setTimeout(() => {
+      try {
+        window.sessionStorage.removeItem(RESET_COOLDOWN_KEY);
+      } catch {
+        // Session storage may be unavailable in a restricted browser.
+      }
+      setResetCooldown(false);
+    }, until - Date.now());
+
+    return () => window.clearTimeout(timeout);
   }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
