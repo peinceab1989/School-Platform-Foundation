@@ -1813,9 +1813,9 @@ function FoundationPage() {
     currentPath === '/student-assignments'
   ) {
     return (
-      <main style={{ minHeight: '100vh', padding: 16, boxSizing: 'border-box', background: '#f4f7f1', color: '#17251b', fontFamily: 'Arial, sans-serif' }}>
+      <main className="resa-student-portal" style={{ minHeight: '100vh', padding: 16, boxSizing: 'border-box', background: '#f4f7f1', color: '#17251b', fontFamily: 'Arial, sans-serif' }}>
         <div style={{ maxWidth: 1050, margin: '0 auto' }}>
-          <header style={{ background: '#123d2b', color: '#fff', borderRadius: 16, padding: '22px 20px', marginBottom: 18 }}>
+          <header className="resa-student-hero" style={{ background: '#123d2b', color: '#fff', borderRadius: 16, padding: '22px 20px', marginBottom: 18 }}>
             <div style={{ color: '#e6c66b', fontSize: 12, fontWeight: 700, letterSpacing: 1.5 }}>RESA STUDENT LEARNING</div>
             <h1 style={{ fontSize: 27, lineHeight: 1.3, margin: '10px 0' }}>My Assignments</h1>
             <p style={{ margin: '0 0 14px', lineHeight: 1.6, color: '#e8eee8' }}>Published assignments for your enrolled class. This area is separate from CBT examinations.</p>
