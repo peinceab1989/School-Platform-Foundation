@@ -128,8 +128,8 @@ export default function StudentPracticeDrillsPage() {
     }
   };
 
-  return <main className="min-h-screen bg-[#f5f7f2] text-slate-900">
-    <header className="bg-gradient-to-br from-emerald-950 to-emerald-700 text-white"><div className="mx-auto max-w-3xl px-4 py-6">
+  return <main className="resa-student-portal min-h-screen bg-[#f5f7f2] text-slate-900">
+    <header className="resa-student-hero bg-gradient-to-br from-emerald-950 to-emerald-700 text-white"><div className="mx-auto max-w-3xl px-4 py-6">
       <Link href="/portal-options" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-50 hover:text-amber-200"><ArrowLeft size={16}/> Portal & Services</Link>
       <div className="mt-5 flex items-center gap-3"><span className="rounded-2xl bg-white/10 p-3 text-amber-200"><BookOpenCheck size={28}/></span><div><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA learning hub</p><h1 className="text-2xl font-extrabold sm:text-3xl">Test Drilling & Practice</h1></div></div>
       <p className="mt-3 max-w-xl text-sm leading-6 text-emerald-50">An optional practice area for any level. Choose a subject and how many questions you want to try. Practice is separate from official examinations and does not affect school grades.</p>
