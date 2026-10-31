@@ -84,7 +84,7 @@ export default function TestDataSetupPage() {
 
   async function copyCredentials() {
     if (!result?.credentials?.length) return;
-    const text = result.credentials.map(c => `${c.role.toUpperCase()} | ${c.name} | Username: ${c.username} | Password: ${c.password}`).join("\n");
+    const text = result.credentials.map(c => `${c.role.toUpperCase()} | ${c.name} | Login ID / Email: ${c.username} | Password: ${c.password}`).join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -181,7 +181,7 @@ export default function TestDataSetupPage() {
             <p className="mt-2 text-sm text-amber-800">Passwords are not saved in the database or shown again after you leave this page. Do not use these test credentials for real school accounts.</p>
             <div className="mt-4 overflow-x-auto rounded-lg border">
               <table className="w-full min-w-[650px] text-left text-sm">
-                <thead className="bg-slate-50"><tr><th className="p-3">Role</th><th className="p-3">Test name</th><th className="p-3">Username</th><th className="p-3">Temporary password</th></tr></thead>
+                <thead className="bg-slate-50"><tr><th className="p-3">Role</th><th className="p-3">Test name</th><th className="p-3">Login ID / Email</th><th className="p-3">Temporary password</th></tr></thead>
                 <tbody>{(result.credentials || []).map(c => <tr key={c.username} className="border-t"><td className="p-3 capitalize">{c.role}</td><td className="p-3">{c.name}</td><td className="p-3 font-mono">{c.username}</td><td className="p-3 font-mono">{c.password}</td></tr>)}</tbody>
               </table>
             </div>
