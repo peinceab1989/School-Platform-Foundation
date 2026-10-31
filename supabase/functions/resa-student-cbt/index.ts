@@ -76,7 +76,11 @@ Deno.serve(async (req: Request) => {
         .eq("school_id", student.school_id).eq("student_id", student.id).eq("status", "active");
       if (enrollmentError) return reply(500, { error: "Could not load your current class enrollment." });
       const pairs = enrollments ?? [];
-      if (!pairs.length) return reply(200, { exams: [] });
+      if (!pairs.length) return reply(200, {
+        exams: [],
+        access_state: "no_active_enrollment",
+        message: "Your student portal account is active, but no active class and academic-session enrolment is linked to it yet. Please contact the school office to complete your enrolment record."
+      });
 
       const { data: exams, error: examsError } = await admin
         .from("online_exams")
@@ -109,7 +113,13 @@ Deno.serve(async (req: Request) => {
           score: latest?.status === "submitted" ? latest.score : null,
         };
       }));
-      return reply(200, { exams: results });
+      return reply(200, {
+        exams: results,
+        access_state: results.length ? "exams_available" : "no_published_exams",
+        message: results.length
+          ? `${results.length} published examination${results.length === 1 ? "" : "s"} are available for your enrolled class and academic session.`
+          : "Your class enrolment is active, but there are no published examinations scheduled for your class and academic session right now."
+      });
     }
 
     if (body.action === "start") {
