@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, GraduationCap, UserRound, School, BookOpen,
-  ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
-  MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
+  ClipboardCheck, CalendarDays, FileText, ClipboardList, MessageSquare,
+  Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
   Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight,
   CircleHelp,
 } from "lucide-react";
@@ -35,7 +35,6 @@ const groups = [
     ["Examinations & CBT", "/examinations", ClipboardList],
     ["Teaching Assignments", "/teaching-assignments", BookOpen],
     ["Learning Materials", "/teaching-materials", BookOpen],
-    ["Practice & Revision", "/practice-drills", Sparkles],
   ]},
   { label: "COMMUNICATION", items: [
     ["School Messages", "/school-communication", MessageSquare],
