@@ -196,9 +196,9 @@ const statNumberStyle: CSSProperties = {
 };
 
 function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { schoolId: string; schoolName: string; userId: string; email?: string; onSignOut: () => void }) {
-  return <main className="min-h-screen bg-stone-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
+  return <main className="resa-parent-portal min-h-screen bg-stone-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
     <div className="mx-auto grid w-full max-w-5xl gap-5">
-      <header className="rounded-3xl bg-emerald-950 p-5 text-white shadow-sm sm:p-8">
+      <header className="resa-parent-hero rounded-3xl bg-emerald-950 p-5 text-white shadow-sm sm:p-8">
         <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA · Parent & Guardian Portal</p>
         <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">Your child's school connection</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Stay informed about school communication, published academic results and important updates for the learners linked to your account.</p>
@@ -320,6 +320,7 @@ function StudentDashboard({
 
   return (
     <main
+      className="resa-student-portal"
       style={{
         minHeight: '100vh',
         padding: 16,
@@ -331,6 +332,7 @@ function StudentDashboard({
     >
       <div style={{ maxWidth: 1050, margin: '0 auto' }}>
         <header
+          className="resa-student-hero"
           style={{
             background: '#123d2b',
             color: '#fff',
