@@ -51,10 +51,8 @@ import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
 import TeachingMaterialsPage from '@/pages/teaching-materials';
-import ResaChatPage from '@/pages/resa-chat';
 import PublicationCentre from '@/pages/publication-centre';
 import TestDataSetupPage from '@/pages/test-data-setup';
-import SchoolCctvPage from '@/pages/school-cctv';
 import NotificationsPage from '@/pages/notifications';
 import UnreadMessageBadge from '@/components/unread-message-badge';
 import NotFound from '@/pages/not-found';
@@ -140,7 +138,6 @@ const ADMIN_SCHOOL_PATHS = [
   '/school-services',
   '/publication-centre',
   '/staff-attendance',
-  '/school-cctv',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -158,8 +155,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-assignments',
   '/school-communication',
   '/notifications',
-  '/school-cctv',
-];
+ ];
 
 const buttonStyle: CSSProperties = {
   border: 'none',
@@ -394,7 +390,6 @@ function StudentDashboard({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
             <Link href="/practice-drills" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>Practice Drills</Link>
             <Link href="/teaching-materials" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Learning Resources</Link>
-            <Link href="/resa-chat" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#d9efe2', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>School Chat</Link>
             <Link href="/student-assignments" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#17623d', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Assignments</Link>
             <Link href="/student-cbt" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Student CBT</Link>
           </div>
@@ -1311,7 +1306,7 @@ function FoundationPage() {
     }
 
     if (parentMembership) {
-      if (!['/school-cctv', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) setLocation('/school-cctv');
+      if (!['/parent-dashboard', '/dashboard', '/portal', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) setLocation('/parent-dashboard');
       return;
     }
 
@@ -1351,7 +1346,7 @@ function FoundationPage() {
     } else if (studentMembership) {
       setLocation('/student-dashboard');
     } else if (parentMembership) {
-      setLocation('/school-cctv');
+      setLocation('/parent-dashboard');
     }
   }, [
     currentPath,
@@ -1609,13 +1604,13 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
+    (currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
-    return <SchoolCctvPage schoolId={parentMembership.schoolId} role="parent" />;
+    return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
   }
 
   /* Shared presentation shell for all administrator routes; role checks remain above this UI layer. */
@@ -1635,12 +1630,8 @@ function FoundationPage() {
   ) {
     if (currentPath === '/notifications') return withAdminShell(<NotificationsPage schoolId={adminMembership.schoolId} role="admin" />);
     if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
-    if (currentPath === '/resa-chat' && session) return withAdminShell(<ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
+    if (currentPath === '/resa-chat' && session) return withAdminShell(<SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />);
     if (currentPath === '/publication-centre' && session) return withAdminShell(<PublicationCentre schoolId={adminMembership.schoolId} userId={session.user.id} />);
-
-    if (currentPath === '/school-cctv') {
-      return withAdminShell(<SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />);
-    }
 
     if (currentPath === '/hr-management') {
       return withAdminShell(<HrManagementPage schoolId={adminMembership.schoolId} />);
@@ -1763,7 +1754,7 @@ function FoundationPage() {
   ) {
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/teaching-materials') return <TeachingMaterialsPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
-    if (currentPath === '/resa-chat') return <ResaChatPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
+    if (currentPath === '/resa-chat') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
     if (currentPath === '/form-teacher-attendance') return <FormTeacherAttendancePage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={teacherMembership.schoolId} role="teacher" />;
@@ -1783,7 +1774,7 @@ function FoundationPage() {
   }
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/resa-chat') {
-    return <ResaChatPage schoolId={studentMembership.schoolId} userId={session?.user.id ?? ''} role="student" />;
+    return <SchoolCommunicationPage schoolId={studentMembership.schoolId} role="student" />;
   }
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/teaching-materials') {
@@ -2148,7 +2139,6 @@ function AppRoutes() {
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
-        <Route path="/school-cctv" component={FoundationPage} />
 
         {/* Private control centre */}
         <Route path="/jetab-engine-room" component={FoundationPage} />
