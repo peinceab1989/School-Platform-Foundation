@@ -247,6 +247,7 @@ function StudentDashboard({
   const [academicError, setAcademicError] = useState<string | null>(null);
   const [publishedCbtCount, setPublishedCbtCount] = useState<number | null>(null);
   const [cbtNoticeError, setCbtNoticeError] = useState<string | null>(null);
+  const [cbtNoticeMessage, setCbtNoticeMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -255,11 +256,13 @@ function StudentDashboard({
         if (!active) return;
         if (error || data?.error) {
           setCbtNoticeError(error?.message || data?.error || "Published CBT status is temporarily unavailable.");
+          setCbtNoticeMessage(null);
           setPublishedCbtCount(null);
           return;
         }
         setPublishedCbtCount(Array.isArray(data?.exams) ? data.exams.length : 0);
         setCbtNoticeError(null);
+        setCbtNoticeMessage(typeof data?.message === "string" ? data.message : null);
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -371,7 +374,7 @@ function StudentDashboard({
                 <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
                   {publishedCbtCount === null ? (cbtNoticeError || 'Checking examinations assigned to your active class…') :
                     publishedCbtCount > 0 ? `${publishedCbtCount} published examination${publishedCbtCount === 1 ? '' : 's'} available for your class. Open CBT to begin.` :
-                    'No published examination is currently assigned to your active class and academic session. This area checks automatically when you open the dashboard.'}
+                    (cbtNoticeMessage || 'No published examination is currently assigned to your active class and academic session. This area checks automatically when you open the dashboard.')}
                 </p>
               </div>
               <Link href="/student-cbt" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 9, padding: '12px 17px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
