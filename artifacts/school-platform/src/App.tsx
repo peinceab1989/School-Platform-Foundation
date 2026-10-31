@@ -50,7 +50,6 @@ import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
 import TeachingMaterialsPage from '@/pages/teaching-materials';
-import PublicationCentre from '@/pages/publication-centre';
 import TestDataSetupPage from '@/pages/test-data-setup';
 import NotificationsPage from '@/pages/notifications';
 import UnreadMessageBadge from '@/components/unread-message-badge';
@@ -1629,7 +1628,7 @@ function FoundationPage() {
     if (currentPath === '/notifications') return withAdminShell(<NotificationsPage schoolId={adminMembership.schoolId} role="admin" />);
     if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     if (currentPath === '/resa-chat' && session) return withAdminShell(<SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />);
-    if (currentPath === '/publication-centre' && session) return withAdminShell(<PublicationCentre schoolId={adminMembership.schoolId} userId={session.user.id} />);
+    if (currentPath === '/publication-centre' && session) return withAdminShell(<SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />);
 
     if (currentPath === '/hr-management') {
       return withAdminShell(<HrManagementPage schoolId={adminMembership.schoolId} />);
