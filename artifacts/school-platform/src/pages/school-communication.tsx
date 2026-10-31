@@ -125,8 +125,8 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
   const visible = messages.filter(m => tab === "inbox" ? m.recipient_id === userId : m.sender_id === userId);
   const nameFor = (id: string) => id === userId ? "You" : contacts.find(c => c.user_id === id)?.display_name || "School member";
   const field = "mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-600";
-  return <main className="min-h-screen bg-slate-50 text-slate-900">
-    <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+  return <main className={`${role === "student" ? "resa-student-portal" : role === "parent" ? "resa-parent-portal" : role === "teacher" ? "resa-teacher-portal" : "resa-page-content"} min-h-screen bg-slate-50 text-slate-900`}>
+    <header className={`${role === "student" ? "resa-student-hero" : role === "parent" ? "resa-parent-hero" : ""} bg-emerald-950 text-white`}><div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
       <Link href={role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "parent" ? "/school-cctv" : "/student-dashboard"} className="mb-4 inline-flex items-center gap-2 text-sm text-emerald-100"><ArrowLeft size={16}/> Back to portal</Link>
       <div className="flex items-center gap-3"><span className="rounded-xl bg-white/10 p-3"><MessageSquare size={25}/></span><div><p className="text-xs uppercase tracking-widest text-emerald-200">RESA School Portal</p><h1 className="text-2xl font-extrabold">School Messages</h1></div></div>
       <p className="mt-2 text-sm text-emerald-100">Private school messages and Customer Care conversations in one secure inbox.</p>
