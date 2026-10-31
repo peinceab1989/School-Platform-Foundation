@@ -33,7 +33,6 @@ import StudentsPage from '@/pages/students';
 import StudentEnrolmentsPage from '@/pages/student-enrolments';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
-import ResultsPage from '@/pages/results';
 import ResultsManagementPage from '@/pages/results-management';
 import MyPublishedResultsPage from '@/pages/my-published-results';
 import FormTeacherAttendancePage from '@/pages/form-teacher-attendance';
@@ -208,7 +207,6 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         <Link href="/my-results" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Published results</h2><p className="mt-2 text-sm leading-6 text-slate-600">View report cards for learners linked to your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View results →</span></Link>
         <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School messages</h2><p className="mt-2 text-sm leading-6 text-slate-600">Communicate with authorised school staff.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open messages →</span></Link>
         <Link href="/notifications" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Notifications</h2><p className="mt-2 text-sm leading-6 text-slate-600">Check important school notices and account updates.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View notifications →</span></Link>
-        <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School monitoring</h2><p className="mt-2 text-sm leading-6 text-slate-600">Access monitoring services when enabled and authorised.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
       </section>
       <footer className="py-3 text-center text-xs text-slate-500">Designed & Powered by JETAB TECH</footer>
     </div>
@@ -1688,7 +1686,7 @@ function FoundationPage() {
     }
 
     if (currentPath === '/results') {
-      return withAdminShell(<ResultsPage schoolId={adminMembership.schoolId} />);
+      return withAdminShell(<ResultsManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} role="admin" />);
     }
 
     if (currentPath === '/results-management') {
