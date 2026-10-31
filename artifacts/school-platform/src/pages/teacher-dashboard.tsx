@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { Link } from 'wouter';
 import UnreadMessageBadge from '@/components/unread-message-badge';
+import ProfilePhotoCard from '@/components/profile-photo-card';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 type TeacherStaff = {
@@ -999,6 +1000,7 @@ export default function TeacherDashboard({
         </section>
       )}
       <div style={{ maxWidth: 1150, margin: '0 auto' }}>
+        <div style={{ marginBottom: 16 }}><ProfilePhotoCard userId={userId} displayName={teacherName || email} roleLabel="Teacher / Staff" /></div>
         <header
           style={{
             background: '#123d2b',
