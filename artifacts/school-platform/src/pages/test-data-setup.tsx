@@ -52,8 +52,12 @@ export default function TestDataSetupPage() {
           .eq("status", "active")
           .maybeSingle();
         if (queryError) throw queryError;
-        if (active) setIsAdmin(Boolean(data));
+        const { data: ownerData, error: ownerError } = await supabase.rpc("is_nexus_owner");
+        if (ownerError) throw ownerError;
+        const ownerAccess = ownerData === true;
+        if (active) setIsAdmin(Boolean(data) && ownerAccess);
         if (!data && active) setError("This page is restricted to active RESA school administrators.");
+        else if (!ownerAccess && active) setError("Test-account creation and cleanup are restricted to the verified JETAB Nexus owner.");
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : "Could not verify administrator access.");
       } finally {
@@ -140,7 +144,7 @@ export default function TestDataSetupPage() {
         </p>
         {!isAdmin && (
           <div role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-            {error || "Administrator access is required."} <Link href="/portal" className="underline">Go to sign in</Link>
+            {error || "Verified JETAB Nexus owner access is required."} <Link href="/portal" className="underline">Go to sign in</Link>
           </div>
         )}
         {isAdmin && !result && (
