@@ -8,7 +8,7 @@ type SeedResult = {
   message?: string;
   error?: string;
   run_id?: string;
-  counts?: { teachers: number; students: number; cbtAttempts: number; caScores: number; publishedResults: number };
+  counts?: { teachers: number; students: number; parents: number; cbtAttempts: number; caScores: number; publishedResults: number };
   credentials?: TestCredential[];
 };
 type CleanupPreview = {
@@ -52,8 +52,12 @@ export default function TestDataSetupPage() {
           .eq("status", "active")
           .maybeSingle();
         if (queryError) throw queryError;
-        if (active) setIsAdmin(Boolean(data));
+        const { data: ownerData, error: ownerError } = await supabase.rpc("is_nexus_owner");
+        if (ownerError) throw ownerError;
+        const ownerAccess = ownerData === true;
+        if (active) setIsAdmin(Boolean(data) && ownerAccess);
         if (!data && active) setError("This page is restricted to active RESA school administrators.");
+        else if (!ownerAccess && active) setError("Test-account creation and cleanup are restricted to the verified JETAB Nexus owner.");
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : "Could not verify administrator access.");
       } finally {
@@ -84,7 +88,7 @@ export default function TestDataSetupPage() {
 
   async function copyCredentials() {
     if (!result?.credentials?.length) return;
-    const text = result.credentials.map(c => `${c.role.toUpperCase()} | ${c.name} | Username: ${c.username} | Password: ${c.password}`).join("\n");
+    const text = result.credentials.map(c => `${c.role.toUpperCase()} | ${c.name} | Login ID / Email: ${c.username} | Password: ${c.password}`).join("\n");
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -135,12 +139,12 @@ export default function TestDataSetupPage() {
         <div className="mb-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-900">Testing only</div>
         <h1 className="text-2xl font-bold sm:text-3xl">RESA Test Accounts & Results</h1>
         <p className="mt-3 leading-7 text-slate-600">
-          Creates 10 teacher logins and 20 student logins with usernames and temporary passwords, plus clearly labelled test attendance,
-          continuous-assessment marks, submitted CBT attempts and published sample results. These are not real RESA people or official results.
+          Creates 10 teacher logins, 20 student logins and 6 parent/guardian logins with demo-only email IDs and temporary passwords, plus clearly labelled test attendance,
+          continuous-assessment marks, submitted CBT attempts and published sample results. All test records are isolated and marked DEMO ONLY; they are not real RESA people or official results.
         </p>
         {!isAdmin && (
           <div role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-            {error || "Administrator access is required."} <Link href="/portal" className="underline">Go to sign in</Link>
+            {error || "Verified JETAB Nexus owner access is required."} <Link href="/portal" className="underline">Go to sign in</Link>
           </div>
         )}
         {isAdmin && !result && (
@@ -166,6 +170,7 @@ export default function TestDataSetupPage() {
               <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">Teachers</dt><dd className="text-xl font-bold">{result.counts?.teachers ?? 0}</dd></div>
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">Students</dt><dd className="text-xl font-bold">{result.counts?.students ?? 0}</dd></div>
+                <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">Parents / Guardians</dt><dd className="text-xl font-bold">{result.counts?.parents ?? 0}</dd></div>
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">CBT submissions</dt><dd className="text-xl font-bold">{result.counts?.cbtAttempts ?? 0}</dd></div>
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">CA marks</dt><dd className="text-xl font-bold">{result.counts?.caScores ?? 0}</dd></div>
                 <div className="rounded-lg bg-white p-3"><dt className="text-xs text-slate-500">Published test results</dt><dd className="text-xl font-bold">{result.counts?.publishedResults ?? 0}</dd></div>
@@ -180,7 +185,7 @@ export default function TestDataSetupPage() {
             <p className="mt-2 text-sm text-amber-800">Passwords are not saved in the database or shown again after you leave this page. Do not use these test credentials for real school accounts.</p>
             <div className="mt-4 overflow-x-auto rounded-lg border">
               <table className="w-full min-w-[650px] text-left text-sm">
-                <thead className="bg-slate-50"><tr><th className="p-3">Role</th><th className="p-3">Test name</th><th className="p-3">Username</th><th className="p-3">Temporary password</th></tr></thead>
+                <thead className="bg-slate-50"><tr><th className="p-3">Role</th><th className="p-3">Test name</th><th className="p-3">Login ID / Email</th><th className="p-3">Temporary password</th></tr></thead>
                 <tbody>{(result.credentials || []).map(c => <tr key={c.username} className="border-t"><td className="p-3 capitalize">{c.role}</td><td className="p-3">{c.name}</td><td className="p-3 font-mono">{c.username}</td><td className="p-3 font-mono">{c.password}</td></tr>)}</tbody>
               </table>
             </div>

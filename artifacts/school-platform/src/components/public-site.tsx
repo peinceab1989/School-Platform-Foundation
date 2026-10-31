@@ -14,7 +14,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 const FACEBOOK_URL = "https://www.facebook.com/share/1H2v8eruwR/";
 const SCHOOL_EMAIL = "Resainternational2024@gmail.com";
 const SCHOOL_PHONE = "+2348058422691";
-const SCHOOL_WHATSAPP = "https://wa.me/2347010945774?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance.";
+const SCHOOL_WHATSAPP = "https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance.";
 const PORTAL_PATH = "/portal-options";
 const JETAB_WHATSAPP =
   "https://wa.me/2347054078988?text=Hello%20JETAB%20TECH%2C%20I%20would%20like%20to%20request%20a%20service%20or%20training.";
@@ -379,7 +379,7 @@ function FloatingCustomerCare() {
 
 export function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-[#fbfaf5] text-[#283b30]">
+    <div className="resa-public-site min-h-[100dvh] bg-[#fbfaf5] text-[#283b30]">
       <BackToTopOnNavigation />
       <PublicHeader />
       <main>{children}</main>

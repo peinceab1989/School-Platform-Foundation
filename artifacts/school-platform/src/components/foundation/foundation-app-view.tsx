@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'wouter';
 import {
   ArrowRight,
@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { SchoolLogo } from '@/components/school-logo';
 import { getSupabaseClient } from '@/lib/supabase/client';
+
+const RESET_COOLDOWN_KEY = 'resa-password-reset-cooldown-until';
+const RESET_COOLDOWN_MS = 15 * 60 * 1000;
 
 export type FoundationRole = 'admin' | 'teacher' | 'student' | 'parent';
 
@@ -123,14 +126,61 @@ function SignInView({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [resetBusy, setResetBusy] = useState(false);
+  const [resetCooldown, setResetCooldown] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
+
+  useEffect(() => {
+    let until = 0;
+    try {
+      until = Number(window.sessionStorage.getItem(RESET_COOLDOWN_KEY) || 0);
+    } catch {
+      until = 0;
+    }
+
+    if (until <= Date.now()) {
+      try {
+        window.sessionStorage.removeItem(RESET_COOLDOWN_KEY);
+      } catch {
+        // Session storage may be unavailable in a restricted browser.
+      }
+      setResetCooldown(false);
+      return;
+    }
+
+    setResetCooldown(true);
+    const timeout = window.setTimeout(() => {
+      try {
+        window.sessionStorage.removeItem(RESET_COOLDOWN_KEY);
+      } catch {
+        // Session storage may be unavailable in a restricted browser.
+      }
+      setResetCooldown(false);
+    }, until - Date.now());
+
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSignIn(email, password);
   }
 
+  function startResetCooldown() {
+    const until = Date.now() + RESET_COOLDOWN_MS;
+    try { window.sessionStorage.setItem(RESET_COOLDOWN_KEY, String(until)); } catch { /* In-memory cooldown remains active. */ }
+    setResetCooldown(true);
+    window.setTimeout(() => {
+      let storedUntil = 0;
+      try {
+        storedUntil = Number(window.sessionStorage.getItem(RESET_COOLDOWN_KEY) || 0);
+        if (storedUntil <= Date.now()) window.sessionStorage.removeItem(RESET_COOLDOWN_KEY);
+      } catch { storedUntil = 0; }
+      if (storedUntil <= Date.now()) setResetCooldown(false);
+    }, RESET_COOLDOWN_MS);
+  }
+
   async function handlePasswordReset() {
+    if (resetBusy || resetCooldown) return;
     setResetMessage('');
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
@@ -148,12 +198,14 @@ function SignInView({
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (error) throw error;
-      setResetMessage('If this email is registered, a password-reset link has been sent. Check your inbox and spam folder.');
+      startResetCooldown();
+      setResetMessage('If this email is registered, a password-reset link has been sent. Check your inbox and spam folder. Wait 15 minutes before requesting another link.');
     } catch (error) {
       const details = error instanceof Error ? error.message : 'Password reset could not be started.';
       const rateLimited = /rate limit|too many requests|email.*limit/i.test(details);
+      if (rateLimited) startResetCooldown();
       setResetMessage(rateLimited
-        ? 'The RESA email service has temporarily limited reset emails. Please wait before requesting another link, or contact your school administrator for help.'
+        ? 'The RESA email service has temporarily limited reset emails. Wait at least 15 minutes before trying again, or contact your school administrator for help.'
         : details);
     } finally {
       setResetBusy(false);
@@ -343,11 +395,11 @@ function SignInView({
                 <button
                   type="button"
                   onClick={() => void handlePasswordReset()}
-                  disabled={resetBusy || isLoading || needsConfig}
+                  disabled={resetBusy || resetCooldown || isLoading || needsConfig}
                   className="text-sm font-semibold text-emerald-800 underline underline-offset-4 disabled:opacity-50"
                   data-testid="button-forgot-password"
                 >
-                  {resetBusy ? 'Sending reset link…' : 'Forgot password?'}
+                  {resetBusy ? 'Sending reset link…' : resetCooldown ? 'Please wait before requesting again' : 'Forgot password?'}
                 </button>
                 {resetMessage && (
                   <p className="mt-2 text-sm text-[#536456]" role="status" aria-live="polite">

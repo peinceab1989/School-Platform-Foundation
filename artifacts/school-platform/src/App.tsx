@@ -30,9 +30,9 @@ import SchoolServicesPage from '@/pages/school-services';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
+import StudentEnrolmentsPage from '@/pages/student-enrolments';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
-import ResultsPage from '@/pages/results';
 import ResultsManagementPage from '@/pages/results-management';
 import MyPublishedResultsPage from '@/pages/my-published-results';
 import FormTeacherAttendancePage from '@/pages/form-teacher-attendance';
@@ -50,10 +50,7 @@ import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
 import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
 import TeachingMaterialsPage from '@/pages/teaching-materials';
-import ResaChatPage from '@/pages/resa-chat';
-import PublicationCentre from '@/pages/publication-centre';
 import TestDataSetupPage from '@/pages/test-data-setup';
-import SchoolCctvPage from '@/pages/school-cctv';
 import NotificationsPage from '@/pages/notifications';
 import UnreadMessageBadge from '@/components/unread-message-badge';
 import NotFound from '@/pages/not-found';
@@ -121,6 +118,7 @@ function normalizePath(path: string): string {
 
 const ADMIN_SCHOOL_PATHS = [
   '/students',
+  '/student-enrolments',
   '/attendance',
   '/announcements',
   '/results',
@@ -138,7 +136,6 @@ const ADMIN_SCHOOL_PATHS = [
   '/school-services',
   '/publication-centre',
   '/staff-attendance',
-  '/school-cctv',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -156,8 +153,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-assignments',
   '/school-communication',
   '/notifications',
-  '/school-cctv',
-];
+ ];
 
 const buttonStyle: CSSProperties = {
   border: 'none',
@@ -196,9 +192,9 @@ const statNumberStyle: CSSProperties = {
 };
 
 function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { schoolId: string; schoolName: string; userId: string; email?: string; onSignOut: () => void }) {
-  return <main className="min-h-screen bg-stone-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
+  return <main className="resa-parent-portal min-h-screen bg-stone-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
     <div className="mx-auto grid w-full max-w-5xl gap-5">
-      <header className="rounded-3xl bg-emerald-950 p-5 text-white shadow-sm sm:p-8">
+      <header className="resa-parent-hero rounded-3xl bg-emerald-950 p-5 text-white shadow-sm sm:p-8">
         <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA · Parent & Guardian Portal</p>
         <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">Your child's school connection</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Stay informed about school communication, published academic results and important updates for the learners linked to your account.</p>
@@ -210,7 +206,6 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         <Link href="/my-results" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Published results</h2><p className="mt-2 text-sm leading-6 text-slate-600">View report cards for learners linked to your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View results →</span></Link>
         <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School messages</h2><p className="mt-2 text-sm leading-6 text-slate-600">Communicate with authorised school staff.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open messages →</span></Link>
         <Link href="/notifications" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Notifications</h2><p className="mt-2 text-sm leading-6 text-slate-600">Check important school notices and account updates.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View notifications →</span></Link>
-        <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School monitoring</h2><p className="mt-2 text-sm leading-6 text-slate-600">Access monitoring services when enabled and authorised.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
       </section>
       <footer className="py-3 text-center text-xs text-slate-500">Designed & Powered by JETAB TECH</footer>
     </div>
@@ -247,6 +242,7 @@ function StudentDashboard({
   const [academicError, setAcademicError] = useState<string | null>(null);
   const [publishedCbtCount, setPublishedCbtCount] = useState<number | null>(null);
   const [cbtNoticeError, setCbtNoticeError] = useState<string | null>(null);
+  const [cbtNoticeMessage, setCbtNoticeMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -255,11 +251,13 @@ function StudentDashboard({
         if (!active) return;
         if (error || data?.error) {
           setCbtNoticeError(error?.message || data?.error || "Published CBT status is temporarily unavailable.");
+          setCbtNoticeMessage(null);
           setPublishedCbtCount(null);
           return;
         }
         setPublishedCbtCount(Array.isArray(data?.exams) ? data.exams.length : 0);
         setCbtNoticeError(null);
+        setCbtNoticeMessage(typeof data?.message === "string" ? data.message : null);
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -320,6 +318,7 @@ function StudentDashboard({
 
   return (
     <main
+      className="resa-student-portal"
       style={{
         minHeight: '100vh',
         padding: 16,
@@ -331,6 +330,7 @@ function StudentDashboard({
     >
       <div style={{ maxWidth: 1050, margin: '0 auto' }}>
         <header
+          className="resa-student-hero"
           style={{
             background: '#123d2b',
             color: '#fff',
@@ -369,7 +369,7 @@ function StudentDashboard({
                 <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
                   {publishedCbtCount === null ? (cbtNoticeError || 'Checking examinations assigned to your active class…') :
                     publishedCbtCount > 0 ? `${publishedCbtCount} published examination${publishedCbtCount === 1 ? '' : 's'} available for your class. Open CBT to begin.` :
-                    'No published examination is currently assigned to your active class and academic session. This area checks automatically when you open the dashboard.'}
+                    (cbtNoticeMessage || 'No published examination is currently assigned to your active class and academic session. This area checks automatically when you open the dashboard.')}
                 </p>
               </div>
               <Link href="/student-cbt" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 9, padding: '12px 17px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>
@@ -387,7 +387,6 @@ function StudentDashboard({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
             <Link href="/practice-drills" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>Practice Drills</Link>
             <Link href="/teaching-materials" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Learning Resources</Link>
-            <Link href="/resa-chat" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#d9efe2', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>School Chat</Link>
             <Link href="/student-assignments" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#17623d', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Assignments</Link>
             <Link href="/student-cbt" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Student CBT</Link>
           </div>
@@ -1304,7 +1303,7 @@ function FoundationPage() {
     }
 
     if (parentMembership) {
-      if (!['/school-cctv', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) setLocation('/school-cctv');
+      if (!['/parent-dashboard', '/dashboard', '/portal', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) setLocation('/parent-dashboard');
       return;
     }
 
@@ -1344,7 +1343,7 @@ function FoundationPage() {
     } else if (studentMembership) {
       setLocation('/student-dashboard');
     } else if (parentMembership) {
-      setLocation('/school-cctv');
+      setLocation('/parent-dashboard');
     }
   }, [
     currentPath,
@@ -1602,13 +1601,13 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
+    (currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
-    return <SchoolCctvPage schoolId={parentMembership.schoolId} role="parent" />;
+    return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
   }
 
   /* Shared presentation shell for all administrator routes; role checks remain above this UI layer. */
@@ -1628,12 +1627,8 @@ function FoundationPage() {
   ) {
     if (currentPath === '/notifications') return withAdminShell(<NotificationsPage schoolId={adminMembership.schoolId} role="admin" />);
     if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
-    if (currentPath === '/resa-chat' && session) return withAdminShell(<ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
-    if (currentPath === '/publication-centre' && session) return withAdminShell(<PublicationCentre schoolId={adminMembership.schoolId} userId={session.user.id} />);
-
-    if (currentPath === '/school-cctv') {
-      return withAdminShell(<SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />);
-    }
+    if (currentPath === '/resa-chat' && session) return withAdminShell(<SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />);
+    if (currentPath === '/publication-centre' && session) return withAdminShell(<SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />);
 
     if (currentPath === '/hr-management') {
       return withAdminShell(<HrManagementPage schoolId={adminMembership.schoolId} />);
@@ -1673,6 +1668,10 @@ function FoundationPage() {
       return withAdminShell(<StudentsPage schoolId={adminMembership.schoolId} />);
     }
 
+    if (currentPath === '/student-enrolments') {
+      return withAdminShell(<StudentEnrolmentsPage schoolId={adminMembership.schoolId} />);
+    }
+
     if (currentPath === '/attendance') {
       return withAdminShell(<AttendancePage schoolId={adminMembership.schoolId} />);
     }
@@ -1686,7 +1685,7 @@ function FoundationPage() {
     }
 
     if (currentPath === '/results') {
-      return withAdminShell(<ResultsPage schoolId={adminMembership.schoolId} />);
+      return withAdminShell(<ResultsManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} role="admin" />);
     }
 
     if (currentPath === '/results-management') {
@@ -1752,7 +1751,7 @@ function FoundationPage() {
   ) {
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/teaching-materials') return <TeachingMaterialsPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
-    if (currentPath === '/resa-chat') return <ResaChatPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
+    if (currentPath === '/resa-chat') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={teacherMembership.schoolId} role="teacher" />;
     if (currentPath === '/form-teacher-attendance') return <FormTeacherAttendancePage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={teacherMembership.schoolId} role="teacher" />;
@@ -1772,7 +1771,7 @@ function FoundationPage() {
   }
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/resa-chat') {
-    return <ResaChatPage schoolId={studentMembership.schoolId} userId={session?.user.id ?? ''} role="student" />;
+    return <SchoolCommunicationPage schoolId={studentMembership.schoolId} role="student" />;
   }
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/teaching-materials') {
@@ -1802,9 +1801,9 @@ function FoundationPage() {
     currentPath === '/student-assignments'
   ) {
     return (
-      <main style={{ minHeight: '100vh', padding: 16, boxSizing: 'border-box', background: '#f4f7f1', color: '#17251b', fontFamily: 'Arial, sans-serif' }}>
+      <main className="resa-student-portal" style={{ minHeight: '100vh', padding: 16, boxSizing: 'border-box', background: '#f4f7f1', color: '#17251b', fontFamily: 'Arial, sans-serif' }}>
         <div style={{ maxWidth: 1050, margin: '0 auto' }}>
-          <header style={{ background: '#123d2b', color: '#fff', borderRadius: 16, padding: '22px 20px', marginBottom: 18 }}>
+          <header className="resa-student-hero" style={{ background: '#123d2b', color: '#fff', borderRadius: 16, padding: '22px 20px', marginBottom: 18 }}>
             <div style={{ color: '#e6c66b', fontSize: 12, fontWeight: 700, letterSpacing: 1.5 }}>RESA STUDENT LEARNING</div>
             <h1 style={{ fontSize: 27, lineHeight: 1.3, margin: '10px 0' }}>My Assignments</h1>
             <p style={{ margin: '0 0 14px', lineHeight: 1.6, color: '#e8eee8' }}>Published assignments for your enrolled class. This area is separate from CBT examinations.</p>
@@ -2115,6 +2114,7 @@ function AppRoutes() {
         <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/student-assignments" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
+        <Route path="/student-enrolments" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
         <Route path="/form-teacher-attendance" component={FoundationPage} />
         <Route path="/announcements" component={FoundationPage} />
@@ -2136,7 +2136,6 @@ function AppRoutes() {
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
-        <Route path="/school-cctv" component={FoundationPage} />
 
         {/* Private control centre */}
         <Route path="/jetab-engine-room" component={FoundationPage} />

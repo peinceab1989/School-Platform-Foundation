@@ -11,11 +11,15 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 function reply(status: number, body: Record<string, unknown>) {
-  return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
 }
 
-// Only these explicitly tracked tables can be deleted. School settings, classes,
-// subjects, school records, owner records and administrator accounts are excluded.
+// Deliberately limited to the newer demo dataset. Legacy markers are retained:
+// inspection showed that some "legacy_test_*" markers point to genuine RESA
+// student/staff/guardian records and must never be treated as disposable.
 const DELETE_ORDER = [
   "online_exam_answers", "online_exam_attempts", "online_exam_questions",
   "student_subject_results", "student_term_results", "assessment_scores",
@@ -33,8 +37,11 @@ const ALLOWED_TABLES = new Set(DELETE_ORDER);
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return reply(405, { error: "POST required." });
+
   const bearer = req.headers.get("Authorization");
-  if (!bearer?.startsWith("Bearer ")) return reply(401, { error: "Sign in as a RESA administrator first." });
+  if (!bearer?.startsWith("Bearer ")) {
+    return reply(401, { error: "Sign in as a RESA administrator first." });
+  }
 
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -44,11 +51,26 @@ Deno.serve(async (req: Request) => {
   const user = userData?.user;
   if (userError || !user?.id) return reply(401, { error: "Your session is invalid. Sign in again." });
 
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data: membership, error: membershipError } = await admin.from("school_memberships")
-    .select("role,status").eq("school_id", SCHOOL_ID).eq("user_id", user.id)
-    .eq("role", "admin").eq("status", "active").maybeSingle();
-  if (membershipError || !membership) return reply(403, { error: "Only an active RESA school administrator can clean up test data." });
+  const { data: ownerAccess, error: ownerAccessError } = await userClient.rpc("is_nexus_owner");
+  if (ownerAccessError || ownerAccess !== true) {
+    return reply(403, { error: "Only the verified JETAB Nexus owner can create or clean demo accounts." });
+  }
+
+  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: membership, error: membershipError } = await admin
+    .from("school_memberships")
+    .select("role,status")
+    .eq("school_id", SCHOOL_ID)
+    .eq("user_id", user.id)
+    .eq("role", "admin")
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    return reply(403, { error: "Only an active RESA school administrator can clean up demo data." });
+  }
 
   let body: { dry_run?: unknown; confirmation?: unknown };
   try { body = await req.json(); } catch { body = {}; }
@@ -57,29 +79,45 @@ Deno.serve(async (req: Request) => {
     return reply(400, { error: "Explicit confirmation is required. No records were deleted." });
   }
 
-  const { data: markers, error: markerError } = await admin.from("resa_test_data_records")
+  const { data: markers, error: markerError } = await admin
+    .from("resa_test_data_records")
     .select("id,entity_table,entity_id,entity_type")
     .eq("school_id", SCHOOL_ID);
-  if (markerError) return reply(500, { error: "Could not read the test-data cleanup register. No records were deleted." });
-  const rows = markers ?? [];
+
+  if (markerError) {
+    return reply(500, { error: "Could not read the test-data register. No records were deleted." });
+  }
+
+  const allRows = markers ?? [];
+  const demoRows = allRows.filter((row: any) =>
+    typeof row.entity_type === "string" &&
+    row.entity_type.startsWith("demo_") &&
+    ALLOWED_TABLES.has(row.entity_table)
+  );
   const countIds: Record<string, Set<string>> = {};
-  for (const row of rows) {
-    if (row.entity_type === "test_run_created_by") continue;
+  for (const row of demoRows) {
     if (!countIds[row.entity_table]) countIds[row.entity_table] = new Set<string>();
     countIds[row.entity_table].add(row.entity_id);
   }
   const counts: Record<string, number> = Object.fromEntries(
     Object.entries(countIds).map(([table, ids]) => [table, ids.size]),
   );
-  const uniqueAuthIds = [...new Set(rows
-    .filter((row: any) => row.entity_table === "auth.users" && ["test_auth_user", "legacy_test_auth_user"].includes(row.entity_type))
-    .map((row: any) => row.entity_id))];
+
+  const demoAuthRows = allRows.filter((row: any) =>
+    row.entity_table === "auth.users" && row.entity_type === "demo_auth_user"
+  );
+  const demoAuthIds = [...new Set(demoAuthRows.map((row: any) => row.entity_id))];
+
   if (dryRun) {
     return reply(200, {
-      success: true, dry_run: true,
-      message: "Preview only. No data has been deleted. The cleanup targets tracked test records and preserves RESA classes, subjects, settings, school/owner records, and administrator accounts.",
-      trackedMarkerRows: rows.length,
-      uniqueTestLoginAccounts: uniqueAuthIds.length,
+      success: true,
+      dry_run: true,
+      message: "Preview only. No data has been deleted. Only explicitly marked demo_* records are in scope. All legacy_test_* records and unmarked records are excluded.",
+      trackedDemoMarkerRows: demoRows.length,
+      preservedLegacyMarkerRows: allRows.filter((row: any) =>
+        typeof row.entity_type === "string" && row.entity_type.startsWith("legacy_test_")
+      ).length,
+      uniqueDemoLoginAccounts: demoAuthIds.length,
       counts,
       requiredConfirmation: "CLEAN RESA TEST DATA",
     });
@@ -88,38 +126,57 @@ Deno.serve(async (req: Request) => {
   const errors: string[] = [];
   const deletedCounts: Record<string, number> = {};
   for (const table of DELETE_ORDER) {
-    const ids = [...new Set(rows.filter((row: any) => row.entity_table === table && row.entity_type !== "test_run_created_by").map((row: any) => row.entity_id))];
+    const ids = [...new Set(demoRows
+      .filter((row: any) => row.entity_table === table)
+      .map((row: any) => row.entity_id))];
     if (!ids.length) continue;
+
     const { data, error } = await admin.from(table).delete().in("id", ids).select("id");
-    if (error) {
-      errors.push(`${table}: ${error.message}`);
-    } else {
-      deletedCounts[table] = data?.length ?? 0;
+    if (error) errors.push(`${table}: ${error.message}`);
+    else deletedCounts[table] = data?.length ?? 0;
+  }
+
+  for (const id of demoAuthIds) {
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error && !/not found|does not exist|user not found/i.test(error.message)) {
+      errors.push(`auth.users: ${error.message}`);
     }
   }
 
-  for (const id of uniqueAuthIds) {
-    const { error } = await admin.auth.admin.deleteUser(id);
-    if (error && !/not found|does not exist|user not found/i.test(error.message)) errors.push(`auth.users: ${error.message}`);
-  }
-
   if (errors.length) {
-    console.error("RESA test cleanup had errors:", errors);
     return reply(500, {
-      success: false, partial: true,
-      message: "Some tracked test records may remain. The cleanup register was retained so the administrator can safely retry.",
-      deletedCounts, errors,
+      success: false,
+      partial: true,
+      message: "Some demo records may remain. Demo markers were retained for safe retry; legacy markers were not touched.",
+      deletedCounts,
+      errors,
     });
   }
 
-  const { error: clearMarkersError } = await admin.from("resa_test_data_records").delete().eq("school_id", SCHOOL_ID);
-  if (clearMarkersError) {
-    return reply(500, { success: false, partial: true, message: "Test records were deleted, but cleanup markers remain. Retrying is safe.", deletedCounts });
+  const demoMarkerIds = [...demoRows, ...demoAuthRows].map((row: any) => row.id);
+  if (demoMarkerIds.length) {
+    const { error: clearError } = await admin
+      .from("resa_test_data_records")
+      .delete()
+      .in("id", demoMarkerIds);
+    if (clearError) {
+      return reply(500, {
+        success: false,
+        partial: true,
+        message: "Demo records were deleted, but some demo cleanup markers remain. Legacy markers were preserved.",
+        deletedCounts,
+      });
+    }
   }
 
   return reply(200, {
-    success: true, dry_run: false,
-    message: "Tracked test data has been removed. RESA classes, subjects, settings, school/owner records and administrator accounts were preserved.",
-    deletedCounts, deletedLoginAccounts: uniqueAuthIds.length,
+    success: true,
+    dry_run: false,
+    message: "Only explicitly tracked demo_* data was removed. All legacy_test_* markers and unmarked RESA records were preserved.",
+    deletedCounts,
+    deletedLoginAccounts: demoAuthIds.length,
+    preservedLegacyMarkerRows: allRows.filter((row: any) =>
+      typeof row.entity_type === "string" && row.entity_type.startsWith("legacy_test_")
+    ).length,
   });
 });

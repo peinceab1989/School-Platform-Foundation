@@ -2,9 +2,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, GraduationCap, UserRound, School, BookOpen,
-  ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
-  MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
-  Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight,
+  ClipboardCheck, CalendarDays, FileText, ClipboardList, MessageSquare,
+  Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
+  Settings, Database, Menu, X, LogOut, ChevronRight,
   CircleHelp,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
@@ -21,6 +21,7 @@ const groups = [
   { label: "MAIN", items: [
     ["Dashboard", "/dashboard", LayoutDashboard],
     ["Students", "/students", Users],
+    ["Class Enrolments", "/student-enrolments", Users],
     ["Teachers & Staff", "/staff-invitations", GraduationCap],
     ["Parents & Guardians", "/parent-management", UserRound],
     ["Classes", "/classes", School],
@@ -31,24 +32,19 @@ const groups = [
     ["Class Teacher Attendance", "/form-teacher-attendance", ClipboardCheck],
     ["Staff Attendance", "/staff-attendance", CalendarDays],
     ["Enter & Publish Results", "/results-management", FileText],
-    ["Academic Results", "/results", ChartNoAxesCombined],
     ["Examinations & CBT", "/examinations", ClipboardList],
     ["Teaching Assignments", "/teaching-assignments", BookOpen],
     ["Learning Materials", "/teaching-materials", BookOpen],
-    ["Practice & Revision", "/practice-drills", Sparkles],
   ]},
   { label: "COMMUNICATION", items: [
     ["School Messages", "/school-communication", MessageSquare],
     ["Notifications", "/notifications", Bell],
     ["Announcements", "/announcements", Megaphone],
-    ["School Chat", "/resa-chat", MessageSquare],
   ]},
   { label: "ADMINISTRATION", items: [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
     ["Reports", "/school-reports", ChartNoAxesCombined],
-    ["School Services & Finance", "/school-services", Database],
-    ["Publication Centre", "/publication-centre", ShieldCheck],
-    ["CCTV & Monitoring", "/school-cctv", Video],
+    ["RESA Drive", "/school-services", Database],
     ["School Settings", "/school-settings", Settings],
   ]},
 ];

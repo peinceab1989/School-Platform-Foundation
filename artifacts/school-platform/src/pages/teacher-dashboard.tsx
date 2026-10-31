@@ -115,58 +115,64 @@ type TeacherDashboardProps = {
 const pageStyle = {
   minHeight: '100vh',
   padding: 16,
-  background: '#f4f7f4',
-  color: '#17251b',
-  fontFamily: 'Arial, sans-serif',
+  background: '#f6f8fb',
+  color: '#172b43',
+  fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   boxSizing: 'border-box' as const,
 };
 
 const panelStyle = {
   background: '#fff',
-  border: '1px solid #e0e7e0',
+  border: '1px solid #e2e8f0',
   borderRadius: 12,
-  padding: 18,
+  padding: 20,
   marginBottom: 16,
+  boxShadow: '0 2px 10px rgba(15, 40, 70, .045)',
   overflowWrap: 'anywhere' as const,
 };
 
 const buttonStyle = {
-  border: 'none',
-  borderRadius: 8,
-  padding: '11px 15px',
-  background: '#e6c66b',
-  color: '#17251b',
+  minHeight: 44,
+  border: '1px solid #0a4d8c',
+  borderRadius: 9,
+  padding: '11px 16px',
+  background: '#0a4d8c',
+  color: '#fff',
   fontWeight: 700,
   cursor: 'pointer',
 };
 
 const secondaryButtonStyle = {
   ...buttonStyle,
-  background: '#e9f0eb',
+  border: '1px solid #d8e3ee',
+  background: '#f3f7fb',
+  color: '#35536f',
 };
 
 const fieldStyle = {
   width: '100%',
+  minHeight: 44,
   boxSizing: 'border-box' as const,
-  border: '1px solid #ccd8ce',
-  borderRadius: 8,
+  border: '1px solid #d8e2ec',
+  borderRadius: 9,
   padding: 11,
   fontSize: 15,
   background: '#fff',
-  color: '#17251b',
+  color: '#172b43',
 };
 
 const labelStyle = {
   display: 'grid',
-  gap: 6,
-  fontSize: 14,
+  gap: 7,
+  fontSize: 13,
+  color: '#344b63',
   fontWeight: 700,
-  marginBottom: 12,
+  marginBottom: 13,
 };
 
 const sectionTitleStyle = {
   marginTop: 0,
-  color: '#123d2b',
+  color: '#173b62',
 };
 
 const tabs = [
@@ -956,7 +962,7 @@ export default function TeacherDashboard({
   }, [printDocument]);
 
   return (
-    <main style={pageStyle}>
+    <main className="resa-teacher-portal" style={pageStyle}>
       <style>{`
         .resa-print-document { display: none; }
         @media print {
@@ -1169,7 +1175,7 @@ export default function TeacherDashboard({
             <section style={panelStyle}>
               <h2 style={sectionTitleStyle}>My teaching overview</h2>
               <p style={{ color: "#536456", lineHeight: 1.6, margin: "0 0 12px" }}>Enter marks for your assigned subjects and submit results to the administrator for approval.</p>
-              <Link href="/results-management" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#123d2b", color: "#fff", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>Open Results & Broadsheet</Link> <Link href="/teaching-materials" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#e6c66b", color: "#17251b", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>Teaching Materials & AI Drills</Link> <Link href="/resa-chat" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#d9efe2", color: "#123d2b", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>School Chat</Link>
+              <Link href="/results-management" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#123d2b", color: "#fff", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>Open Results & Broadsheet</Link> <Link href="/teaching-materials" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#e6c66b", color: "#17251b", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>Teaching Materials & AI Drills</Link>
 
               <div
                 style={{
