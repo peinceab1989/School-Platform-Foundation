@@ -2104,6 +2104,7 @@ function AppRoutes() {
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/teacher-dashboard" component={FoundationPage} />
         <Route path="/student-dashboard" component={FoundationPage} />
+        <Route path="/parent-dashboard" component={FoundationPage} />
         <Route path="/my-results" component={FoundationPage} />
         <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/student-assignments" component={FoundationPage} />
