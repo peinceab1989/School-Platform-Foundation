@@ -247,6 +247,45 @@ export default function ParentManagementPage({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  async function ensureParentPortalAccessLink(
+    client: any,
+    parentId: string,
+    studentId: string,
+    relationship: string | null,
+    isPrimary: boolean,
+  ) {
+    const { data: existing, error: lookupError } = await client
+      .from("parent_student_portal_access")
+      .select("id")
+      .eq("school_id", schoolId)
+      .eq("parent_guardian_id", parentId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+
+    if (existing) {
+      const { error: updateError } = await client
+        .from("parent_student_portal_access")
+        .update({ relationship, is_primary: isPrimary, is_active: true })
+        .eq("id", existing.id)
+        .eq("school_id", schoolId);
+      if (updateError) throw updateError;
+      return;
+    }
+
+    const { error: insertError } = await client
+      .from("parent_student_portal_access")
+      .insert({
+        school_id: schoolId,
+        parent_guardian_id: parentId,
+        student_id: studentId,
+        relationship,
+        is_primary: isPrimary,
+        is_active: true,
+      });
+    if (insertError) throw insertError;
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -342,6 +381,14 @@ export default function ParentManagementPage({
 
           if (linkError) throw linkError;
         }
+
+        await ensureParentPortalAccessLink(
+          client,
+          parentId,
+          form.student_id,
+          form.relationship,
+          form.is_primary,
+        );
       }
 
       setMessage(
@@ -404,6 +451,15 @@ export default function ParentManagementPage({
         if (insertError) throw insertError;
         setMessage("Parent linked to student successfully.");
       }
+
+      const parentRecord = parents.find((item) => item.parent.id === parentId);
+      await ensureParentPortalAccessLink(
+        client,
+        parentId,
+        form.student_id,
+        parentRecord?.parent.relationship ?? null,
+        form.is_primary,
+      );
 
       setForm((current) => ({
         ...current,
