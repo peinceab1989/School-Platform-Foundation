@@ -379,7 +379,7 @@ function FloatingCustomerCare() {
 
 export function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-[100dvh] bg-[#fbfaf5] text-[#283b30]">
+    <div className="resa-public-site min-h-[100dvh] bg-[#fbfaf5] text-[#283b30]">
       <BackToTopOnNavigation />
       <PublicHeader />
       <main>{children}</main>
