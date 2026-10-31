@@ -30,6 +30,7 @@ import SchoolServicesPage from '@/pages/school-services';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
+import StudentEnrolmentsPage from '@/pages/student-enrolments';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
 import ResultsPage from '@/pages/results';
@@ -121,6 +122,7 @@ function normalizePath(path: string): string {
 
 const ADMIN_SCHOOL_PATHS = [
   '/students',
+  '/student-enrolments',
   '/attendance',
   '/announcements',
   '/results',
@@ -1678,6 +1680,10 @@ function FoundationPage() {
       return withAdminShell(<StudentsPage schoolId={adminMembership.schoolId} />);
     }
 
+    if (currentPath === '/student-enrolments') {
+      return withAdminShell(<StudentEnrolmentsPage schoolId={adminMembership.schoolId} />);
+    }
+
     if (currentPath === '/attendance') {
       return withAdminShell(<AttendancePage schoolId={adminMembership.schoolId} />);
     }
@@ -2120,6 +2126,7 @@ function AppRoutes() {
         <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/student-assignments" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
+        <Route path="/student-enrolments" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
         <Route path="/form-teacher-attendance" component={FoundationPage} />
         <Route path="/announcements" component={FoundationPage} />
