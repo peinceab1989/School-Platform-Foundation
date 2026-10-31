@@ -8,7 +8,7 @@ type SeedResult = {
   message?: string;
   error?: string;
   run_id?: string;
-  counts?: { teachers: number; students: number; cbtAttempts: number; caScores: number; publishedResults: number };
+  counts?: { teachers: number; students: number; parents: number; cbtAttempts: number; caScores: number; publishedResults: number };
   credentials?: TestCredential[];
 };
 type CleanupPreview = {
@@ -135,8 +135,8 @@ export default function TestDataSetupPage() {
         <div className="mb-3 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-900">Testing only</div>
         <h1 className="text-2xl font-bold sm:text-3xl">RESA Test Accounts & Results</h1>
         <p className="mt-3 leading-7 text-slate-600">
-          Creates 10 teacher logins and 20 student logins with usernames and temporary passwords, plus clearly labelled test attendance,
-          continuous-assessment marks, submitted CBT attempts and published sample results. These are not real RESA people or official results.
+          Creates 10 teacher logins, 20 student logins and 6 parent/guardian logins with demo-only email IDs and temporary passwords, plus clearly labelled test attendance,
+          continuous-assessment marks, submitted CBT attempts and published sample results. All test records are isolated and marked DEMO ONLY; they are not real RESA people or official results.
         </p>
         {!isAdmin && (
           <div role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
