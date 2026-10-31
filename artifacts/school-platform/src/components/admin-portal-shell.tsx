@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, GraduationCap, UserRound, School, BookOpen,
   ClipboardCheck, CalendarDays, FileText, ClipboardList, MessageSquare,
   Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
-  Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight,
+  Settings, Database, ShieldCheck, Menu, X, LogOut, ChevronRight,
   CircleHelp,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
@@ -32,7 +32,6 @@ const groups = [
     ["Class Teacher Attendance", "/form-teacher-attendance", ClipboardCheck],
     ["Staff Attendance", "/staff-attendance", CalendarDays],
     ["Enter & Publish Results", "/results-management", FileText],
-    ["Academic Results", "/results", ChartNoAxesCombined],
     ["Examinations & CBT", "/examinations", ClipboardList],
     ["Teaching Assignments", "/teaching-assignments", BookOpen],
     ["Learning Materials", "/teaching-materials", BookOpen],
@@ -41,14 +40,12 @@ const groups = [
     ["School Messages", "/school-communication", MessageSquare],
     ["Notifications", "/notifications", Bell],
     ["Announcements", "/announcements", Megaphone],
-    ["School Chat", "/resa-chat", MessageSquare],
   ]},
   { label: "ADMINISTRATION", items: [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
     ["Reports", "/school-reports", ChartNoAxesCombined],
     ["School Services & Finance", "/school-services", Database],
     ["Publication Centre", "/publication-centre", ShieldCheck],
-    ["CCTV & Monitoring", "/school-cctv", Video],
     ["School Settings", "/school-settings", Settings],
   ]},
 ];
