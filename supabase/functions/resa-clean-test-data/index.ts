@@ -51,6 +51,11 @@ Deno.serve(async (req: Request) => {
   const user = userData?.user;
   if (userError || !user?.id) return reply(401, { error: "Your session is invalid. Sign in again." });
 
+  const { data: ownerAccess, error: ownerAccessError } = await userClient.rpc("is_nexus_owner");
+  if (ownerAccessError || ownerAccess !== true) {
+    return reply(403, { error: "Only the verified JETAB Nexus owner can create or clean demo accounts." });
+  }
+
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
