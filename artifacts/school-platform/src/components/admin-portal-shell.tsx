@@ -44,7 +44,7 @@ const groups = [
   { label: "ADMINISTRATION", items: [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
     ["Reports", "/school-reports", ChartNoAxesCombined],
-    ["School Services & Finance", "/school-services", Database],
+    ["RESA Drive", "/school-services", Database],
     ["Publication Centre", "/publication-centre", ShieldCheck],
     ["School Settings", "/school-settings", Settings],
   ]},
