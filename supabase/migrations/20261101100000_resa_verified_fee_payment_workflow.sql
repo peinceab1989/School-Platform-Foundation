@@ -162,6 +162,10 @@ create policy "parents submit own fee payment evidence"
     )
   );
 
+-- Prevent duplicate family-to-fee visibility rows under concurrent inserts.
+create unique index if not exists parent_fee_portal_views_family_assignment_uidx
+  on public.parent_fee_portal_views (school_id, parent_guardian_id, student_id, student_fee_assignment_id);
+
 -- Create parent visibility rows for fee assignments already linked to families.
 insert into public.parent_fee_portal_views
   (school_id, parent_guardian_id, student_id, student_fee_assignment_id, can_view)
@@ -177,7 +181,8 @@ where not exists (
     and existing.parent_guardian_id = link.parent_guardian_id
     and existing.student_id = assignment.student_id
     and existing.student_fee_assignment_id = assignment.id
-);
+)
+on conflict (school_id, parent_guardian_id, student_id, student_fee_assignment_id) do nothing;
 
 create or replace function public.sync_parent_fee_portal_views_for_assignment()
 returns trigger
@@ -199,7 +204,8 @@ begin
         and existing.parent_guardian_id = link.parent_guardian_id
         and existing.student_id = new.student_id
         and existing.student_fee_assignment_id = new.id
-    );
+    )
+  on conflict (school_id, parent_guardian_id, student_id, student_fee_assignment_id) do nothing;
   return new;
 end;
 $function$;
@@ -229,7 +235,8 @@ begin
           and existing.parent_guardian_id = new.parent_guardian_id
           and existing.student_id = new.student_id
           and existing.student_fee_assignment_id = assignment.id
-      );
+      )
+    on conflict (school_id, parent_guardian_id, student_id, student_fee_assignment_id) do nothing;
   end if;
   return new;
 end;
