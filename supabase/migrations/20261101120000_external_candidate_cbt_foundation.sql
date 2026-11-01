@@ -10,6 +10,7 @@ create table if not exists public.external_candidate_form_purchases (
   form_type text not null default 'external_cbt' check (form_type in ('external_cbt','admission')),
   amount_paid numeric(12,2) not null check (amount_paid > 0),
   payment_reference text,
+  receipt_number text not null,
   paid_at date,
   verification_status text not null default 'verified' check (verification_status in ('verified','void')),
   verified_by uuid not null references auth.users(id) on delete restrict,
@@ -25,6 +26,8 @@ create unique index if not exists external_form_purchase_number_ci_uidx
 create unique index if not exists external_form_purchase_payment_ref_ci_uidx
   on public.external_candidate_form_purchases (school_id, lower(payment_reference))
   where payment_reference is not null and length(trim(payment_reference)) > 0;
+create unique index if not exists external_form_purchase_receipt_number_uidx
+  on public.external_candidate_form_purchases (school_id, receipt_number);
 
 create table if not exists public.external_candidate_registrations (
   id uuid primary key default gen_random_uuid(),
