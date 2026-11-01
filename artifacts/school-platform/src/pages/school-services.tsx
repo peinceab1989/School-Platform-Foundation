@@ -11,7 +11,6 @@ const MODULES: ModuleDefinition[] = [
   { key: "inventory", title: "Inventory & Assets", description: "School stock and asset records.", table: "inventory_items" },
   { key: "transport", title: "Transport", description: "Vehicles, routes, pickup points and student assignments.", table: "transport_routes" },
   { key: "payroll", title: "Staff Payroll & Leave", description: "Payroll, leave requests and staff appraisal records.", table: "staff_payroll" },
-  { key: "admissions", title: "Admissions", description: "Admission applications, documents and payment records.", table: "admission_applications" },
   { key: "drive", title: "RESA Drive", description: "Upload, organize and securely download school files, videos, images and teaching resources.", table: "resa_drive_files" },
   { key: "biometric", title: "Biometric Attendance", description: "Registered devices and attendance event records.", table: "biometric_devices" },
 ];
