@@ -82,6 +82,15 @@ begin
     alter table public.student_fee_assignments
       add constraint student_fee_assignments_amount_due_positive check (amount_due > 0);
   end if;
+  if not exists (select 1 from pg_constraint where conname = 'fee_types_amount_positive') then
+    alter table public.fee_types
+      add constraint fee_types_amount_positive check (amount > 0);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'student_fee_discounts_value_valid') then
+    alter table public.student_fee_discounts
+      add constraint student_fee_discounts_value_valid
+      check (discount_value > 0 and (lower(discount_type) not in ('percentage','percent') or discount_value <= 100));
+  end if;
 end;
 $constraints$;
 
