@@ -10,6 +10,14 @@ alter table public.student_fee_assignments
 create index if not exists student_fee_assignments_term_idx
   on public.student_fee_assignments (school_id, academic_term_id, student_id);
 
+create unique index if not exists student_fee_assignments_session_fee_uidx
+  on public.student_fee_assignments (school_id, student_id, fee_type_id, academic_session_id)
+  where academic_term_id is null;
+
+create unique index if not exists student_fee_assignments_term_fee_uidx
+  on public.student_fee_assignments (school_id, student_id, fee_type_id, academic_session_id, academic_term_id)
+  where academic_term_id is not null;
+
 create table if not exists public.school_bank_accounts (
   id uuid primary key default gen_random_uuid(),
   school_id uuid not null references public.schools(id) on delete cascade,
