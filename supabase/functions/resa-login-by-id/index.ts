@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => null);
     const loginId = typeof body?.login_id === "string" ? body.login_id.trim() : "";
     const password = typeof body?.password === "string" ? body.password : "";
-    if (!loginId || !password || loginId.length > 40 || password.length > 128 || !/^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\\+\\d[\\d ().-]{7,20})$/.test(loginId)) {
+    if (!loginId || !password || loginId.length > 40 || password.length > 128 || !/^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\+\d[\d ().-]{7,20})$/.test(loginId)) {
       return reply(400, { error: "Enter your login ID and password." });
     }
 
