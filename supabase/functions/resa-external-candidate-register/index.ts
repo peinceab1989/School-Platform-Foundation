@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
       return reply(400, { success: false, error: "Enter the date of birth in a valid date format." });
     }
 
-    const rateKey = await hashKey(`${email}| ${formNumber}`);
+    const rateKey = await hashKey(`${email}|${formNumber}`);
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const { count, error: rateError } = await admin.from("external_candidate_registration_events")
       .select("id", { count: "exact", head: true })
@@ -83,6 +83,7 @@ Deno.serve(async (req: Request) => {
       .gte("created_at", tenMinutesAgo);
     if (rateError) throw new Error("Could not verify registration rate limits.");
     if ((count ?? 0) >= 5) return reply(429, { success: false, error: "Too many registration attempts. Wait ten minutes before trying again." });
+    await admin.from("external_candidate_registration_events").delete().lt("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
     const { error: eventError } = await admin.from("external_candidate_registration_events").insert({ rate_key: rateKey });
     if (eventError) throw new Error("Could not record the registration request.");
 
@@ -128,6 +129,14 @@ Deno.serve(async (req: Request) => {
       return reply(409, { success: false, error: "The invitation email could not be sent. Check the email address and school email-delivery settings." });
     }
     createdAuthUserId = invite.user.id;
+
+    // Store the external-candidate marker in trusted app_metadata. The frontend
+    // must never make role decisions from user-editable user_metadata.
+    const { error: metadataError } = await admin.auth.admin.updateUserById(
+      createdAuthUserId,
+      { app_metadata: { ...(invite.user.app_metadata ?? {}), account_type: "external_candidate" } },
+    );
+    if (metadataError) throw new Error("Could not securely initialise the external candidate account.");
 
     const randomPart = crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
     const candidateNumber = `EXT-${new Date().getFullYear()}-${randomPart}`;
