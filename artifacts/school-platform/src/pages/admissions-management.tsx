@@ -55,7 +55,7 @@ export default function AdmissionsManagementPage({schoolId,userId}:Props){
   event.preventDefault();setError("");setNotice("");
   const amount=Number(form.amount_paid);
   if(!Number.isFinite(amount)||amount<=0){setError("Enter the verified admission form payment amount.");return;}
-  const formNumber="RESA-ADM-F-"+new Date().getFullYear()+"-"+crypto.randomUUID().replaceAll("-","").slice(0,8).toUpperCase();
+  const formNumber="RESA-ADM-F-"+new Date().getFullYear()+"-"+crypto.randomUUID().replaceAll("-","").slice(0,16).toUpperCase();
   setBusy(true);
   try{
    const {error:e}=await db.from("external_candidate_form_purchases").insert({
