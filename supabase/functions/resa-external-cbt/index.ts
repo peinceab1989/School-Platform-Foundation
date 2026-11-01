@@ -168,7 +168,12 @@ Deno.serve(async (req: Request) => {
         .select("id,question_text,question_type,option_a,option_b,option_c,option_d,marks,sort_order")
         .eq("school_id", candidate.school_id).eq("exam_id", exam.id).order("sort_order");
       if (questionsError) throw new Error("Could not load examination questions.");
-      return reply(200, { attempt, exam: { id: exam.id, title: exam.title, instructions: exam.instructions, total_marks: exam.total_marks }, questions: questions ?? [] });
+      const { data: savedAnswers, error: savedAnswersError } = await admin
+        .from("external_candidate_exam_answers")
+        .select("question_id,answer_text")
+        .eq("school_id", candidate.school_id).eq("attempt_id", attempt.id);
+      if (savedAnswersError) throw new Error("Could not restore your saved answers.");
+      return reply(200, { attempt, exam: { id: exam.id, title: exam.title, instructions: exam.instructions, total_marks: exam.total_marks }, questions: questions ?? [], saved_answers: savedAnswers ?? [] });
     }
 
     if (action === "save") {
@@ -181,6 +186,7 @@ Deno.serve(async (req: Request) => {
         .eq("id", attemptId).eq("candidate_id", candidate.id).maybeSingle();
       if (attemptError) throw new Error("Could not verify the examination attempt.");
       if (!attempt || attempt.status !== "in_progress") return reply(409, { error: "This examination attempt is no longer active." });
+      if (Date.now() >= new Date(attempt.ends_at).getTime()) return reply(409, { error: "The examination time has expired. Submit your saved answers now." });
       const { data: questions, error: questionsError } = await admin
         .from("online_exam_questions").select("id")
         .eq("school_id", candidate.school_id).eq("exam_id", attempt.exam_id);
@@ -214,7 +220,39 @@ Deno.serve(async (req: Request) => {
       if (attemptError) throw new Error("Could not verify the examination attempt.");
       if (!attempt || attempt.status !== "in_progress") return reply(409, { error: "This examination attempt is no longer active." });
       const now = Date.now();
-      const autoSubmitted = now > new Date(attempt.ends_at).getTime();
+      const autoSubmitted = now >= new Date(attempt.ends_at).getTime();
+
+      // Before the deadline, persist the final client state. After the deadline,
+      // grade only answers already saved by the server before expiry. This prevents
+      // changing answers in a modified browser after the timer has elapsed.
+      if (!autoSubmitted) {
+        const { data: validQuestions, error: validQuestionsError } = await admin
+          .from("online_exam_questions").select("id")
+          .eq("school_id", candidate.school_id).eq("exam_id", attempt.exam_id);
+        if (validQuestionsError) throw new Error("Could not verify examination questions.");
+        const validIds = new Set((validQuestions ?? []).map((q) => q.id));
+        const finalRows = answers.slice(0, 300).flatMap((item) => {
+          if (!item || typeof item !== "object") return [];
+          const questionId = asString((item as Record<string, unknown>).question_id);
+          if (!validIds.has(questionId)) return [];
+          const answerText = typeof (item as Record<string, unknown>).answer === "string"
+            ? (item as Record<string, unknown>).answer.trim().slice(0, 5000)
+            : "";
+          return [{ school_id: candidate.school_id, attempt_id: attempt.id, question_id: questionId, answer_text: answerText || null, marks_awarded: 0 }];
+        });
+        if (finalRows.length) {
+          const { error: finalSaveError } = await admin.from("external_candidate_exam_answers")
+            .upsert(finalRows, { onConflict: "attempt_id,question_id" });
+          if (finalSaveError) throw new Error("Could not save your final answers. Your attempt remains open; try again.");
+        }
+      }
+
+      const { data: savedAnswers, error: savedAnswersError } = await admin
+        .from("external_candidate_exam_answers")
+        .select("question_id,answer_text")
+        .eq("school_id", candidate.school_id).eq("attempt_id", attempt.id);
+      if (savedAnswersError) throw new Error("Could not load your saved answers for marking.");
+
       const { data: questions, error: questionsError } = await admin
         .from("online_exam_questions")
         .select("id,question_type,correct_answer,marks")
@@ -223,13 +261,10 @@ Deno.serve(async (req: Request) => {
       const questionMap = new Map((questions ?? []).map((q) => [q.id, q]));
       const answerRows = [];
       let score = 0;
-      let totalMarks = (questions ?? []).reduce((sum, question) => sum + (Number(question.marks) || 0), 0);
-      for (const item of answers.slice(0, 300)) {
-        if (!item || typeof item !== "object") continue;
-        const questionId = asString((item as Record<string, unknown>).question_id);
-        const answerText = typeof (item as Record<string, unknown>).answer === "string"
-          ? (item as Record<string, unknown>).answer.trim().slice(0, 5000)
-          : "";
+      const totalMarks = (questions ?? []).reduce((sum, question) => sum + (Number(question.marks) || 0), 0);
+      for (const item of (savedAnswers ?? [])) {
+        const questionId = item.question_id;
+        const answerText = typeof item.answer_text === "string" ? item.answer_text.trim().slice(0, 5000) : "";
         const question = questionMap.get(questionId);
         if (!question) continue;
         const marks = Number(question.marks) || 0;
