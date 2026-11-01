@@ -20,7 +20,7 @@ The deployed CBT function source has been synchronised to GitHub in this branch 
 The deployed activation function supports parent invitation acceptance and portal activation; the repository copy did not contain this deployed parent workflow. The deployed source has been synchronised to GitHub in this branch. The live parent invitation function was also missing from the repository and has now been added to this branch. The deployed seed/cleanup functions were also ahead of GitHub and are now synchronised. A comparison of all ten live Edge Function entrypoints against the branch confirms exact source matches. These source-control changes do not themselves create or activate parent accounts. The previous data check found zero active parent portal accounts.
 
 ### 4. Fees and receipts
-The current fees page is a read-only record viewer, not a complete finance workflow. The previous live data check found zero fee assignments, payments, receipts, discounts, and enabled parent fee views. The current schema/workflow still needs verified bank-transfer submission, pending review, partial payment handling, duplicate reference prevention, receipt issuance only after confirmation, and printable invoices/statements/receipts. Do not represent a payment as paid merely because a parent submitted a reference or screenshot.
+The previous live data check found zero fee assignments, payments, receipts, discounts, and enabled parent fee views. A finance workflow has now been implemented in the remediation branch: admin fee types and term-aware student assignments, verified school bank accounts, parent fee statements, linked-parent visibility rows, pending bank-transfer submissions, admin verification/rejection, partial payment balance calculation, active amount/percentage discounts, duplicate reference protection, and printable statements and verified receipts. The database migration is additive and remains unapplied to production. The approval RPC records a payment and issues its receipt in one transaction; a parent reference submission alone never marks a fee as paid. This work still requires isolated database/RLS testing and a controlled deployment before it can be used live.
 
 ### 5. External CBT and admissions
 The live database review found no separate external-candidate CBT workflow or trusted form-purchase verification flow. The current public admissions page is informational/enquiry-only. External candidates need isolated records and attempts, trusted verified payment references, admin approval, exam scheduling, secure question delivery, timed/autosubmitted attempts, grading and printable results. External results must remain separate from enrolled students' term reports.
@@ -43,12 +43,14 @@ The latest main-branch workflow previously passed TypeScript and production buil
 ## Work included in draft PR #10
 
 - Restrict student receipt RLS visibility to linked parents/guardians and linked students, retaining the existing admin policy.
+- Add the finance UI for admin and parent roles, including fee setup, term-aware assignment, bank account configuration, discounts, parent transfer submission, finance review, balances and printable statements/receipts.
+- Add an additive fees migration for term references, bank accounts, pending payment submissions, family visibility triggers, an admin-only verification RPC and receipt RLS hardening.
 - Add deployed `resa-create-student-login` and `resa-invite-parent` Edge Function source files to GitHub.
 - Synchronise the deployed `resa-student-cbt` and `resa-activate-account` function source to GitHub.
 
 ## Required verification before merge or launch
 
-1. Test the receipt policy in a disposable Supabase environment as admin, linked parent, unrelated parent, linked student, unrelated student, teacher, and anonymous user.
+1. Test the receipt and fee-submission policies in a disposable Supabase environment as admin, linked parent, unrelated parent, linked student, unrelated student, teacher, and anonymous user; verify the payment approval RPC is atomic and rejects overpayments/duplicate references.
 2. Reconcile all 42 migration versions with tracked migration files and verify function source/version parity.
 3. Complete the parent activation and student invitation flows using real, authorised accounts without sharing passwords in chat.
 4. Build and test the fees workflow, including finance verification and printable outputs.
