@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
           assignment_id: assignment?.id, max_attempts: assignment?.max_attempts ?? 1,
           attempts_used: completed, attempts_remaining: Math.max(0, (assignment?.max_attempts ?? 1) - completed),
           active_attempt: activeAttempt ? { attempt_number: activeAttempt.attempt_number } : null,
-          is_open: (!opens || now >= opens) && (!closes || now <= closes),
+          is_open: Boolean(activeAttempt) || ((!opens || now >= opens) && (!closes || now <= closes)),
           result: history.find((a) => a.result_published && a.status === "graded")
             ? history.find((a) => a.result_published && a.status === "graded")
             : null,
@@ -127,9 +127,6 @@ Deno.serve(async (req: Request) => {
       const now = Date.now();
       const opens = assignment.available_from ? new Date(assignment.available_from).getTime() : exam.start_at ? new Date(exam.start_at).getTime() : null;
       const closes = assignment.available_until ? new Date(assignment.available_until).getTime() : exam.end_at ? new Date(exam.end_at).getTime() : null;
-      if (opens && now < opens) return reply(403, { error: "This examination has not opened yet." });
-      if (closes && now > closes) return reply(403, { error: "The examination window has closed." });
-
       const { data: activeAttempt, error: activeError } = await admin
         .from("external_candidate_exam_attempts")
         .select("id,attempt_number,started_at,ends_at")
@@ -138,6 +135,8 @@ Deno.serve(async (req: Request) => {
 
       let attempt = activeAttempt;
       if (!attempt) {
+        if (opens && now < opens) return reply(403, { error: "This examination has not opened yet." });
+        if (closes && now > closes) return reply(403, { error: "The examination window has closed." });
         const { count, error: countError } = await admin.from("external_candidate_exam_attempts")
           .select("id", { count: "exact", head: true })
           .eq("candidate_id", candidate.id).eq("exam_id", examId);
