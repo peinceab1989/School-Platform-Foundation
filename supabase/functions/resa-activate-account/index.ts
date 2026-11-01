@@ -73,6 +73,7 @@ Deno.serve(async (req: Request) => {
       { data: membershipRows, error: membershipError },
       { data: studentRows, error: studentError },
       { data: parentAccountRows, error: parentAccountError },
+      { data: externalCandidateRows, error: externalCandidateError },
     ] = await Promise.all([
       adminClient
         .from("school_memberships")
@@ -91,10 +92,15 @@ Deno.serve(async (req: Request) => {
         .select("id,school_id,parent_guardian_id,is_active")
         .eq("user_id", user.id)
         .limit(2),
+      adminClient
+        .from("external_candidate_registrations")
+        .select("id,status,candidate_number,school_id")
+        .eq("auth_user_id", user.id)
+        .limit(1),
     ]);
 
-    if (membershipError || studentError || parentAccountError) {
-      console.error("Account activation lookup failed", membershipError?.message, studentError?.message, parentAccountError?.message);
+    if (membershipError || studentError || parentAccountError || externalCandidateError) {
+      console.error("Account activation lookup failed", membershipError?.message, studentError?.message, parentAccountError?.message, externalCandidateError?.message);
       return reply(500, { error: "Could not verify your school account. Please try again or contact the administrator." });
     }
 
@@ -106,6 +112,10 @@ Deno.serve(async (req: Request) => {
     );
     const hasStudentLink = (studentRows ?? []).length > 0;
     const parentAccount = (parentAccountRows ?? [])[0] ?? null;
+    const externalCandidate = (externalCandidateRows ?? [])[0] ?? null;
+    if (externalCandidate && (externalCandidate.status === "rejected" || externalCandidate.status === "suspended")) {
+      return reply(403, { error: "This external candidate registration is not eligible for account activation. Contact the school office." });
+    }
     const parentMembership = memberships.find((row: { role: string; status: string; school_id: string }) =>
       row.role === "parent" && (row.status === "invited" || row.status === "active") &&
       parentAccount?.school_id === row.school_id
@@ -154,7 +164,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (!hasEligibleMembership && !hasStudentLink) {
+    if (!hasEligibleMembership && !hasStudentLink && !externalCandidate) {
       return reply(403, { error: "This account is not eligible for school activation. Ask the school administrator to verify the invitation." });
     }
 
@@ -190,8 +200,11 @@ Deno.serve(async (req: Request) => {
       success: true,
       message: parentGuardianId
         ? "Parent password created and parent portal access activated."
-        : "Password created successfully. School access remains controlled by the account's school membership status.",
-      role: parentGuardianId ? "parent" : undefined,
+        : externalCandidate
+          ? "External candidate password created. CBT access will be available after the school approves the registration and assigns an examination."
+          : "Password created successfully. School access remains controlled by the account's school membership status.",
+      role: parentGuardianId ? "parent" : externalCandidate ? "external_candidate" : undefined,
+      candidate_number: externalCandidate?.candidate_number,
       email: user.email,
     });
   } catch (error) {
