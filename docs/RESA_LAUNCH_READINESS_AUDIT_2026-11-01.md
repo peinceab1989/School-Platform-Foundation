@@ -68,3 +68,23 @@ The latest main-branch workflow previously passed TypeScript and production buil
 ## Launch decision
 
 **Not ready for production launch.** The receipt/discount policy and new finance, external CBT and admissions workflows are implemented in the isolated branch but have not yet been tested against an isolated database or deployed. Six student identities need authorised account linking, parent accounts still need real invitations/activation, the 42-entry migration history must be reconciled, and full role-based end-to-end testing and deployment verification remain outstanding.
+
+## Verification refresh — 1 November 2026
+
+- GitHub Actions run [41288233941](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/41288233941) completed successfully on branch head `e21bd3f011acfc04c6d8ca4c609e1179fc6d821d`: workspace TypeScript, production build, and Deno checks for the external-candidate/admissions functions all passed.
+- The branch remains an open draft PR. It is not merged and no production deploy has occurred.
+- Read-only live database snapshot: 11 student records, 5 with linked auth users and 6 without; 7 active parent-student links; 0 active parent fee-visibility rows; 0 fee assignments, fee payments, receipts or admission applications; 3 published internal exams and 9 internal exam attempts.
+- The live Supabase project still reports 42 applied migrations. The branch adds five new migrations; historical migration files still need reconciliation before safe migration deployment.
+- The live Edge Function inventory remains the existing 10 active functions. The new admissions and external-CBT functions, and the extended activation function, remain branch-only and are not deployed.
+- Security Advisor still reports 3 public and 15 authenticated SECURITY DEFINER functions as warnings, plus leaked-password protection disabled. These findings require per-function authorization review; they have not been bulk-revoked because several are intentional app APIs.
+- No production rows, schema, policies, deployed functions, or Netlify site were modified during this verification refresh.
+
+## Release gates still open
+
+1. Run all five migrations against a disposable PostgreSQL/Supabase environment with the exact live schema, then execute role-based RLS tests. Creating a Supabase development branch may incur usage charges and has not been authorized.
+2. Reconcile the 42 production migration-history entries with repository history; do not fabricate or replay unknown historical migrations.
+3. Perform authenticated end-to-end tests for student, parent, teacher, admin, finance, admissions, and external-candidate journeys.
+4. Link the six student records without auth accounts only after confirming each real student's correct identity/contact; do not create guessed login identities.
+5. Complete parent activation using confirmed guardian identities; active family links alone do not prove portal login readiness.
+6. Verify the Netlify deployment commit and production routes after merge/deployment approval.
+7. Confirm school-approved fee amounts, bank details, admission form fees, and admission policy before opening payment/application workflows to the public.
