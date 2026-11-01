@@ -33,6 +33,8 @@ create table if not exists public.school_bank_accounts (
 
 create index if not exists school_bank_accounts_active_idx
   on public.school_bank_accounts (school_id, is_active);
+create unique index if not exists school_bank_accounts_account_uidx
+  on public.school_bank_accounts (school_id, account_number);
 
 alter table public.school_bank_accounts enable row level security;
 grant select, insert, update, delete on public.school_bank_accounts to authenticated;
