@@ -121,7 +121,7 @@ Deno.serve(async (req: Request) => {
     // Parent phone login is available only after an invitation has been accepted
     // and the parent portal account and school membership are active.
     const phoneValues = phoneCandidates(identifier);
-    if (phoneValues.length > 1 || /^\+?\d[\d ().-]{7,20}$/.test(identifier)) {
+    if (/^\+?\d[\d ().-]{7,20}$/.test(identifier)) {
       const { data: people, error: peopleError } = await admin
         .from("people")
         .select("id,phone")
