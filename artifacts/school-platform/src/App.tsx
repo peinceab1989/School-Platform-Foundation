@@ -1593,24 +1593,43 @@ function FoundationPage() {
 
     try {
       const identifier = email.trim();
-      const authEmail = identifier.includes('@')
-        ? identifier.toLowerCase()
-        : `${identifier.toLowerCase()}@accounts.resa.invalid`;
+      const supabase = getSupabaseClient();
 
-      if (!identifier.includes('@') && !/^[a-z0-9][a-z0-9._-]{2,39}$/.test(identifier.toLowerCase())) {
+      if (identifier.includes('@')) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: identifier.toLowerCase(),
+          password,
+        });
+        if (error) {
+          setAuthState('signed-out');
+          setErrorText(error.message);
+          return false;
+        }
+        return true;
+      }
+
+      if (!/^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\\+\\d[\\d ().-]{7,20})$/.test(identifier)) {
         setAuthState('signed-out');
-        setErrorText('Enter a valid username (3–40 letters, numbers, dots, underscores or hyphens) or email address.');
+        setErrorText('Enter your registered email, student admission number, teacher staff ID, or parent phone number.');
         return false;
       }
 
-      const { error } = await getSupabaseClient().auth.signInWithPassword({
-        email: authEmail,
-        password,
+      const { data, error } = await supabase.functions.invoke('resa-login-by-id', {
+        body: { login_id: identifier, password },
       });
-
-      if (error) {
+      if (error || !data?.session?.access_token || !data?.session?.refresh_token) {
         setAuthState('signed-out');
-        setErrorText(error.message);
+        setErrorText(data?.error || error?.message || 'The login ID or password is incorrect, or this portal account is not active.');
+        return false;
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      if (sessionError) {
+        setAuthState('signed-out');
+        setErrorText('Your credentials were accepted, but the secure session could not be started. Please try again.');
         return false;
       }
 
