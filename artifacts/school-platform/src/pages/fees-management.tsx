@@ -158,7 +158,15 @@ export default function FeesManagementPage({ schoolId, userId, role, schoolName 
     } catch (e) { setError(errText(e)); } finally { setBusy(false); }
   }
 
-  async function saveDiscount(event: FormEvent) {\n    event.preventDefault(); setError(""); setNotice("");\n    const value = Number(discountForm.discount_value);\n    if (!discountForm.student_id || !Number.isFinite(value) || value <= 0 || (discountForm.discount_type === "percentage" && value > 100)) { setError("Choose a student and enter a valid discount value. Percentage discounts cannot exceed 100%."); return; }\n    setBusy(true);\n    try { const { error: insertError } = await db.from("student_fee_discounts").insert({ school_id: schoolId, student_id: discountForm.student_id, fee_type_id: discountForm.fee_type_id || null, academic_session_id: discountForm.academic_session_id || null, discount_type: discountForm.discount_type, discount_value: value, reason: discountForm.reason.trim() || "Approved school fee concession", status: "active", approved_by: userId }); if (insertError) throw insertError; setDiscountForm({ student_id: "", fee_type_id: "", academic_session_id: "", discount_type: "amount", discount_value: "", reason: "" }); setNotice("Fee discount saved and applied to matching assignments."); await load(); } catch (e) { setError(errText(e)); } finally { setBusy(false); }\n  }\n\n  async function saveBankAccount(event: FormEvent) {
+  async function saveDiscount(event: FormEvent) {
+    event.preventDefault(); setError(""); setNotice("");
+    const value = Number(discountForm.discount_value);
+    if (!discountForm.student_id || !Number.isFinite(value) || value <= 0 || (discountForm.discount_type === "percentage" && value > 100)) { setError("Choose a student and enter a valid discount value. Percentage discounts cannot exceed 100%."); return; }
+    setBusy(true);
+    try { const { error: insertError } = await db.from("student_fee_discounts").insert({ school_id: schoolId, student_id: discountForm.student_id, fee_type_id: discountForm.fee_type_id || null, academic_session_id: discountForm.academic_session_id || null, discount_type: discountForm.discount_type, discount_value: value, reason: discountForm.reason.trim() || "Approved school fee concession", status: "active", approved_by: userId }); if (insertError) throw insertError; setDiscountForm({ student_id: "", fee_type_id: "", academic_session_id: "", discount_type: "amount", discount_value: "", reason: "" }); setNotice("Fee discount saved and applied to matching assignments."); await load(); } catch (e) { setError(errText(e)); } finally { setBusy(false); }
+  }
+
+  async function saveBankAccount(event: FormEvent) {
     event.preventDefault(); setError(""); setNotice("");
     if (!bankForm.bank_name.trim() || !bankForm.account_name.trim() || !/^[0-9]{8,20}$/.test(bankForm.account_number.trim())) { setError("Enter a bank name, account name and valid account number."); return; }
     setBusy(true);
