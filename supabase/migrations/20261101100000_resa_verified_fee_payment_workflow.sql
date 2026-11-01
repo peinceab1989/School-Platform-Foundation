@@ -64,6 +64,9 @@ create table if not exists public.student_fee_payment_submissions (
   constraint student_fee_payment_submission_school_ref_unique unique (school_id, reference_number)
 );
 
+create unique index if not exists fee_payment_submissions_reference_ci_uidx
+  on public.student_fee_payment_submissions (school_id, lower(reference_number));
+
 create index if not exists fee_payment_submissions_review_idx
   on public.student_fee_payment_submissions (school_id, status, created_at desc);
 create index if not exists fee_payment_submissions_parent_idx
@@ -227,6 +230,8 @@ declare
   v_assignment public.student_fee_assignments%rowtype;
   v_paid numeric(12,2);
   v_remaining numeric(12,2);
+  v_discount numeric(12,2);
+  v_net_due numeric(12,2);
   v_payment_id uuid;
   v_receipt_id uuid;
   v_receipt_number text;
@@ -288,7 +293,25 @@ begin
   where school_id = v_submission.school_id
     and student_fee_assignment_id = v_assignment.id;
 
-  v_remaining := greatest(v_assignment.amount_due - v_paid, 0);
+  select coalesce(sum(
+    case
+      when lower(discount.discount_type) in ('percentage','percent')
+        then v_assignment.amount_due * least(discount.discount_value, 100) / 100
+      else discount.discount_value
+    end
+  ), 0)
+  into v_discount
+  from public.student_fee_discounts discount
+  where discount.school_id = v_assignment.school_id
+    and discount.student_id = v_assignment.student_id
+    and (discount.fee_type_id is null or discount.fee_type_id = v_assignment.fee_type_id)
+    and (discount.academic_session_id is null or discount.academic_session_id = v_assignment.academic_session_id)
+    and discount.status = 'active'
+    and (discount.start_date is null or discount.start_date <= current_date)
+    and (discount.end_date is null or discount.end_date >= current_date);
+
+  v_net_due := greatest(v_assignment.amount_due - least(v_discount, v_assignment.amount_due), 0);
+  v_remaining := greatest(v_net_due - v_paid, 0);
   if v_submission.amount > v_remaining then
     raise exception 'Submitted amount exceeds the remaining fee balance. Review the amount before verification.';
   end if;
@@ -311,7 +334,7 @@ begin
 
   v_paid := v_paid + v_submission.amount;
   update public.student_fee_assignments
-  set status = case when v_paid >= amount_due then 'paid' else 'partial' end
+  set status = case when v_paid >= v_net_due then 'paid' else 'partial' end
   where id = v_assignment.id;
 
   update public.student_fee_payment_submissions
