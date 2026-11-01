@@ -27,6 +27,7 @@ create index if not exists school_bank_accounts_active_idx
   on public.school_bank_accounts (school_id, is_active);
 
 alter table public.school_bank_accounts enable row level security;
+grant select, insert, update, delete on public.school_bank_accounts to authenticated;
 
 drop policy if exists "school admins manage bank accounts" on public.school_bank_accounts;
 create policy "school admins manage bank accounts"
@@ -69,6 +70,7 @@ create index if not exists fee_payment_submissions_parent_idx
   on public.student_fee_payment_submissions (parent_guardian_id, student_id, created_at desc);
 
 alter table public.student_fee_payment_submissions enable row level security;
+grant select, insert on public.student_fee_payment_submissions to authenticated;
 
 drop policy if exists "school admins manage fee payment submissions" on public.student_fee_payment_submissions;
 create policy "school admins manage fee payment submissions"
@@ -251,7 +253,7 @@ begin
     raise exception 'This payment submission has already been reviewed';
   end if;
 
-  if p_decision not in ('verify','reject') then
+  if p_decision is null or p_decision not in ('verify','reject') then
     raise exception 'Decision must be verify or reject';
   end if;
 
