@@ -67,6 +67,24 @@ create table if not exists public.student_fee_payment_submissions (
 create unique index if not exists fee_payment_submissions_reference_ci_uidx
   on public.student_fee_payment_submissions (school_id, lower(reference_number));
 
+-- A bank transaction reference may only be recorded once for a school.
+create unique index if not exists student_fee_payments_reference_ci_uidx
+  on public.student_fee_payments (school_id, lower(reference_number))
+  where reference_number is not null and length(trim(reference_number)) > 0;
+
+do $constraints$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'student_fee_payments_amount_paid_positive') then
+    alter table public.student_fee_payments
+      add constraint student_fee_payments_amount_paid_positive check (amount_paid > 0);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'student_fee_assignments_amount_due_positive') then
+    alter table public.student_fee_assignments
+      add constraint student_fee_assignments_amount_due_positive check (amount_due > 0);
+  end if;
+end;
+$constraints$;
+
 create index if not exists fee_payment_submissions_review_idx
   on public.student_fee_payment_submissions (school_id, status, created_at desc);
 create index if not exists fee_payment_submissions_parent_idx
