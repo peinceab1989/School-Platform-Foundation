@@ -58,7 +58,7 @@ export default function ExternalCbtManagementPage({schoolId,userId}:Props) {
     event.preventDefault();setError("");setNotice("");
     const amount=Number(form.amount_paid);
     if(!Number.isFinite(amount)||amount<=0){setError("Enter a verified payment amount greater than zero.");return;}
-    const formNumber="RESA-EXT-"+new Date().getFullYear()+"-"+crypto.randomUUID().replaceAll("-","").slice(0,8).toUpperCase();
+    const formNumber="RESA-EXT-"+new Date().getFullYear()+"-"+crypto.randomUUID().replaceAll("-","").slice(0,16).toUpperCase();
     setBusy(true);
     try{
       const {error:e}=await db.from("external_candidate_form_purchases").insert({
