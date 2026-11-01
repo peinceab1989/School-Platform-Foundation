@@ -48,6 +48,7 @@ const groups = [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
     ["Reports", "/school-reports", ChartNoAxesCombined],
     ["Fees & Payments", "/fees", Banknote],
+    ["Admissions", "/admissions-management", GraduationCap],
     ["School Services", "/school-services", Database],
     ["Publication Centre", "/publication-centre", ShieldCheck],
     ["CCTV & Monitoring", "/school-cctv", Video],
