@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
     if (formNumber.length < 8) return reply(400, { success: false, error: "Enter the admission form number issued by RESA." }, origin);
 
     const { data: purchase, error: purchaseError } = await db.from("external_candidate_form_purchases")
-      .select("id,school_id,form_type,amount_paid,payment_reference,paid_at,verification_status,verified_by,redeemed_at")
+      .select("id,school_id,form_type,amount_paid,payment_reference,receipt_number,paid_at,verification_status,verified_by,redeemed_at")
       .eq("form_number", formNumber).eq("form_type", "admission").maybeSingle();
     if (purchaseError) throw new Error("Could not verify the admission form number.");
     if (!purchase || purchase.verification_status !== "verified" || purchase.redeemed_at) {
@@ -136,7 +136,6 @@ Deno.serve(async (req: Request) => {
     if (applicationError || !application) throw new Error("The application could not be recorded. The form number may already have been used.");
     applicationId = application.id;
 
-    const receiptNumber = "RESA-ADM-R-" + new Date().getFullYear() + "-" + crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
     const { data: payment, error: paymentError } = await db.from("admission_payments").insert({
       school_id: purchase.school_id,
       application_id: application.id,
@@ -144,7 +143,7 @@ Deno.serve(async (req: Request) => {
       payment_date: purchase.paid_at || new Date().toISOString().slice(0, 10),
       payment_method: "verified_school_payment",
       reference_number: purchase.payment_reference,
-      receipt_number: receiptNumber,
+      receipt_number: purchase.receipt_number,
       status: "paid",
       remarks: "Admission application form payment verified before form issuance.",
       recorded_by: purchase.verified_by,
