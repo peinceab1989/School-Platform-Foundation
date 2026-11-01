@@ -257,7 +257,7 @@ Deno.serve(async (req: Request) => {
         .select("id,question_type,correct_answer,marks")
         .eq("school_id", candidate.school_id).eq("exam_id", attempt.exam_id);
       if (questionsError) throw new Error("Could not load the grading key.");
-      const questionMap = new Map((questions ?? []).map((q) => [q.id, q]));
+      const questionMap = new Map((questions ?? []).map((q) => [q.id, q] as const));
       const answerRows = [];
       let score = 0;
       const totalMarks = (questions ?? []).reduce((sum, question) => sum + (Number(question.marks) || 0), 0);
