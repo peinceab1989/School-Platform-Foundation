@@ -171,6 +171,38 @@ Deno.serve(async (req: Request) => {
       return reply(200, { attempt, exam: { id: exam.id, title: exam.title, instructions: exam.instructions, total_marks: exam.total_marks }, questions: questions ?? [] });
     }
 
+    if (action === "save") {
+      const attemptId = asString(body.attempt_id);
+      const answers = Array.isArray(body.answers) ? body.answers : [];
+      if (!attemptId) return reply(400, { error: "An attempt_id is required." });
+      const { data: attempt, error: attemptError } = await admin
+        .from("external_candidate_exam_attempts")
+        .select("id,school_id,candidate_id,exam_id,ends_at,status")
+        .eq("id", attemptId).eq("candidate_id", candidate.id).maybeSingle();
+      if (attemptError) throw new Error("Could not verify the examination attempt.");
+      if (!attempt || attempt.status !== "in_progress") return reply(409, { error: "This examination attempt is no longer active." });
+      const { data: questions, error: questionsError } = await admin
+        .from("online_exam_questions").select("id")
+        .eq("school_id", candidate.school_id).eq("exam_id", attempt.exam_id);
+      if (questionsError) throw new Error("Could not verify the examination questions.");
+      const validIds = new Set((questions ?? []).map((q) => q.id));
+      const rows = answers.slice(0, 300).flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const questionId = asString((item as Record<string, unknown>).question_id);
+        if (!validIds.has(questionId)) return [];
+        const answerText = typeof (item as Record<string, unknown>).answer === "string"
+          ? (item as Record<string, unknown>).answer.trim().slice(0, 5000)
+          : "";
+        return [{ school_id: candidate.school_id, attempt_id: attempt.id, question_id: questionId, answer_text: answerText || null, marks_awarded: 0 }];
+      });
+      if (rows.length) {
+        const { error: saveError } = await admin.from("external_candidate_exam_answers")
+          .upsert(rows, { onConflict: "attempt_id,question_id" });
+        if (saveError) throw new Error("Could not save your answers.");
+      }
+      return reply(200, { success: true, saved: rows.length });
+    }
+
     if (action === "submit") {
       const attemptId = asString(body.attempt_id);
       const answers = Array.isArray(body.answers) ? body.answers : [];
