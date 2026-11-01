@@ -30,6 +30,7 @@ import SchoolServicesPage from '@/pages/school-services';
 import FeesManagementPage from '@/pages/fees-management';
 import ExternalCbtRegistrationPage from '@/pages/external-cbt-registration';
 import ExternalCbtPage from '@/pages/external-cbt';
+import ExternalCbtManagementPage from '@/pages/external-cbt-management';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
@@ -149,6 +150,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/school-reports',
   '/school-services',
   '/fees',
+  '/external-cbt-management',
   '/publication-centre',
   '/staff-attendance',
   '/school-cctv',
@@ -1841,6 +1843,10 @@ function FoundationPage() {
       return withAdminShell(<FeesManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" schoolName={adminMembership.schoolName} />);
     }
 
+    if (currentPath === '/external-cbt-management' && session) {
+      return withAdminShell(<ExternalCbtManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
+    }
+
     if (currentPath === '/school-communication') {
       return withAdminShell(<SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />);
     }
@@ -2330,6 +2336,7 @@ function AppRoutes() {
         <Route path="/fees" component={FoundationPage} />
         <Route path="/parent-fees" component={FoundationPage} />
         <Route path="/external-cbt" component={FoundationPage} />
+        <Route path="/external-cbt-management" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
