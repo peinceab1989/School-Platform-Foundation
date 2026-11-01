@@ -87,7 +87,7 @@ export default function ExternalCbtPage({ onSignOut }: { onSignOut: () => void }
       const { data, error: invokeError } = await getSupabaseClient().functions.invoke("resa-external-cbt", { body: { action: "start", exam_id: examId } });
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
-      setActiveExam(data.exam); setAttempt(data.attempt); setQuestions(data.questions ?? []); setAnswers({}); autoSubmitAttemptId.current = null; setNow(Date.now());
+      setActiveExam(data.exam); setAttempt(data.attempt); setQuestions(data.questions ?? []); setAnswers(Object.fromEntries((data.saved_answers ?? []).map((item: { question_id: string; answer_text: string | null }) => [item.question_id, item.answer_text ?? ""]))); autoSubmitAttemptId.current = null; setNow(Date.now());
     } catch (e) { setError(e instanceof Error ? e.message : "The examination could not be started."); }
     finally { setBusy(false); }
   }
