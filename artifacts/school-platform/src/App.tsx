@@ -1469,7 +1469,7 @@ function FoundationPage() {
     }
 
     if (parentMembership) {
-      if (!['/school-cctv', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) setLocation('/school-cctv');
+      if (!['/school-cctv', '/notifications', '/school-communication', '/my-results', '/parent-fees'].includes(currentPath)) setLocation('/school-cctv');
       return;
     }
 
