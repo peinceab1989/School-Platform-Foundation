@@ -27,6 +27,7 @@ import TeachingAssignmentsPage from '@/pages/teaching-assignments';
 import HrManagementPage from '@/pages/hr-management';
 import SchoolReportsPage from '@/pages/school-reports';
 import SchoolServicesPage from '@/pages/school-services';
+import FeesManagementPage from '@/pages/fees-management';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
@@ -145,6 +146,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/hr-management',
   '/school-reports',
   '/school-services',
+  '/fees',
   '/publication-centre',
   '/staff-attendance',
   '/school-cctv',
@@ -165,6 +167,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-assignments',
   '/school-communication',
   '/notifications',
+  '/parent-fees',
   '/school-cctv',
 ];
 
@@ -217,6 +220,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       <ProfilePhotoCard userId={userId} displayName={email} roleLabel="Parent / Guardian" />
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Link href="/my-results" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Published results</h2><p className="mt-2 text-sm leading-6 text-slate-600">View report cards for learners linked to your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View results →</span></Link>
+        <Link href="/parent-fees" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Fees & payments</h2><p className="mt-2 text-sm leading-6 text-slate-600">View fee balances, transfer details, payment status and verified receipts.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View fees →</span></Link>
         <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School messages</h2><p className="mt-2 text-sm leading-6 text-slate-600">Communicate with authorised school staff.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open messages →</span></Link>
         <Link href="/notifications" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Notifications</h2><p className="mt-2 text-sm leading-6 text-slate-600">Check important school notices and account updates.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View notifications →</span></Link>
         <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School monitoring</h2><p className="mt-2 text-sm leading-6 text-slate-600">Access monitoring services when enabled and authorised.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
@@ -1763,9 +1767,10 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
+    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/parent-fees' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
+    if (currentPath === '/parent-fees') return <FeesManagementPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" schoolName={parentMembership.schoolName} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
@@ -1806,6 +1811,10 @@ function FoundationPage() {
 
     if (currentPath === '/school-services') {
       return withAdminShell(<SchoolServicesPage schoolId={adminMembership.schoolId} />);
+    }
+
+    if (currentPath === '/fees' && session) {
+      return withAdminShell(<FeesManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" schoolName={adminMembership.schoolName} />);
     }
 
     if (currentPath === '/school-communication') {
@@ -2293,6 +2302,8 @@ function AppRoutes() {
         <Route path="/hr-management" component={FoundationPage} />
         <Route path="/school-reports" component={FoundationPage} />
         <Route path="/school-services" component={FoundationPage} />
+        <Route path="/fees" component={FoundationPage} />
+        <Route path="/parent-fees" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
