@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { CheckCircle2, Clock3, LogOut, RefreshCw, ShieldCheck } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -21,6 +21,7 @@ export default function ExternalCbtPage({ onSignOut }: { onSignOut: () => void }
   const [notice, setNotice] = useState("");
   const [now, setNow] = useState(Date.now());
   const [submitted, setSubmitted] = useState(false);
+  const autoSubmitAttemptId = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -63,8 +64,22 @@ export default function ExternalCbtPage({ onSignOut }: { onSignOut: () => void }
   }, [attempt, answers, busy, submitted, load]);
 
   useEffect(() => {
-    if (attempt && remainingSeconds === 0 && !busy && !submitted) void submitAttempt(true);
+    if (attempt && remainingSeconds === 0 && !busy && !submitted && autoSubmitAttemptId.current !== attempt.id) {
+      autoSubmitAttemptId.current = attempt.id;
+      void submitAttempt(true);
+    }
   }, [attempt, remainingSeconds, busy, submitted, submitAttempt]);
+
+  useEffect(() => {
+    if (!attempt || submitted || Object.keys(answers).length === 0) return;
+    const timer = window.setTimeout(async () => {
+      const { error: saveError } = await getSupabaseClient().functions.invoke("resa-external-cbt", {
+        body: { action: "save", attempt_id: attempt.id, answers: Object.entries(answers).map(([question_id, answer]) => ({ question_id, answer })) },
+      });
+      if (saveError) setError("Your latest answer could not be saved yet. Keep this page open and retry before submitting.");
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [attempt, answers, submitted]);
 
   async function startExam(examId: string) {
     setBusy(true); setError(""); setNotice(""); setSubmitted(false);
@@ -72,7 +87,7 @@ export default function ExternalCbtPage({ onSignOut }: { onSignOut: () => void }
       const { data, error: invokeError } = await getSupabaseClient().functions.invoke("resa-external-cbt", { body: { action: "start", exam_id: examId } });
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
-      setActiveExam(data.exam); setAttempt(data.attempt); setQuestions(data.questions ?? []); setAnswers({}); setNow(Date.now());
+      setActiveExam(data.exam); setAttempt(data.attempt); setQuestions(data.questions ?? []); setAnswers({}); autoSubmitAttemptId.current = null; setNow(Date.now());
     } catch (e) { setError(e instanceof Error ? e.message : "The examination could not be started."); }
     finally { setBusy(false); }
   }
