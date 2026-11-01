@@ -612,6 +612,10 @@ export function AdmissionsPage() {
             <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d] transition hover:bg-[#e0ebdc]">
               Enquire on WhatsApp <ArrowRight size={18} />
             </a>
+            <Link href="/admissions-apply" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d8b765] bg-[#fffaf0] px-5 py-4 font-extrabold text-[#163c2e] shadow-sm transition hover:-translate-y-0.5">
+              Apply online with a verified form <ArrowRight size={18} />
+            </Link>
+            <p className="mt-2 text-xs leading-5 text-slate-500">Online applications require an admission form number issued after the school verifies payment.</p>
           </aside>
         </div>
       </section>
