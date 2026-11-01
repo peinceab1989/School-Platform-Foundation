@@ -100,6 +100,16 @@ create table if not exists public.external_candidate_exam_answers (
   constraint external_candidate_answer_question_unique unique (attempt_id, question_id)
 );
 
+create table if not exists public.external_candidate_registration_events (
+  id uuid primary key default gen_random_uuid(),
+  rate_key text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists external_candidate_registration_events_rate_idx
+  on public.external_candidate_registration_events (rate_key, created_at desc);
+alter table public.external_candidate_registration_events enable row level security;
+revoke all on public.external_candidate_registration_events from public, anon, authenticated;
+
 create index if not exists external_candidate_registrations_status_idx
   on public.external_candidate_registrations (school_id, status, created_at desc);
 create index if not exists external_candidate_assignments_candidate_idx
