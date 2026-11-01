@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  LayoutDashboard, Users, GraduationCap, UserRound, School, BookOpen,
+  LayoutDashboard, Users, GraduationCap, UserRound, School, BookOpen, Banknote,
   ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
   MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
   Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight,
@@ -46,7 +46,8 @@ const groups = [
   { label: "ADMINISTRATION", items: [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
     ["Reports", "/school-reports", ChartNoAxesCombined],
-    ["School Services & Finance", "/school-services", Database],
+    ["Fees & Payments", "/fees", Banknote],
+    ["School Services", "/school-services", Database],
     ["Publication Centre", "/publication-centre", ShieldCheck],
     ["CCTV & Monitoring", "/school-cctv", Video],
     ["School Settings", "/school-settings", Settings],
