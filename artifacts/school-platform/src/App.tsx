@@ -31,6 +31,8 @@ import FeesManagementPage from '@/pages/fees-management';
 import ExternalCbtRegistrationPage from '@/pages/external-cbt-registration';
 import ExternalCbtPage from '@/pages/external-cbt';
 import ExternalCbtManagementPage from '@/pages/external-cbt-management';
+import AdmissionsApplicationPage from '@/pages/admissions-application';
+import AdmissionsManagementPage from '@/pages/admissions-management';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
@@ -151,6 +153,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/school-services',
   '/fees',
   '/external-cbt-management',
+  '/admissions-management',
   '/publication-centre',
   '/staff-attendance',
   '/school-cctv',
@@ -1847,6 +1850,10 @@ function FoundationPage() {
       return withAdminShell(<ExternalCbtManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
     }
 
+    if (currentPath === '/admissions-management' && session) {
+      return withAdminShell(<AdmissionsManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
+    }
+
     if (currentPath === '/school-communication') {
       return withAdminShell(<SchoolCommunicationPage schoolId={adminMembership.schoolId} role="admin" />);
     }
@@ -2291,6 +2298,7 @@ function AppRoutes() {
         <Route path="/wisdom-inspiration" component={WisdomInspirationPage} />
         <Route path="/activities-gallery" component={ActivitiesGalleryPage} />
         <Route path="/admissions" component={AdmissionsPage} />
+        <Route path="/admissions-apply" component={AdmissionsApplicationPage} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/portal-options" component={PortalOptionsPage} />
         <Route path="/external-cbt-registration" component={ExternalCbtRegistrationPage} />
@@ -2337,6 +2345,7 @@ function AppRoutes() {
         <Route path="/parent-fees" component={FoundationPage} />
         <Route path="/external-cbt" component={FoundationPage} />
         <Route path="/external-cbt-management" component={FoundationPage} />
+        <Route path="/admissions-management" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
