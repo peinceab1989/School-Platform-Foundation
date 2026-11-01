@@ -191,7 +191,7 @@ Deno.serve(async (req: Request) => {
       const questionMap = new Map((questions ?? []).map((q) => [q.id, q]));
       const answerRows = [];
       let score = 0;
-      let totalMarks = 0;
+      let totalMarks = (questions ?? []).reduce((sum, question) => sum + (Number(question.marks) || 0), 0);
       for (const item of answers.slice(0, 300)) {
         if (!item || typeof item !== "object") continue;
         const questionId = asString((item as Record<string, unknown>).question_id);
@@ -201,7 +201,6 @@ Deno.serve(async (req: Request) => {
         const question = questionMap.get(questionId);
         if (!question) continue;
         const marks = Number(question.marks) || 0;
-        totalMarks += marks;
         const type = String(question.question_type || "").toLowerCase();
         const isChoice = ["multiple_choice","mcq","objective"].includes(type);
         const correct = isChoice && answerText.toUpperCase() === String(question.correct_answer ?? "").trim().toUpperCase();
