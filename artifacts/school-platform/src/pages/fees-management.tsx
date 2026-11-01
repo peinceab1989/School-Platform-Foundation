@@ -103,7 +103,7 @@ export default function FeesManagementPage({ schoolId, userId, role, schoolName 
           db.from("student_fee_payments").select("*").eq("school_id", schoolId).in("student_fee_assignment_id", visibleIds),
           db.from("student_payment_receipts").select("*").eq("school_id", schoolId).order("receipt_date", { ascending: false }).limit(300),
           db.from("student_fee_payment_submissions").select("*").eq("school_id", schoolId).eq("parent_guardian_id", guardian.id).order("created_at", { ascending: false }),
-          db.from("student_fee_discounts").select("*").eq("school_id", schoolId).eq("status", "active"),
+          db.from("student_fee_discounts").select("*").eq("school_id", schoolId).in("student_id", linkedIds).eq("status", "active"),
         ]);
         for (const result of [aRes,fRes,tRes,termRes,payRes,recRes,subRes,discountRes]) if (result.error) throw result.error;
         setAssignments((aRes.data ?? []).map((a: AnyRow) => ({ ...a, fee: (fRes.data ?? []).find((f: AnyRow) => f.id === a.fee_type_id), session: (tRes.data ?? []).find((s: AnyRow) => s.id === a.academic_session_id), term: (termRes.data ?? []).find((t: AnyRow) => t.id === a.academic_term_id) })));
