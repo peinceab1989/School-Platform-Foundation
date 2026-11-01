@@ -195,9 +195,8 @@ Deno.serve(async (req: Request) => {
         if (!item || typeof item !== "object") return [];
         const questionId = asString((item as Record<string, unknown>).question_id);
         if (!validIds.has(questionId)) return [];
-        const answerText = typeof (item as Record<string, unknown>).answer === "string"
-          ? (item as Record<string, unknown>).answer.trim().slice(0, 5000)
-          : "";
+        const rawAnswer = (item as Record<string, unknown>).answer;
+        const answerText = typeof rawAnswer === "string" ? rawAnswer.trim().slice(0, 5000) : "";
         return [{ school_id: candidate.school_id, attempt_id: attempt.id, question_id: questionId, answer_text: answerText || null, marks_awarded: 0 }];
       });
       if (rows.length) {
@@ -234,9 +233,8 @@ Deno.serve(async (req: Request) => {
           if (!item || typeof item !== "object") return [];
           const questionId = asString((item as Record<string, unknown>).question_id);
           if (!validIds.has(questionId)) return [];
-          const answerText = typeof (item as Record<string, unknown>).answer === "string"
-            ? (item as Record<string, unknown>).answer.trim().slice(0, 5000)
-            : "";
+          const rawAnswer = (item as Record<string, unknown>).answer;
+          const answerText = typeof rawAnswer === "string" ? rawAnswer.trim().slice(0, 5000) : "";
           return [{ school_id: candidate.school_id, attempt_id: attempt.id, question_id: questionId, answer_text: answerText || null, marks_awarded: 0 }];
         });
         if (finalRows.length) {
