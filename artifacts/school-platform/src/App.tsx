@@ -1304,7 +1304,7 @@ function FoundationPage() {
   const currentPath = normalizePath(location);
 
   const [session, setSession] = useState<Session | null>(null);
-  const isExternalCandidate = session?.user.user_metadata?.account_type === 'external_candidate' || session?.user.app_metadata?.account_type === 'external_candidate';
+  const isExternalCandidate = session?.user.app_metadata?.account_type === 'external_candidate';
 
   const [authState, setAuthState] = useState<FoundationAuthState>(
     hasSupabaseConfig ? 'loading' : 'needs-config',
