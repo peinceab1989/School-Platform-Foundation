@@ -54,6 +54,7 @@ jobs:
       - name: Typecheck public and external CBT Edge Functions
         run: >-
           deno check
+          supabase/functions/resa-activate-account/index.ts
           supabase/functions/resa-external-candidate-register/index.ts
           supabase/functions/resa-external-cbt/index.ts
           supabase/functions/resa-admission-application-submit/index.ts
