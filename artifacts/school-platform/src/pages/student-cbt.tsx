@@ -41,6 +41,8 @@ export default function StudentCbtPage({ schoolId }: { schoolId: string }) {
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
       const listed = (data?.exams ?? []) as Exam[];
+      if (typeof data?.message === "string") setNotice(data.message);
+      else if (!listed.length) setNotice("No published examinations are currently available for your enrolled class.");
       const classIds = [...new Set(listed.map((exam) => exam.class_id).filter((id): id is string => Boolean(id)))];
       if (classIds.length) {
         const { data: classRows, error: classError } = await getSupabaseClient()
@@ -54,7 +56,7 @@ export default function StudentCbtPage({ schoolId }: { schoolId: string }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load available examinations.");
     } finally { setLoading(false); }
-  }, []);
+  }, [schoolId]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -148,8 +150,8 @@ export default function StudentCbtPage({ schoolId }: { schoolId: string }) {
 
   const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 
-  return <main className="min-h-screen bg-slate-50 text-slate-900">
-    <header className="bg-green-900 text-white"><div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-5">
+  return <main className="resa-student-portal min-h-screen bg-slate-50 text-slate-900">
+    <header className="resa-student-hero bg-green-900 text-white"><div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-5">
       <div className="flex items-center gap-3"><BookOpen/><div><p className="text-xs uppercase tracking-widest">RESA School Portal</p><h1 className="text-xl font-bold sm:text-2xl">Student CBT</h1></div></div>
       <Link href="/student-dashboard" className="flex shrink-0 items-center gap-2 rounded-lg border border-white/30 px-3 py-2 text-sm"><ArrowLeft size={16}/> Dashboard</Link>
     </div></header>

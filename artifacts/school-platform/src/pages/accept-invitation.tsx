@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 type PageStatus = 'checking' | 'ready' | 'saving' | 'success' | 'error';
-type AccountRole = 'student' | 'teacher' | 'unknown';
+type AccountRole = 'student' | 'teacher' | 'parent' | 'unknown';
 
 export default function AcceptInvitationPage() {
   const [status, setStatus] = useState<PageStatus>('checking');
@@ -14,6 +14,7 @@ export default function AcceptInvitationPage() {
 
   const isStudent = role === 'student';
   const isTeacher = role === 'teacher';
+  const isParent = role === 'parent';
 
   const accountLabel = isStudent
     ? 'student'
@@ -124,7 +125,7 @@ export default function AcceptInvitationPage() {
           session.user.user_metadata?.role;
 
         let detectedRole: AccountRole =
-          metadataRole === 'student' || metadataRole === 'teacher'
+          metadataRole === 'student' || metadataRole === 'teacher' || metadataRole === 'parent'
             ? metadataRole
             : 'unknown';
 
@@ -132,14 +133,15 @@ export default function AcceptInvitationPage() {
           .from('school_memberships')
           .select('role,status')
           .eq('user_id', session.user.id)
-          .in('role', ['student', 'teacher'])
+          .in('role', ['student', 'teacher', 'parent'])
           .limit(1)
           .maybeSingle();
 
         if (!membershipError && membership) {
           if (
             membership.role === 'student' ||
-            membership.role === 'teacher'
+            membership.role === 'teacher' ||
+            membership.role === 'parent'
           ) {
             detectedRole = membership.role;
           }
@@ -151,9 +153,9 @@ export default function AcceptInvitationPage() {
 
         if (
           detectedRole === 'unknown' &&
-          accountType === 'student'
+          (accountType === 'student' || accountType === 'parent')
         ) {
-          detectedRole = 'student';
+          detectedRole = accountType; 
         }
 
         if (!active) return;
@@ -273,6 +275,10 @@ export default function AcceptInvitationPage() {
       } else if (isTeacher) {
         setMessage(
           'Your password has been created. Your teacher access remains subject to school administrator approval. After approval, return to the portal and sign in with your email address and new password.',
+        );
+      } else if (isParent) {
+        setMessage(
+          'Your parent account has been activated. Return to the school portal and sign in with your email address and new password to view your linked child or children.',
         );
       } else {
         setMessage(

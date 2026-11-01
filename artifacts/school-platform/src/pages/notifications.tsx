@@ -98,8 +98,8 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
 
   const unreadCount = items.filter(item => item.kind === "message" && item.unread).length;
   const back = role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "student" ? "/student-dashboard" : "/school-cctv";
-  return <main className="min-h-screen bg-slate-50 text-slate-900">
-    <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
+  return <main className={`${role === "student" ? "resa-student-portal" : role === "parent" ? "resa-parent-portal" : role === "teacher" ? "resa-teacher-portal" : "resa-page-content"} min-h-screen bg-slate-50 text-slate-900`}>
+    <header className={`${role === "student" ? "resa-student-hero" : role === "parent" ? "resa-parent-hero" : ""} bg-emerald-950 text-white`}><div className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
       <Link href={back} className="mb-4 inline-flex items-center gap-2 text-sm text-emerald-100"><ArrowLeft size={16}/> Back to portal</Link>
       <div className="flex items-center gap-3"><span className="rounded-xl bg-white/10 p-3"><BellRing size={25}/></span><div><p className="text-xs uppercase tracking-widest text-emerald-200">RESA School Portal</p><h1 className="text-2xl font-extrabold">Notifications</h1><p className="mt-1 text-sm text-emerald-100">{unreadCount} unread message{unreadCount===1?"":"s"} · Updates for your school account</p></div></div>
     </div></header>

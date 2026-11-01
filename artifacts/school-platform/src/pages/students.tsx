@@ -134,6 +134,7 @@ export default function StudentsPage({
     null,
   );
   const [resettingPasswordId, setResettingPasswordId] = useState<string | null>(null);
+  const [passwordResetCooldownIds, setPasswordResetCooldownIds] = useState<Set<string>>(new Set());
   const [showForm, setShowForm] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(
     null,
@@ -480,9 +481,24 @@ export default function StudentsPage({
   }
 
 
+  function startStudentPasswordResetCooldown(studentId: string) {
+    setPasswordResetCooldownIds((current) => new Set(current).add(studentId));
+    window.setTimeout(() => {
+      setPasswordResetCooldownIds((current) => {
+        const next = new Set(current);
+        next.delete(studentId);
+        return next;
+      });
+    }, 60_000);
+  }
+
   async function handleResetStudentPassword(student: Student) {
     setError("");
     setSuccess("");
+    if (passwordResetCooldownIds.has(student.id)) {
+      setError("Wait 60 seconds before requesting another reset email for this student. Use Set temporary password if the student needs immediate access.");
+      return;
+    }
     if (resettingPasswordId || saving || creatingLoginId) return;
     if (!student.user_id) {
       setError("This student has no linked portal login. Create the login first.");
@@ -518,13 +534,15 @@ export default function StudentsPage({
         redirectTo: `${window.location.origin}/reset-password`,
       });
       if (resetError) throw resetError;
-      setSuccess(`Password-reset email sent for ${fullName(student)} to the email registered to their portal login. Ask the student to check their inbox and spam folder.`);
+      startStudentPasswordResetCooldown(student.id);
+      setSuccess(`Password-reset email sent for ${fullName(student)} to the email registered to their portal login. Ask the student to check their inbox and spam folder. Wait 60 seconds before requesting another link.`);
     } catch (err) {
       console.error("Unable to request student password reset:", err);
       const details = errorMessage(err);
       const rateLimited = /rate limit|too many requests|email.*limit/i.test(details);
+      if (rateLimited) startStudentPasswordResetCooldown(student.id);
       setError(rateLimited
-        ? "RESA email service has temporarily limited password-reset emails. Do not tap Reset Password again now. Wait for the email limit to clear, or ask the administrator to use the temporary-password option when it is enabled."
+        ? "RESA email service has temporarily limited password-reset emails. Wait at least 60 seconds before trying again, or use Set temporary password for immediate administrator-controlled recovery."
         : `Password reset could not be started: ${details}`);
     } finally {
       setResettingPasswordId(null);
@@ -758,8 +776,8 @@ export default function StudentsPage({
                   <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleSetTemporaryPassword(student); }}>
                     <KeyRound className="h-4 w-4" /> Set temporary password
                   </button>
-                  <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleResetStudentPassword(student); }}>
-                    <RefreshCw className="h-4 w-4" /> Reset password
+                  <button role="menuitem" type="button" disabled={busy || saving || passwordResetCooldownIds.has(student.id)} onClick={() => { setOpenActionStudentId(null); void handleResetStudentPassword(student); }}>
+                    <RefreshCw className="h-4 w-4" /> {passwordResetCooldownIds.has(student.id) ? "Wait before reset" : "Reset password"}
                   </button>
                 </>
               ) : (

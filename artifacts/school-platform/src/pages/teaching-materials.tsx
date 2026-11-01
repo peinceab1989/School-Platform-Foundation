@@ -124,10 +124,10 @@ export default function TeachingMaterialsPage({ schoolId, userId, role }: { scho
     finally { setBusyId(""); }
   }
 
-  return <main className="min-h-screen bg-[#f4f7f1] px-4 py-5 text-slate-900 sm:px-6">
+  return <main className={`${role === "student" ? "resa-student-portal" : role === "teacher" ? "resa-teacher-portal" : "resa-page-content"} min-h-screen bg-[#f4f7f1] px-4 py-5 text-slate-900 sm:px-6`}>
     <div className="mx-auto max-w-5xl">
       <Link href={role === "student" ? "/student-dashboard" : role === "teacher" ? "/teacher-dashboard" : "/dashboard"} className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-900"><ArrowLeft size={16}/> Back to dashboard</Link>
-      <header className="mt-4 rounded-2xl bg-gradient-to-br from-emerald-950 to-emerald-700 p-5 text-white sm:p-7">
+      <header className={`${role === "student" ? "resa-student-hero" : ""} mt-4 rounded-2xl bg-gradient-to-br from-emerald-950 to-emerald-700 p-5 text-white sm:p-7`}>
         <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA learning hub</p>
         <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Teaching Materials & AI Test Drills</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50">Store schemes of work, lesson notes and revision resources by class and subject. Generate a draft question set from readable teaching content, review it, then let an administrator control student access.</p>

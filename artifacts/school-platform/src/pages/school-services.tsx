@@ -5,15 +5,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 type ModuleDefinition = { key: string; title: string; description: string; table: string };
 const MODULES: ModuleDefinition[] = [
-  { key: "fees", title: "Fees & Payments", description: "Fee types, student charges, payments and receipts.", table: "student_fee_assignments" },
-  { key: "timetable", title: "Class Timetable", description: "Class schedules and timetable periods.", table: "class_timetables" },
-  { key: "library", title: "Library", description: "Library books, loans and fines.", table: "library_books" },
-  { key: "inventory", title: "Inventory & Assets", description: "School stock and asset records.", table: "inventory_items" },
-  { key: "transport", title: "Transport", description: "Vehicles, routes, pickup points and student assignments.", table: "transport_routes" },
-  { key: "payroll", title: "Staff Payroll & Leave", description: "Payroll, leave requests and staff appraisal records.", table: "staff_payroll" },
-  { key: "admissions", title: "Admissions", description: "Admission applications, documents and payment records.", table: "admission_applications" },
   { key: "drive", title: "RESA Drive", description: "Upload, organize and securely download school files, videos, images and teaching resources.", table: "resa_drive_files" },
-  { key: "biometric", title: "Biometric Attendance", description: "Registered devices and attendance event records.", table: "biometric_devices" },
 ];
 type RowRecord = Record<string, unknown>;
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
@@ -120,11 +112,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-green-950 text-white"><div className="mx-auto max-w-7xl px-4 py-5">
       <Link href="/dashboard" className="mb-4 inline-flex items-center gap-2 text-sm text-green-100"><ArrowLeft size={16}/> Back to dashboard</Link>
-      <div className="flex items-center gap-3"><Database size={28}/><div><p className="text-xs uppercase tracking-widest text-green-200">RESA School Portal</p><h1 className="text-2xl font-bold sm:text-3xl">Additional School Services</h1></div></div>
-      <p className="mt-2 max-w-3xl text-sm text-green-100">School-scoped records and secure file storage for authorised school administrators.</p>
+      <div className="flex items-center gap-3"><Database size={28}/><div><p className="text-xs uppercase tracking-widest text-green-200">RESA School Portal</p><h1 className="text-2xl font-bold sm:text-3xl">RESA Drive</h1></div></div>
+      <p className="mt-2 max-w-3xl text-sm text-green-100">Private, school-scoped file storage for authorised administrators. Other service modules will return when their full workflows are ready.</p>
     </div></header>
     <div className="mx-auto grid max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="h-fit rounded-2xl border bg-white p-3 shadow-sm"><h2 className="px-3 py-2 font-bold">Modules</h2>{MODULES.map(m=><button key={m.key} onClick={()=>{setActiveKey(m.key);setSearch("");setError("");setNotice("");}} className={`mb-1 w-full rounded-xl px-3 py-3 text-left text-sm ${activeKey===m.key?"bg-green-900 font-semibold text-white":"hover:bg-green-50"}`}><span className="block">{m.title}</span><span className={`mt-1 block text-xs ${activeKey===m.key?"text-green-100":"text-slate-500"}`}>{m.description}</span></button>)}</aside>
+      <aside className="h-fit rounded-2xl border bg-white p-3 shadow-sm"><h2 className="px-3 py-2 font-bold">Private files</h2>{MODULES.map(m=><button key={m.key} onClick={()=>{setActiveKey(m.key);setSearch("");setError("");setNotice("");}} className={`mb-1 w-full rounded-xl px-3 py-3 text-left text-sm ${activeKey===m.key?"bg-green-900 font-semibold text-white":"hover:bg-green-50"}`}><span className="block">{m.title}</span><span className={`mt-1 block text-xs ${activeKey===m.key?"text-green-100":"text-slate-500"}`}>{m.description}</span></button>)}</aside>
       <section className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">{active.title}</h2><p className="mt-1 text-sm text-slate-600">{active.description}</p><p className="mt-2 inline-flex items-center gap-1 text-xs text-slate-500"><ShieldCheck size={14}/> Admin-only uploads · private storage · 100 MB per file</p></div><button onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"><RefreshCw size={15} className={loading?"animate-spin":""}/> Refresh</button></div>
         {error&&<div role="alert" className="mt-4 break-words rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
