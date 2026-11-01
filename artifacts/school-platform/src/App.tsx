@@ -27,6 +27,12 @@ import TeachingAssignmentsPage from '@/pages/teaching-assignments';
 import HrManagementPage from '@/pages/hr-management';
 import SchoolReportsPage from '@/pages/school-reports';
 import SchoolServicesPage from '@/pages/school-services';
+import FeesManagementPage from '@/pages/fees-management';
+import ExternalCbtRegistrationPage from '@/pages/external-cbt-registration';
+import ExternalCbtPage from '@/pages/external-cbt';
+import ExternalCbtManagementPage from '@/pages/external-cbt-management';
+import AdmissionsApplicationPage from '@/pages/admissions-application';
+import AdmissionsManagementPage from '@/pages/admissions-management';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
@@ -145,6 +151,9 @@ const ADMIN_SCHOOL_PATHS = [
   '/hr-management',
   '/school-reports',
   '/school-services',
+  '/fees',
+  '/external-cbt-management',
+  '/admissions-management',
   '/publication-centre',
   '/staff-attendance',
   '/school-cctv',
@@ -165,6 +174,8 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-assignments',
   '/school-communication',
   '/notifications',
+  '/parent-fees',
+  '/external-cbt',
   '/school-cctv',
 ];
 
@@ -217,6 +228,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       <ProfilePhotoCard userId={userId} displayName={email} roleLabel="Parent / Guardian" />
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Link href="/my-results" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Published results</h2><p className="mt-2 text-sm leading-6 text-slate-600">View report cards for learners linked to your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View results →</span></Link>
+        <Link href="/parent-fees" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Fees & payments</h2><p className="mt-2 text-sm leading-6 text-slate-600">View fee balances, transfer details, payment status and verified receipts.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View fees →</span></Link>
         <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School messages</h2><p className="mt-2 text-sm leading-6 text-slate-600">Communicate with authorised school staff.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open messages →</span></Link>
         <Link href="/notifications" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Notifications</h2><p className="mt-2 text-sm leading-6 text-slate-600">Check important school notices and account updates.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View notifications →</span></Link>
         <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School monitoring</h2><p className="mt-2 text-sm leading-6 text-slate-600">Access monitoring services when enabled and authorised.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
@@ -1295,6 +1307,7 @@ function FoundationPage() {
   const currentPath = normalizePath(location);
 
   const [session, setSession] = useState<Session | null>(null);
+  const isExternalCandidate = session?.user.app_metadata?.account_type === 'external_candidate';
 
   const [authState, setAuthState] = useState<FoundationAuthState>(
     hasSupabaseConfig ? 'loading' : 'needs-config',
@@ -1431,6 +1444,11 @@ function FoundationPage() {
       return;
     }
 
+    if (isExternalCandidate) {
+      if (currentPath !== '/external-cbt') setLocation('/external-cbt');
+      return;
+    }
+
     // A teacher account must never be routed into administrator pages,
     // even if an old or duplicate admin membership is also present.
     if (teacherMembership) {
@@ -1465,7 +1483,7 @@ function FoundationPage() {
     }
 
     if (parentMembership) {
-      if (!['/school-cctv', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) setLocation('/school-cctv');
+      if (!['/school-cctv', '/notifications', '/school-communication', '/my-results', '/parent-fees'].includes(currentPath)) setLocation('/school-cctv');
       return;
     }
 
@@ -1479,6 +1497,7 @@ function FoundationPage() {
     teacherMembership,
     studentMembership,
     parentMembership,
+    isExternalCandidate,
     setLocation,
   ]);
 
@@ -1496,9 +1515,10 @@ function FoundationPage() {
       return;
     }
 
-    // Keep the portal landing redirect consistent with protected-route
-    // handling: teacher membership takes priority over any stale admin row.
-    if (teacherMembership) {
+    // External candidates have a separate portal and never enter student records.
+    if (isExternalCandidate) {
+      setLocation('/external-cbt');
+    } else if (teacherMembership) {
       setLocation('/teacher-dashboard');
     } else if (adminMembership) {
       setLocation('/dashboard');
@@ -1516,6 +1536,7 @@ function FoundationPage() {
     teacherMembership,
     studentMembership,
     parentMembership,
+    isExternalCandidate,
     setLocation,
   ]);
 
@@ -1533,6 +1554,14 @@ function FoundationPage() {
       setMemberships([]);
       setMembershipsLoading(false);
       setAccessCheckState('idle');
+      return;
+    }
+
+    if (isExternalCandidate) {
+      setMemberships([]);
+      setMembershipsLoading(false);
+      setAccessCheckState('success');
+      setStatusText('External candidate account verified. Examination access is controlled by the school.');
       return;
     }
 
@@ -1578,7 +1607,7 @@ function FoundationPage() {
     return () => {
       active = false;
     };
-  }, [authState, session]);
+  }, [authState, session, isExternalCandidate]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!hasSupabaseConfig) {
@@ -1593,24 +1622,43 @@ function FoundationPage() {
 
     try {
       const identifier = email.trim();
-      const authEmail = identifier.includes('@')
-        ? identifier.toLowerCase()
-        : `${identifier.toLowerCase()}@accounts.resa.invalid`;
+      const supabase = getSupabaseClient();
 
-      if (!identifier.includes('@') && !/^[a-z0-9][a-z0-9._-]{2,39}$/.test(identifier.toLowerCase())) {
+      if (identifier.includes('@')) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: identifier.toLowerCase(),
+          password,
+        });
+        if (error) {
+          setAuthState('signed-out');
+          setErrorText(error.message);
+          return false;
+        }
+        return true;
+      }
+
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}$/.test(identifier)) {
         setAuthState('signed-out');
-        setErrorText('Enter a valid username (3–40 letters, numbers, dots, underscores or hyphens) or email address.');
+        setErrorText('Enter your registered email, student admission number, teacher staff ID, or parent phone number.');
         return false;
       }
 
-      const { error } = await getSupabaseClient().auth.signInWithPassword({
-        email: authEmail,
-        password,
+      const { data, error } = await supabase.functions.invoke('resa-login-by-id', {
+        body: { login_id: identifier, password },
       });
-
-      if (error) {
+      if (error || !data?.session?.access_token || !data?.session?.refresh_token) {
         setAuthState('signed-out');
-        setErrorText(error.message);
+        setErrorText(data?.error || error?.message || 'The login ID or password is incorrect, or this portal account is not active.');
+        return false;
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      if (sessionError) {
+        setAuthState('signed-out');
+        setErrorText('Your credentials were accepted, but the secure session could not be started. Please try again.');
         return false;
       }
 
@@ -1755,6 +1803,10 @@ function FoundationPage() {
     );
   }
 
+  if (authState === 'signed-in' && accessCheckState === 'success' && isExternalCandidate && !membershipsLoading && currentPath === '/external-cbt') {
+    return <ExternalCbtPage onSignOut={() => void signOut()} />;
+  }
+
   if (
     authState === 'signed-in' &&
     accessCheckState === 'success' &&
@@ -1763,9 +1815,10 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
+    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/my-results' || currentPath === '/parent-fees' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
+    if (currentPath === '/parent-fees') return <FeesManagementPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" schoolName={parentMembership.schoolName} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
@@ -1806,6 +1859,18 @@ function FoundationPage() {
 
     if (currentPath === '/school-services') {
       return withAdminShell(<SchoolServicesPage schoolId={adminMembership.schoolId} />);
+    }
+
+    if (currentPath === '/fees' && session) {
+      return withAdminShell(<FeesManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" schoolName={adminMembership.schoolName} />);
+    }
+
+    if (currentPath === '/external-cbt-management' && session) {
+      return withAdminShell(<ExternalCbtManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
+    }
+
+    if (currentPath === '/admissions-management' && session) {
+      return withAdminShell(<AdmissionsManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
     }
 
     if (currentPath === '/school-communication') {
@@ -2252,8 +2317,10 @@ function AppRoutes() {
         <Route path="/wisdom-inspiration" component={WisdomInspirationPage} />
         <Route path="/activities-gallery" component={ActivitiesGalleryPage} />
         <Route path="/admissions" component={AdmissionsPage} />
+        <Route path="/admissions-apply" component={AdmissionsApplicationPage} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/portal-options" component={PortalOptionsPage} />
+        <Route path="/external-cbt-registration" component={ExternalCbtRegistrationPage} />
         <Route path="/practice-drills" component={StudentPracticeDrillsPage} />
         <Route path="/teaching-materials" component={FoundationPage} />
         <Route path="/resa-chat" component={FoundationPage} />
@@ -2293,6 +2360,11 @@ function AppRoutes() {
         <Route path="/hr-management" component={FoundationPage} />
         <Route path="/school-reports" component={FoundationPage} />
         <Route path="/school-services" component={FoundationPage} />
+        <Route path="/fees" component={FoundationPage} />
+        <Route path="/parent-fees" component={FoundationPage} />
+        <Route path="/external-cbt" component={FoundationPage} />
+        <Route path="/external-cbt-management" component={FoundationPage} />
+        <Route path="/admissions-management" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />

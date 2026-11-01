@@ -88,6 +88,8 @@ export default function ParentManagementPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [linkingId, setLinkingId] = useState("");
+  const [invitingParentId, setInvitingParentId] = useState("");
+  const [portalAccounts, setPortalAccounts] = useState<Record<string, { is_active: boolean; user_id: string }>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -152,6 +154,21 @@ export default function ParentManagementPage({
       if (linkError) throw linkError;
 
       const links = (linkData ?? []) as ParentLink[];
+
+      const { data: portalRows, error: portalError } = await client
+        .from("parent_portal_accounts")
+        .select("parent_guardian_id, is_active, user_id")
+        .eq("school_id", schoolId)
+        .in("parent_guardian_id", allParentRows.map((parent) => parent.id));
+
+      if (portalError) throw portalError;
+      const accountStatus = Object.fromEntries(
+        (portalRows ?? []).map((row: { parent_guardian_id: string; is_active: boolean; user_id: string }) => [
+          row.parent_guardian_id,
+          { is_active: Boolean(row.is_active), user_id: row.user_id },
+        ]),
+      );
+      setPortalAccounts(accountStatus);
 
       const records: ParentRecord[] = allParentRows.flatMap((parent) => {
         const person = peopleById.get(parent.person_id);
@@ -359,6 +376,68 @@ export default function ParentManagementPage({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleInviteParent(parentId: string) {
+    setError("");
+    setMessage("");
+    const record = parents.find((item) => item.parent.id === parentId);
+    if (!record) {
+      setError("The selected parent record could not be found. Refresh and try again.");
+      return;
+    }
+    const email = record.person.email?.trim().toLowerCase() ?? "";
+    if (!email) {
+      setError("Add the parent's real, deliverable email address before sending an invitation.");
+      return;
+    }
+    if (!record.studentNames.length) {
+      setError("Link this parent to at least one student before sending an invitation.");
+      return;
+    }
+    const existingAccount = portalAccounts[parentId];
+    if (existingAccount) {
+      setError(existingAccount.is_active
+        ? "This parent already has an active portal account."
+        : "An invitation already exists for this parent. Ask the parent to check their email and complete activation before trying again.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Send a RESA parent portal invitation to ${email}? This will send an email to that address. Only continue after confirming it belongs to this student's parent or guardian.`,
+    );
+    if (!confirmed) return;
+
+    setInvitingParentId(parentId);
+    try {
+      const client = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Your administrator session has expired. Please sign in again.");
+
+      const { data, error: functionError } = await client.functions.invoke("resa-invite-parent", {
+        body: { school_id: schoolId, parent_guardian_id: parentId },
+      });
+      if (functionError) {
+        let details = functionError.message;
+        try {
+          const response = functionError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            details = body?.error || body?.message || details;
+          }
+        } catch {
+          // Keep the original function error if its response is not readable.
+        }
+        throw new Error(details || "The parent invitation could not be sent.");
+      }
+      if (!data?.success) throw new Error(String(data?.error || "The parent invitation could not be completed."));
+      setMessage(data.message || `Parent invitation sent to ${email}. The parent must open the email and create a password before portal access becomes active.`);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The parent invitation could not be sent. Please try again.");
+    } finally {
+      setInvitingParentId("");
     }
   }
 
@@ -727,16 +806,35 @@ export default function ParentManagementPage({
                       <div className="mt-2 flex flex-wrap gap-2 text-xs">
                         <span
                           className={`rounded-full px-2 py-1 ${
-                            parent.portal_enabled
+                            portalAccounts[parent.id]?.is_active
                               ? "bg-emerald-100 text-emerald-800"
-                              : "bg-slate-100 text-slate-600"
+                              : portalAccounts[parent.id]
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-slate-100 text-slate-600"
                           }`}
                         >
-                          Portal flag: {parent.portal_enabled ? "Enabled" : "Disabled"}
+                          {portalAccounts[parent.id]?.is_active
+                            ? "Parent portal active"
+                            : portalAccounts[parent.id]
+                              ? "Invitation pending activation"
+                              : "No portal account"}
+                        </span>
+                        <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
+                          Portal profile flag: {parent.portal_enabled ? "Enabled" : "Disabled"}
                         </span>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {!portalAccounts[parent.id] && (
+                        <button
+                          type="button"
+                          onClick={() => void handleInviteParent(parent.id)}
+                          disabled={invitingParentId === parent.id}
+                          className="rounded-lg bg-amber-300 px-3 py-2 text-sm font-semibold text-emerald-950 hover:bg-amber-400 disabled:opacity-60"
+                        >
+                          {invitingParentId === parent.id ? "Sending invitation..." : "Send portal invitation"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => startEdit({ parent, person, studentNames })}
