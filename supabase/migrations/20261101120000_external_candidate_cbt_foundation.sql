@@ -8,7 +8,7 @@ create table if not exists public.external_candidate_form_purchases (
   school_id uuid not null references public.schools(id) on delete cascade,
   form_number text not null,
   form_type text not null default 'external_cbt' check (form_type in ('external_cbt','admission')),
-  amount_paid numeric(12,2) not null check (amount_paid >= 0),
+  amount_paid numeric(12,2) not null check (amount_paid > 0),
   payment_reference text,
   paid_at date,
   verification_status text not null default 'verified' check (verification_status in ('verified','void')),
@@ -63,7 +63,8 @@ create table if not exists public.external_candidate_exam_assignments (
   status text not null default 'assigned' check (status in ('assigned','withdrawn')),
   assigned_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
-  constraint external_candidate_exam_assignment_unique unique (candidate_id, exam_id)
+  constraint external_candidate_exam_assignment_unique unique (candidate_id, exam_id),
+  constraint external_candidate_exam_assignment_window_check check (available_from is null or available_until is null or available_until >= available_from)
 );
 
 create table if not exists public.external_candidate_exam_attempts (
@@ -83,7 +84,9 @@ create table if not exists public.external_candidate_exam_attempts (
   marked_at timestamptz,
   result_published boolean not null default false,
   created_at timestamptz not null default now(),
-  constraint external_candidate_attempt_number_unique unique (candidate_id, exam_id, attempt_number)
+  constraint external_candidate_attempt_number_unique unique (candidate_id, exam_id, attempt_number),
+  constraint external_candidate_attempt_time_check check (ends_at > started_at),
+  constraint external_candidate_attempt_marks_check check (total_marks >= 0 and (score is null or score >= 0))
 );
 
 create table if not exists public.external_candidate_exam_answers (
@@ -97,7 +100,8 @@ create table if not exists public.external_candidate_exam_answers (
   marked_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint external_candidate_answer_question_unique unique (attempt_id, question_id)
+  constraint external_candidate_answer_question_unique unique (attempt_id, question_id),
+  constraint external_candidate_answer_marks_nonnegative check (marks_awarded >= 0)
 );
 
 create table if not exists public.external_candidate_registration_events (
