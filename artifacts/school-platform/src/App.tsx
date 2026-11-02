@@ -27,6 +27,7 @@ import TeachingAssignmentsPage from '@/pages/teaching-assignments';
 import HrManagementPage from '@/pages/hr-management';
 import SchoolReportsPage from '@/pages/school-reports';
 import SchoolServicesPage from '@/pages/school-services';
+import FeesManagementPage from '@/pages/fees-management';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
@@ -145,6 +146,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/hr-management',
   '/school-reports',
   '/school-services',
+  '/fees-management',
   '/publication-centre',
   '/staff-attendance',
   '/school-cctv',
@@ -2047,6 +2049,10 @@ function FoundationPage() {
 
     if (currentPath === '/school-settings') {
       return withAdminShell(<SchoolSettingsPage schoolId={adminMembership.schoolId} />);
+    }
+
+    if (currentPath === '/fees-management') {
+      return withAdminShell(<FeesManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} />);
     }
 
     if (currentPath === '/classes') {
