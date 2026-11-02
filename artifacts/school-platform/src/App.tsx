@@ -206,6 +206,7 @@ const statNumberStyle: CSSProperties = {
 
 function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { schoolId: string; schoolName: string; userId: string; email?: string; onSignOut: () => void }) {
   const [feeRows, setFeeRows] = useState<Array<Record<string, any>>>([]);
+  const [feeTypeNames, setFeeTypeNames] = useState<Record<string, string>>({});
   const [paymentRows, setPaymentRows] = useState<Array<Record<string, any>>>([]);
   const [receiptRows, setReceiptRows] = useState<Array<Record<string, any>>>([]);
   const [children, setChildren] = useState<Array<{ id: string; name: string }>>([]);
@@ -276,14 +277,21 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           for (const result of [feesResult, paymentsResult, receiptsResult, attendanceResult]) {
             if (result.error) throw result.error;
           }
+          const feeTypeIds = [...new Set((feesResult.data ?? []).map((row: any) => String(row.fee_type_id)).filter(Boolean))];
+          const feeTypesResult = feeTypeIds.length
+            ? await db.from("fee_types").select("id,name").eq("school_id", schoolId).in("id", feeTypeIds)
+            : { data: [], error: null };
+          if (feeTypesResult.error) throw feeTypesResult.error;
+          const nextFeeTypeNames = Object.fromEntries((feeTypesResult.data ?? []).map((row: any) => [String(row.id), String(row.name)]));
           if (active) {
             setFeeRows((feesResult.data ?? []) as Array<Record<string, any>>);
+            setFeeTypeNames(nextFeeTypeNames);
             setPaymentRows((paymentsResult.data ?? []) as Array<Record<string, any>>);
             setReceiptRows((receiptsResult.data ?? []) as Array<Record<string, any>>);
             setAttendanceRows((attendanceResult.data ?? []) as Array<Record<string, any>>);
           }
         } else if (active) {
-          setFeeRows([]); setPaymentRows([]); setReceiptRows([]); setAttendanceRows([]);
+          setFeeRows([]); setFeeTypeNames({}); setPaymentRows([]); setReceiptRows([]); setAttendanceRows([]);
         }
 
         const { data: noticeRows, error: noticeError } = await db
@@ -345,7 +353,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-extrabold text-emerald-950">School fees & payments</h2><p className="mt-1 text-sm text-slate-600">View fee charges, due dates, recorded payments and receipts for your linked children.</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">Parent view</span></div>
-        {overviewLoading ? <p className="mt-4 text-sm text-slate-500">Loading fee information…</p> : feeRows.length === 0 ? <p className="mt-4 rounded-xl border border-dashed p-4 text-sm leading-6 text-slate-600">No fee charges have been published to your parent account yet. Once the school assigns fees and enables your authorised fee view, they will appear here. For current payment instructions, contact the school through <Link href="/school-communication" className="font-bold text-emerald-800 underline">School Messages</Link>.</p> : <div className="mt-4 overflow-x-auto rounded-xl border"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50"><tr><th className="px-3 py-3">Learner</th><th className="px-3 py-3">Amount due</th><th className="px-3 py-3">Paid</th><th className="px-3 py-3">Balance</th><th className="px-3 py-3">Due date</th><th className="px-3 py-3">Status</th></tr></thead><tbody>{feeRows.map((row) => { const paid = paidByAssignment[String(row.id)] || 0; const due = Number(row.amount_due || 0); const balance = Math.max(0, due - paid); return <tr key={String(row.id)} className="border-t"><td className="px-3 py-3 font-semibold">{childName(String(row.student_id))}</td><td className="px-3 py-3">{money(due)}</td><td className="px-3 py-3">{money(paid)}</td><td className="px-3 py-3 font-bold">{money(balance)}</td><td className="px-3 py-3">{row.due_date ? new Date(String(row.due_date) + "T00:00:00").toLocaleDateString("en-NG") : "—"}</td><td className="px-3 py-3">{balance <= 0 ? "Paid" : paid > 0 ? "Part-paid" : String(row.status || "Outstanding")}</td></tr>; })}</tbody></table></div>}
+        {overviewLoading ? <p className="mt-4 text-sm text-slate-500">Loading fee information…</p> : feeRows.length === 0 ? <p className="mt-4 rounded-xl border border-dashed p-4 text-sm leading-6 text-slate-600">No fee charges have been published to your parent account yet. Once the school assigns fees and enables your authorised fee view, they will appear here. For current payment instructions, contact the school through <Link href="/school-communication" className="font-bold text-emerald-800 underline">School Messages</Link>.</p> : <div className="mt-4 overflow-x-auto rounded-xl border"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50"><tr><th className="px-3 py-3">Learner</th><th className="px-3 py-3">Amount due</th><th className="px-3 py-3">Paid</th><th className="px-3 py-3">Balance</th><th className="px-3 py-3">Due date</th><th className="px-3 py-3">Status</th></tr></thead><tbody>{feeRows.map((row) => { const paid = paidByAssignment[String(row.id)] || 0; const due = Number(row.amount_due || 0); const balance = Math.max(0, due - paid); return <tr key={String(row.id)} className="border-t"><td className="px-3 py-3"><p className="font-semibold">{childName(String(row.student_id))}</p><p className="mt-1 text-xs text-slate-500">{feeTypeNames[String(row.fee_type_id)] || "School fee"}</p></td><td className="px-3 py-3">{money(due)}</td><td className="px-3 py-3">{money(paid)}</td><td className="px-3 py-3 font-bold">{money(balance)}</td><td className="px-3 py-3">{row.due_date ? new Date(String(row.due_date) + "T00:00:00").toLocaleDateString("en-NG") : "—"}</td><td className="px-3 py-3">{balance <= 0 ? "Paid" : paid > 0 ? "Part-paid" : String(row.status || "Outstanding")}</td></tr>; })}</tbody></table></div>}
         <p className="mt-3 text-xs leading-5 text-slate-500">Online card/bank checkout is not enabled here. Do not pay into an account number sent in an unofficial message; use payment instructions confirmed by RESA Finance.</p>
       </section>
 
