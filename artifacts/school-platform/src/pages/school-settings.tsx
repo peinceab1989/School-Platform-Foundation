@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft, Save, RefreshCw, Settings2, School, UserRound, ShieldCheck,
-  Eye, EyeOff, CheckCircle2, AlertCircle, LogOut,
+  Eye, EyeOff, CheckCircle2, AlertCircle, LogOut, KeyRound, Search, Copy, LoaderCircle,
 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -19,7 +19,8 @@ type Settings = {
 };
 type SessionOption = { id: string; name: string };
 type TermOption = { id: string; name: string; academic_session_id: string };
-type Tab = "school" | "account" | "security";
+type Tab = "school" | "account" | "access" | "security";
+type AccessRow = { role: "student" | "teacher" | "parent"; recordId: string; name: string; email: string; loginId: string; formalId: string; userId: string | null; accessStatus: string; active: boolean };
 
 const blank: Settings = {
   motto: "", address: "", phone: "", email: "", website: "", logo_url: "",
@@ -42,6 +43,13 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [tab, setTab] = useState<Tab>("school");
+  const [accessRows, setAccessRows] = useState<AccessRow[]>([]);
+  const [accessSearch, setAccessSearch] = useState("");
+  const [accessRole, setAccessRole] = useState<"all" | "student" | "teacher" | "parent">("all");
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessBusy, setAccessBusy] = useState<string | null>(null);
+  const [accessResult, setAccessResult] = useState<{ name: string; loginId: string; formalId: string; password: string } | null>(null);
+  const [copiedAccessPassword, setCopiedAccessPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [accountSaving, setAccountSaving] = useState(false);
@@ -195,9 +203,64 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
     } finally { setSigningOutOthers(false); }
   }
 
+  const loadAccessAccounts = useCallback(async () => {
+    setAccessLoading(true); setError("");
+    try {
+      const db = getSupabaseClient() as any;
+      const [sr, tr, pr] = await Promise.all([
+        db.from("students").select("id,person_id,admission_number,status,user_id").eq("school_id", schoolId).order("created_at", { ascending: false }),
+        db.from("staff").select("id,person_id,staff_number,status,user_id").eq("school_id", schoolId).order("created_at", { ascending: false }),
+        db.from("parents_guardians").select("id,person_id,portal_enabled,relationship").eq("school_id", schoolId).order("created_at", { ascending: false }),
+      ]);
+      for (const r of [sr,tr,pr]) if (r.error) throw r.error;
+      const personIds = [...new Set([...(sr.data ?? []).map((x:any)=>x.person_id), ...(tr.data ?? []).map((x:any)=>x.person_id), ...(pr.data ?? []).map((x:any)=>x.person_id)].filter(Boolean))];
+      const [peopleResult, paResult] = await Promise.all([
+        personIds.length ? db.from("people").select("id,first_name,middle_name,last_name,email,phone,user_id").eq("school_id",schoolId).in("id",personIds) : Promise.resolve({data:[],error:null}),
+        db.from("parent_portal_accounts").select("parent_guardian_id,user_id,is_active").eq("school_id",schoolId),
+      ]);
+      if (peopleResult.error) throw peopleResult.error;
+      if (paResult.error) throw paResult.error;
+      const people = new Map<string,any>((peopleResult.data ?? []).map((x:any)=>[x.id,x]));
+      const parentAccounts = new Map<string,any>((paResult.data ?? []).map((x:any)=>[x.parent_guardian_id,x]));
+      const userIds = [...new Set([...(sr.data ?? []).map((x:any)=>x.user_id), ...(tr.data ?? []).map((x:any)=>x.user_id), ...(pr.data ?? []).map((x:any)=>people.get(x.person_id)?.user_id || parentAccounts.get(x.id)?.user_id)].filter(Boolean))];
+      const mr = userIds.length ? await db.from("school_memberships").select("user_id,role,status").eq("school_id",schoolId).in("user_id",userIds) : {data:[],error:null};
+      if (mr.error) throw mr.error;
+      const memberships = new Map<string,any>((mr.data ?? []).map((x:any)=>[x.user_id+":"+x.role,x]));
+      const makeAlias = (p:any) => {
+        if (!p) return "";
+        const part = (v:string) => String(v ?? "").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,".").replace(/^\.+|\.+$/g,"");
+        return part(p.first_name)+"."+part(p.last_name)+"@resa.com";
+      };
+      const rows: AccessRow[] = [];
+      for (const x of sr.data ?? []) { const p=people.get(x.person_id); const uid=x.user_id ?? null; const m=uid?memberships.get(uid+":student"):null; rows.push({role:"student",recordId:x.id,name:[p?.first_name,p?.middle_name,p?.last_name].filter(Boolean).join(" ")||x.admission_number||"Student",email:p?.email??"",loginId:makeAlias(p),formalId:x.admission_number??"",userId:uid,accessStatus:m?.status??(uid?"linked / unverified":"not linked"),active:Boolean(uid&&m?.status==="active"&&x.status==="active")}); }
+      for (const x of tr.data ?? []) { const p=people.get(x.person_id); const uid=x.user_id ?? null; const m=uid?memberships.get(uid+":teacher"):null; rows.push({role:"teacher",recordId:x.id,name:[p?.first_name,p?.middle_name,p?.last_name].filter(Boolean).join(" ")||x.staff_number||"Teacher",email:p?.email??"",loginId:makeAlias(p),formalId:x.staff_number??"",userId:uid,accessStatus:m?.status??(uid?"linked / unverified":"not linked"),active:Boolean(uid&&m?.status==="active"&&x.status==="active")}); }
+      for (const x of pr.data ?? []) { const p=people.get(x.person_id); const pa=parentAccounts.get(x.id); const uid=p?.user_id??pa?.user_id??null; const m=uid?memberships.get(uid+":parent"):null; rows.push({role:"parent",recordId:x.id,name:[p?.first_name,p?.middle_name,p?.last_name].filter(Boolean).join(" ")||"Parent",email:p?.email??"",loginId:makeAlias(p),formalId:p?.phone??"",userId:uid,accessStatus:m?.status??(uid?"linked / unverified":"not linked"),active:Boolean(uid&&m?.status==="active"&&pa?.is_active&&x.portal_enabled)}); }
+      setAccessRows(rows);
+    } catch(e) { setError(e instanceof Error ? e.message : "Could not load account access records."); }
+    finally { setAccessLoading(false); }
+  }, [schoolId]);
+
+  async function issueAccessPassword(row: AccessRow) {
+    const key=row.role+":"+row.recordId; setAccessBusy(key); setAccessResult(null); setCopiedAccessPassword(false); setError(""); setNotice("");
+    try {
+      const db=getSupabaseClient(); const {data:sessionData,error:sessionError}=await db.auth.getSession();
+      if(sessionError) throw sessionError;
+      if(!sessionData.session) throw new Error("Your administrator session has expired. Please sign in again.");
+      const action=row.userId?"reset_access_password":"create";
+      const {data,error:invokeError}=await db.functions.invoke("resa-create-internal-login",{body:{role:row.role,record_id:row.recordId,...(row.userId?{action}:{})}});
+      if(invokeError){let message=invokeError.message;try{const response=invokeError.context;if(response&&typeof response.json==="function"){const body=await response.json();if(typeof body?.error==="string")message=body.error;}}catch{/* keep original */}throw new Error(message||"The RESA access password could not be issued.");}
+      if(data?.success!==true||typeof data?.temporary_password!=="string") throw new Error(data?.error||"The server did not return a new RESA access password.");
+      setAccessResult({name:row.name,loginId:data.login_id||row.loginId,formalId:data.alternative_login_id||row.formalId,password:data.temporary_password});
+      setNotice(row.userId?"A new RESA access password is active immediately.":"The internal RESA login has been created and its access password is active immediately.");
+      await loadAccessAccounts();
+    } catch(e) { setError(e instanceof Error?e.message:"Could not issue the RESA access password."); }
+    finally { setAccessBusy(null); }
+  }
+
   const tabs: { id: Tab; label: string; description: string; icon: typeof School }[] = [
     { id: "school", label: "School profile", description: "School details and academic defaults", icon: School },
     { id: "account", label: "Admin profile", description: "Name and login email", icon: UserRound },
+    { id: "access", label: "Account & passwords", description: "Manage student, teacher and parent logins", icon: KeyRound },
     { id: "security", label: "Password & security", description: "Password and active sessions", icon: ShieldCheck },
   ];
 
@@ -225,7 +288,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
         <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
           <nav aria-label="Settings sections" className="h-fit rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
             {tabs.map(({ id, label, description, icon: Icon }) => (
-              <button key={id} type="button" onClick={() => { setTab(id); setError(""); setNotice(""); }} className={`mb-1 flex w-full items-start gap-3 rounded-xl p-3 text-left transition last:mb-0 ${tab === id ? "bg-green-950 text-white shadow-sm" : "text-slate-700 hover:bg-slate-50"}`}>
+              <button key={id} type="button" onClick={() => { setTab(id); setError(""); setNotice(""); if (id === "access" && accessRows.length === 0) void loadAccessAccounts(); }} className={`mb-1 flex w-full items-start gap-3 rounded-xl p-3 text-left transition last:mb-0 ${tab === id ? "bg-green-950 text-white shadow-sm" : "text-slate-700 hover:bg-slate-50"}`}>
                 <Icon size={19} className="mt-0.5 shrink-0" />
                 <span><span className="block text-sm font-bold">{label}</span><span className={`mt-1 block text-xs leading-5 ${tab === id ? "text-green-100" : "text-slate-500"}`}>{description}</span></span>
               </button>
@@ -277,6 +340,19 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
                 <div className="mt-6 flex justify-end"><button disabled={accountSaving} className={primaryButton}><Save size={16} />{accountSaving ? "Saving…" : "Save administrator profile"}</button></div>
               </form>}
 
+              {tab === "access" && <div>
+                <div className="mb-5 border-b border-slate-100 pb-4"><h3 className="text-lg font-extrabold">Account & password management</h3><p className="mt-1 text-sm leading-6 text-slate-500">Find a student, teacher or parent to create an internal RESA login or issue a new individual access password. This does not suspend or change the person's school record. Passwords are displayed only once after issue.</p></div>
+                <div className="mb-4 grid gap-3 sm:grid-cols-[1fr_190px_auto]">
+                  <label className={labelClass}>Search by name, RESA login, school ID or email<span className="relative mt-1 block"><Search size={17} className="absolute left-3 top-3 text-slate-400"/><input className={fieldClass+" pl-9"} value={accessSearch} onChange={e=>setAccessSearch(e.target.value)} placeholder="Search accounts…"/></span></label>
+                  <label className={labelClass}>Account type<select className={fieldClass} value={accessRole} onChange={e=>setAccessRole(e.target.value as typeof accessRole)}><option value="all">All account types</option><option value="student">Students</option><option value="teacher">Teachers</option><option value="parent">Parents</option></select></label>
+                  <div className="flex items-end"><button type="button" onClick={()=>void loadAccessAccounts()} disabled={accessLoading} className={secondaryButton}><RefreshCw size={15} className={accessLoading?"animate-spin":""}/> Refresh accounts</button></div>
+                </div>
+                {accessResult && <div role="status" className="mb-5 rounded-2xl border border-green-200 bg-green-50 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="font-extrabold text-green-950">Password issued for {accessResult.name}</p><p className="mt-1 break-all text-sm text-green-900">Login: {accessResult.loginId||"Use official school ID"}{accessResult.formalId?" · "+accessResult.formalId:""}</p><p className="mt-3 text-xs font-bold uppercase tracking-wide text-green-800">New RESA access password — shown once</p><p className="mt-1 break-all rounded-lg border border-green-200 bg-white px-3 py-3 font-mono text-base font-bold text-slate-900">{accessResult.password}</p><p className="mt-2 text-xs text-green-900">Share privately. It works immediately and cannot be retrieved later.</p></div><button type="button" onClick={()=>{void navigator.clipboard.writeText(accessResult.password).then(()=>setCopiedAccessPassword(true)).catch(()=>setError("Copy was blocked. Select and copy the password manually."));}} className={primaryButton}><Copy size={15}/>{copiedAccessPassword?"Copied":"Copy password"}</button></div></div>}
+                {accessLoading?<div className="rounded-xl border bg-white p-8 text-center text-sm text-slate-500"><LoaderCircle className="mx-auto mb-2 animate-spin" size={22}/>Loading school accounts…</div>:<div className="space-y-3">
+                  {accessRows.filter(row=>(accessRole==="all"||row.role===accessRole)&&[row.name,row.loginId,row.formalId,row.email,row.accessStatus].some(v=>String(v??"").toLowerCase().includes(accessSearch.trim().toLowerCase()))).map(row=>{const key=row.role+":"+row.recordId;const busy=accessBusy===key;const canCreate=!row.userId;const canReset=row.active;return <article key={key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-bold text-slate-900">{row.name}</p><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold capitalize text-slate-700">{row.role}</span><span className={`rounded-full px-2 py-1 text-xs font-semibold ${row.active?"bg-green-100 text-green-800":row.userId?"bg-amber-100 text-amber-800":"bg-slate-100 text-slate-600"}`}>{row.accessStatus}</span></div><p className="mt-1 break-all text-sm text-slate-600">{row.loginId||"RESA alias unavailable"}{row.formalId?" · "+row.formalId:""}</p>{row.email&&<p className="mt-1 break-all text-xs text-slate-500">{row.email}</p>}</div><button type="button" onClick={()=>void issueAccessPassword(row)} disabled={accessBusy!==null||(!canCreate&&!canReset)} className={primaryButton}>{busy?<LoaderCircle size={16} className="animate-spin"/>:<KeyRound size={16}/ >}{busy?"Working…":canCreate?"Create RESA login & password":canReset?"Reset access password":"Access needs review"}</button></div>{!canCreate&&!canReset&&<p className="mt-2 text-xs text-amber-800">This account is linked but not active. Review membership or portal activation before resetting its password.</p>}</article>;})}
+                  {!accessRows.some(row=>(accessRole==="all"||row.role===accessRole)&&[row.name,row.loginId,row.formalId,row.email,row.accessStatus].some(v=>String(v??"").toLowerCase().includes(accessSearch.trim().toLowerCase())))&&<p className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">No accounts match this search.</p>}
+                </div>}
+              </div>}
               {tab === "security" && <div>
                 <div className="mb-5 border-b border-slate-100 pb-4"><h3 className="text-lg font-extrabold">Password & security</h3><p className="mt-1 text-sm text-slate-500">Keep your administrator login secure. Use a strong password that you do not use elsewhere.</p></div>
                 <form onSubmit={changePassword} className="rounded-xl border border-slate-200 p-4 sm:p-5">
