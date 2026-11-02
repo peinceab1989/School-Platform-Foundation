@@ -812,25 +812,9 @@ export default function StudentsPage({
               <button role="menuitem" type="button" onClick={() => { setOpenActionStudentId(null); void openEditForm(student); }}>
                 <Pencil className="h-4 w-4" /> Edit student details
               </button>
-              {student.user_id ? (
-                <>
-                  <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleSetTemporaryPassword(student); }}>
-                    <KeyRound className="h-4 w-4" /> Set RESA access password
-                  </button>
-                  <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleResetStudentPassword(student); }}>
-                    <RefreshCw className="h-4 w-4" /> Reset password
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button role="menuitem" type="button" disabled={busy || saving || creatingLoginId !== null} onClick={() => { setOpenActionStudentId(null); void handleCreateStudentLogin(student); }}>
-                    <UserPlus className="h-4 w-4" /> Invite by email
-                  </button>
-                  <button role="menuitem" type="button" disabled={busy || saving || creatingLoginId !== null} onClick={() => { setOpenActionStudentId(null); void handleCreateInternalStudentLogin(student); }}>
-                    <KeyRound className="h-4 w-4" /> Create internal RESA login
-                  </button>
-                </>
-              )}
+              <button role="menuitem" type="button" onClick={() => { setOpenActionStudentId(null); setLocation("/school-settings"); }}>
+                <KeyRound className="h-4 w-4" /> Manage login & password in School Settings
+              </button>
             </div>
           </>
         )}
