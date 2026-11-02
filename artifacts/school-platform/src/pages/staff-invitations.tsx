@@ -377,6 +377,11 @@ export default function StaffInvitationsPage({
       setError("Add a real email address to this staff contact record before inviting them.");
       return;
     }
+    const emailDomain = staff.email.trim().toLowerCase().split("@")[1] ?? "";
+    if (emailDomain === "example.com" || emailDomain === "example.org" || emailDomain.endsWith(".test") || emailDomain.endsWith(".invalid")) {
+      setError("This is a placeholder email address and cannot receive an invitation. Use Create internal RESA login instead.");
+      return;
+    }
     const confirmed = window.confirm(
       `Send a secure RESA invitation to ${staff.first_name} ${staff.last_name} at ${staff.email}? The staff record will be retained and linked to this invitation; access remains pending until the teacher accepts and an administrator approves it.`
     );
