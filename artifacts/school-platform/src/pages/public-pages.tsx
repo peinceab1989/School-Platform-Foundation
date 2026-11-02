@@ -28,12 +28,11 @@ import { PublicLayout } from "@/components/public-site";
 const SCHOOL = "RHEMA EXPLOITS SCIENCE ACADEMY INT’L";
 const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
 const ADDRESS =
-  "1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.";
+  "1, Smiling George Way, Opposite Winners’ Chapel, Behind Matice, Sapele Road, Benin City, Edo State, Nigeria.";
 const EMAIL = "rhemaexploitsacademy@gmail.com";
 const PHONE = "08058422691";
 const WHATSAPP = "08058422691";
 const WHATSAPP_URL = "https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20would%20like%20to%20make%20an%20enquiry.";
-const ADMISSIONS_PHONE = "08052159511";
 const FACEBOOK = "https://www.facebook.com/share/1H2v8eruwR/";
 
 const photos = {
@@ -634,7 +633,7 @@ export function ContactPage() {
           <SectionHeading eyebrow="Get in touch" title="We would love to hear from you" description="Contact the appropriate school line or send an email. For current admissions details, please speak directly with the school." />
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <FeatureCard number="01" icon={MapPin} title="Visit the school" description={ADDRESS} />
-            <FeatureCard number="02" icon={Phone} title="Call the school" description={`Main line: ${PHONE}. Admissions: ${PHONE}, ${WHATSAPP} (WhatsApp), and ${ADMISSIONS_PHONE}.`} />
+            <FeatureCard number="02" icon={Phone} title="Call the school" description={`Main line: ${PHONE}. WhatsApp: ${WHATSAPP}.`} />
             <FeatureCard number="03" icon={Mail} title="Send an email" description={EMAIL} />
           </div>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
