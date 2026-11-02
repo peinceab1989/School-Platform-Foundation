@@ -1609,7 +1609,7 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat') {
         setLocation('/student-dashboard');
       }
       return;
