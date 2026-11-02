@@ -351,7 +351,7 @@ function FloatingCustomerCare() {
           <a href={SCHOOL_WHATSAPP} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className="mt-2 flex items-center gap-3 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-3 py-3 text-sm font-bold text-[#20553d] transition hover:bg-[#e0ebdc]">
             <MessageCircle size={18} /> WhatsApp RESA
           </a>
-          <p className="mt-3 text-[11px] leading-4 text-[#6b756c]">WhatsApp: 0701 094 5774</p>
+          <p className="mt-3 text-[11px] leading-4 text-[#6b756c]">WhatsApp: 0805 842 2691</p>
         </div>
       )}
       <button
