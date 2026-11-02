@@ -38,6 +38,17 @@ function phoneCandidates(value: string): string[] {
   return [...variants].filter(Boolean);
 }
 
+function aliasPart(value: string): string {
+  return value.normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\\.+|\\.+$/g, "");
+}
+
+function resaAlias(firstName: string, lastName: string): string {
+  const first = aliasPart(firstName);
+  const last = aliasPart(lastName);
+  return first && last ? `${first}.${last}@resa.com` : "";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return reply(405, { error: "POST required." });
@@ -62,6 +73,69 @@ Deno.serve(async (req: Request) => {
 
     const candidateUserIds = new Set<string>();
     const identifier = loginId.trim();
+
+    // RESA-style identities are internal login aliases only. They are resolved
+    // against school records and never used as deliverable email addresses.
+    if (isResaAlias) {
+      const { data: people, error: peopleError } = await admin
+        .from("people")
+        .select("id, first_name, last_name")
+        .eq("school_id", SCHOOL_ID)
+        .limit(5000);
+      if (peopleError) throw new Error("Could not verify the RESA login identity.");
+      const matchingPeople = (people ?? []).filter((person) =>
+        resaAlias(person.first_name ?? "", person.last_name ?? "") === identifier.toLowerCase()
+      );
+
+      for (const person of matchingPeople) {
+        const { data: studentRows, error: studentError } = await admin
+          .from("students").select("id").eq("school_id", SCHOOL_ID)
+          .eq("person_id", person.id).eq("status", "active").limit(5);
+        if (studentError) throw new Error("Could not verify the student login identity.");
+        for (const student of studentRows ?? []) {
+          const { data: portal, error } = await admin.from("student_portal_accounts")
+            .select("user_id").eq("school_id", SCHOOL_ID).eq("student_id", student.id)
+            .eq("is_active", true).maybeSingle();
+          if (error) throw new Error("Could not verify the student portal account.");
+          if (portal?.user_id) {
+            const { data: membership, error: membershipError } = await admin.from("school_memberships")
+              .select("id").eq("school_id", SCHOOL_ID).eq("user_id", portal.user_id)
+              .eq("role", "student").eq("status", "active").maybeSingle();
+            if (membershipError) throw new Error("Could not verify student school access.");
+            if (membership) candidateUserIds.add(portal.user_id);
+          }
+        }
+
+        const { data: staffRows, error: staffError } = await admin.from("staff")
+          .select("user_id").eq("school_id", SCHOOL_ID).eq("person_id", person.id)
+          .eq("status", "active").not("user_id", "is", null).limit(5);
+        if (staffError) throw new Error("Could not verify the staff login identity.");
+        for (const staff of staffRows ?? []) {
+          if (!staff.user_id) continue;
+          const { data: membership, error } = await admin.from("school_memberships")
+            .select("id").eq("school_id", SCHOOL_ID).eq("user_id", staff.user_id)
+            .eq("role", "teacher").eq("status", "active").maybeSingle();
+          if (error) throw new Error("Could not verify teacher school access.");
+          if (membership) candidateUserIds.add(staff.user_id);
+        }
+
+        const { data: guardians, error: guardianError } = await admin.from("parents_guardians")
+          .select("id").eq("school_id", SCHOOL_ID).eq("person_id", person.id).limit(5);
+        if (guardianError) throw new Error("Could not verify the parent login identity.");
+        for (const guardian of guardians ?? []) {
+          const { data: portal, error } = await admin.from("parent_portal_accounts")
+            .select("user_id").eq("school_id", SCHOOL_ID)
+            .eq("parent_guardian_id", guardian.id).eq("is_active", true).maybeSingle();
+          if (error) throw new Error("Could not verify parent portal access.");
+          if (!portal?.user_id) continue;
+          const { data: membership, error } = await admin.from("school_memberships")
+            .select("id").eq("school_id", SCHOOL_ID).eq("user_id", portal.user_id)
+            .eq("role", "parent").eq("status", "active").maybeSingle();
+          if (error) throw new Error("Could not verify parent school access.");
+          if (membership) candidateUserIds.add(portal.user_id);
+        }
+      }
+    }
 
     // Student admission numbers resolve only to active student portal accounts.
     const { data: studentRows, error: studentError } = await admin
