@@ -50,6 +50,8 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
   const [accessBusy, setAccessBusy] = useState<string | null>(null);
   const [accessResult, setAccessResult] = useState<{ name: string; loginId: string; formalId: string; password: string } | null>(null);
   const [copiedAccessPassword, setCopiedAccessPassword] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [invitationRecoveryBusy, setInvitationRecoveryBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [accountSaving, setAccountSaving] = useState(false);
@@ -264,6 +266,40 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
     finally { setAccessBusy(null); }
   }
 
+  async function handleInvitationRecovery(action: "remove" | "resend") {
+    const targetEmail = recoveryEmail.trim().toLowerCase();
+    if (!targetEmail) { setError("Enter the teacher's email address first."); return; }
+    const confirmed = window.confirm(action === "remove"
+      ? `Remove only the incomplete RESA invitation for ${targetEmail}? Active and suspended teacher records are protected. The global sign-in account, if any, will not be deleted.`
+      : `Send a password setup/recovery email to ${targetEmail}? This only works for a linked existing account.`);
+    if (!confirmed) return;
+    setError(""); setNotice(""); setInvitationRecoveryBusy(true);
+    try {
+      const client = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Your session has expired. Please sign in again.");
+      const { data, error: functionError } = await client.functions.invoke("resa-manage-staff-invitation", {
+        body: { action, school_id: schoolId, email: targetEmail },
+      });
+      if (functionError) {
+        let details = functionError.message;
+        try { const response = functionError.context; if (response && typeof response.json === "function") { const body = await response.json(); details = body?.error || body?.message || details; } } catch { /* retain original */ }
+        throw new Error(details || "The invitation action failed.");
+      }
+      if (data?.error) throw new Error(String(data.error));
+      if (action === "remove") {
+        setNotice("Incomplete invitation removed from this school. The global sign-in account was retained. You can now create an internal RESA login from this page.");
+      } else {
+        const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, { redirectTo: "https://resa-school-portal.netlify.app/accept-invitation" });
+        if (resetError) throw resetError;
+        setNotice("Password setup/recovery email requested for " + targetEmail + ". Ask the teacher to check their inbox and spam folder.");
+      }
+      setRecoveryEmail("");
+    } catch (e) { setError(e instanceof Error ? e.message : "The invitation recovery action failed."); }
+    finally { setInvitationRecoveryBusy(false); }
+  }
+
   const tabs: { id: Tab; label: string; description: string; icon: typeof School }[] = [
     { id: "school", label: "School profile", description: "School details and academic defaults", icon: School },
     { id: "account", label: "Admin profile", description: "Name and login email", icon: UserRound },
@@ -354,6 +390,15 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
                   <label className={labelClass}>Account type<select className={fieldClass} value={accessRole} onChange={e=>setAccessRole(e.target.value as typeof accessRole)}><option value="all">All account types</option><option value="student">Students</option><option value="teacher">Teachers</option><option value="parent">Parents</option></select></label>
                   <div className="flex items-end"><button type="button" onClick={()=>void loadAccessAccounts()} disabled={accessLoading} className={secondaryButton}><RefreshCw size={15} className={accessLoading?"animate-spin":""}/> Refresh accounts</button></div>
                 </div>
+                <section className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <h4 className="font-bold text-amber-950">Existing email invitation recovery</h4>
+                  <p className="mt-1 text-sm leading-6 text-amber-900">For older teacher invitations only. This resends the invitation password-setup email or removes an incomplete school invitation. It does not change an account's current password; use the RESA access-password control below for that.</p>
+                  <label className={labelClass+" mt-3"}>Teacher's registered email<input type="email" value={recoveryEmail} onChange={e=>setRecoveryEmail(e.target.value)} className={fieldClass} placeholder="teacher@example.com"/></label>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" onClick={()=>void handleInvitationRecovery("resend")} disabled={invitationRecoveryBusy||!recoveryEmail.trim()} className={primaryButton}>{invitationRecoveryBusy?"Working…":"Resend password setup email"}</button>
+                    <button type="button" onClick={()=>void handleInvitationRecovery("remove")} disabled={invitationRecoveryBusy||!recoveryEmail.trim()} className={secondaryButton}>Remove incomplete invitation</button>
+                  </div>
+                </section>
                 {accessResult && <div role="status" className="mb-5 rounded-2xl border border-green-200 bg-green-50 p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="font-extrabold text-green-950">Password issued for {accessResult.name}</p><p className="mt-1 break-all text-sm text-green-900">Login: {accessResult.loginId||"Use official school ID"}{accessResult.formalId?" · "+accessResult.formalId:""}</p><p className="mt-3 text-xs font-bold uppercase tracking-wide text-green-800">New RESA access password — shown once</p><p className="mt-1 break-all rounded-lg border border-green-200 bg-white px-3 py-3 font-mono text-base font-bold text-slate-900">{accessResult.password}</p><p className="mt-2 text-xs text-green-900">Share privately. It works immediately and cannot be retrieved later.</p></div><button type="button" onClick={()=>{void navigator.clipboard.writeText(accessResult.password).then(()=>setCopiedAccessPassword(true)).catch(()=>setError("Copy was blocked. Select and copy the password manually."));}} className={primaryButton}><Copy size={15}/>{copiedAccessPassword?"Copied":"Copy password"}</button></div></div>}
                 {accessLoading?<div className="rounded-xl border bg-white p-8 text-center text-sm text-slate-500"><LoaderCircle className="mx-auto mb-2 animate-spin" size={22}/>Loading school accounts…</div>:<div className="space-y-3">
                   {accessRows.filter(row=>(accessRole==="all"||row.role===accessRole)&&[row.name,row.loginId,row.formalId,row.email,row.accessStatus].some(v=>String(v??"").toLowerCase().includes(accessSearch.trim().toLowerCase()))).map(row=>{const key=row.role+":"+row.recordId;const busy=accessBusy===key;const canCreate=!row.userId;const canReset=row.active;return <article key={key} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="font-bold text-slate-900">{row.name}</p><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold capitalize text-slate-700">{row.role}</span><span className={`rounded-full px-2 py-1 text-xs font-semibold ${row.active?"bg-green-100 text-green-800":row.userId?"bg-amber-100 text-amber-800":"bg-slate-100 text-slate-600"}`}>{row.accessStatus}</span></div><p className="mt-1 break-all text-sm text-slate-600">{row.loginId||"RESA alias unavailable"}{row.formalId?" · "+row.formalId:""}</p>{row.email&&<p className="mt-1 break-all text-xs text-slate-500">{row.email}</p>}</div><button type="button" onClick={()=>void issueAccessPassword(row)} disabled={accessBusy!==null||(!canCreate&&!canReset)} className={primaryButton}>{busy?<LoaderCircle size={16} className="animate-spin"/>:<KeyRound size={16} />}{busy?"Working…":canCreate?"Create RESA login & password":canReset?"Reset access password":"Access needs review"}</button></div>{!canCreate&&!canReset&&<p className="mt-2 text-xs text-amber-800">This account is linked but not active. Review membership or portal activation before resetting its password.</p>}</article>;})}
