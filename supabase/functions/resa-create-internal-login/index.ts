@@ -118,6 +118,12 @@ Deno.serve(async (req: Request) => {
       .eq("module_key", "account_activation").maybeSingle();
     if (activationModuleError || !activationModule) return reply(503, { success: false, error: "Could not verify account activation availability." });
     if (!activationModule.is_enabled) return reply(403, { success: false, error: "Account activation is disabled by the system administrator." });
+    const roleModuleKey = role === "student" ? "student_portal" : role === "teacher" ? "staff_invitations" : "parent_portal";
+    const { data: roleModule, error: roleModuleError } = await admin
+      .from("nexus_module_controls").select("is_enabled")
+      .eq("module_key", roleModuleKey).maybeSingle();
+    if (roleModuleError || !roleModule) return reply(503, { success: false, error: "Could not verify the selected portal module." });
+    if (!roleModule.is_enabled) return reply(403, { success: false, error: "The " + roleModuleKey.replace(/_/g, " ") + " module is disabled by the system administrator." });
 
     if (role === "student" && record.status !== "active") return reply(409, { success: false, error: "Only active students can receive an internal login." });
     if (role === "teacher" && record.status !== "active") return reply(409, { success: false, error: "Only active staff records can receive an internal login." });
