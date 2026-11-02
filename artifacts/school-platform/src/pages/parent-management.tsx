@@ -455,6 +455,11 @@ export default function ParentManagementPage({
       setError("Add the parent's real, deliverable email address before sending an invitation.");
       return;
     }
+    const emailDomain = email.trim().toLowerCase().split("@")[1] ?? "";
+    if (emailDomain === "example.com" || emailDomain === "example.org" || emailDomain.endsWith(".test") || emailDomain.endsWith(".invalid")) {
+      setError("This is a placeholder email address and cannot receive an invitation. Use Create internal RESA login instead.");
+      return;
+    }
     if (linkedStudentCount === 0) {
       setError("Link this parent to at least one student before sending an invitation.");
       return;
