@@ -402,7 +402,7 @@ export default function StudentsPage({
       );
       await loadStudents();
     } catch (err) {
-      setError(`Could not create the internal student login: ${errorMessage(err)}`);
+      setError(`Could not create the internal student login: ${err instanceof Error ? err.message : "Please try again or contact the school administrator."}`);
     } finally {
       setCreatingLoginId(null);
     }
