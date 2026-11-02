@@ -130,11 +130,11 @@ Deno.serve(async (req: Request) => {
             .eq("parent_guardian_id", guardian.id).eq("is_active", true).maybeSingle();
           if (error) throw new Error("Could not verify parent portal access.");
           if (!portal?.user_id) continue;
-          const { data: membership, error } = await admin.from("school_memberships")
+          const { data: parentMembership, error: parentMembershipError } = await admin.from("school_memberships")
             .select("id").eq("school_id", SCHOOL_ID).eq("user_id", portal.user_id)
             .eq("role", "parent").eq("status", "active").maybeSingle();
-          if (error) throw new Error("Could not verify parent school access.");
-          if (membership) candidateUserIds.add(portal.user_id);
+          if (parentMembershipError) throw new Error("Could not verify parent school access.");
+          if (parentMembership) candidateUserIds.add(portal.user_id);
         }
       }
     }
