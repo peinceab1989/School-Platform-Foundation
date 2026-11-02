@@ -39,8 +39,8 @@ function phoneCandidates(value: string): string[] {
 }
 
 function aliasPart(value: string): string {
-  return value.normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "")
-    .toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\\.+|\\.+$/g, "");
+  return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
 }
 
 function resaAlias(firstName: string, lastName: string): string {
@@ -60,7 +60,9 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => null);
     const loginId = typeof body?.login_id === "string" ? body.login_id.trim() : "";
     const password = typeof body?.password === "string" ? body.password : "";
-    if (!loginId || !password || loginId.length > 40 || password.length > 128 || !/^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\+\d[\d ().-]{7,20})$/.test(loginId)) {
+    const isResaAlias = /^[a-z0-9]+(?:\.[a-z0-9]+)*@resa\.com$/i.test(loginId);
+    const isSchoolIdOrPhone = /^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\+\d[\d ().-]{7,20})$/.test(loginId);
+    if (!loginId || !password || loginId.length > 80 || password.length > 128 || (!isResaAlias && !isSchoolIdOrPhone)) {
       return reply(400, { error: "Enter your login ID and password." });
     }
 
