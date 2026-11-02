@@ -27,7 +27,9 @@ type StaffInvitationsPageProps = {
 };
 
 type StaffMember = {
+  id: string;
   user_id: string;
+  email: string | null;
   staff_number: string | null;
   job_title: string | null;
   department: string | null;
@@ -112,52 +114,37 @@ export default function StaffInvitationsPage({
         }
       }
 
-      const userIds = Array.from(membershipByUserId.keys());
-
-      if (userIds.length === 0) {
-        setStaffMembers([]);
-        setError("");
-        return;
-      }
-
       const { data: staffRows, error: staffError } = await client
         .from("staff")
-        .select("user_id, person_id, staff_number, job_title, department, status")
+        .select("id, user_id, person_id, staff_number, job_title, department, status")
         .eq("school_id", schoolId)
-        .in("user_id", userIds);
+        .order("created_at", { ascending: false });
 
-      if (staffError) {
-        throw staffError;
-      }
+      if (staffError) throw staffError;
 
       const personIds = [...new Set((staffRows ?? []).map((staff) => staff.person_id).filter(Boolean))];
       const { data: peopleRows, error: peopleError } = personIds.length
-        ? await client.from("people").select("id, first_name, last_name").eq("school_id", schoolId).in("id", personIds)
+        ? await client.from("people").select("id, first_name, last_name, email").eq("school_id", schoolId).in("id", personIds)
         : { data: [], error: null };
       if (peopleError) throw peopleError;
       const peopleById = new Map((peopleRows ?? []).map((person) => [person.id, person]));
 
-      const members: StaffMember[] = (staffRows ?? [])
-        .filter(
-          (staff) =>
-            Boolean(staff.user_id) &&
-            membershipByUserId.has(staff.user_id as string),
-        )
-        .map((staff) => {
-          const userId = staff.user_id as string;
-          const person = peopleById.get(staff.person_id);
-
-          return {
-            user_id: userId,
-            staff_number: staff.staff_number ?? null,
-            job_title: staff.job_title ?? null,
-            department: staff.department ?? null,
-            staff_status: staff.status ?? "pending",
-            membership_status: membershipByUserId.get(userId) ?? "invited",
-            first_name: person?.first_name ?? "",
-            last_name: person?.last_name ?? "",
-          };
-        });
+      const members: StaffMember[] = (staffRows ?? []).map((staff) => {
+        const userId = (staff.user_id as string | null) ?? "";
+        const person = peopleById.get(staff.person_id);
+        return {
+          id: staff.id,
+          user_id: userId,
+          email: person?.email ?? null,
+          staff_number: staff.staff_number ?? null,
+          job_title: staff.job_title ?? null,
+          department: staff.department ?? null,
+          staff_status: staff.status ?? "pending",
+          membership_status: userId ? membershipByUserId.get(userId) ?? "invited" : "not_invited",
+          first_name: person?.first_name ?? "",
+          last_name: person?.last_name ?? "",
+        };
+      });
 
       setStaffMembers(members);
       setError("");
@@ -303,6 +290,51 @@ export default function StaffInvitationsPage({
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleInviteExistingStaff(staff: StaffMember) {
+    if (staff.user_id) {
+      setError("This staff record already has a linked login.");
+      return;
+    }
+    if (!staff.email?.trim()) {
+      setError("Add a real email address to this staff contact record before inviting them.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Send a secure RESA invitation to ${staff.first_name} ${staff.last_name} at ${staff.email}? The staff record will be retained and linked to this invitation; access remains pending until the teacher accepts and an administrator approves it.`
+    );
+    if (!confirmed) return;
+    setError("");
+    setMessage("");
+    setProcessingUser(staff.id);
+    try {
+      const client = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Your administrator session has expired. Please sign in again.");
+      const { data, error: invokeError } = await client.functions.invoke("resa-link-staff-login", {
+        body: { school_id: schoolId, staff_id: staff.id },
+      });
+      if (invokeError) {
+        let details = invokeError.message;
+        try {
+          const response = invokeError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            details = body?.error || body?.message || details;
+          }
+        } catch { /* retain the original function error */ }
+        throw new Error(details || "The staff invitation could not be sent.");
+      }
+      if (data?.success !== true) throw new Error(data?.error || "The staff invitation could not be sent.");
+      setMessage(data.message || `Invitation sent to ${staff.email}. Approval is still required after acceptance.`);
+      await loadStaff();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "The existing staff login could not be linked."));
+    } finally {
+      setProcessingUser(null);
     }
   }
 
@@ -482,11 +514,14 @@ export default function StaffInvitationsPage({
   const suspendedStaff = staffMembers.filter(
     (staff) => staff.membership_status === "suspended",
   );
+  const unlinkedStaff = staffMembers.filter(
+    (staff) => staff.membership_status === "not_invited",
+  );
 
-  const directoryStaff = [...activeStaff, ...suspendedStaff].filter((staff) => {
+  const directoryStaff = [...activeStaff, ...suspendedStaff, ...unlinkedStaff].filter((staff) => {
     const query = staffSearch.trim().toLowerCase();
     if (!query) return true;
-    return [staff.staff_number, staff.job_title, staff.department, staff.staff_status, staff.membership_status, staff.user_id]
+    return [staff.first_name, staff.last_name, staff.email, staff.staff_number, staff.job_title, staff.department, staff.staff_status, staff.membership_status, staff.user_id]
       .some((value) => String(value ?? "").toLowerCase().includes(query));
   });
   const staffPageSize = 8;
@@ -494,14 +529,16 @@ export default function StaffInvitationsPage({
   const visibleDirectoryStaff = directoryStaff.slice((staffPage - 1) * staffPageSize, staffPage * staffPageSize);
 
   function renderStaffCard(staff: StaffMember) {
-    const isProcessing = processingUser === staff.user_id;
+    const processingKey = staff.user_id || staff.id;
+    const isProcessing = processingUser === processingKey;
+    const isNotInvited = staff.membership_status === "not_invited";
     const isInvited = staff.membership_status === "invited";
     const isActive = staff.membership_status === "active";
     const isSuspended = staff.membership_status === "suspended";
 
     return (
       <article
-        key={staff.user_id}
+        key={staff.id}
         className="rounded-xl border border-slate-200 bg-white p-4"
       >
         <div className="flex items-start gap-3">
@@ -518,6 +555,9 @@ export default function StaffInvitationsPage({
               {staff.job_title || "Teacher"}
               {staff.department ? ` · ${staff.department}` : ""}
             </p>
+            {staff.email && (
+              <p className="mt-1 break-all text-xs text-slate-500">{staff.email}</p>
+            )}
             {staff.first_name && staff.last_name && (
               <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
                 Optional RESA Login ID: {(() => {
@@ -541,7 +581,9 @@ export default function StaffInvitationsPage({
                   ? "Active"
                   : isSuspended
                     ? "Suspended"
-                    : "Awaiting approval"}
+                    : isNotInvited
+                      ? "Login not linked"
+                      : "Awaiting approval"}
               </span>
 
               <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
@@ -550,6 +592,19 @@ export default function StaffInvitationsPage({
             </div>
           </div>
         </div>
+
+        {isNotInvited && (
+          <button
+            type="button"
+            onClick={() => void handleInviteExistingStaff(staff)}
+            disabled={processingUser !== null || !staff.email}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-700 px-3 py-2.5 text-sm font-bold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+            title={!staff.email ? "Add a real email address to this staff contact first" : "Invite this existing staff member without creating a duplicate record"}
+          >
+            {isProcessing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+            {isProcessing ? "Sending invitation…" : "Invite existing staff"}
+          </button>
+        )}
 
         {isInvited && (
           <button
