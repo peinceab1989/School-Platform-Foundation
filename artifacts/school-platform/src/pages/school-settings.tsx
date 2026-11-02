@@ -11,6 +11,8 @@ type Settings = {
   motto: string | null;
   address: string | null;
   phone: string | null;
+  whatsapp_phone: string | null;
+  admissions_phone: string | null;
   email: string | null;
   website: string | null;
   logo_url: string | null;
@@ -23,7 +25,7 @@ type Tab = "school" | "account" | "access" | "security";
 type AccessRow = { role: "student" | "teacher" | "parent"; recordId: string; name: string; email: string; loginId: string; formalId: string; userId: string | null; accessStatus: string; active: boolean };
 
 const blank: Settings = {
-  motto: "", address: "", phone: "", email: "", website: "", logo_url: "",
+  motto: "", address: "", phone: "", whatsapp_phone: "", admissions_phone: "", email: "", website: "", logo_url: "",
   current_academic_session_id: null, current_term_id: null,
 };
 const fieldClass = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
@@ -33,6 +35,7 @@ const secondaryButton = "inline-flex items-center justify-center gap-2 rounded-x
 
 export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
   const [form, setForm] = useState<Settings>(blank);
+  const [schoolName, setSchoolName] = useState("RHEMA EXPLOITS SCIENCE ACADEMY INT’L");
   const [sessions, setSessions] = useState<SessionOption[]>([]);
   const [terms, setTerms] = useState<TermOption[]>([]);
   const [userId, setUserId] = useState("");
@@ -77,6 +80,9 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
       if (schoolError) throw schoolError;
       if (sessionError) throw sessionError;
       if (termError) throw termError;
+      const { data: schoolNameData, error: schoolNameError } = await db.from("schools").select("name").eq("id", schoolId).maybeSingle();
+      if (schoolNameError) throw schoolNameError;
+      setSchoolName(schoolNameData?.name ?? "RHEMA EXPLOITS SCIENCE ACADEMY INT’L");
       const user = authData.user;
       setUserId(user?.id ?? "");
       setCurrentEmail(user?.email ?? "");
@@ -107,6 +113,8 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
         motto: form.motto?.trim() || null,
         address: form.address?.trim() || null,
         phone: form.phone?.trim() || null,
+        whatsapp_phone: form.whatsapp_phone?.trim() || null,
+        admissions_phone: form.admissions_phone?.trim() || null,
         email: form.email?.trim() || null,
         website: form.website?.trim() || null,
         logo_url: form.logo_url?.trim() || null,
@@ -118,7 +126,10 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
         ? await db.from("school_settings").update(payload).eq("id", form.id).eq("school_id", schoolId)
         : await db.from("school_settings").insert(payload);
       if (result.error) throw result.error;
-      setNotice("School profile and academic defaults saved.");
+      const schoolNameResult = await db.from("schools").update({ name: schoolName.trim() }).eq("id", schoolId).select("id").maybeSingle();
+      if (schoolNameResult.error) throw schoolNameResult.error;
+      if (!schoolNameResult.data) throw new Error("School details were saved, but the official school name could not be updated. Please check administrator permissions.");
+      setNotice("School profile, contact details and academic defaults saved.");
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save school settings.");
@@ -345,7 +356,8 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
               {tab === "school" && <form onSubmit={saveSchool}>
                 <div className="mb-5 border-b border-slate-100 pb-4"><h3 className="text-lg font-extrabold">School profile & academic defaults</h3><p className="mt-1 text-sm text-slate-500">Update the details shown across the school portal and choose the current session and term.</p></div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {([{ key: "motto", label: "School motto" }, { key: "address", label: "School address" }, { key: "phone", label: "School phone" }, { key: "email", label: "School email" }, { key: "website", label: "Website URL" }, { key: "logo_url", label: "Logo image URL" }] as const).map(f => <label key={f.key} className={labelClass}>{f.label}<input className={fieldClass} value={form[f.key] ?? ""} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} maxLength={500} placeholder={f.key === "logo_url" ? "https://…" : ""} /></label>)}
+                  <label className={labelClass}>Official school name<input className={fieldClass} value={schoolName} onChange={e => setSchoolName(e.target.value)} maxLength={180} required /></label>
+                  {([{ key: "motto", label: "School motto" }, { key: "address", label: "School address" }, { key: "phone", label: "Main school phone" }, { key: "whatsapp_phone", label: "Customer Care WhatsApp number" }, { key: "admissions_phone", label: "Admissions / enquiry phone" }, { key: "email", label: "Official school email" }, { key: "website", label: "Website URL" }, { key: "logo_url", label: "Logo image URL" }] as const).map(f => <label key={f.key} className={labelClass}>{f.label}<input className={fieldClass} value={form[f.key] ?? ""} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} maxLength={500} placeholder={f.key === "logo_url" ? "https://…" : ""} /></label>)}
                   <label className={labelClass}>Current academic session<select className={fieldClass} value={form.current_academic_session_id ?? ""} onChange={e => setForm(p => ({ ...p, current_academic_session_id: e.target.value || null, current_term_id: null }))}><option value="">Not selected</option>{sessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
                   <label className={labelClass}>Current term<select className={fieldClass} value={form.current_term_id ?? ""} onChange={e => setForm(p => ({ ...p, current_term_id: e.target.value || null }))}><option value="">Not selected</option>{terms.filter(t => !form.current_academic_session_id || t.academic_session_id === form.current_academic_session_id).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
                 </div>
