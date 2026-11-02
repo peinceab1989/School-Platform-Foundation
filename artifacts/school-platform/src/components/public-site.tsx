@@ -12,9 +12,9 @@ import { SchoolLogo } from "@/components/school-logo";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const FACEBOOK_URL = "https://www.facebook.com/share/1H2v8eruwR/";
-const SCHOOL_EMAIL = "Resainternational2024@gmail.com";
+const SCHOOL_EMAIL = "rhemaexploitsacademy@gmail.com";
 const SCHOOL_PHONE = "+2348058422691";
-const SCHOOL_WHATSAPP = "https://wa.me/2347010945774?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance.";
+const SCHOOL_WHATSAPP = "https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance.";
 const PORTAL_PATH = "/portal-options";
 const JETAB_WHATSAPP =
   "https://wa.me/2347054078988?text=Hello%20JETAB%20TECH%2C%20I%20would%20like%20to%20request%20a%20service%20or%20training.";
@@ -351,7 +351,7 @@ function FloatingCustomerCare() {
           <a href={SCHOOL_WHATSAPP} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className="mt-2 flex items-center gap-3 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-3 py-3 text-sm font-bold text-[#20553d] transition hover:bg-[#e0ebdc]">
             <MessageCircle size={18} /> WhatsApp RESA
           </a>
-          <p className="mt-3 text-[11px] leading-4 text-[#6b756c]">WhatsApp: 0701 094 5774</p>
+          <p className="mt-3 text-[11px] leading-4 text-[#6b756c]">WhatsApp: 0805 842 2691</p>
         </div>
       )}
       <button
