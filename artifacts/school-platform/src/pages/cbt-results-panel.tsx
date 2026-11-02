@@ -109,17 +109,19 @@ export default function CbtResultsPanel({ schoolId }: { schoolId: string }) {
         [result.student_id, result.academic_session_id, result.term_id, result.class_id].join(":"),
         result,
       ]));
-      const subjectScoreByKey = new Map((subjectResultsQuery.data ?? []).map((result: any) => [
-        [result.term_result_id, result.subject_id].join(":"),
-        Number(result.exam_score) || 0,
-      ]));
+      const subjectScoreByKey = new Map<string, number>(
+        (subjectResultsQuery.data ?? []).map((result: any) => [
+          [result.term_result_id, result.subject_id].join(":"),
+          Number(result.exam_score) || 0,
+        ] as [string, number]),
+      );
 
       setRows(attempts.map((attempt: any) => {
         const exam = examById.get(attempt.exam_id) as any;
         const termResult = exam?.term_id
           ? resultByKey.get([attempt.student_id, exam.academic_session_id, exam.term_id, exam.class_id].join(":")) as any
           : null;
-        const existingExamScore = termResult && exam?.subject_id
+        const existingExamScore: number = termResult && exam?.subject_id
           ? subjectScoreByKey.get([termResult.id, exam.subject_id].join(":")) ?? 0
           : 0;
         let transferBlockReason: string | null = null;
