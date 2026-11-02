@@ -358,6 +358,56 @@ export default function StudentsPage({
     setError("");
   }
 
+  async function handleCreateInternalStudentLogin(student: Student) {
+    setError("");
+    setSuccess("");
+    if (creatingLoginId || saving || resettingPasswordId) return;
+    if (normalizedStatus(student.status) !== "active") {
+      setError("Only active students can receive an internal portal login.");
+      return;
+    }
+    if (student.user_id) {
+      setError("This student already has a linked login account.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Create an internal RESA login for ${fullName(student)}?\n\nNo email will be sent and no email address is required. A unique temporary password will be shown once. The student must change it at first sign-in.`
+    );
+    if (!confirmed) return;
+    setCreatingLoginId(student.id);
+    try {
+      const client = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Your administrator session has expired. Please sign in again.");
+      const { data, error: invokeError } = await client.functions.invoke("resa-create-internal-login", {
+        body: { role: "student", record_id: student.id },
+      });
+      if (invokeError) {
+        let details = invokeError.message;
+        try {
+          const response = invokeError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            details = body?.error || body?.message || details;
+          }
+        } catch { /* retain original function error */ }
+        throw new Error(details || "The internal student login could not be created.");
+      }
+      if (data?.success !== true || !data?.temporary_password || !data?.login_id) {
+        throw new Error(data?.error || "The internal student login was not completed.");
+      }
+      setSuccess(
+        `Internal login created for ${fullName(student)}. RESA Login ID: ${data.login_id}. Admission number: ${data.alternative_login_id || student.admission_number}. ONE-TIME TEMPORARY PASSWORD: ${data.temporary_password}. No email was sent. The student must change this password at first sign-in. Copy it now and share it privately.`
+      );
+      await loadStudents();
+    } catch (err) {
+      setError(`Could not create the internal student login: ${errorMessage(err)}`);
+    } finally {
+      setCreatingLoginId(null);
+    }
+  }
+
   async function handleCreateStudentLogin(student: Student) {
     setError("");
     setSuccess("");
@@ -763,9 +813,14 @@ export default function StudentsPage({
                   </button>
                 </>
               ) : (
-                <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleCreateStudentLogin(student); }}>
-                  <UserPlus className="h-4 w-4" /> Create portal login
-                </button>
+                <>
+                  <button role="menuitem" type="button" disabled={busy || saving || creatingLoginId !== null} onClick={() => { setOpenActionStudentId(null); void handleCreateStudentLogin(student); }}>
+                    <UserPlus className="h-4 w-4" /> Invite by email
+                  </button>
+                  <button role="menuitem" type="button" disabled={busy || saving || creatingLoginId !== null} onClick={() => { setOpenActionStudentId(null); void handleCreateInternalStudentLogin(student); }}>
+                    <KeyRound className="h-4 w-4" /> Create internal RESA login
+                  </button>
+                </>
               )}
             </div>
           </>
