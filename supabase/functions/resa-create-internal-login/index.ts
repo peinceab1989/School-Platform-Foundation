@@ -157,7 +157,13 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "reset_access_password") {
-      const existingUserId = role === "student" || role === "teacher" ? record.user_id : person.user_id;
+      let existingUserId = role === "student" || role === "teacher" ? record.user_id : person.user_id;
+      if (role === "parent" && !existingUserId) {
+        const { data: parentPortal, error: parentPortalError } = await admin.from("parent_portal_accounts")
+          .select("user_id").eq("school_id", schoolId).eq("parent_guardian_id", recordId).eq("is_active", true).maybeSingle();
+        if (parentPortalError) throw new Error("Could not verify the parent portal login.");
+        existingUserId = parentPortal?.user_id ?? null;
+      }
       if (!existingUserId) return reply(409, { success: false, error: "This record has no linked portal login yet." });
 
       const { data: activeMembership, error: activeMembershipError } = await admin
