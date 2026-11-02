@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import {
-  ArrowLeft, Save, RefreshCw, Settings2, School, UserRound, ShieldCheck,
+  ArrowLeft, Save, RefreshCw, Settings2, School, UserRound, Users, ShieldCheck,
   Eye, EyeOff, CheckCircle2, AlertCircle, LogOut, KeyRound, Search, Copy, LoaderCircle,
 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -21,7 +21,7 @@ type Settings = {
 };
 type SessionOption = { id: string; name: string };
 type TermOption = { id: string; name: string; academic_session_id: string };
-type Tab = "school" | "account" | "access" | "security";
+type Tab = "school" | "management" | "account" | "access" | "security";
 type AccessRow = { role: "student" | "teacher" | "parent"; recordId: string; name: string; email: string; loginId: string; formalId: string; userId: string | null; accessStatus: string; active: boolean };
 
 const blank: Settings = {
@@ -313,6 +313,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
 
   const tabs: { id: Tab; label: string; description: string; icon: typeof School }[] = [
     { id: "school", label: "School profile", description: "School details and academic defaults", icon: School },
+    { id: "management", label: "Staff & other users", description: "Open staff, student and parent access controls", icon: Users },
     { id: "account", label: "Admin profile", description: "Name and login email", icon: UserRound },
     { id: "access", label: "Account & passwords", description: "Manage student, teacher and parent logins", icon: KeyRound },
     { id: "security", label: "Password & security", description: "Password and active sessions", icon: ShieldCheck },
@@ -388,6 +389,33 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
                 </div>
               </section>}
 
+              {tab === "management" && <div>
+                <div className="mb-5 border-b border-slate-100 pb-4">
+                  <h3 className="text-lg font-extrabold">Staff & other user management</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">Manage approval, activation, suspension and records for each school user group. These shortcuts open the existing management pages; they do not create duplicate controls or change anyone's access by themselves.</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Link href="/staff-invitations" className="group rounded-2xl border border-slate-200 p-5 transition hover:border-green-300 hover:bg-green-50/50">
+                    <div className="flex items-center gap-3"><span className="rounded-xl bg-green-100 p-3 text-green-900"><Users size={21}/></span><div><h4 className="font-extrabold text-slate-900">Teachers & staff</h4><p className="mt-1 text-xs text-slate-500">Invitations, approval, activation and suspension</p></div></div>
+                    <p className="mt-4 text-sm font-bold text-green-900">Open Staff Management →</p>
+                  </Link>
+                  <Link href="/students" className="group rounded-2xl border border-slate-200 p-5 transition hover:border-green-300 hover:bg-green-50/50">
+                    <div className="flex items-center gap-3"><span className="rounded-xl bg-blue-100 p-3 text-blue-900"><School size={21}/></span><div><h4 className="font-extrabold text-slate-900">Students</h4><p className="mt-1 text-xs text-slate-500">Student records, status and registration</p></div></div>
+                    <p className="mt-4 text-sm font-bold text-green-900">Open Student Management →</p>
+                  </Link>
+                  <Link href="/parent-management" className="group rounded-2xl border border-slate-200 p-5 transition hover:border-green-300 hover:bg-green-50/50">
+                    <div className="flex items-center gap-3"><span className="rounded-xl bg-amber-100 p-3 text-amber-900"><UserRound size={21}/></span><div><h4 className="font-extrabold text-slate-900">Parents & guardians</h4><p className="mt-1 text-xs text-slate-500">Invitations and parent portal activation, suspension or restoration</p></div></div>
+                    <p className="mt-4 text-sm font-bold text-green-900">Open Parent Management →</p>
+                  </Link>
+                  <Link href="/school-settings" onClick={() => setTab("access")} className="group rounded-2xl border border-slate-200 p-5 transition hover:border-green-300 hover:bg-green-50/50">
+                    <div className="flex items-center gap-3"><span className="rounded-xl bg-violet-100 p-3 text-violet-900"><KeyRound size={21}/></span><div><h4 className="font-extrabold text-slate-900">Login accounts & passwords</h4><p className="mt-1 text-xs text-slate-500">Create internal logins and issue individual access passwords</p></div></div>
+                    <p className="mt-4 text-sm font-bold text-green-900">Open Account & Passwords →</p>
+                  </Link>
+                </div>
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                  <strong>Access protection:</strong> These pages use the existing school records and permission checks. No student, teacher or parent account is activated, suspended, reset or deleted just by opening this section.
+                </div>
+              </div>}
               {tab === "account" && <form onSubmit={saveAccount}>
                 <div className="mb-5 border-b border-slate-100 pb-4"><h3 className="text-lg font-extrabold">Administrator profile</h3><p className="mt-1 text-sm text-slate-500">Change the name attached to your signed-in account or request a login email change.</p></div>
                 <div className="mb-4 rounded-xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Current login email</p><p className="mt-1 break-all font-semibold">{currentEmail || "No email found"}</p><p className="mt-2 text-xs leading-5 text-slate-500">Supabase may require you to confirm a new email address before it becomes active.</p></div>
