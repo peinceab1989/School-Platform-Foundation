@@ -61,9 +61,10 @@ Deno.serve(async (req: Request) => {
     const loginId = typeof body?.login_id === "string" ? body.login_id.trim() : "";
     const password = typeof body?.password === "string" ? body.password : "";
     const isResaAlias = /^[a-z0-9]+(?:\.[a-z0-9]+)*@resa\.com$/i.test(loginId);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginId);
     const isSchoolIdOrPhone = /^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\+\d[\d ().-]{7,20})$/.test(loginId);
-    if (!loginId || !password || loginId.length > 80 || password.length > 128 || (!isResaAlias && !isSchoolIdOrPhone)) {
-      return reply(400, { error: "Enter your login ID and password." });
+    if (!loginId || !password || loginId.length > 120 || password.length > 128 || (!isResaAlias && !isEmail && !isSchoolIdOrPhone)) {
+      return reply(400, { error: "Enter your registered email, login ID or phone number and password." });
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -135,6 +136,53 @@ Deno.serve(async (req: Request) => {
             .eq("role", "parent").eq("status", "active").maybeSingle();
           if (parentMembershipError) throw new Error("Could not verify parent school access.");
           if (parentMembership) candidateUserIds.add(portal.user_id);
+        }
+      }
+    }
+
+    // A parent's current contact email is also a supported login identifier.
+    // This is important for internally-created parent accounts whose Auth email
+    // is a private RESA alias rather than the parent's deliverable email address.
+    if (isEmail && !isResaAlias) {
+      const normalizedEmail = identifier.toLowerCase();
+      const { data: people, error: peopleError } = await admin
+        .from("people")
+        .select("id,email")
+        .eq("school_id", SCHOOL_ID)
+        .ilike("email", normalizedEmail)
+        .limit(10);
+      if (peopleError) throw new Error("Could not verify the parent email login.");
+      const matchedPeople = (people ?? []).filter((person) =>
+        typeof person.email === "string" && person.email.trim().toLowerCase() === normalizedEmail
+      );
+      for (const person of matchedPeople) {
+        const { data: guardians, error: guardianError } = await admin
+          .from("parents_guardians")
+          .select("id")
+          .eq("school_id", SCHOOL_ID)
+          .eq("person_id", person.id)
+          .limit(5);
+        if (guardianError) throw new Error("Could not verify the parent record.");
+        for (const guardian of guardians ?? []) {
+          const { data: portal, error: portalError } = await admin
+            .from("parent_portal_accounts")
+            .select("user_id")
+            .eq("school_id", SCHOOL_ID)
+            .eq("parent_guardian_id", guardian.id)
+            .eq("is_active", true)
+            .maybeSingle();
+          if (portalError) throw new Error("Could not verify parent portal access.");
+          if (!portal?.user_id) continue;
+          const { data: membership, error: membershipError } = await admin
+            .from("school_memberships")
+            .select("id")
+            .eq("school_id", SCHOOL_ID)
+            .eq("user_id", portal.user_id)
+            .eq("role", "parent")
+            .eq("status", "active")
+            .maybeSingle();
+          if (membershipError) throw new Error("Could not verify parent school access.");
+          if (membership) candidateUserIds.add(portal.user_id);
         }
       }
     }
