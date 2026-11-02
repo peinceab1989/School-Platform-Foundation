@@ -206,6 +206,28 @@ export default function MyPublishedResultsPage({schoolId,userId,role}:Props){
     </article>;
    })}
   </div>
-  <style>{`@page { size:A4 portrait; margin:10mm; } @media print { html,body,#root { background:#fff!important; } body { -webkit-print-color-adjust:exact; print-color-adjust:exact; } header, .print\\:hidden { display:none!important; } main { background:#fff!important; } .report-sheet { width:100%!important; max-width:none!important; margin:0!important; border:0!important; box-shadow:none!important; page-break-after:always; break-after:page; } .report-sheet:last-child { page-break-after:auto; break-after:auto; } button,a,select { display:none!important; } table { page-break-inside:avoid; } }`}</style>
+  <style>{`@page { size:A4 portrait; margin:6mm; }
+@media print {
+html,body,#root { background:#fff!important; }
+body { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+header, .print\\:hidden { display:none!important; }
+main { background:#fff!important; }
+.report-sheet { box-sizing:border-box!important; width:198mm!important; max-width:198mm!important; min-height:0!important; margin:0 auto!important; border:0!important; box-shadow:none!important; page-break-after:always; break-after:page; overflow:hidden!important; }
+.report-sheet:last-child { page-break-after:auto; break-after:auto; }
+.report-sheet > div { padding:3mm!important; }
+.report-sheet .h-2 { height:1.2mm!important; }
+.report-sheet .h-20,.report-sheet .w-20,.report-sheet .sm\\:h-24,.report-sheet .sm\\:w-24 { height:17mm!important; width:17mm!important; }
+.report-sheet section { break-inside:avoid; }
+.report-sheet .mt-6 { margin-top:2.5mm!important; } .report-sheet .mt-5 { margin-top:2.2mm!important; } .report-sheet .mt-4 { margin-top:1.8mm!important; } .report-sheet .mt-3 { margin-top:1.2mm!important; } .report-sheet .mt-2 { margin-top:0.8mm!important; }
+.report-sheet .mb-3 { margin-bottom:1.2mm!important; } .report-sheet .mb-2 { margin-bottom:0.8mm!important; }
+.report-sheet .p-5,.report-sheet .sm\\:p-8 { padding:2mm!important; } .report-sheet .p-4 { padding:1.6mm!important; } .report-sheet .p-3 { padding:1.3mm!important; }
+.report-sheet .px-2 { padding-left:1.2mm!important; padding-right:1.2mm!important; } .report-sheet .py-2,.report-sheet .py-2\\.5 { padding-top:0.8mm!important; padding-bottom:0.8mm!important; }
+.report-sheet .gap-4 { gap:2mm!important; } .report-sheet .gap-3 { gap:1.5mm!important; } .report-sheet .min-h-\\[92px\\] { min-height:0!important; }
+.report-sheet table { width:100%!important; font-size:7.2pt!important; line-height:1.12!important; page-break-inside:avoid; } .report-sheet th,.report-sheet td { padding:0.75mm 1mm!important; line-height:1.12!important; }
+.report-sheet .text-\\[10px\\] { font-size:7pt!important; line-height:1.15!important; } .report-sheet .text-\\[9px\\] { font-size:6.5pt!important; line-height:1.12!important; }
+.report-sheet .text-xs { font-size:7.4pt!important; line-height:1.18!important; } .report-sheet .text-sm { font-size:8pt!important; line-height:1.15!important; } .report-sheet .text-lg { font-size:11pt!important; line-height:1.1!important; } .report-sheet .text-2xl { font-size:15pt!important; line-height:1.05!important; }
+.report-sheet .leading-relaxed { line-height:1.15!important; } .report-sheet footer { margin-top:2mm!important; padding-top:1.5mm!important; }
+button,a,select { display:none!important; }
+}`}</style>
  </main>;
 }
