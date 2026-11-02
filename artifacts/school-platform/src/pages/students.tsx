@@ -967,6 +967,14 @@ export default function StudentsPage({
                           <p className="mt-1 text-xs text-slate-500">
                             {student.gender || "Gender not specified"}
                           </p>
+                          <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
+                            RESA Login ID: {(() => {
+                              const part = (value: string) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
+                              return part(student.first_name) && part(student.last_name)
+                                ? `${part(student.first_name)}.${part(student.last_name)}@resa.com`
+                                : "Available after the name is completed";
+                            })()}
+                          </p>
                         </td>
                         <td className="px-5 py-4">
                           {student.admission_number}
@@ -1019,6 +1027,14 @@ export default function StudentsPage({
                         </h4>
                         <p className="mt-1 text-sm text-slate-500">
                           Admission No: {student.admission_number}
+                        </p>
+                        <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
+                          RESA Login ID: {(() => {
+                            const part = (value: string) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
+                            return part(student.first_name) && part(student.last_name)
+                              ? `${part(student.first_name)}.${part(student.last_name)}@resa.com`
+                              : "Available after the name is completed";
+                          })()}
                         </p>
                       </div>
                       <span
