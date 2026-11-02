@@ -47,8 +47,8 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
         db.from("student_payment_receipts").select("id,payment_id,receipt_number,issued_to_student_id,amount,payment_method,receipt_date,description").eq("school_id", schoolId).order("receipt_date", { ascending: false }).limit(500),
       ]);
       for (const result of [peopleResult, classResult, receiptResult]) if (result.error) throw result.error;
-      const people = new Map((peopleResult.data ?? []).map((p: any) => [String(p.id), [p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
-      const classes = new Map((classResult.data ?? []).map((c: any) => [String(c.id), String(c.name)]));
+      const people = new Map<string, string>((peopleResult.data ?? []).map((p: any): [string, string] => [String(p.id), [p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
+      const classes = new Map<string, string>((classResult.data ?? []).map((c: any): [string, string] => [String(c.id), String(c.name)]));
       const enrollmentByStudent = new Map<string, any>();
       for (const e of enrollmentResult.data ?? []) if (!enrollmentByStudent.has(String(e.student_id))) enrollmentByStudent.set(String(e.student_id), e);
       const studentById = new Map<string, StudentOption>();
@@ -58,7 +58,7 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
         studentById.set(row.id, row);
         return row;
       });
-      const feeById = new Map<string, FeeType>((feeResult.data ?? []).map((f: any) => [String(f.id), { ...f, amount: Number(f.amount) }]));
+      const feeById = new Map<string, FeeType>((feeResult.data ?? []).map((f: any): [string, FeeType] => [String(f.id), { ...f, amount: Number(f.amount) }]));
       const paidByAssignment = new Map<string, number>();
       for (const p of paymentResult.data ?? []) paidByAssignment.set(String(p.student_fee_assignment_id), (paidByAssignment.get(String(p.student_fee_assignment_id)) || 0) + Number(p.amount_paid || 0));
       const assignmentRows: FeeAssignment[] = (assignmentResult.data ?? []).map((a: any) => {
@@ -79,7 +79,7 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
       setSessions((sessionResult.data ?? []) as SessionOption[]);
       setAssignments(assignmentRows);
       setPayments(paymentRows);
-      if (!assignForm.academic_session_id && sessionResult.data?.length) setAssignForm((v) => ({ ...v, academic_session_id: String(sessionResult.data[0].id) }));
+      if (sessionResult.data?.length) setAssignForm((v) => v.academic_session_id ? v : ({ ...v, academic_session_id: String(sessionResult.data[0].id) }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Fee records could not be loaded.");
     } finally { setLoading(false); }
@@ -116,6 +116,10 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
       const amount = Number(assignForm.amount_due || fee?.amount);
       if (!fee || !student || !session || !Number.isFinite(amount) || amount <= 0) throw new Error("Select a fee type, learner, academic session and valid amount.");
       const db = getSupabaseClient() as any;
+      const duplicate = await db.from("student_fee_assignments").select("id").eq("school_id", schoolId)
+        .eq("student_id", student.id).eq("fee_type_id", fee.id).eq("academic_session_id", session.id).limit(1);
+      if (duplicate.error) throw duplicate.error;
+      if (duplicate.data?.length) throw new Error("This fee has already been assigned to this learner for the selected academic session.");
       const inserted = await db.from("student_fee_assignments").insert({
         school_id: schoolId, student_id: student.id, fee_type_id: fee.id,
         academic_session_id: session.id, amount_due: amount,
@@ -124,15 +128,16 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
       if (inserted.error) throw inserted.error;
       const links = await db.from("parent_student_portal_access").select("parent_guardian_id").eq("school_id", schoolId).eq("student_id", student.id).eq("is_active", true);
       if (links.error) throw links.error;
+      let visibilityNotice = "Parent visibility was updated where an active parent-child link exists.";
       if (links.data?.length) {
         const views = links.data.map((link: any) => ({ school_id: schoolId, parent_guardian_id: link.parent_guardian_id, student_id: student.id, student_fee_assignment_id: inserted.data.id, can_view: true }));
         const viewResult = await db.from("parent_fee_portal_views").upsert(views, { onConflict: "parent_guardian_id,student_fee_assignment_id" });
-        if (viewResult.error) setNotice("Fee assigned, but parent visibility could not be updated: " + viewResult.error.message);
+        if (viewResult.error) visibilityNotice = "Parent visibility could not be updated: " + viewResult.error.message;
       } else {
-        setNotice("Fee assigned. No active parent-child portal link exists yet, so it will not appear in a parent dashboard until a parent link is activated.");
+        visibilityNotice = "No active parent-child portal link exists yet, so the fee will not appear in a parent dashboard until a parent link is activated.";
       }
       setAssignForm((v) => ({ ...v, fee_type_id: "", student_id: "", amount_due: "", due_date: "" }));
-      if (!notice) setNotice("Fee successfully assigned to " + student.name + ". Parent visibility was updated where an active link exists.");
+      setNotice("Fee successfully assigned to " + student.name + ". " + visibilityNotice);
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Fee could not be assigned."); }
     finally { setSaving(false); }
