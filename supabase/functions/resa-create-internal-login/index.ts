@@ -313,6 +313,7 @@ Deno.serve(async (req: Request) => {
       login_id: loginId,
       alternative_login_id: formalLoginId ?? null,
       temporary_password: password,
+      access_password: password,
       must_change_password: false,
       message: "Internal RESA login created. No email was sent. The administrator-issued RESA access password is active immediately.",
     });
