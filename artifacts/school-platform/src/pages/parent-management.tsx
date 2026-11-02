@@ -88,6 +88,7 @@ export default function ParentManagementPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [linkingId, setLinkingId] = useState("");
+  const [invitingParent, setInvitingParent] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -359,6 +360,51 @@ export default function ParentManagementPage({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleInviteParent(parentId: string, email: string, linkedStudentCount: number) {
+    setError("");
+    setMessage("");
+    if (!email.trim()) {
+      setError("Add the parent's real, deliverable email address before sending an invitation.");
+      return;
+    }
+    if (linkedStudentCount === 0) {
+      setError("Link this parent to at least one student before sending an invitation.");
+      return;
+    }
+    const confirmed = window.confirm(
+      "Send a secure RESA parent portal invitation to " + email.trim() + "? The parent will create their own password from the invitation email."
+    );
+    if (!confirmed) return;
+    setInvitingParent(parentId);
+    try {
+      const client = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Your administrator session has expired. Please sign in again.");
+      const { data, error: invokeError } = await client.functions.invoke("resa-invite-parent", {
+        body: { school_id: schoolId, parent_guardian_id: parentId },
+      });
+      if (invokeError) {
+        let details = invokeError.message;
+        try {
+          const response = invokeError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            details = body?.error || body?.message || details;
+          }
+        } catch { /* retain the original function error */ }
+        throw new Error(details || "The parent invitation could not be sent.");
+      }
+      if (data?.success !== true) throw new Error(data?.error || "The parent invitation could not be sent.");
+      setMessage(data.message || "Parent invitation sent. Portal access activates after the parent accepts and sets a password.");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The parent invitation could not be sent.");
+    } finally {
+      setInvitingParent(null);
     }
   }
 
@@ -715,6 +761,14 @@ export default function ParentManagementPage({
                         {person.phone || "No phone number"}
                         {person.email ? ` · ${person.email}` : ""}
                       </p>
+                      <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
+                        Optional RESA Login ID: {(() => {
+                          const part = (value: string) => value.normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\\.+|\\.+$/g, "");
+                          return part(person.first_name) && part(person.last_name)
+                            ? `${part(person.first_name)}.${part(person.last_name)}@resa.com`
+                            : "Available after the name is completed";
+                        })()}
+                      </p>
                       {person.address && (
                         <p className="mt-1 text-sm text-slate-500">
                           {person.address}
@@ -737,6 +791,15 @@ export default function ParentManagementPage({
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleInviteParent(parent.id, person.email || "", studentNames.length)}
+                        disabled={invitingParent !== null || !person.email || studentNames.length === 0}
+                        title={!person.email ? "Add a real email address first" : studentNames.length === 0 ? "Link at least one student first" : "Send secure parent portal invitation"}
+                        className="rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {invitingParent === parent.id ? "Sending..." : "Invite to Parent Portal"}
+                      </button>
                       <button
                         type="button"
                         onClick={() => startEdit({ parent, person, studentNames })}
