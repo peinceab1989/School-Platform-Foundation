@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 type Contact = { user_id: string; role: string; display_name: string };
-type Message = { id: string; sender_id: string; recipient_id: string; subject: string; message: string; is_read: boolean; sent_at: string; channel?: "private" | "customer_care"; conversation_id?: string | null };
+type Message = { id: string; sender_id: string; recipient_id: string; subject: string; message: string; is_read: boolean; sent_at: string; channel?: "private" | "customer_care" | "announcement"; conversation_id?: string | null };
 export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
