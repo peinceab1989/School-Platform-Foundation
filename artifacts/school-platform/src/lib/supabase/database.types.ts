@@ -250,9 +250,9 @@ export interface Database {
       };
 
       school_settings: {
-        Row: { id: string; school_id: string; motto: string | null; address: string | null; phone: string | null; email: string | null; website: string | null; logo_url: string | null; current_academic_session_id: string | null; current_term_id: string | null; created_at: string; updated_at: string };
-        Insert: { id?: string; school_id: string; motto?: string | null; address?: string | null; phone?: string | null; email?: string | null; website?: string | null; logo_url?: string | null; current_academic_session_id?: string | null; current_term_id?: string | null; created_at?: string; updated_at?: string };
-        Update: { id?: string; school_id?: string; motto?: string | null; address?: string | null; phone?: string | null; email?: string | null; website?: string | null; logo_url?: string | null; current_academic_session_id?: string | null; current_term_id?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: string; school_id: string; motto: string | null; address: string | null; phone: string | null; whatsapp_phone: string | null; admissions_phone: string | null; email: string | null; website: string | null; logo_url: string | null; current_academic_session_id: string | null; current_term_id: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; school_id: string; motto?: string | null; address?: string | null; phone?: string | null; whatsapp_phone?: string | null; admissions_phone?: string | null; email?: string | null; website?: string | null; logo_url?: string | null; current_academic_session_id?: string | null; current_term_id?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; school_id?: string; motto?: string | null; address?: string | null; phone?: string | null; whatsapp_phone?: string | null; admissions_phone?: string | null; email?: string | null; website?: string | null; logo_url?: string | null; current_academic_session_id?: string | null; current_term_id?: string | null; created_at?: string; updated_at?: string };
         Relationships: [];
       };
 
