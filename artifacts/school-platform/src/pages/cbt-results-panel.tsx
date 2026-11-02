@@ -255,7 +255,7 @@ export default function CbtResultsPanel({ schoolId }: { schoolId: string }) {
                 <div>
                   <p className="font-semibold">{attempt.student}</p>
                   <p className="text-sm text-slate-600">
-                    {attempt.title} · Objective score {attempt.score ?? 0} · {attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : "Date unavailable"}
+                    {attempt.title} · Recorded score {attempt.score ?? 0} · {attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : "Date unavailable"}
                   </p>
                   <p className={`mt-1 text-xs font-medium ${attempt.transferred ? "text-emerald-700" : attempt.transferBlockReason ? "text-amber-800" : "text-slate-500"}`}>
                     {attempt.transferred ? "Transferred to broadsheet" : attempt.transferBlockReason ? "Transfer blocked: " + attempt.transferBlockReason : "Ready for review and transfer"}
