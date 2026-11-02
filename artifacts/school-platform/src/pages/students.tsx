@@ -450,6 +450,12 @@ export default function StudentsPage({
       return;
     }
 
+    const emailDomain = email.split("@")[1]?.toLowerCase() ?? "";
+    if (emailDomain === "example.com" || emailDomain === "example.org" || emailDomain.endsWith(".test") || emailDomain.endsWith(".invalid")) {
+      setError("This is a placeholder email address and cannot receive an invitation. Use Create internal RESA login instead.");
+      return;
+    }
+
     const confirmed = window.confirm(
       `Create a student portal login for ${fullName(student)} using ${email}?\n\nAn invitation will be sent to this address.`,
     );
@@ -564,6 +570,9 @@ export default function StudentsPage({
       }
       const email = typeof data?.email === "string" ? data.email.trim() : "";
       if (!email) throw new Error("No email address is linked to this portal login.");
+      if (email.toLowerCase().endsWith(".invalid")) {
+        throw new Error("This is an internal RESA login with no email inbox. Use Set Temporary Password to issue a new one-time password.");
+      }
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
