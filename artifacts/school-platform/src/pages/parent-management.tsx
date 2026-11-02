@@ -409,7 +409,7 @@ export default function ParentManagementPage({
       return;
     }
     const confirmed = window.confirm(
-      `Create an internal RESA parent login for ${person.first_name} ${person.last_name}?\n\nNo email will be sent and no email address is required. The parent will use their phone number or RESA Login ID and a unique temporary password, which must be changed at first sign-in.`
+      `Create an internal RESA parent login for ${person.first_name} ${person.last_name}?\n\nNo email will be sent and no email address is required. The parent will use their phone number or RESA Login ID and a unique RESA access password, which must be changed at first sign-in.`
     );
     if (!confirmed) return;
     setError("");
@@ -438,7 +438,7 @@ export default function ParentManagementPage({
         throw new Error(data?.error || "The internal parent login was not completed.");
       }
       setMessage(
-        `Internal parent login created for ${person.first_name} ${person.last_name}. RESA Login ID: ${data.login_id}. Parent phone login: ${data.alternative_login_id || person.phone || "not available"}. ONE-TIME TEMPORARY PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; the parent must change it at first sign-in.`
+        `Internal parent login created for ${person.first_name} ${person.last_name}. RESA Login ID: ${data.login_id}. Parent phone login: ${data.alternative_login_id || person.phone || "not available"}. RESA ACCESS PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; the parent must change it at first sign-in.`
       );
       await loadData();
     } catch (err) {
@@ -558,11 +558,11 @@ export default function ParentManagementPage({
   async function handleResetInternalParentPassword(record: ParentRecord) {
     const { parent, person, portalAccount, membershipStatus } = record;
     if (!portalAccount?.user_id || membershipStatus !== "active" || !portalAccount.is_active) {
-      setError("Only an active parent portal account can receive a new temporary password.");
+      setError("Only an active parent portal account can receive a new RESA access password.");
       return;
     }
     const confirmed = window.confirm(
-      `Create a new one-time temporary password for ${person.first_name} ${person.last_name}? Their current password will stop working and they must change the new password at next sign-in.`
+      `Create a new one-time RESA access password for ${person.first_name} ${person.last_name}? Their current password will stop working and they must change the new password at next sign-in.`
     );
     if (!confirmed) return;
     setError("");
@@ -574,7 +574,7 @@ export default function ParentManagementPage({
       if (sessionError) throw sessionError;
       if (!sessionData.session) throw new Error("Your administrator session has expired. Please sign in again.");
       const { data, error: invokeError } = await client.functions.invoke("resa-create-internal-login", {
-        body: { role: "parent", record_id: parent.id, action: "reset_temporary_password" },
+        body: { role: "parent", record_id: parent.id, action: "reset_access_password" },
       });
       if (invokeError) {
         let details = invokeError.message;
@@ -585,16 +585,16 @@ export default function ParentManagementPage({
             details = body?.error || body?.message || details;
           }
         } catch { /* retain original function error */ }
-        throw new Error(details || "The parent temporary password could not be reset.");
+        throw new Error(details || "The parent RESA access password could not be reset.");
       }
       if (data?.success !== true || !data?.temporary_password) {
-        throw new Error(data?.error || "The parent temporary password could not be reset.");
+        throw new Error(data?.error || "The parent RESA access password could not be reset.");
       }
       setMessage(
-        `New one-time password for ${person.first_name} ${person.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. The parent must change it at next sign-in.`
+        `New new RESA access password for ${person.first_name} ${person.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. It works immediately; no forced change is required.`
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The parent temporary password could not be reset.");
+      setError(err instanceof Error ? err.message : "The parent RESA access password could not be reset.");
     } finally {
       setInvitingParent(null);
     }
@@ -1007,7 +1007,7 @@ export default function ParentManagementPage({
                           disabled={invitingParent !== null}
                           className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {invitingParent === parent.id ? "Updating..." : "Reset temporary password"}
+                          {invitingParent === parent.id ? "Updating..." : "Reset RESA access password"}
                         </button>
                       )}
                       {!portalAccount && studentNames.length > 0 && (
@@ -1016,7 +1016,7 @@ export default function ParentManagementPage({
                           onClick={() => void handleCreateInternalParentLogin({ parent, person, studentNames, portalAccount, membershipStatus })}
                           disabled={invitingParent !== null}
                           className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                          title="Create an email-free RESA login with a one-time temporary password"
+                          title="Create an email-free RESA login with a one-time RESA access password"
                         >
                           {invitingParent === parent.id ? "Creating login..." : "Create internal RESA login"}
                         </button>
