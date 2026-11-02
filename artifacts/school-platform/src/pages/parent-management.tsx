@@ -176,7 +176,11 @@ export default function ParentManagementPage({
       const links = (linkData ?? []) as ParentLink[];
       const portalAccounts = (portalData ?? []) as Array<ParentPortalAccount & { parent_guardian_id: string }>;
       const portalByGuardian = new Map(portalAccounts.map((account) => [account.parent_guardian_id, account]));
-      const membershipByUser = new Map((membershipData ?? []).map((membership: { user_id: string; status: string }) => [membership.user_id, membership.status]));
+      const membershipByUser = new Map<string, string>(
+        (membershipData ?? []).map((membership: { user_id: string; status: string }) =>
+          [membership.user_id, membership.status] as [string, string],
+        ),
+      );
 
       const records: ParentRecord[] = allParentRows.flatMap((parent) => {
         const person = peopleById.get(parent.person_id);
@@ -907,7 +911,7 @@ export default function ParentManagementPage({
                       </button>
                       <button
                         type="button"
-                        onClick={() => startEdit({ parent, person, studentNames })}
+                        onClick={() => startEdit({ parent, person, studentNames, portalAccount, membershipStatus })}
                         className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50"
                       >
                         Edit
