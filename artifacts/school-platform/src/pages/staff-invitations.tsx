@@ -303,7 +303,7 @@ export default function StaffInvitationsPage({
       return;
     }
     const confirmed = window.confirm(
-      `Create an internal RESA login for ${staff.first_name} ${staff.last_name}?\n\nNo email will be sent and no email address is required. The teacher will use the staff number or RESA Login ID and a unique temporary password, which must be changed at first sign-in.`
+      `Create an internal RESA login for ${staff.first_name} ${staff.last_name}?\n\nNo email will be sent and no email address is required. The teacher will use the staff number or RESA Login ID and a unique RESA access password, which must be changed at first sign-in.`
     );
     if (!confirmed) return;
     setError("");
@@ -332,7 +332,7 @@ export default function StaffInvitationsPage({
         throw new Error(data?.error || "The internal teacher login was not completed.");
       }
       setMessage(
-        `Internal teacher login created for ${staff.first_name} ${staff.last_name}. RESA Login ID: ${data.login_id}. Staff number: ${data.alternative_login_id || staff.staff_number || "not available"}. ONE-TIME TEMPORARY PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; the teacher must change it at first sign-in.`
+        `Internal teacher login created for ${staff.first_name} ${staff.last_name}. RESA Login ID: ${data.login_id}. Staff number: ${data.alternative_login_id || staff.staff_number || "not available"}. RESA ACCESS PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; the teacher must change it at first sign-in.`
       );
       await loadStaff();
     } catch (err: unknown) {
@@ -345,7 +345,7 @@ export default function StaffInvitationsPage({
   async function handleResetInternalStaffPassword(staff: StaffMember) {
     if (!staff.user_id) return;
     const confirmed = window.confirm(
-      `Create a new one-time temporary password for ${staff.first_name} ${staff.last_name}? Their current password will stop working and they must change the new password at next sign-in.`
+      `Create a new new RESA access password for ${staff.first_name} ${staff.last_name}? Their current password will stop working and the new password works immediately.`
     );
     if (!confirmed) return;
     setError("");
@@ -354,15 +354,15 @@ export default function StaffInvitationsPage({
     try {
       const client = getSupabaseClient();
       const { data, error: invokeError } = await client.functions.invoke("resa-create-internal-login", {
-        body: { role: "teacher", record_id: staff.id, action: "reset_temporary_password" },
+        body: { role: "teacher", record_id: staff.id, action: "reset_access_password" },
       });
       if (invokeError) throw invokeError;
-      if (data?.success !== true || !data?.temporary_password) throw new Error(data?.error || "The temporary password could not be reset.");
+      if (data?.success !== true || !data?.temporary_password) throw new Error(data?.error || "The RESA access password could not be reset.");
       setMessage(
-        `New one-time password for ${staff.first_name} ${staff.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. The teacher must change it at next sign-in.`
+        `New one-time password for ${staff.first_name} ${staff.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. It works immediately; no forced change is required.`
       );
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "The teacher temporary password could not be reset."));
+      setError(getErrorMessage(err, "The teacher RESA access password could not be reset."));
     } finally {
       setProcessingUser(null);
     }
@@ -734,7 +734,7 @@ export default function StaffInvitationsPage({
               disabled={processingUser !== null}
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2.5 text-sm font-bold text-indigo-800 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <RefreshCw className="h-4 w-4" /> Reset temporary password
+              <RefreshCw className="h-4 w-4" /> Reset RESA access password
             </button>
             <button
               type="button"
