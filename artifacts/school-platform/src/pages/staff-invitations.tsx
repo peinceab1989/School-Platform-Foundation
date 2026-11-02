@@ -33,6 +33,8 @@ type StaffMember = {
   department: string | null;
   staff_status: string;
   membership_status: string;
+  first_name: string;
+  last_name: string;
 };
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -120,13 +122,20 @@ export default function StaffInvitationsPage({
 
       const { data: staffRows, error: staffError } = await client
         .from("staff")
-        .select("user_id, staff_number, job_title, department, status")
+        .select("user_id, person_id, staff_number, job_title, department, status")
         .eq("school_id", schoolId)
         .in("user_id", userIds);
 
       if (staffError) {
         throw staffError;
       }
+
+      const personIds = [...new Set((staffRows ?? []).map((staff) => staff.person_id).filter(Boolean))];
+      const { data: peopleRows, error: peopleError } = personIds.length
+        ? await client.from("people").select("id, first_name, last_name").eq("school_id", schoolId).in("id", personIds)
+        : { data: [], error: null };
+      if (peopleError) throw peopleError;
+      const peopleById = new Map((peopleRows ?? []).map((person) => [person.id, person]));
 
       const members: StaffMember[] = (staffRows ?? [])
         .filter(
@@ -136,6 +145,7 @@ export default function StaffInvitationsPage({
         )
         .map((staff) => {
           const userId = staff.user_id as string;
+          const person = peopleById.get(staff.person_id);
 
           return {
             user_id: userId,
@@ -143,8 +153,9 @@ export default function StaffInvitationsPage({
             job_title: staff.job_title ?? null,
             department: staff.department ?? null,
             staff_status: staff.status ?? "pending",
-            membership_status:
-              membershipByUserId.get(userId) ?? "invited",
+            membership_status: membershipByUserId.get(userId) ?? "invited",
+            first_name: person?.first_name ?? "",
+            last_name: person?.last_name ?? "",
           };
         });
 
@@ -507,6 +518,14 @@ export default function StaffInvitationsPage({
               {staff.job_title || "Teacher"}
               {staff.department ? ` · ${staff.department}` : ""}
             </p>
+            {staff.first_name && staff.last_name && (
+              <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
+                Optional RESA Login ID: {(() => {
+                  const part = (value: string) => value.normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\\.+|\\.+$/g, "");
+                  return `${part(staff.first_name)}.${part(staff.last_name)}@resa.com`;
+                })()}
+              </p>
+            )}
 
             <div className="mt-2 flex flex-wrap gap-2">
               <span
