@@ -1000,8 +1000,8 @@ export default function ParentManagementPage({
                           {invitingParent === parent.id ? "Updating..." : membershipStatus === "active" && portalAccount.is_active ? "Suspend portal" : membershipStatus === "invited" ? "Invitation pending" : "Restore portal"}
                         </button>
                       )}
-                      {portalAccount && membershipStatus === "active" && portalAccount.is_active && <button type="button" onClick={() => setLocation("/school-settings")} className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-50">Manage password in School Settings</button>}}
-                      {!portalAccount && studentNames.length > 0 && <button type="button" onClick={() => setLocation("/school-settings")} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Create login in School Settings</button>}}
+                      {portalAccount && membershipStatus === "active" && portalAccount.is_active && <button type="button" onClick={() => setLocation("/school-settings")} className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-50">Manage password in School Settings</button>}
+                      {!portalAccount && studentNames.length > 0 && <button type="button" onClick={() => setLocation("/school-settings")} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Create login in School Settings</button>}
                       <button
                         type="button"
                         onClick={() => void handleInviteParent(parent.id, person.email || "", studentNames.length)}
