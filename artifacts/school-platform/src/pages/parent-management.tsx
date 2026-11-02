@@ -550,6 +550,51 @@ export default function ParentManagementPage({
     }
   }
 
+  async function handleResetInternalParentPassword(record: ParentRecord) {
+    const { parent, person, portalAccount, membershipStatus } = record;
+    if (!portalAccount?.user_id || membershipStatus !== "active" || !portalAccount.is_active) {
+      setError("Only an active parent portal account can receive a new temporary password.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Create a new one-time temporary password for ${person.first_name} ${person.last_name}? Their current password will stop working and they must change the new password at next sign-in.`
+    );
+    if (!confirmed) return;
+    setError("");
+    setMessage("");
+    setInvitingParent(parent.id);
+    try {
+      const client = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Your administrator session has expired. Please sign in again.");
+      const { data, error: invokeError } = await client.functions.invoke("resa-create-internal-login", {
+        body: { role: "parent", record_id: parent.id, action: "reset_temporary_password" },
+      });
+      if (invokeError) {
+        let details = invokeError.message;
+        try {
+          const response = invokeError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            details = body?.error || body?.message || details;
+          }
+        } catch { /* retain original function error */ }
+        throw new Error(details || "The parent temporary password could not be reset.");
+      }
+      if (data?.success !== true || !data?.temporary_password) {
+        throw new Error(data?.error || "The parent temporary password could not be reset.");
+      }
+      setMessage(
+        `New one-time password for ${person.first_name} ${person.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. The parent must change it at next sign-in.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The parent temporary password could not be reset.");
+    } finally {
+      setInvitingParent(null);
+    }
+  }
+
   async function handleLinkStudent(
     event: FormEvent<HTMLFormElement>,
     parentId: string,
@@ -948,6 +993,16 @@ export default function ParentManagementPage({
                           title={membershipStatus === "invited" ? "Waiting for the parent to accept the invitation" : "Change parent portal access"}
                         >
                           {invitingParent === parent.id ? "Updating..." : membershipStatus === "active" && portalAccount.is_active ? "Suspend portal" : membershipStatus === "invited" ? "Invitation pending" : "Restore portal"}
+                        </button>
+                      )}
+                      {portalAccount && membershipStatus === "active" && portalAccount.is_active && (
+                        <button
+                          type="button"
+                          onClick={() => void handleResetInternalParentPassword({ parent, person, studentNames, portalAccount, membershipStatus })}
+                          disabled={invitingParent !== null}
+                          className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {invitingParent === parent.id ? "Updating..." : "Reset temporary password"}
                         </button>
                       )}
                       {!portalAccount && studentNames.length > 0 && (
