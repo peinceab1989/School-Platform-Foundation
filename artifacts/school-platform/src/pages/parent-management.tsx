@@ -763,7 +763,7 @@ export default function ParentManagementPage({
                       </p>
                       <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
                         Optional RESA Login ID: {(() => {
-                          const part = (value: string) => value.normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\\.+|\\.+$/g, "");
+                          const part = (value: string) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
                           return part(person.first_name) && part(person.last_name)
                             ? `${part(person.first_name)}.${part(person.last_name)}@resa.com`
                             : "Available after the name is completed";
