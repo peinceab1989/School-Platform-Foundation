@@ -409,7 +409,7 @@ export default function ParentManagementPage({
       return;
     }
     const confirmed = window.confirm(
-      `Create an internal RESA parent login for ${person.first_name} ${person.last_name}?\n\nNo email will be sent and no email address is required. The parent will use their phone number or RESA Login ID and a unique RESA access password, which must be changed at first sign-in.`
+      `Create an internal RESA parent login for ${person.first_name} ${person.last_name}?\n\nNo email will be sent and no email address is required. The parent will use their phone number or RESA Login ID and a unique RESA access password, which works immediately and does not require a forced change.`
     );
     if (!confirmed) return;
     setError("");
