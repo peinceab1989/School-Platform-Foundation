@@ -1606,7 +1606,9 @@ function FoundationPage() {
     }
 
     if (parentMembership) {
-      if (!['/school-cctv', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) setLocation('/school-cctv');
+      if (!['/parent-dashboard', '/school-cctv', '/notifications', '/school-communication', '/my-results'].includes(currentPath)) {
+        setLocation('/parent-dashboard');
+      }
       return;
     }
 
@@ -1646,7 +1648,7 @@ function FoundationPage() {
     } else if (studentMembership) {
       setLocation('/student-dashboard');
     } else if (parentMembership) {
-      setLocation('/school-cctv');
+      setLocation('/parent-dashboard');
     }
   }, [
     currentPath,
