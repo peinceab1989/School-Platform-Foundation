@@ -293,6 +293,81 @@ export default function StaffInvitationsPage({
     }
   }
 
+  async function handleCreateInternalStaffLogin(staff: StaffMember) {
+    if (staff.user_id) {
+      setError("This staff record already has a linked login.");
+      return;
+    }
+    if (staff.staff_status !== "active") {
+      setError("Only active staff records can receive an internal login.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Create an internal RESA login for ${staff.first_name} ${staff.last_name}?\n\nNo email will be sent and no email address is required. The teacher will use the staff number or RESA Login ID and a unique temporary password, which must be changed at first sign-in.`
+    );
+    if (!confirmed) return;
+    setError("");
+    setMessage("");
+    setProcessingUser(staff.id);
+    try {
+      const client = getSupabaseClient();
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Your administrator session has expired. Please sign in again.");
+      const { data, error: invokeError } = await client.functions.invoke("resa-create-internal-login", {
+        body: { role: "teacher", record_id: staff.id },
+      });
+      if (invokeError) {
+        let details = invokeError.message;
+        try {
+          const response = invokeError.context;
+          if (response && typeof response.json === "function") {
+            const body = await response.json();
+            details = body?.error || body?.message || details;
+          }
+        } catch { /* retain original function error */ }
+        throw new Error(details || "The internal teacher login could not be created.");
+      }
+      if (data?.success !== true || !data?.temporary_password || !data?.login_id) {
+        throw new Error(data?.error || "The internal teacher login was not completed.");
+      }
+      setMessage(
+        `Internal teacher login created for ${staff.first_name} ${staff.last_name}. RESA Login ID: ${data.login_id}. Staff number: ${data.alternative_login_id || staff.staff_number || "not available"}. ONE-TIME TEMPORARY PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; the teacher must change it at first sign-in.`
+      );
+      await loadStaff();
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "The internal teacher login could not be created."));
+    } finally {
+      setProcessingUser(null);
+    }
+  }
+
+  async function handleResetInternalStaffPassword(staff: StaffMember) {
+    if (!staff.user_id) return;
+    const confirmed = window.confirm(
+      `Create a new one-time temporary password for ${staff.first_name} ${staff.last_name}? Their current password will stop working and they must change the new password at next sign-in.`
+    );
+    if (!confirmed) return;
+    setError("");
+    setMessage("");
+    setProcessingUser(staff.user_id);
+    try {
+      const client = getSupabaseClient();
+      const { data, error: invokeError } = await client.functions.invoke("resa-create-internal-login", {
+        body: { role: "teacher", record_id: staff.id, action: "reset_temporary_password" },
+      });
+      if (invokeError) throw invokeError;
+      if (data?.success !== true || !data?.temporary_password) throw new Error(data?.error || "The temporary password could not be reset.");
+      setMessage(
+        `New one-time password for ${staff.first_name} ${staff.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. The teacher must change it at next sign-in.`
+      );
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "The teacher temporary password could not be reset."));
+    } finally {
+      setProcessingUser(null);
+    }
+  }
+
   async function handleInviteExistingStaff(staff: StaffMember) {
     if (staff.user_id) {
       setError("This staff record already has a linked login.");
@@ -594,6 +669,30 @@ export default function StaffInvitationsPage({
         </div>
 
         {isNotInvited && (
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => void handleInviteExistingStaff(staff)}
+              disabled={processingUser !== null || !staff.email}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-700 px-3 py-2.5 text-sm font-bold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2"
+              title={!staff.email ? "Add a real email address to this staff contact first" : "Send an email invitation"}
+            >
+              {isProcessing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              {isProcessing ? "Sending…" : "Invite by email"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCreateInternalStaffLogin(staff)}
+              disabled={processingUser !== null}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2.5 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isProcessing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
+              {isProcessing ? "Creating…" : "Create internal RESA login"}
+            </button>
+          </div>
+        )}
+
+        {isInvited && (
           <button
             type="button"
             onClick={() => void handleInviteExistingStaff(staff)}
@@ -623,9 +722,18 @@ export default function StaffInvitationsPage({
         )}
 
         {isActive && (
-          <button
-            type="button"
-            onClick={() => void handleSuspend(staff)}
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => void handleResetInternalStaffPassword(staff)}
+              disabled={processingUser !== null}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2.5 text-sm font-bold text-indigo-800 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw className="h-4 w-4" /> Reset temporary password
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSuspend(staff)}
             disabled={processingUser !== null}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3 py-2.5 text-sm font-bold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
           >
@@ -635,7 +743,8 @@ export default function StaffInvitationsPage({
               <Ban className="h-4 w-4" />
             )}
             {isProcessing ? "Suspending…" : "Suspend Teacher"}
-          </button>
+            </button>
+          </div>
         )}
 
         {isSuspended && (
