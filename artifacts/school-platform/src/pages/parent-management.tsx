@@ -302,7 +302,7 @@ export default function ParentManagementPage({
         middle_name: form.middle_name.trim() || null,
         last_name: form.last_name.trim(),
         phone: form.phone.trim() || null,
-        email: form.email.trim() || null,
+        email: form.email.trim() ? form.email.trim().toLowerCase() : null,
         address: form.address.trim() || null,
       };
 
@@ -707,7 +707,7 @@ export default function ParentManagementPage({
             {editingId ? "Edit parent or guardian" : "Register a parent or guardian"}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            Enter the parent's contact details. Linking a student is optional.
+            Enter the parent's contact details. Use the current email address; parents with portal access can sign in using this email or their registered phone number. Linking a student is optional.
           </p>
 
           <form onSubmit={handleSave} className="mt-5 space-y-4">
