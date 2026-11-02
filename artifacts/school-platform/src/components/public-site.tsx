@@ -241,7 +241,7 @@ export function PublicFooter() {
         <div>
           <h2 className="text-sm font-bold text-[#e4c879]">Contact RESA</h2>
           <address className="mt-4 not-italic text-sm leading-7 text-[#d6dfd1]">
-            1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria.
+            1, Smiling George Way, Opposite Winners’ Chapel, Behind Matice, Sapele Road, Benin City, Edo State, Nigeria.
           </address>
           <a href={`tel:${SCHOOL_PHONE}`} className="mt-3 block w-fit text-sm font-semibold text-[#e4c879] hover:text-white">
             +234 805 842 2691
