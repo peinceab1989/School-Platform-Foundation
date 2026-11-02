@@ -137,14 +137,16 @@ Deno.serve(async (req: Request) => {
     }
     invitedUserId = inviteData.user.id;
 
-    const { error: personUpdateError } = await admin.from("people")
-      .update({ user_id: invitedUserId }).eq("id", personId).eq("school_id", schoolId).is("user_id", null);
-    if (personUpdateError) throw new Error("Could not link the invited account to the staff contact.");
+    const { data: personUpdatedRow, error: personUpdateError } = await admin.from("people")
+      .update({ user_id: invitedUserId }).eq("id", personId).eq("school_id", schoolId).is("user_id", null)
+      .select("id").maybeSingle();
+    if (personUpdateError || !personUpdatedRow) throw new Error("Could not safely link the invited account to the staff contact.");
     personLinked = true;
 
-    const { error: staffUpdateError } = await admin.from("staff")
-      .update({ user_id: invitedUserId }).eq("id", staffId).eq("school_id", schoolId).is("user_id", null);
-    if (staffUpdateError) throw new Error("Could not link the invited account to the existing staff record.");
+    const { data: staffUpdatedRow, error: staffUpdateError } = await admin.from("staff")
+      .update({ user_id: invitedUserId }).eq("id", staffId).eq("school_id", schoolId).is("user_id", null)
+      .select("id").maybeSingle();
+    if (staffUpdateError || !staffUpdatedRow) throw new Error("Could not safely link the invited account to the existing staff record.");
     staffLinked = true;
 
     const { error: createMembershipError } = await admin.from("school_memberships").insert({
