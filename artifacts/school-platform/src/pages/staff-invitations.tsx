@@ -332,7 +332,7 @@ export default function StaffInvitationsPage({
         throw new Error(data?.error || "The internal teacher login was not completed.");
       }
       setMessage(
-        `Internal teacher login created for ${staff.first_name} ${staff.last_name}. RESA Login ID: ${data.login_id}. Staff number: ${data.alternative_login_id || staff.staff_number || "not available"}. RESA ACCESS PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; the teacher must change it at first sign-in.`
+        `Internal teacher login created for ${staff.first_name} ${staff.last_name}. RESA Login ID: ${data.login_id}. Staff number: ${data.alternative_login_id || staff.staff_number || "not available"}. RESA ACCESS PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; it works immediately.`
       );
       await loadStaff();
     } catch (err: unknown) {
@@ -345,7 +345,7 @@ export default function StaffInvitationsPage({
   async function handleResetInternalStaffPassword(staff: StaffMember) {
     if (!staff.user_id) return;
     const confirmed = window.confirm(
-      `Create a new new RESA access password for ${staff.first_name} ${staff.last_name}? Their current password will stop working and the new password works immediately.`
+      `Create a new RESA access password for ${staff.first_name} ${staff.last_name}? Their current password will stop working and the new password works immediately.`
     );
     if (!confirmed) return;
     setError("");
@@ -359,7 +359,7 @@ export default function StaffInvitationsPage({
       if (invokeError) throw invokeError;
       if (data?.success !== true || !data?.temporary_password) throw new Error(data?.error || "The RESA access password could not be reset.");
       setMessage(
-        `New one-time password for ${staff.first_name} ${staff.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. It works immediately; no forced change is required.`
+        `New RESA access password for ${staff.first_name} ${staff.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. It works immediately; no forced change is required.`
       );
     } catch (err: unknown) {
       setError(getErrorMessage(err, "The teacher RESA access password could not be reset."));
