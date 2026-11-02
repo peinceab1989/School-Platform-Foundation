@@ -438,7 +438,7 @@ export default function ParentManagementPage({
         throw new Error(data?.error || "The internal parent login was not completed.");
       }
       setMessage(
-        `Internal parent login created for ${person.first_name} ${person.last_name}. RESA Login ID: ${data.login_id}. Parent phone login: ${data.alternative_login_id || person.phone || "not available"}. RESA ACCESS PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; the parent must change it at first sign-in.`
+        `Internal parent login created for ${person.first_name} ${person.last_name}. RESA Login ID: ${data.login_id}. Parent phone login: ${data.alternative_login_id || person.phone || "not available"}. RESA ACCESS PASSWORD: ${data.temporary_password}. No email was sent. Copy it now and share it privately; it works immediately.`
       );
       await loadData();
     } catch (err) {
@@ -591,7 +591,7 @@ export default function ParentManagementPage({
         throw new Error(data?.error || "The parent RESA access password could not be reset.");
       }
       setMessage(
-        `New new RESA access password for ${person.first_name} ${person.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. It works immediately; no forced change is required.`
+        `New RESA access password for ${person.first_name} ${person.last_name} (${data.login_id}): ${data.temporary_password}. Share it privately. It works immediately; no forced change is required.`
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "The parent RESA access password could not be reset.");
