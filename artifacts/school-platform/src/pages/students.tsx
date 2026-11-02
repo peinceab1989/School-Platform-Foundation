@@ -629,12 +629,12 @@ export default function StudentsPage({
       const temporaryPassword = typeof data?.temporary_password === "string" ? data.temporary_password : "";
       if (!temporaryPassword) throw new Error("The server did not return a RESA access password. Contact support before retrying.");
       window.alert(
-        "RESA ACCESS PASSWORD — " + fullName(student) + "\n\n" + temporaryPassword + "\n\nCopy it now and give it privately to the student. It is shown only once. The student must change it after signing in.",
+        "RESA ACCESS PASSWORD — " + fullName(student) + "\n\n" + temporaryPassword + "\n\nCopy it now and give it privately to the student. It is shown only once. No forced password change is required.",
       );
-      setSuccess("A RESA access password was set for " + fullName(student) + ". Share it privately; the student must change it at first sign-in.");
+      setSuccess("A RESA access password was set for " + fullName(student) + ". Share it privately; it works immediately.");
     } catch (err) {
       console.error("Unable to set student RESA access password:", err);
-      setError("Temporary password could not be set: " + errorMessage(err));
+      setError("RESA access password could not be set: " + errorMessage(err));
     } finally {
       setResettingPasswordId(null);
     }
