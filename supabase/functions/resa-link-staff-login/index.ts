@@ -111,13 +111,6 @@ Deno.serve(async (req: Request) => {
       return reply(400, { success: false, error: "This is a demo or placeholder email. Enter the staff member's real email address." });
     }
 
-    const { data: existingMembership, error: existingMembershipError } = await admin
-      .from("school_memberships").select("id,status")
-      .eq("school_id", schoolId).eq("role", "teacher")
-      .eq("user_id", staff.user_id ?? "00000000-0000-0000-0000-000000000000").maybeSingle();
-    if (existingMembershipError) throw new Error("Could not check existing staff membership.");
-    if (existingMembership) return reply(409, { success: false, error: "A teacher membership already exists for this account." });
-
     for (let page = 1; page <= 10; page++) {
       const { data: users, error: usersError } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
       if (usersError) throw new Error("Could not check whether this email already has a sign-in account.");
