@@ -830,7 +830,7 @@ export default function ParentManagementPage({
             </p>
           ) : (
             <div className="mt-5 space-y-3">
-              {paginatedParents.map(({ parent, person, studentNames }) => (
+              {paginatedParents.map(({ parent, person, studentNames, portalAccount, membershipStatus }) => (
                 <article
                   key={parent.id}
                   className="rounded-xl border border-slate-200 p-4"
@@ -849,7 +849,7 @@ export default function ParentManagementPage({
                         {person.phone || "No phone number"}
                         {person.email ? ` · ${person.email}` : ""}
                       </p>
-                      <p className="mt-1 text-xs font-medium ${portalAccount && membershipStatus === "active" && portalAccount.is_active ? "text-emerald-700" : portalAccount && membershipStatus === "suspended" ? "text-amber-700" : "text-slate-500"}">
+                      <p className={`mt-1 text-xs font-medium ${portalAccount && membershipStatus === "active" && portalAccount.is_active ? "text-emerald-700" : portalAccount && membershipStatus === "suspended" ? "text-amber-700" : "text-slate-500"}`}>
                         Portal status: {portalAccount ? membershipStatus === "active" && portalAccount.is_active ? "Active" : membershipStatus === "invited" ? "Invitation pending" : "Suspended / inactive" : "Not invited"}
                       </p>
                       <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
@@ -899,11 +899,11 @@ export default function ParentManagementPage({
                       <button
                         type="button"
                         onClick={() => void handleInviteParent(parent.id, person.email || "", studentNames.length)}
-                        disabled={invitingParent !== null || !person.email || studentNames.length === 0}
-                        title={!person.email ? "Add a real email address first" : studentNames.length === 0 ? "Link at least one student first" : "Send secure parent portal invitation"}
+                        disabled={invitingParent !== null || !person.email || studentNames.length === 0 || Boolean(portalAccount)}
+                        title={portalAccount ? "A portal invitation or account already exists for this parent" : !person.email ? "Add a real email address first" : studentNames.length === 0 ? "Link at least one student first" : "Send secure parent portal invitation"}
                         className="rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {invitingParent === parent.id ? "Sending..." : "Invite to Parent Portal"}
+                        {invitingParent === parent.id ? "Processing..." : portalAccount ? membershipStatus === "active" && portalAccount.is_active ? "Portal active" : membershipStatus === "invited" ? "Invitation pending" : "Invitation already exists" : "Invite to Parent Portal"}
                       </button>
                       <button
                         type="button"
