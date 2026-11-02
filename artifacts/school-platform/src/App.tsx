@@ -121,6 +121,8 @@ type NexusReadinessMetrics = {
   trackedTestRecords: number | null;
   publishedTermResults: number | null;
   subjectResultRows: number | null;
+  schoolMessages: number | null;
+  targetedNotifications: number | null;
 };
 
 function normalizePath(path: string): string {
@@ -801,6 +803,8 @@ function NexusDashboard({
         testRecordsResult,
         publishedResultsResult,
         subjectResultsResult,
+        schoolMessagesResult,
+        targetedNotificationsResult,
       ] = await Promise.all([
         client
           .from('nexus_module_controls')
@@ -839,6 +843,15 @@ function NexusDashboard({
         client
           .from('student_subject_results')
           .select('id', { count: 'exact', head: true }),
+
+        client
+          .from('school_messages')
+          .select('id', { count: 'exact', head: true }),
+
+        client
+          .from('school_messages')
+          .select('id', { count: 'exact', head: true })
+          .eq('channel', 'announcement'),
       ]);
 
       if (moduleResult.error) throw moduleResult.error;
@@ -853,6 +866,8 @@ function NexusDashboard({
         trackedTestRecords: testRecordsResult.error ? null : testRecordsResult.count ?? 0,
         publishedTermResults: publishedResultsResult.error ? null : publishedResultsResult.count ?? 0,
         subjectResultRows: subjectResultsResult.error ? null : subjectResultsResult.count ?? 0,
+        schoolMessages: schoolMessagesResult.error ? null : schoolMessagesResult.count ?? 0,
+        targetedNotifications: targetedNotificationsResult.error ? null : targetedNotificationsResult.count ?? 0,
       });
     } catch (error) {
       setErrorText(
@@ -913,6 +928,20 @@ function NexusDashboard({
       detail: 'Subject-level score rows available for report generation.',
       good: (readiness?.subjectResultRows ?? 0) > 0,
       action: 'Check that scores belong to the correct learners, subjects and term.',
+    },
+    {
+      label: 'School communication messages',
+      value: readiness?.schoolMessages ?? null,
+      detail: 'Private and customer-care messages recorded in the school communication centre.',
+      good: (readiness?.schoolMessages ?? 0) > 0,
+      action: 'Verify teacher, student, parent and administrator inbox access with test accounts.',
+    },
+    {
+      label: 'Role-targeted notifications',
+      value: readiness?.targetedNotifications ?? null,
+      detail: 'Recipient-specific school announcements sent through the notification channel.',
+      good: (readiness?.targetedNotifications ?? 0) > 0,
+      action: 'Test general, teacher, student, parent and individual-recipient delivery.',
     },
   ];
 
