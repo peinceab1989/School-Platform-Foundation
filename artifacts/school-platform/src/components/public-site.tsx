@@ -12,7 +12,7 @@ import { SchoolLogo } from "@/components/school-logo";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const FACEBOOK_URL = "https://www.facebook.com/share/1H2v8eruwR/";
-const SCHOOL_EMAIL = "Resainternational2024@gmail.com";
+const SCHOOL_EMAIL = "rhemaexploitsacademy@gmail.com";
 const SCHOOL_PHONE = "+2348058422691";
 const SCHOOL_WHATSAPP = "https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance.";
 const PORTAL_PATH = "/portal-options";
