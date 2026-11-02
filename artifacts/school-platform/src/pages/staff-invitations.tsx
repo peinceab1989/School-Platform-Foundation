@@ -890,34 +890,10 @@ export default function StaffInvitationsPage({
           </div>
         </section>
 
-        <details className="group rounded-2xl border border-amber-200 bg-amber-50 shadow-sm">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 sm:p-6"><span className="flex items-center gap-3"><AlertCircle className="h-5 w-5 text-amber-700" /><span><span className="block font-bold text-slate-900">Recover an Existing Invitation</span><span className="block text-sm text-slate-600">Password setup or remove an incomplete invitation</span></span></span><ChevronDown className="h-5 w-5 transition group-open:rotate-180" /></summary>
-          <div className="border-t border-amber-200 p-5 sm:p-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Recover an Existing Invitation</h2>
-              <p className="mt-1 text-sm text-slate-600">Use this when the email already exists but the teacher is missing from Pending Approval. Active or suspended staff accounts are protected.</p>
-            </div>
-          </div>
-          <label className="mt-4 block text-sm font-semibold">
-            Teacher email address
-            <input type="email" required value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-3 font-normal outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100" placeholder="teacher@example.com" />
-          </label>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button type="button" onClick={() => void handleExistingInvitation("resend")} disabled={submitting || !recoveryEmail.trim()} className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-800 px-4 py-3 text-sm font-bold text-white hover:bg-green-900 disabled:opacity-60">
-              {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              Resend Password Setup
-            </button>
-            <button type="button" onClick={() => void handleExistingInvitation("remove")} disabled={submitting || !recoveryEmail.trim()} className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-3 text-sm font-bold text-red-700 hover:bg-red-50 disabled:opacity-60">
-              {submitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
-              Remove Incomplete Invitation
-            </button>
-          </div>
-          <p className="mt-3 text-xs leading-5 text-slate-500">Removal affects only pending invitation records for this school. It never deletes the global authentication account or active/suspended staff.</p>
-                  </div>
-        </details>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          Password reset, RESA access-password setup and existing invitation recovery are now managed centrally in <Link href="/school-settings" className="font-bold underline">School Settings → Account & passwords</Link>.
+        </div>
+       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 sm:p-6"><span className="flex items-center gap-3"><span className="rounded-xl bg-green-50 p-3 text-green-800"><Mail className="h-6 w-6" /></span><span><span className="block font-bold">Invite a Teacher</span><span className="block text-sm text-slate-500">Tap to enter a new staff member</span></span></span><ChevronDown className="h-5 w-5 transition group-open:rotate-180" /></summary>
             <div className="border-t border-slate-200 p-5 sm:p-6">
