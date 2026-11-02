@@ -1736,16 +1736,31 @@ function FoundationPage() {
       const identifier = email.trim();
       const supabase = getSupabaseClient();
 
-      // A generated @resa.com identity is an internal login alias, not an
-      // actual mailbox. Resolve it through the protected school login function.
+      // Try a real Auth email first (invited parents and staff use this path).
+      // If it is not an Auth email, resolve it as a parent's current contact email;
+      // this keeps edited parent emails usable for internally-created RESA accounts.
       if (identifier.includes('@') && !identifier.toLowerCase().endsWith('@resa.com')) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error: emailError } = await supabase.auth.signInWithPassword({
           email: identifier.toLowerCase(),
           password,
         });
-        if (error) {
+        if (!emailError) return true;
+
+        const { data, error } = await supabase.functions.invoke('resa-login-by-id', {
+          body: { login_id: identifier, password },
+        });
+        if (error || !data?.session?.access_token || !data?.session?.refresh_token) {
           setAuthState('signed-out');
-          setErrorText(error.message);
+          setErrorText(data?.error || 'The email or password is incorrect, or this parent portal account is not active.');
+          return false;
+        }
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        if (sessionError) {
+          setAuthState('signed-out');
+          setErrorText('Your credentials were accepted, but the secure session could not be started. Please try again.');
           return false;
         }
         return true;
