@@ -46,9 +46,22 @@ Deno.serve(async (req: Request) => {
       if (student.status !== "active") return reply(409, { error: "Only active students can receive a temporary password." });
       const { data: authUser, error: authUserError } = await adminClient.auth.admin.getUserById(student.user_id);
       if (authUserError || !authUser.user) return reply(404, { error: "The linked portal account could not be found." });
-      const bytes = crypto.getRandomValues(new Uint8Array(18));
-      const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
-      const temporaryPassword = "RESA-" + hex.slice(0, 18) + "-" + hex.slice(18);
+      const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+      const lower = "abcdefghijkmnopqrstuvwxyz";
+      const digits = "23456789";
+      const all = upper + lower + digits;
+      const random = crypto.getRandomValues(new Uint32Array(8));
+      const chars = [
+        upper[random[0] % upper.length],
+        lower[random[1] % lower.length],
+        digits[random[2] % digits.length],
+        ...Array.from(random.slice(3), (value) => all[value % all.length]),
+      ];
+      for (let i = chars.length - 1; i > 0; i--) {
+        const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+        [chars[i], chars[j]] = [chars[j], chars[i]];
+      }
+      const temporaryPassword = chars.join("");
       const { error: updateError } = await adminClient.auth.admin.updateUserById(student.user_id, {
         password: temporaryPassword,
         app_metadata: { ...authUser.user.app_metadata, must_change_password: true }
