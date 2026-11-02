@@ -208,20 +208,23 @@ Deno.serve(async (req: Request) => {
     }
     createdUserId = created.user.id;
 
-    const { error: personUpdateError } = await admin.from("people")
-      .update({ user_id: createdUserId }).eq("id", personId).eq("school_id", schoolId).is("user_id", null);
-    if (personUpdateError) throw new Error("Could not link the internal login to the person record.");
+    const { data: personUpdatedRow, error: personUpdateError } = await admin.from("people")
+      .update({ user_id: createdUserId }).eq("id", personId).eq("school_id", schoolId).is("user_id", null)
+      .select("id").maybeSingle();
+    if (personUpdateError || !personUpdatedRow) throw new Error("Could not safely link the internal login to the person record.");
     personLinked = true;
 
     if (role === "student") {
-      const { error } = await admin.from("students")
-        .update({ user_id: createdUserId }).eq("id", recordId).eq("school_id", schoolId).is("user_id", null);
-      if (error) throw new Error("Could not link the internal login to the student record.");
+      const { data: linkedStudent, error } = await admin.from("students")
+        .update({ user_id: createdUserId }).eq("id", recordId).eq("school_id", schoolId).is("user_id", null)
+        .select("id").maybeSingle();
+      if (error || !linkedStudent) throw new Error("Could not safely link the internal login to the student record.");
       recordLinked = true;
     } else if (role === "teacher") {
-      const { error } = await admin.from("staff")
-        .update({ user_id: createdUserId }).eq("id", recordId).eq("school_id", schoolId).is("user_id", null);
-      if (error) throw new Error("Could not link the internal login to the staff record.");
+      const { data: linkedStaff, error } = await admin.from("staff")
+        .update({ user_id: createdUserId }).eq("id", recordId).eq("school_id", schoolId).is("user_id", null)
+        .select("id").maybeSingle();
+      if (error || !linkedStaff) throw new Error("Could not safely link the internal login to the staff record.");
       recordLinked = true;
     }
 
@@ -260,9 +263,10 @@ Deno.serve(async (req: Request) => {
       if (accessError) throw new Error("Could not create the parent's linked-student access.");
       parentAccessCreated = true;
 
-      const { error: guardianError } = await admin.from("parents_guardians")
-        .update({ portal_enabled: true }).eq("id", recordId).eq("school_id", schoolId);
-      if (guardianError) throw new Error("Could not enable the parent portal record.");
+      const { data: guardianUpdated, error: guardianError } = await admin.from("parents_guardians")
+        .update({ portal_enabled: true }).eq("id", recordId).eq("school_id", schoolId)
+        .select("id").maybeSingle();
+      if (guardianError || !guardianUpdated) throw new Error("Could not safely enable the parent portal record.");
       guardianEnabled = true;
     }
 
