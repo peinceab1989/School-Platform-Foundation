@@ -685,15 +685,7 @@ export default function StaffInvitationsPage({
               {isProcessing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
               {isProcessing ? "Sending…" : "Invite by email"}
             </button>
-            <button
-              type="button"
-              onClick={() => void handleCreateInternalStaffLogin(staff)}
-              disabled={processingUser !== null}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2.5 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isProcessing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
-              {isProcessing ? "Creating…" : "Create internal RESA login"}
-            </button>
+            
           </div>
         )}
 
@@ -728,14 +720,7 @@ export default function StaffInvitationsPage({
 
         {isActive && (
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => void handleResetInternalStaffPassword(staff)}
-              disabled={processingUser !== null}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2.5 text-sm font-bold text-indigo-800 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw className="h-4 w-4" /> Reset RESA access password
-            </button>
+            
             <button
               type="button"
               onClick={() => void handleSuspend(staff)}
@@ -747,7 +732,7 @@ export default function StaffInvitationsPage({
             ) : (
               <Ban className="h-4 w-4" />
             )}
-            {isProcessing ? "Suspending…" : "Suspend Teacher"}
+            {isProcessing ? "Processing…" : "Suspend Teacher"}
             </button>
           </div>
         )}
@@ -1081,7 +1066,7 @@ export default function StaffInvitationsPage({
             <div>
               <h2 className="text-lg font-bold">Staff Directory</h2>
               <p className="mt-1 text-sm text-slate-500">
-                Review active and suspended teacher memberships.
+                Review active and suspended teacher memberships. Manage all passwords centrally in School Settings → Account & passwords.
               </p>
             </div>
 
