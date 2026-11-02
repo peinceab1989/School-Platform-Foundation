@@ -394,11 +394,11 @@ export default function StudentsPage({
         } catch { /* retain original function error */ }
         throw new Error(details || "The internal student login could not be created.");
       }
-      if (data?.success !== true || !data?.access_password || data?.temporary_password || !data?.login_id) {
+      if (data?.success !== true || !data?.temporary_password || !data?.login_id) {
         throw new Error(data?.error || "The internal student login was not completed.");
       }
       setSuccess(
-        `Internal login created for ${fullName(student)}. RESA Login ID: ${data.login_id}. Admission number: ${data.alternative_login_id || student.admission_number}. RESA ACCESS PASSWORD: ${(data.access_password || data.temporary_password)}. No email was sent. It works immediately; no forced change is required. Copy it now and share it privately.`
+        `Internal login created for ${fullName(student)}. RESA Login ID: ${data.login_id}. Admission number: ${data.alternative_login_id || student.admission_number}. RESA ACCESS PASSWORD: ${(data.temporary_password)}. No email was sent. It works immediately; no forced change is required. Copy it now and share it privately.`
       );
       await loadStudents();
     } catch (err) {
