@@ -108,7 +108,7 @@ Three existing DEMO assignments had 18 graded submissions in total (six per assi
 5. Transfer a complete attempt only when all written answers are marked and the question total matches the exam total.
 6. Confirm that the result appears in the correct student's term and subject record.
 
-The six DEMO objective attempts were already submitted. A separate DEMO theory examination was prepared with two written questions; all 12 written answers were marked. The six existing Computer Studies result rows already contain examination scores, so the transfer function correctly refuses to overwrite them. The separate theory scores were therefore not substituted into those existing term results.
+The six DEMO objective attempts were already submitted. A separate DEMO theory examination was prepared with two written questions; all 12 written answers were marked. The manual-marking function now refreshes the attempt score after the final written answer is marked; this was tested using an authorised admin context and returned a completed score with zero pending answers. The six existing Computer Studies result rows already contain examination scores, so the transfer function correctly refuses to overwrite them. The separate theory scores were therefore not substituted into those existing term results. Students do not query the exam/question tables directly; the protected Student CBT function checks the active student membership and matching class/session before returning eligible published exams, which avoids exposing answer keys.
 
 ## 6. Results, CA, approval and printing
 
@@ -209,4 +209,4 @@ Each student's individual report contains all 14 subjects with CA, examination m
 8. Verify the latest Netlify deployment before declaring the portal launch-ready.
 9. Keep the DEMO dataset separate from official school records; clean test data only when the school explicitly authorises the cleanup.
 
-**Build evidence:** GitHub Actions run 544 completed successfully: https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/41442376228
+**Build evidence:** GitHub Actions run 549 completed successfully: https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/41443503957
