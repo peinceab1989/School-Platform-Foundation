@@ -46,6 +46,7 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setMessage("");
     if (password.length < 8) return setMessage("Choose a password with at least 8 characters.");
+    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) return setMessage("Your password must contain at least one letter and one number.");
     if (password !== confirmPassword) return setMessage("The passwords do not match.");
     setBusy(true);
     try {
@@ -90,7 +91,7 @@ export default function ResetPasswordPage() {
           <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
             <p className="text-sm leading-6 text-slate-600">{mustChangePassword ? "For your security, you must replace the temporary password before using the RESA portal." : "Choose a new password for your RESA portal account."}</p>
             <label className="block text-sm font-semibold" htmlFor="new-password">New password</label>
-            <input id="new-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" placeholder="At least 8 characters" />
+            <input id="new-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" placeholder="At least 8 characters, including a letter and a number" />
             <label className="block text-sm font-semibold" htmlFor="confirm-password">Confirm new password</label>
             <input id="confirm-password" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" placeholder="Enter the password again" />
             {message && <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{message}</p>}
