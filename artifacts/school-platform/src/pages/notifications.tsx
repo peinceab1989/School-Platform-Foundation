@@ -97,7 +97,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   }
 
   const unreadCount = items.filter(item => item.kind === "message" && item.unread).length;
-  const back = role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "student" ? "/student-dashboard" : "/school-cctv";
+  const back = role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "student" ? "/student-dashboard" : "/parent-dashboard";
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
       <Link href={back} className="mb-4 inline-flex items-center gap-2 text-sm text-emerald-100"><ArrowLeft size={16}/> Back to portal</Link>
