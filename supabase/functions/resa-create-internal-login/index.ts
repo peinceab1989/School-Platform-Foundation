@@ -18,9 +18,22 @@ function reply(status: number, body: Record<string, unknown>) {
 }
 
 function tempPassword() {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  const value = Array.from(bytes, (item) => item.toString(16).padStart(2, "0")).join("");
-  return "RESA-" + value.slice(0, 24) + "-" + value.slice(24);
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const digits = "23456789";
+  const all = upper + lower + digits;
+  const random = crypto.getRandomValues(new Uint32Array(8));
+  const chars = [
+    upper[random[0] % upper.length],
+    lower[random[1] % lower.length],
+    digits[random[2] % digits.length],
+    ...Array.from(random.slice(3), (value) => all[value % all.length]),
+  ];
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
 }
 
 function aliasPart(value: string) {
