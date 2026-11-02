@@ -17,6 +17,8 @@ import {
   TriangleAlert,
   ExternalLink,
   Globe,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { SchoolLogo } from '@/components/school-logo';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -122,6 +124,7 @@ function SignInView({
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
 
@@ -301,18 +304,30 @@ function SignInView({
                     Password
                   </label>
 
-                  <input
-                    id="foundation-password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full rounded-lg border border-[#e8e5da] bg-[#fffefa] px-3 py-3 text-[14px] text-[#30473d] placeholder:text-[#9ba39b] focus:border-[#789888] focus:outline-none focus:ring-2 focus:ring-[#789888]/20"
-                    data-testid="input-sign-in-password"
-                  />
+                  <div className="relative">
+                    <input
+                      id="foundation-password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Enter your password"
+                      className="w-full rounded-lg border border-[#e8e5da] bg-[#fffefa] px-3 py-3 pr-12 text-[14px] text-[#30473d] placeholder:text-[#9ba39b] focus:border-[#789888] focus:outline-none focus:ring-2 focus:ring-[#789888]/20"
+                      data-testid="input-sign-in-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
+                      className="absolute inset-y-0 right-0 flex items-center justify-center px-3 text-[#536456] hover:text-[#1f513d] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#789888]"
+                      data-testid="button-toggle-password-visibility"
+                    >
+                      {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                    </button>
+                  </div>
                 </div>
 
                 <button
