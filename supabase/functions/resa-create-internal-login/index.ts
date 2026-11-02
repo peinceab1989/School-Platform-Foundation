@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const existingUserId = role === "student" || role === "teacher" ? record.user_id : person.user_id;
-    if (existingUserId) return reply(409, { success: false, error: "This record is already linked to a login account." });
+    if (existingUserId || person.user_id) return reply(409, { success: false, error: "This record or its person profile is already linked to a login account." });
 
     if (role === "student") {
       const { data: existingPortal, error } = await admin.from("student_portal_accounts")
