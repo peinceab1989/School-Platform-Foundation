@@ -146,6 +146,15 @@ Deno.serve(async (req: Request) => {
 
     const loginId = resaAlias(person.first_name ?? "", person.last_name ?? "");
     if (!loginId) return reply(409, { success: false, error: "Complete the person's first and last names before creating a RESA login ID." });
+    const { data: peopleForAliasCheck, error: aliasCheckError } = await admin
+      .from("people").select("id,first_name,last_name").eq("school_id", schoolId).limit(5000);
+    if (aliasCheckError) throw new Error("Could not verify that the RESA login ID is unique.");
+    const aliasMatches = (peopleForAliasCheck ?? []).filter((candidate) =>
+      resaAlias(candidate.first_name ?? "", candidate.last_name ?? "") === loginId
+    );
+    if (aliasMatches.length !== 1 || aliasMatches[0]?.id !== personId) {
+      return reply(409, { success: false, error: "This person's generated RESA Login ID is not unique. Update the duplicate name details before creating an account, or use the formal school ID/phone login instead." });
+    }
 
     if (action === "reset_temporary_password") {
       const existingUserId = role === "student" || role === "teacher" ? record.user_id : person.user_id;
