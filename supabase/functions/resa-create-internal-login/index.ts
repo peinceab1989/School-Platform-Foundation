@@ -158,6 +158,12 @@ Deno.serve(async (req: Request) => {
 
     if (action === "reset_access_password") {
       let existingUserId = role === "student" || role === "teacher" ? record.user_id : person.user_id;
+      if (role === "student" && !existingUserId) {
+        const { data: studentPortal, error: studentPortalError } = await admin.from("student_portal_accounts")
+          .select("user_id").eq("school_id", schoolId).eq("student_id", recordId).eq("is_active", true).maybeSingle();
+        if (studentPortalError) throw new Error("Could not verify the student portal login.");
+        existingUserId = studentPortal?.user_id ?? null;
+      }
       if (role === "parent" && !existingUserId) {
         const { data: parentPortal, error: parentPortalError } = await admin.from("parent_portal_accounts")
           .select("user_id").eq("school_id", schoolId).eq("parent_guardian_id", recordId).eq("is_active", true).maybeSingle();
