@@ -244,6 +244,10 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
   }, [schoolId]);
 
   async function issueAccessPassword(row: AccessRow) {
+    const confirmed = window.confirm(row.userId
+      ? `Reset the password for ${row.name}? Their current password will stop working immediately.`
+      : `Create an internal RESA login and password for ${row.name}? This will create portal access for this existing school record.`);
+    if (!confirmed) return;
     const key=row.role+":"+row.recordId; setAccessBusy(key); setAccessResult(null); setCopiedAccessPassword(false); setError(""); setNotice("");
     try {
       const db=getSupabaseClient(); const {data:sessionData,error:sessionError}=await db.auth.getSession();
