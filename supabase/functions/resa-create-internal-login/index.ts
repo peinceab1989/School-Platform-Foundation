@@ -77,7 +77,7 @@ Deno.serve(async (req: Request) => {
 
     role = body.role === "student" || body.role === "teacher" || body.role === "parent" ? body.role : null;
     recordId = typeof body.record_id === "string" ? body.record_id.trim() : "";
-    const action = body.action === "reset_temporary_password" ? "reset_temporary_password" : "create";
+    const action = body.action === "reset_access_password" || body.action === "reset_temporary_password" ? "reset_access_password" : "create";
     if (!role || !SCHOOL_ID_PATTERN.test(recordId)) return reply(400, { success: false, error: "Choose a valid account type and school record." });
 
     let record: Record<string, any> | null = null;
@@ -156,7 +156,7 @@ Deno.serve(async (req: Request) => {
       return reply(409, { success: false, error: "This person's generated RESA Login ID is not unique. Update the duplicate name details before creating an account, or use the formal school ID/phone login instead." });
     }
 
-    if (action === "reset_temporary_password") {
+    if (action === "reset_access_password") {
       const existingUserId = role === "student" || role === "teacher" ? record.user_id : person.user_id;
       if (!existingUserId) return reply(409, { success: false, error: "This record has no linked portal login yet." });
 
@@ -186,7 +186,7 @@ Deno.serve(async (req: Request) => {
       const password = tempPassword();
       const { error: passwordError } = await admin.auth.admin.updateUserById(existingUserId, {
         password,
-        app_metadata: { ...authUser.user.app_metadata, must_change_password: true, resa_internal_login: true },
+        app_metadata: { ...authUser.user.app_metadata, must_change_password: false, resa_internal_login: true },
       });
       if (passwordError) throw new Error("Could not reset the temporary password.");
       return reply(200, {
@@ -194,8 +194,9 @@ Deno.serve(async (req: Request) => {
         role,
         login_id: loginId,
         temporary_password: password,
-        must_change_password: true,
-        message: "A new one-time temporary password has been created. The user must change it at next sign-in.",
+        access_password: password,
+        must_change_password: false,
+        message: "A new administrator-issued RESA access password is active immediately. No email was sent and no forced password change is required.",
       });
     }
 
@@ -229,7 +230,7 @@ Deno.serve(async (req: Request) => {
         internal_login: true,
       },
       app_metadata: {
-        must_change_password: true,
+        must_change_password: false,
         resa_internal_login: true,
       },
     });
@@ -312,8 +313,8 @@ Deno.serve(async (req: Request) => {
       login_id: loginId,
       alternative_login_id: formalLoginId ?? null,
       temporary_password: password,
-      must_change_password: true,
-      message: "Internal RESA login created. No email was sent. The user must change the temporary password at first sign-in.",
+      must_change_password: false,
+      message: "Internal RESA login created. No email was sent. The administrator-issued RESA access password is active immediately.",
     });
   } catch (error) {
     if (createdUserId) {
