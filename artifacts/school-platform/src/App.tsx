@@ -1595,7 +1595,9 @@ function FoundationPage() {
       const identifier = email.trim();
       const supabase = getSupabaseClient();
 
-      if (identifier.includes('@')) {
+      // A generated @resa.com identity is an internal login alias, not an
+      // actual mailbox. Resolve it through the protected school login function.
+      if (identifier.includes('@') && !identifier.toLowerCase().endsWith('@resa.com')) {
         const { error } = await supabase.auth.signInWithPassword({
           email: identifier.toLowerCase(),
           password,
