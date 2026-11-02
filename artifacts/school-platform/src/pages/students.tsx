@@ -371,7 +371,7 @@ export default function StudentsPage({
       return;
     }
     const confirmed = window.confirm(
-      `Create an internal RESA login for ${fullName(student)}?\n\nNo email will be sent and no email address is required. A unique temporary password will be shown once. The student must change it at first sign-in.`
+      `Create an internal RESA login for ${fullName(student)}?\n\nNo email will be sent and no email address is required. A unique RESA access password will be shown once. It works immediately; no forced change is required.`
     );
     if (!confirmed) return;
     setCreatingLoginId(student.id);
@@ -394,11 +394,11 @@ export default function StudentsPage({
         } catch { /* retain original function error */ }
         throw new Error(details || "The internal student login could not be created.");
       }
-      if (data?.success !== true || !data?.temporary_password || !data?.login_id) {
+      if (data?.success !== true || !data?.access_password || data?.temporary_password || !data?.login_id) {
         throw new Error(data?.error || "The internal student login was not completed.");
       }
       setSuccess(
-        `Internal login created for ${fullName(student)}. RESA Login ID: ${data.login_id}. Admission number: ${data.alternative_login_id || student.admission_number}. ONE-TIME TEMPORARY PASSWORD: ${data.temporary_password}. No email was sent. The student must change this password at first sign-in. Copy it now and share it privately.`
+        `Internal login created for ${fullName(student)}. RESA Login ID: ${data.login_id}. Admission number: ${data.alternative_login_id || student.admission_number}. RESA ACCESS PASSWORD: ${(data.access_password || data.temporary_password)}. No email was sent. It works immediately; no forced change is required. Copy it now and share it privately.`
       );
       await loadStudents();
     } catch (err) {
@@ -583,7 +583,7 @@ export default function StudentsPage({
       const details = errorMessage(err);
       const rateLimited = /rate limit|too many requests|email.*limit/i.test(details);
       setError(rateLimited
-        ? "RESA email service has temporarily limited password-reset emails. Do not tap Reset Password again now. Wait for the email limit to clear, or ask the administrator to use the temporary-password option when it is enabled."
+        ? "RESA email service has temporarily limited password-reset emails. Do not tap Reset Password again now. Wait for the email limit to clear, or ask the administrator to use the administrator-issued access-password option when it is enabled."
         : `Password reset could not be started: ${details}`);
     } finally {
       setResettingPasswordId(null);
@@ -599,11 +599,11 @@ export default function StudentsPage({
       return;
     }
     if (normalizedStatus(student.status) !== "active") {
-      setError("Only active students can receive a temporary password.");
+      setError("Only active students can receive a RESA access password.");
       return;
     }
     const confirmed = window.confirm(
-      "Set a temporary password for " + fullName(student) + "? Their current password will stop working. They must choose a new password at their next sign-in.",
+      "Set a RESA access password for " + fullName(student) + "? Their current password will stop working. The new password works immediately.",
     );
     if (!confirmed) return;
     setResettingPasswordId(student.id);
@@ -611,8 +611,8 @@ export default function StudentsPage({
       const supabase = getSupabaseClient();
       if (!supabase) throw new Error("Supabase is not configured.");
       const { data, error: functionError } = await supabase.functions.invoke(
-        "resa-admin-reset-student-password",
-        { body: { action: "set_temporary_password", student_id: student.id } },
+        "resa-create-internal-login",
+        { body: { role: "student", record_id: student.id, action: "reset_access_password" } },
       );
       if (functionError) {
         let message = functionError.message;
@@ -623,17 +623,17 @@ export default function StudentsPage({
             if (typeof body?.error === "string") message = body.error;
           }
         } catch { /* Keep the original function error. */ }
-        throw new Error(message || "Could not set a temporary password.");
+        throw new Error(message || "Could not set a RESA access password.");
       }
       if (data?.error) throw new Error(String(data.error));
       const temporaryPassword = typeof data?.temporary_password === "string" ? data.temporary_password : "";
-      if (!temporaryPassword) throw new Error("The server did not return a temporary password. Contact support before retrying.");
+      if (!temporaryPassword) throw new Error("The server did not return a RESA access password. Contact support before retrying.");
       window.alert(
         "TEMPORARY PASSWORD — " + fullName(student) + "\n\n" + temporaryPassword + "\n\nCopy it now and give it privately to the student. It is shown only once. The student must change it after signing in.",
       );
-      setSuccess("A temporary password was set for " + fullName(student) + ". Share it privately; the student must change it at first sign-in.");
+      setSuccess("A RESA access password was set for " + fullName(student) + ". Share it privately; the student must change it at first sign-in.");
     } catch (err) {
-      console.error("Unable to set student temporary password:", err);
+      console.error("Unable to set student RESA access password:", err);
       setError("Temporary password could not be set: " + errorMessage(err));
     } finally {
       setResettingPasswordId(null);
@@ -815,7 +815,7 @@ export default function StudentsPage({
               {student.user_id ? (
                 <>
                   <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleSetTemporaryPassword(student); }}>
-                    <KeyRound className="h-4 w-4" /> Set temporary password
+                    <KeyRound className="h-4 w-4" /> Set RESA access password
                   </button>
                   <button role="menuitem" type="button" disabled={busy || saving} onClick={() => { setOpenActionStudentId(null); void handleResetStudentPassword(student); }}>
                     <RefreshCw className="h-4 w-4" /> Reset password
