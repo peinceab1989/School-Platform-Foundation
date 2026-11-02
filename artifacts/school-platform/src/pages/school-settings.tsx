@@ -217,6 +217,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
       const [peopleResult, paResult, studentPortalResult] = await Promise.all([
         personIds.length ? db.from("people").select("id,first_name,middle_name,last_name,email,phone,user_id").eq("school_id",schoolId).in("id",personIds) : Promise.resolve({data:[],error:null}),
         db.from("parent_portal_accounts").select("parent_guardian_id,user_id,is_active").eq("school_id",schoolId),
+        db.from("student_portal_accounts").select("student_id,user_id,is_active").eq("school_id",schoolId),
       ]);
       if (peopleResult.error) throw peopleResult.error;
       if (paResult.error) throw paResult.error;
