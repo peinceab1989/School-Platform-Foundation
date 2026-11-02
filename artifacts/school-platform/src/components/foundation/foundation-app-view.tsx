@@ -290,10 +290,13 @@ function SignInView({
                     required
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    placeholder="Enter your RESA login ID or email"
+                    placeholder="Email, RESA ID, admission/staff number or phone"
                     className="w-full rounded-lg border border-[#e8e5da] bg-[#fffefa] px-3 py-3 text-[14px] text-[#30473d] placeholder:text-[#9ba39b] focus:border-[#789888] focus:outline-none focus:ring-2 focus:ring-[#789888]/20"
                     data-testid="input-sign-in-email"
                   />
+                  <p className="text-[11px] leading-4 text-[#6f7f75]">
+                    Use your registered email, RESA login ID, student admission number, teacher staff ID or parent phone number.
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
