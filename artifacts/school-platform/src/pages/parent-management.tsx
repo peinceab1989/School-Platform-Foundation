@@ -50,10 +50,18 @@ type ParentLink = {
   is_primary: boolean;
 };
 
+type ParentPortalAccount = {
+  id: string;
+  user_id: string;
+  is_active: boolean;
+};
+
 type ParentRecord = {
   parent: Parent;
   person: Person;
   studentNames: string[];
+  portalAccount: ParentPortalAccount | null;
+  membershipStatus: string | null;
 };
 
 const emptyForm = {
@@ -100,6 +108,8 @@ export default function ParentManagementPage({
       const [
         { data: parentData, error: parentError },
         { data: studentData, error: studentError },
+        { data: portalData, error: portalError },
+        { data: membershipData, error: membershipError },
       ] = await Promise.all([
         client
           .from("parents_guardians")
@@ -111,10 +121,21 @@ export default function ParentManagementPage({
           .select("id, school_id, person_id, admission_number, status")
           .eq("school_id", schoolId)
           .order("admission_number", { ascending: true }),
+        client
+          .from("parent_portal_accounts")
+          .select("id, parent_guardian_id, user_id, is_active")
+          .eq("school_id", schoolId),
+        client
+          .from("school_memberships")
+          .select("user_id, status")
+          .eq("school_id", schoolId)
+          .eq("role", "parent"),
       ]);
 
       if (parentError) throw parentError;
       if (studentError) throw studentError;
+      if (portalError) throw portalError;
+      if (membershipError) throw membershipError;
 
       const allParentRows = (parentData ?? []) as Parent[];
       const allStudentRows = (studentData ?? []) as Student[];
@@ -153,6 +174,9 @@ export default function ParentManagementPage({
       if (linkError) throw linkError;
 
       const links = (linkData ?? []) as ParentLink[];
+      const portalAccounts = (portalData ?? []) as Array<ParentPortalAccount & { parent_guardian_id: string }>;
+      const portalByGuardian = new Map(portalAccounts.map((account) => [account.parent_guardian_id, account]));
+      const membershipByUser = new Map((membershipData ?? []).map((membership: { user_id: string; status: string }) => [membership.user_id, membership.status]));
 
       const records: ParentRecord[] = allParentRows.flatMap((parent) => {
         const person = peopleById.get(parent.person_id);
@@ -169,7 +193,14 @@ export default function ParentManagementPage({
           })
           .filter(Boolean);
 
-        return [{ parent, person, studentNames }];
+        const portalAccount = portalByGuardian.get(parent.id) ?? null;
+        return [{
+          parent,
+          person,
+          studentNames,
+          portalAccount,
+          membershipStatus: portalAccount ? membershipByUser.get(portalAccount.user_id) ?? "invited" : null,
+        }];
       });
 
       setParents(records);
@@ -403,6 +434,63 @@ export default function ParentManagementPage({
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "The parent invitation could not be sent.");
+    } finally {
+      setInvitingParent(null);
+    }
+  }
+
+  async function handleSetParentAccess(record: ParentRecord, enable: boolean) {
+    const { parent, person, portalAccount, membershipStatus } = record;
+    if (!portalAccount?.user_id) {
+      setError("This parent has no accepted portal account yet. Send an invitation first.");
+      return;
+    }
+    if (enable && membershipStatus === "invited") {
+      setError("The parent must accept the invitation and set a password before access can be restored.");
+      return;
+    }
+    const action = enable ? "restore" : "suspend";
+    const confirmed = window.confirm(
+      `${action === "restore" ? "Restore" : "Suspend"} portal access for ${person.first_name} ${person.last_name}? ${enable ? "The parent will regain access to linked students." : "The parent will lose access immediately; their records and linked students will be retained."}`
+    );
+    if (!confirmed) return;
+    setError("");
+    setMessage("");
+    setInvitingParent(parent.id);
+    const client = getSupabaseClient() as any;
+    try {
+      if (enable) {
+        const { error: portalError } = await client.from("parent_portal_accounts")
+          .update({ is_active: true }).eq("id", portalAccount.id).eq("school_id", schoolId);
+        if (portalError) throw portalError;
+        const { error: membershipError } = await client.from("school_memberships")
+          .update({ status: "active" }).eq("school_id", schoolId)
+          .eq("user_id", portalAccount.user_id).eq("role", "parent");
+        if (membershipError) {
+          await client.from("parent_portal_accounts").update({ is_active: false }).eq("id", portalAccount.id);
+          throw membershipError;
+        }
+        const { error: guardianError } = await client.from("parents_guardians")
+          .update({ portal_enabled: true }).eq("id", parent.id).eq("school_id", schoolId);
+        if (guardianError) throw guardianError;
+        setMessage(`Portal access restored for ${person.first_name} ${person.last_name}.`);
+      } else {
+        const { error: membershipError } = await client.from("school_memberships")
+          .update({ status: "suspended" }).eq("school_id", schoolId)
+          .eq("user_id", portalAccount.user_id).eq("role", "parent");
+        if (membershipError) throw membershipError;
+        const { error: portalError } = await client.from("parent_portal_accounts")
+          .update({ is_active: false }).eq("id", portalAccount.id).eq("school_id", schoolId);
+        if (portalError) throw portalError;
+        const { error: guardianError } = await client.from("parents_guardians")
+          .update({ portal_enabled: false }).eq("id", parent.id).eq("school_id", schoolId);
+        if (guardianError) throw guardianError;
+        setMessage(`Portal access suspended for ${person.first_name} ${person.last_name}. Their records were retained.`);
+      }
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Parent portal access could not be updated.");
+      await loadData();
     } finally {
       setInvitingParent(null);
     }
@@ -761,6 +849,9 @@ export default function ParentManagementPage({
                         {person.phone || "No phone number"}
                         {person.email ? ` · ${person.email}` : ""}
                       </p>
+                      <p className="mt-1 text-xs font-medium ${portalAccount && membershipStatus === "active" && portalAccount.is_active ? "text-emerald-700" : portalAccount && membershipStatus === "suspended" ? "text-amber-700" : "text-slate-500"}">
+                        Portal status: {portalAccount ? membershipStatus === "active" && portalAccount.is_active ? "Active" : membershipStatus === "invited" ? "Invitation pending" : "Suspended / inactive" : "Not invited"}
+                      </p>
                       <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
                         Optional RESA Login ID: {(() => {
                           const part = (value: string) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
@@ -791,6 +882,20 @@ export default function ParentManagementPage({
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      {portalAccount && (
+                        <button
+                          type="button"
+                          onClick={() => void handleSetParentAccess(
+                            { parent, person, studentNames, portalAccount, membershipStatus },
+                            membershipStatus !== "active" || !portalAccount.is_active,
+                          )}
+                          disabled={invitingParent !== null || membershipStatus === "invited"}
+                          className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${membershipStatus === "active" && portalAccount.is_active ? "border border-amber-300 text-amber-800 hover:bg-amber-50" : "border border-emerald-300 text-emerald-800 hover:bg-emerald-50"}`}
+                          title={membershipStatus === "invited" ? "Waiting for the parent to accept the invitation" : "Change parent portal access"}
+                        >
+                          {invitingParent === parent.id ? "Updating..." : membershipStatus === "active" && portalAccount.is_active ? "Suspend portal" : membershipStatus === "invited" ? "Invitation pending" : "Restore portal"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => void handleInviteParent(parent.id, person.email || "", studentNames.length)}
