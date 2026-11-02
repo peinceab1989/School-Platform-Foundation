@@ -16,7 +16,7 @@
 | New teacher assignments | 39 additional assignment rows, all restricted to JSS 1–JSS 3 |
 | Teacher accounts used for new assignments | DEMO Teacher Chukwudi and DEMO Teacher Osas; both have active teacher memberships |
 | Existing JSS 1 assignments | Preserved; JSS 1 has 15 assignment rows because Basic Science already had two teachers |
-| DEMO lesson material | Published JSS 1 Basic Science lesson note, 2,562 characters |
+| DEMO lesson material | Published JSS 1 Computer Studies lesson note on digital safety and strong passwords |
 | Existing published DEMO assignments | 3 assignments with 18 graded submissions in total |
 | Objective CBT | 6 submitted DEMO attempts, 10 questions each; scores 9/10, 8/10, 10/10, 7/10, 9/10 and 8/10 |
 | Theory examination | 1 published DEMO theory exam, 2 written questions, 6 submitted attempts and 12 manually marked answers |
@@ -64,7 +64,7 @@ For this DEMO run, 39 missing assignments were added. Existing assignments were 
 8. Review every generated question, answer and explanation before publishing or assigning it to learners.
 9. Open the student practice-drill area to verify that the learner can see the drill.
 
-A DEMO Basic Science lesson note on water filtration and safe water was published for JSS 1. The AI Edge Function was updated to use the supplied lesson text as the primary source, rather than generating generic questions from only a topic label. **The actual AI provider request remains untested** until the school confirms the API secret and acceptable usage budget.
+A DEMO Computer Studies lesson note on digital safety and strong passwords was published for JSS 1 by assigned DEMO Teacher Chukwudi. The earlier Basic Science test note was unpublished after setup so the active lesson-material test uses a subject assigned to the uploading teacher. The AI Edge Function was updated to use the supplied lesson text as the primary source, rather than generating generic questions from only a topic label. **The actual AI provider request remains untested** until the school confirms the API secret and acceptable usage budget.
 
 ## 4. Assignments and continuous assessment
 
