@@ -303,7 +303,7 @@ export default function StaffInvitationsPage({
       return;
     }
     const confirmed = window.confirm(
-      `Create an internal RESA login for ${staff.first_name} ${staff.last_name}?\n\nNo email will be sent and no email address is required. The teacher will use the staff number or RESA Login ID and a unique RESA access password, which must be changed at first sign-in.`
+      `Create an internal RESA login for ${staff.first_name} ${staff.last_name}?\n\nNo email will be sent and no email address is required. The teacher will use the staff number or RESA Login ID and a unique RESA access password, which works immediately and does not require a forced change.`
     );
     if (!confirmed) return;
     setError("");
