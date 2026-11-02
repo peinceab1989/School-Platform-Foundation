@@ -1610,7 +1610,7 @@ function FoundationPage() {
         return true;
       }
 
-      if (!/^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\+\d[\d ().-]{7,20})$/.test(identifier)) {
+      if (!identifier.toLowerCase().endsWith('@resa.com') && !/^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\+\d[\d ().-]{7,20})$/.test(identifier)) {
         setAuthState('signed-out');
         setErrorText('Enter your registered email, student admission number, teacher staff ID, or parent phone number.');
         return false;
