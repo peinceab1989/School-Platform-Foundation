@@ -205,21 +205,162 @@ const statNumberStyle: CSSProperties = {
 };
 
 function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { schoolId: string; schoolName: string; userId: string; email?: string; onSignOut: () => void }) {
+  const [feeRows, setFeeRows] = useState<Array<Record<string, any>>>([]);
+  const [paymentRows, setPaymentRows] = useState<Array<Record<string, any>>>([]);
+  const [receiptRows, setReceiptRows] = useState<Array<Record<string, any>>>([]);
+  const [children, setChildren] = useState<Array<{ id: string; name: string }>>([]);
+  const [attendanceRows, setAttendanceRows] = useState<Array<Record<string, any>>>([]);
+  const [announcements, setAnnouncements] = useState<Array<Record<string, any>>>([]);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function loadParentOverview() {
+      setOverviewLoading(true);
+      setOverviewError("");
+      try {
+        const db = getSupabaseClient() as any;
+        const { data: accounts, error: accountError } = await db
+          .from("parent_portal_accounts")
+          .select("parent_guardian_id")
+          .eq("school_id", schoolId)
+          .eq("user_id", userId)
+          .eq("is_active", true);
+        if (accountError) throw accountError;
+        const parentIds = [...new Set<string>((accounts ?? []).map((row: any) => String(row.parent_guardian_id)))];
+        if (!parentIds.length) throw new Error("No active parent portal account is linked to this sign-in.");
+
+        const { data: links, error: linksError } = await db
+          .from("parent_student_portal_access")
+          .select("student_id")
+          .eq("school_id", schoolId)
+          .eq("is_active", true)
+          .in("parent_guardian_id", parentIds);
+        if (linksError) throw linksError;
+        const studentIds = [...new Set<string>((links ?? []).map((row: any) => String(row.student_id)))];
+
+        let childRows: Array<{ id: string; name: string }> = [];
+        if (studentIds.length) {
+          const { data: students, error: studentsError } = await db
+            .from("students")
+            .select("id,person_id,admission_number")
+            .eq("school_id", schoolId)
+            .in("id", studentIds);
+          if (studentsError) throw studentsError;
+          const personIds = [...new Set<string>((students ?? []).map((row: any) => row.person_id).filter(Boolean))];
+          const peopleResult = personIds.length
+            ? await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id", schoolId).in("id", personIds)
+            : { data: [], error: null };
+          if (peopleResult.error) throw peopleResult.error;
+          const people = new Map<string, string>((peopleResult.data ?? []).map((row: any) => [
+            String(row.id), [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(" "),
+          ]));
+          childRows = (students ?? []).map((row: any) => ({
+            id: String(row.id),
+            name: people.get(String(row.person_id)) || String(row.admission_number || "Linked learner"),
+          }));
+
+          const [feesResult, paymentsResult, receiptsResult, attendanceResult] = await Promise.all([
+            db.from("student_fee_assignments").select("id,student_id,fee_type_id,academic_session_id,amount_due,due_date,status,created_at")
+              .eq("school_id", schoolId).in("student_id", studentIds).order("due_date", { ascending: true }),
+            db.from("student_fee_payments").select("id,student_fee_assignment_id,student_id,amount_paid,payment_date,payment_method,reference_number,receipt_number")
+              .eq("school_id", schoolId).in("student_id", studentIds).order("payment_date", { ascending: false }),
+            db.from("student_payment_receipts").select("id,issued_to_student_id,receipt_number,receipt_date,amount,payment_method,description")
+              .eq("school_id", schoolId).in("issued_to_student_id", studentIds).order("receipt_date", { ascending: false }),
+            db.from("student_attendance").select("id,student_id,attendance_date,status")
+              .eq("school_id", schoolId).in("student_id", studentIds)
+              .gte("attendance_date", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
+              .order("attendance_date", { ascending: false }).limit(200),
+          ]);
+          for (const result of [feesResult, paymentsResult, receiptsResult, attendanceResult]) {
+            if (result.error) throw result.error;
+          }
+          if (active) {
+            setFeeRows((feesResult.data ?? []) as Array<Record<string, any>>);
+            setPaymentRows((paymentsResult.data ?? []) as Array<Record<string, any>>);
+            setReceiptRows((receiptsResult.data ?? []) as Array<Record<string, any>>);
+            setAttendanceRows((attendanceResult.data ?? []) as Array<Record<string, any>>);
+          }
+        } else if (active) {
+          setFeeRows([]); setPaymentRows([]); setReceiptRows([]); setAttendanceRows([]);
+        }
+
+        const { data: noticeRows, error: noticeError } = await db
+          .from("announcements")
+          .select("id,title,content,announcement_type,published_at,expires_at")
+          .eq("school_id", schoolId)
+          .eq("is_published", true)
+          .order("published_at", { ascending: false })
+          .limit(10);
+        if (noticeError) throw noticeError;
+        const now = Date.now();
+        const currentNotices = (noticeRows ?? []).filter((row: any) => !row.expires_at || new Date(row.expires_at).getTime() >= now);
+        if (active) {
+          setChildren(childRows);
+          setAnnouncements(currentNotices);
+        }
+      } catch (error) {
+        if (active) setOverviewError(error instanceof Error ? error.message : "Parent information could not be loaded.");
+      } finally {
+        if (active) setOverviewLoading(false);
+      }
+    }
+    void loadParentOverview();
+    return () => { active = false; };
+  }, [schoolId, userId]);
+
+  const childName = (id: string) => children.find((child) => child.id === id)?.name || "Linked learner";
+  const paidByAssignment = paymentRows.reduce<Record<string, number>>((totals, row) => {
+    const key = String(row.student_fee_assignment_id);
+    totals[key] = (totals[key] || 0) + Number(row.amount_paid || 0);
+    return totals;
+  }, {});
+  const totalDue = feeRows.reduce((sum, row) => sum + Number(row.amount_due || 0), 0);
+  const totalPaid = paymentRows.reduce((sum, row) => sum + Number(row.amount_paid || 0), 0);
+  const totalBalance = feeRows.reduce((sum, row) => sum + Math.max(0, Number(row.amount_due || 0) - (paidByAssignment[String(row.id)] || 0)), 0);
+  const money = (value: number) => "₦" + value.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return <main className="min-h-screen bg-stone-50 px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
     <div className="mx-auto grid w-full max-w-5xl gap-5">
       <header className="rounded-3xl bg-emerald-950 p-5 text-white shadow-sm sm:p-8">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA · Parent & Guardian Portal</p>
-        <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">Your child's school connection</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Stay informed about school communication, published academic results and important updates for the learners linked to your account.</p>
-        <p className="mt-3 break-words text-xs text-emerald-100">{schoolName} {email ? "· " + email : ""}</p>
-        <button type="button" onClick={onSignOut} className="mt-5 min-h-11 rounded-xl bg-amber-200 px-4 py-2 text-sm font-bold text-emerald-950">Sign out</button>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA · Parent & Guardian Portal</p>
+            <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">Your family's school connection</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Keep up with fees, receipts, attendance, academic results, school notices and messages for learners linked to your account.</p>
+            <p className="mt-3 break-words text-xs text-emerald-100">{schoolName} {email ? "· " + email : ""}</p>
+          </div>
+          <button type="button" onClick={onSignOut} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-emerald-950">↪ Sign out</button>
+        </div>
       </header>
       <ProfilePhotoCard userId={userId} displayName={email} roleLabel="Parent / Guardian" />
+
+      {overviewError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{overviewError}</p>}
+      <section className="grid gap-3 sm:grid-cols-3">
+        <article className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total fees assigned</p><p className="mt-2 text-xl font-extrabold text-emerald-950">{overviewLoading ? "Loading…" : money(totalDue)}</p></article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Payments recorded</p><p className="mt-2 text-xl font-extrabold text-slate-900">{overviewLoading ? "Loading…" : money(totalPaid)}</p></article>
+        <article className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Outstanding balance</p><p className="mt-2 text-xl font-extrabold text-amber-950">{overviewLoading ? "Loading…" : money(totalBalance)}</p></article>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-extrabold text-emerald-950">School fees & payments</h2><p className="mt-1 text-sm text-slate-600">View fee charges, due dates, recorded payments and receipts for your linked children.</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">Parent view</span></div>
+        {overviewLoading ? <p className="mt-4 text-sm text-slate-500">Loading fee information…</p> : feeRows.length === 0 ? <p className="mt-4 rounded-xl border border-dashed p-4 text-sm leading-6 text-slate-600">No fee charges have been published to your parent account yet. Once the school assigns fees and enables your authorised fee view, they will appear here. For current payment instructions, contact the school through <Link href="/school-communication" className="font-bold text-emerald-800 underline">School Messages</Link>.</p> : <div className="mt-4 overflow-x-auto rounded-xl border"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50"><tr><th className="px-3 py-3">Learner</th><th className="px-3 py-3">Amount due</th><th className="px-3 py-3">Paid</th><th className="px-3 py-3">Balance</th><th className="px-3 py-3">Due date</th><th className="px-3 py-3">Status</th></tr></thead><tbody>{feeRows.map((row) => { const paid = paidByAssignment[String(row.id)] || 0; const due = Number(row.amount_due || 0); const balance = Math.max(0, due - paid); return <tr key={String(row.id)} className="border-t"><td className="px-3 py-3 font-semibold">{childName(String(row.student_id))}</td><td className="px-3 py-3">{money(due)}</td><td className="px-3 py-3">{money(paid)}</td><td className="px-3 py-3 font-bold">{money(balance)}</td><td className="px-3 py-3">{row.due_date ? new Date(String(row.due_date) + "T00:00:00").toLocaleDateString("en-NG") : "—"}</td><td className="px-3 py-3">{balance <= 0 ? "Paid" : paid > 0 ? "Part-paid" : String(row.status || "Outstanding")}</td></tr>; })}</tbody></table></div>}
+        <p className="mt-3 text-xs leading-5 text-slate-500">Online card/bank checkout is not enabled here. Do not pay into an account number sent in an unofficial message; use payment instructions confirmed by RESA Finance.</p>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2">
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-extrabold text-emerald-950">Payment history & receipts</h2>{overviewLoading ? <p className="mt-2 text-sm text-slate-500">Loading…</p> : receiptRows.length === 0 && paymentRows.length === 0 ? <p className="mt-2 text-sm leading-6 text-slate-600">No payment or receipt has been recorded for your linked children yet.</p> : <div className="mt-3 space-y-3">{receiptRows.map((row) => <div key={String(row.id)} className="flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-sm"><div><p className="font-bold">{String(row.receipt_number || "Payment receipt")}</p><p className="text-xs text-slate-500">{childName(String(row.issued_to_student_id))} · {row.receipt_date || ""} · {String(row.payment_method || "Payment")}</p></div><span className="font-bold">{money(Number(row.amount || 0))}</span></div>)}</div>}</article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-extrabold text-emerald-950">Attendance overview</h2>{overviewLoading ? <p className="mt-2 text-sm text-slate-500">Loading…</p> : attendanceRows.length === 0 ? <p className="mt-2 text-sm text-slate-600">No attendance records are available for the linked learners in the last 30 days.</p> : <div className="mt-3 space-y-2">{children.map((child) => { const rows = attendanceRows.filter((row) => String(row.student_id) === child.id); const present = rows.filter((row) => String(row.status).toLowerCase() === "present").length; return <div key={child.id} className="rounded-xl bg-slate-50 p-3 text-sm"><p className="font-bold">{child.name}</p><p className="mt-1 text-slate-600">{present} present · {rows.length - present} other attendance entries · {rows.length} recorded in last 30 days</p></div>; })}</div>}</article>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-extrabold text-emerald-950">School announcements</h2>{overviewLoading ? <p className="mt-2 text-sm text-slate-500">Loading notices…</p> : announcements.length === 0 ? <p className="mt-2 text-sm text-slate-600">There are no current published announcements.</p> : <div className="mt-3 space-y-3">{announcements.map((notice) => <article key={String(notice.id)} className="rounded-xl border border-slate-100 bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-amber-800">{String(notice.announcement_type || "General")} {notice.published_at ? "· " + new Date(String(notice.published_at)).toLocaleDateString("en-NG") : ""}</p><h3 className="mt-1 font-bold text-emerald-950">{String(notice.title)}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{String(notice.content)}</p></article>)}</div>}</section>
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Link href="/my-results" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Published results</h2><p className="mt-2 text-sm leading-6 text-slate-600">View report cards for learners linked to your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View results →</span></Link>
-        <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School messages</h2><p className="mt-2 text-sm leading-6 text-slate-600">Communicate with authorised school staff.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open messages →</span></Link>
+        <Link href="/my-results" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Published results</h2><p className="mt-2 text-sm leading-6 text-slate-600">View and print report cards for learners linked to your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View results →</span></Link>
+        <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School messages & enquiries</h2><p className="mt-2 text-sm leading-6 text-slate-600">Contact authorised school staff about fees and your child's progress.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open messages →</span></Link>
         <Link href="/notifications" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">Notifications</h2><p className="mt-2 text-sm leading-6 text-slate-600">Check important school notices and account updates.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View notifications →</span></Link>
-        <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School monitoring</h2><p className="mt-2 text-sm leading-6 text-slate-600">Access monitoring services when enabled and authorised.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
+        <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-700"><h2 className="font-extrabold text-emerald-950">School monitoring</h2><p className="mt-2 text-sm leading-6 text-slate-600">Access monitoring services only when enabled and authorised.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
       </section>
       <footer className="py-3 text-center text-xs text-slate-500">Designed & Powered by JETAB TECH</footer>
     </div>
