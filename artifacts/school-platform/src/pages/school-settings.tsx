@@ -214,14 +214,16 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
       ]);
       for (const r of [sr,tr,pr]) if (r.error) throw r.error;
       const personIds = [...new Set([...(sr.data ?? []).map((x:any)=>x.person_id), ...(tr.data ?? []).map((x:any)=>x.person_id), ...(pr.data ?? []).map((x:any)=>x.person_id)].filter(Boolean))];
-      const [peopleResult, paResult] = await Promise.all([
+      const [peopleResult, paResult, studentPortalResult] = await Promise.all([
         personIds.length ? db.from("people").select("id,first_name,middle_name,last_name,email,phone,user_id").eq("school_id",schoolId).in("id",personIds) : Promise.resolve({data:[],error:null}),
         db.from("parent_portal_accounts").select("parent_guardian_id,user_id,is_active").eq("school_id",schoolId),
       ]);
       if (peopleResult.error) throw peopleResult.error;
       if (paResult.error) throw paResult.error;
+      if (studentPortalResult.error) throw studentPortalResult.error;
       const people = new Map<string,any>((peopleResult.data ?? []).map((x:any)=>[x.id,x]));
       const parentAccounts = new Map<string,any>((paResult.data ?? []).map((x:any)=>[x.parent_guardian_id,x]));
+      const studentPortals = new Map<string,any>((studentPortalResult.data ?? []).map((x:any)=>[x.student_id,x]));
       const userIds = [...new Set([...(sr.data ?? []).map((x:any)=>x.user_id), ...(tr.data ?? []).map((x:any)=>x.user_id), ...(pr.data ?? []).map((x:any)=>people.get(x.person_id)?.user_id || parentAccounts.get(x.id)?.user_id)].filter(Boolean))];
       const mr = userIds.length ? await db.from("school_memberships").select("user_id,role,status").eq("school_id",schoolId).in("user_id",userIds) : {data:[],error:null};
       if (mr.error) throw mr.error;
@@ -232,7 +234,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
         return part(p.first_name)+"."+part(p.last_name)+"@resa.com";
       };
       const rows: AccessRow[] = [];
-      for (const x of sr.data ?? []) { const p=people.get(x.person_id); const uid=x.user_id ?? null; const m=uid?memberships.get(uid+":student"):null; rows.push({role:"student",recordId:x.id,name:[p?.first_name,p?.middle_name,p?.last_name].filter(Boolean).join(" ")||x.admission_number||"Student",email:p?.email??"",loginId:makeAlias(p),formalId:x.admission_number??"",userId:uid,accessStatus:m?.status??(uid?"linked / unverified":"not linked"),active:Boolean(uid&&m?.status==="active"&&x.status==="active")}); }
+      for (const x of sr.data ?? []) { const p=people.get(x.person_id); const uid=x.user_id ?? null; const m=uid?memberships.get(uid+":student"):null; rows.push({role:"student",recordId:x.id,name:[p?.first_name,p?.middle_name,p?.last_name].filter(Boolean).join(" ")||x.admission_number||"Student",email:p?.email??"",loginId:makeAlias(p),formalId:x.admission_number??"",userId:uid,accessStatus:m?.status??(uid?"linked / unverified":"not linked"),active:Boolean(uid&&m?.status==="active"&&x.status==="active"&&studentPortals.get(x.id)?.is_active===true&&studentPortals.get(x.id)?.user_id===uid)}); }
       for (const x of tr.data ?? []) { const p=people.get(x.person_id); const uid=x.user_id ?? null; const m=uid?memberships.get(uid+":teacher"):null; rows.push({role:"teacher",recordId:x.id,name:[p?.first_name,p?.middle_name,p?.last_name].filter(Boolean).join(" ")||x.staff_number||"Teacher",email:p?.email??"",loginId:makeAlias(p),formalId:x.staff_number??"",userId:uid,accessStatus:m?.status??(uid?"linked / unverified":"not linked"),active:Boolean(uid&&m?.status==="active"&&x.status==="active")}); }
       for (const x of pr.data ?? []) { const p=people.get(x.person_id); const pa=parentAccounts.get(x.id); const uid=p?.user_id??pa?.user_id??null; const m=uid?memberships.get(uid+":parent"):null; rows.push({role:"parent",recordId:x.id,name:[p?.first_name,p?.middle_name,p?.last_name].filter(Boolean).join(" ")||"Parent",email:p?.email??"",loginId:makeAlias(p),formalId:p?.phone??"",userId:uid,accessStatus:m?.status??(uid?"linked / unverified":"not linked"),active:Boolean(uid&&m?.status==="active"&&pa?.is_active&&x.portal_enabled)}); }
       setAccessRows(rows);
