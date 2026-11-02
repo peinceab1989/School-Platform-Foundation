@@ -150,6 +150,28 @@ Deno.serve(async (req: Request) => {
     if (action === "reset_temporary_password") {
       const existingUserId = role === "student" || role === "teacher" ? record.user_id : person.user_id;
       if (!existingUserId) return reply(409, { success: false, error: "This record has no linked portal login yet." });
+
+      const { data: activeMembership, error: activeMembershipError } = await admin
+        .from("school_memberships").select("id")
+        .eq("school_id", schoolId).eq("user_id", existingUserId)
+        .eq("role", role).eq("status", "active").maybeSingle();
+      if (activeMembershipError) throw new Error("Could not verify the linked account's school access.");
+      if (!activeMembership) return reply(409, { success: false, error: "Only an active school portal account can receive a password reset." });
+
+      if (role === "student") {
+        const { data: portal, error } = await admin.from("student_portal_accounts")
+          .select("id").eq("school_id", schoolId).eq("student_id", recordId)
+          .eq("user_id", existingUserId).eq("is_active", true).maybeSingle();
+        if (error) throw new Error("Could not verify the student's portal account.");
+        if (!portal) return reply(409, { success: false, error: "The student portal account is inactive or unavailable." });
+      } else if (role === "parent") {
+        const { data: portal, error } = await admin.from("parent_portal_accounts")
+          .select("id").eq("school_id", schoolId).eq("parent_guardian_id", recordId)
+          .eq("user_id", existingUserId).eq("is_active", true).maybeSingle();
+        if (error) throw new Error("Could not verify the parent's portal account.");
+        if (!portal || record.portal_enabled !== true) return reply(409, { success: false, error: "The parent portal account is inactive or unavailable." });
+      }
+
       const { data: authUser, error: authUserError } = await admin.auth.admin.getUserById(existingUserId);
       if (authUserError || !authUser.user) return reply(404, { success: false, error: "The linked login account could not be found." });
       const password = tempPassword();
