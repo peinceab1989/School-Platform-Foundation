@@ -10,6 +10,12 @@ import {
   MapPin,
   Phone,
   Users,
+  Wallet,
+  CreditCard,
+  ClipboardList,
+  GraduationCap,
+  ChevronDown,
+  ShieldCheck,
 } from "lucide-react";
 import { Link } from "wouter";
 import { PublicLayout } from "@/components/public-site";
@@ -298,6 +304,79 @@ export default function HomePage() {
                 );
               })}
             </div>
+          </div>
+        </section>
+
+        <section className="relative overflow-hidden bg-gradient-to-br from-[#174b35] via-[#205b41] to-[#103b2d] px-5 py-14 text-white sm:px-8 sm:py-20">
+          <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full border border-white/10 shadow-[0_0_0_28px_rgba(255,255,255,.035),0_0_0_60px_rgba(255,255,255,.025)]" />
+          <div className="relative mx-auto max-w-7xl">
+            <div className="mx-auto mb-9 max-w-3xl text-center">
+              <p className="text-xs font-black uppercase tracking-[.2em] text-[#e7cd83]">Quick access • Clear guidance</p>
+              <h2 className="mt-3 text-3xl font-black sm:text-4xl">Your RESA Journey, Made Easier</h2>
+              <p className="mt-3 leading-7 text-white/75">Explore admissions and school-fee information. Open each panel to see the steps and the right way to make an enquiry.</p>
+            </div>
+            <div className="grid items-start gap-6 lg:grid-cols-2">
+              <article className="group rounded-3xl border border-white/15 bg-white/[.09] p-5 shadow-[0_18px_45px_rgba(0,0,0,.18)] backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:bg-white/[.13] hover:shadow-[0_24px_55px_rgba(0,0,0,.25)] sm:p-7">
+                <div className="flex items-start gap-4">
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#e7cd83] text-[#174b35] shadow-lg shadow-black/10"><Wallet size={27}/></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-[.16em] text-[#e7cd83]">Fees & finance</p>
+                    <h3 className="mt-1 text-2xl font-extrabold">Understand school payments</h3>
+                    <p className="mt-2 text-sm leading-6 text-white/75">Ask for the current approved fee schedule and payment instructions before making a payment.</p>
+                  </div>
+                </div>
+                <div className="mt-6 grid gap-3">
+                  <details className="group/fee rounded-xl border border-white/15 bg-black/10 p-4">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-white [&::-webkit-details-marker]:hidden">
+                      <span className="flex items-center gap-2"><ClipboardList size={17} className="text-[#e7cd83]"/> Fee breakdown</span>
+                      <ChevronDown size={17} className="transition group-open/fee:rotate-180"/>
+                    </summary>
+                    <p className="mt-3 text-sm leading-6 text-white/75">Request an itemised breakdown of applicable tuition and approved school charges for your child's class and session. Amounts can change, so confirm the latest schedule with the school.</p>
+                  </details>
+                  <details className="group/method rounded-xl border border-white/15 bg-black/10 p-4">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-white [&::-webkit-details-marker]:hidden">
+                      <span className="flex items-center gap-2"><CreditCard size={17} className="text-[#e7cd83]"/> Payment options & receipts</span>
+                      <ChevronDown size={17} className="transition group-open/method:rotate-180"/>
+                    </summary>
+                    <p className="mt-3 text-sm leading-6 text-white/75">Contact the school to confirm its currently approved payment channel, account details and receipt procedure. Do not send money to an unverified account or rely on details from an old message.</p>
+                  </details>
+                  <a href="https://wa.me/2348058422691?text=Hello%20RESA%2C%20please%20send%20me%20the%20current%20school%20fee%20schedule%2C%20itemised%20payment%20breakdown%20and%20approved%20payment%20instructions." target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#e7cd83] px-5 py-3 text-sm font-extrabold text-[#173e2d] shadow-lg transition hover:-translate-y-0.5 hover:bg-white">Request fee schedule <ArrowRight size={17}/></a>
+                </div>
+              </article>
+              <article className="group rounded-3xl border border-white/15 bg-white/[.09] p-5 shadow-[0_18px_45px_rgba(0,0,0,.18)] backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:bg-white/[.13] hover:shadow-[0_24px_55px_rgba(0,0,0,.25)] sm:p-7">
+                <div className="flex items-start gap-4">
+                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#e7cd83] text-[#174b35] shadow-lg shadow-black/10"><GraduationCap size={28}/></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-[.16em] text-[#e7cd83]">Admissions & registration</p>
+                    <h3 className="mt-1 text-2xl font-extrabold">Take the next step</h3>
+                    <p className="mt-2 text-sm leading-6 text-white/75">Find out about admission enquiries, required documents and registration guidance.</p>
+                  </div>
+                </div>
+                <div className="mt-6 grid gap-3">
+                  <details className="group/admission rounded-xl border border-white/15 bg-black/10 p-4">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-white [&::-webkit-details-marker]:hidden">
+                      <span className="flex items-center gap-2"><ClipboardList size={17} className="text-[#e7cd83]"/> Registration steps</span>
+                      <ChevronDown size={17} className="transition group-open/admission:rotate-180"/>
+                    </summary>
+                    <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-white/75">
+                      <li>Read the admission information and confirm class availability.</li>
+                      <li>Contact the school to confirm required documents and registration procedure.</li>
+                      <li>Submit information only through a school-approved registration channel.</li>
+                      <li>Confirm any admission-related charges and obtain an official receipt.</li>
+                    </ol>
+                  </details>
+                  <details className="group/requirements rounded-xl border border-white/15 bg-black/10 p-4">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-white [&::-webkit-details-marker]:hidden">
+                      <span className="flex items-center gap-2"><ShieldCheck size={17} className="text-[#e7cd83]"/> Before making a payment</span>
+                      <ChevronDown size={17} className="transition group-open/requirements:rotate-180"/>
+                    </summary>
+                    <p className="mt-3 text-sm leading-6 text-white/75">Verify the student's admission status, the amount due, the approved payment channel and how to collect an official receipt directly with RESA.</p>
+                  </details>
+                  <Link href="/admissions" className="mt-1 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#e7cd83]/70 bg-white/10 px-5 py-3 text-sm font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-white/20">Explore admissions <ArrowRight size={17}/></Link>
+                </div>
+              </article>
+            </div>
+            <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-5 text-white/60">For your protection, RESA does not publish unverified bank details or promise online payment processing on this page. Confirm current instructions directly with the school.</p>
           </div>
         </section>
 
