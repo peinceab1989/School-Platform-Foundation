@@ -51,7 +51,7 @@ function CustomerCareWidget() {
   const sendMessage = () => {
     const clean = message.trim();
     if (!clean) return;
-    const text = "Hello RESA Customer Care.\\nTopic: " + topic + "\\nMessage: " + clean;
+    const text = "Hello RESA Customer Care.\nTopic: " + topic + "\nMessage: " + clean;
     window.open("https://wa.me/2348058422691?text=" + encodeURIComponent(text), "_blank", "noopener,noreferrer");
   };
   return <>
@@ -96,7 +96,7 @@ export default function PortalOptionsPage() {
               <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.17em] text-amber-700 sm:text-xs">Passion • Skills • Excellent Spirit</p>
             </div>
           </Link>
-          <Link href="/portal" className="shrink-0 rounded-xl border border-emerald-900/15 px-3 py-2 text-sm font-bold text-emerald-900 transition hover:bg-emerald-50 sm:px-4">Sign in</Link>
+          <div className="flex shrink-0 items-center gap-2"><a href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care.%20I%20need%20assistance." target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-emerald-900/15 px-3 py-2 text-sm font-bold text-emerald-900 transition hover:bg-emerald-50"><MessageCircle size={16}/> <span className="hidden sm:inline">Customer Care</span></a><Link href="/portal" className="shrink-0 rounded-xl bg-emerald-900 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-800 sm:px-4">Sign in</Link></div>
         </div>
       </header>
 
