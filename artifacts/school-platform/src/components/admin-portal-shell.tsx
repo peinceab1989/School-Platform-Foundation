@@ -5,7 +5,7 @@ import {
   ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
   MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
   Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight, ChevronDown,
-  CircleHelp,
+  CircleHelp, MessageCircle,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
 
@@ -46,7 +46,8 @@ const groups = [
   { label: "ADMINISTRATION", items: [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
     ["Reports", "/school-reports", ChartNoAxesCombined],
-    ["School Services & Finance", "/school-services", Database],
+    ["Additional School Services", "/school-services", Database],
+    ["Fees Management", "/fees-management", Wallet],
     ["Publication Centre", "/publication-centre", ShieldCheck],
     ["CCTV & Monitoring", "/school-cctv", Video],
     ["School Settings", "/school-settings", Settings],
@@ -99,7 +100,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
         })}
       </nav>
       <div className="resa-sidebar-bottom">
-        <div className="resa-help-note"><CircleHelp size={17}/><span>Need help? Contact your portal administrator.</span></div>
+        <a className="resa-help-note" href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care.%20I%20need%20assistance%20with%20the%20school%20portal." target="_blank" rel="noopener noreferrer" aria-label="Contact RESA Customer Care on WhatsApp"><MessageCircle size={17}/><span><strong>RESA Customer Care</strong><small>Chat with our support team</small></span></a>
         <button type="button" className="resa-signout" onClick={onSignOut}><LogOut size={17}/> Sign out</button>
       </div>
     </div>
