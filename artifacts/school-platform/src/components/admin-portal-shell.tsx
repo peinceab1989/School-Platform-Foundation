@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, GraduationCap, UserRound, School, BookOpen,
   ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
   MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
-  Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight,
+  Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight, ChevronDown,
   CircleHelp,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
@@ -61,9 +61,13 @@ const pageNames = groups.flatMap(group => group.items).reduce<Record<string,stri
 export default function AdminPortalShell({ children, schoolId, schoolName, email, onSignOut }: Props) {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
+  const activeGroup = groups.find(group => group.items.some(item => item[1] === location))?.label || "MAIN";
+  const [openGroups, setOpenGroups] = useState<string[]>([activeGroup]);
   const title = pageNames[location] || "School Administration";
 
-  useEffect(() => { setOpen(false); }, [location]);
+  useEffect(() => { setOpen(false); setOpenGroups(current => current.includes(activeGroup) ? current : [...current, activeGroup]); }, [location, activeGroup]);
+
+  const toggleGroup = (label: string) => setOpenGroups(current => current.includes(label) ? current.filter(item => item !== label) : [...current, label]);
 
   const navigation = (mobile = false) => (
     <div className="resa-nav-inner">
@@ -74,17 +78,25 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
       </div>
       <div className="resa-school-label"><span className="resa-school-dot"/><span>{schoolName}</span></div>
       <nav aria-label="School administration navigation" className="resa-sidebar-nav">
-        {groups.map(group => <section key={group.label} className="resa-nav-group">
-          <p className="resa-nav-label">{group.label}</p>
-          {group.items.map(([label, href, Icon]) => {
-            const active = location === href || (href === "/subjects" && location === "/subject-management") || (href === "/parent-management" && location === "/parents");
-            const ItemIcon = Icon as typeof LayoutDashboard;
-            return <Link key={href as string} href={href as string} aria-current={active ? "page" : undefined} className={`resa-nav-link ${active ? "active" : ""}`}>
-              <ItemIcon size={18} strokeWidth={1.8}/><span>{label as string}</span>
-              {href === "/notifications" && <UnreadMessageBadge schoolId={schoolId}/>}
-            </Link>;
-          })}
-        </section>)}
+        {groups.map(group => {
+          const expanded = openGroups.includes(group.label);
+          const containsActive = group.items.some(item => location === item[1] || (item[1] === "/subjects" && location === "/subject-management") || (item[1] === "/parent-management" && location === "/parents"));
+          return <section key={group.label} className={`resa-nav-group ${expanded ? "is-expanded" : ""}`}>
+            <button type="button" className={`resa-nav-group-toggle ${containsActive ? "has-active" : ""}`} aria-expanded={expanded} onClick={() => toggleGroup(group.label)}>
+              <span>{group.label}</span><ChevronDown size={15} className={expanded ? "is-rotated" : ""}/>
+            </button>
+            {expanded && <div className="resa-nav-group-items">
+              {group.items.map(([label, href, Icon]) => {
+                const active = location === href || (href === "/subjects" && location === "/subject-management") || (href === "/parent-management" && location === "/parents");
+                const ItemIcon = Icon as typeof LayoutDashboard;
+                return <Link key={href as string} href={href as string} aria-current={active ? "page" : undefined} className={`resa-nav-link ${active ? "active" : ""}`}>
+                  <ItemIcon size={18} strokeWidth={1.8}/><span>{label as string}</span>
+                  {href === "/notifications" && <UnreadMessageBadge schoolId={schoolId}/>}
+                </Link>;
+              })}
+            </div>}
+          </section>;
+        })}
       </nav>
       <div className="resa-sidebar-bottom">
         <div className="resa-help-note"><CircleHelp size={17}/><span>Need help? Contact your portal administrator.</span></div>
