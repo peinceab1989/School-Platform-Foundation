@@ -2022,7 +2022,7 @@ function FoundationPage() {
 
   /* Shared presentation shell for all administrator routes; role checks remain above this UI layer. */
   const withAdminShell = (content: ReactNode) => adminMembership ? (
-    <AdminPortalShell schoolId={adminMembership.schoolId} schoolName={adminMembership.schoolName} email={session?.user.email} onSignOut={() => void signOut()}>{content}</AdminPortalShell>
+    <AdminPortalShell schoolId={adminMembership.schoolId} schoolName={adminMembership.schoolName} email={session?.user.email} userId={session?.user.id || ""} onSignOut={() => void signOut()}>{content}</AdminPortalShell>
   ) : content;
 
   /*
