@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ArrowUpRight,
+  ChevronDown,
   BookOpen,
   BookOpenCheck,
   ClipboardCheck,
@@ -76,7 +77,7 @@ function CustomerCareWidget() {
         <p className="text-center text-[11px] leading-4 text-slate-500">WhatsApp opens with your message prepared. Tap Send in WhatsApp to deliver it.</p>
       </div>
     </section>}
-    <button type="button" onClick={() => setOpen(v => !v)} aria-label={open ? "Close customer care" : "Chat with RESA customer care"} className="fixed bottom-5 right-4 z-[101] flex items-center gap-2 rounded-full bg-emerald-900 px-4 py-3.5 text-sm font-extrabold text-white shadow-xl ring-4 ring-emerald-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300 sm:bottom-6 sm:right-6">
+    <button type="button" onClick={() => setOpen(v => !v)} aria-label={open ? "Close customer care" : "Chat with RESA customer care"} id="customer-care" className="fixed bottom-5 right-4 z-[101] flex items-center gap-2 rounded-full bg-emerald-900 px-4 py-3.5 text-sm font-extrabold text-white shadow-xl ring-4 ring-emerald-900/10 transition hover:-translate-y-0.5 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300 sm:bottom-6 sm:right-6">
       {open ? <X size={20}/> : <span className="relative"><MessageCircle size={21}/><span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-emerald-900 bg-lime-300"/></span>}
       {open ? "Close chat" : "Customer care"}
       {!open && <span className="rounded-full bg-lime-300 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-950">Chat</span>}
@@ -111,7 +112,38 @@ export default function PortalOptionsPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <section className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start">
+        <aside aria-label="Portal quick navigation" className="h-fit rounded-2xl border border-emerald-900/10 bg-white p-3 shadow-sm lg:sticky lg:top-24">
+          <div className="flex items-center gap-2 px-2 py-2 text-sm font-extrabold text-emerald-950"><ShieldCheck size={18} className="text-emerald-700"/> Portal navigation</div>
+          <div className="mt-2 space-y-2">
+            <details className="group rounded-xl border border-slate-200 bg-slate-50/70" open>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-bold text-slate-800 [&::-webkit-details-marker]:hidden">Student services <ChevronDown size={16} className="transition group-open:rotate-180"/></summary>
+              <div className="grid gap-1 px-2 pb-2">
+                <Link href="/results" className="rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-900">Check results</Link>
+                <Link href="/student-dashboard" className="rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-900">E-learning</Link>
+                <Link href="/student-cbt" className="rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-900">Computer Based Test</Link>
+                <Link href="/student-assignments" className="rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-900">Assignments</Link>
+                <Link href="/practice-drills" className="rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-900">Practice & revision</Link>
+              </div>
+            </details>
+            <details className="group rounded-xl border border-slate-200 bg-slate-50/70">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-bold text-slate-800 [&::-webkit-details-marker]:hidden">Staff & administration <ChevronDown size={16} className="transition group-open:rotate-180"/></summary>
+              <div className="px-2 pb-2">
+                <Link href="/portal" className="flex items-center gap-2 rounded-lg bg-emerald-900 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-800"><ShieldCheck size={16}/> Admin platform sign-in <ArrowUpRight size={15} className="ml-auto"/></Link>
+              </div>
+            </details>
+            <details className="group rounded-xl border border-slate-200 bg-slate-50/70">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-3 text-sm font-bold text-slate-800 [&::-webkit-details-marker]:hidden">Online learning tools <ChevronDown size={16} className="transition group-open:rotate-180"/></summary>
+              <div className="grid gap-1 px-2 pb-2">
+                <a href="https://zoom.us/join" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-emerald-50 hover:text-emerald-900">Zoom classes</a>
+                <a href="https://meet.google.com/" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-emerald-50 hover:text-emerald-900">Google Meet</a>
+                <a href="https://teams.microsoft.com/" target="_blank" rel="noopener noreferrer" className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-emerald-50 hover:text-emerald-900">Microsoft Teams</a>
+              </div>
+            </details>
+          </div>
+          <a href="#customer-care" className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm font-bold text-emerald-900 transition hover:bg-emerald-100"><Headset size={17}/> Customer care <ArrowUpRight size={14} className="ml-auto"/></a>
+        </aside>
+        <div className="min-w-0">
         <div className="mb-5 flex items-end justify-between gap-3">
           <div><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-amber-700">Get started</p><h2 className="mt-1 text-xl font-extrabold tracking-tight sm:text-2xl">Choose an option</h2></div>
           <span className="hidden rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 ring-1 ring-slate-200 sm:inline-flex">Mobile friendly</span>
@@ -166,6 +198,7 @@ export default function PortalOptionsPage() {
         </div>
 
 
+        </div>
       </section>
 
       <footer className="border-t border-emerald-950/10 bg-white px-4 py-5 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3 text-[10px]">Designed &amp; Powered by <a href="https://wa.me/2347054078988" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 underline underline-offset-2">JETAB TECH</a></p></footer>
