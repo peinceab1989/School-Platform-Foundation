@@ -122,7 +122,6 @@ export function PublicHeader() {
               ))}
             </div>
           </details>
-          <Link href="/#fees-and-admissions" className={linkClass("/#fees-and-admissions")}>Fees & Finance</Link>
           <Link
             href={PORTAL_PATH}
             className="ml-2 inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#245b40] px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#17462f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#245b40] focus-visible:ring-offset-2"
@@ -166,7 +165,6 @@ export function PublicHeader() {
               <summary className="flex cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2.5 text-sm font-extrabold text-[#245b40] [&::-webkit-details-marker]:hidden">Explore RESA <ChevronDown size={16} className="transition group-open:rotate-180"/></summary>
               <div className="grid gap-1 pt-1 sm:grid-cols-2">{explorePages.map(page => <Link key={page.href} href={page.href} onClick={() => setOpen(false)} aria-current={location === page.href ? "page" : undefined} className={linkClass(page.href) + " block px-4 py-3"}>{page.label}</Link>)}</div>
             </details>
-            <Link href="/#fees-and-admissions" onClick={() => setOpen(false)} className="block rounded-xl border border-[#d9bd76] bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#245b40]">Fees, Finance & Admission Guide</Link>
             <Link href={PORTAL_PATH} onClick={() => setOpen(false)} className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-[#245b40] px-4 py-3.5 text-center text-sm font-bold text-white">Open School Portal <ArrowRight size={16} aria-hidden="true" /></Link>
           </div>
         </nav>
