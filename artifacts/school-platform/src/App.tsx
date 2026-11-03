@@ -332,6 +332,8 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const totalPaid = paymentRows.reduce((sum, row) => sum + Number(row.amount_paid || 0), 0);
   const totalBalance = feeRows.reduce((sum, row) => sum + Math.max(0, Number(row.amount_due || 0) - (paidByAssignment[String(row.id)] || 0)), 0);
   const money = (value: number) => "₦" + value.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Short, presentation-only identifier. The real Supabase user ID and login remain unchanged.
+  const parentDisplayId = "RESA-PARENT-" + userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase();
 
   return <main className="min-h-screen bg-[#f4f7f4] px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
     <div className="mx-auto grid w-full max-w-6xl gap-5">
@@ -345,8 +347,11 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
             <button type="button" onClick={onSignOut} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100">↪ Sign out</button>
           </div>
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3">
-            <ProfilePhotoCard userId={userId} displayName={email ? "Parent account" : "Parent profile"} roleLabel="Parent / Guardian" compact />
-            {email && <p className="mt-2 break-all text-[11px] leading-4 text-emerald-100" title={email}>Account email: {email}</p>}
+            <ProfilePhotoCard userId={userId} displayName="Parent profile" roleLabel="Parent / Guardian" compact />
+            <div className="mt-3 min-w-0 rounded-xl border border-white/10 bg-black/10 px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100">Parent account ID</p>
+              <p className="mt-1 break-all font-mono text-xs font-bold tracking-wide text-white" title={userId}>{parentDisplayId}</p>
+            </div>
           </div>
         </div>
         <nav aria-label="Parent quick links" className="mt-6 flex flex-wrap gap-2">
