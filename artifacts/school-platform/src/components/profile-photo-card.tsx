@@ -6,9 +6,9 @@ const BUCKET = "resa-profile-photos";
 const MAX_BYTES = 5 * 1024 * 1024;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 
-type Props = { userId: string; displayName?: string; roleLabel: string };
+type Props = { userId: string; displayName?: string; roleLabel: string; compact?: boolean };
 
-export default function ProfilePhotoCard({ userId, displayName, roleLabel }: Props) {
+export default function ProfilePhotoCard({ userId, displayName, roleLabel, compact = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [photoUrl, setPhotoUrl] = useState("");
   const [path, setPath] = useState("");
@@ -66,20 +66,20 @@ export default function ProfilePhotoCard({ userId, displayName, roleLabel }: Pro
     finally { setBusy(false); }
   }
 
-  return <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm sm:p-5" aria-label="Profile photograph">
-    <div className="flex flex-wrap items-center gap-4">
-      <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-emerald-100 bg-emerald-50">
-        {photoUrl ? <img src={photoUrl} alt={displayName ? displayName + " profile photograph" : "Your profile photograph"} className="h-full w-full object-cover" /> : <UserRound className="h-9 w-9 text-emerald-800" />}
+  return <section className={compact ? "min-w-0" : "rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm sm:p-5"} aria-label="Profile photograph">
+    <div className={compact ? "flex min-w-0 items-center gap-3" : "flex flex-wrap items-center gap-4"}>
+      <div className={compact ? "grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-amber-200 bg-white" : "grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-emerald-100 bg-emerald-50"}>
+        {photoUrl ? <img src={photoUrl} alt={displayName ? displayName + " profile photograph" : "Your profile photograph"} className="h-full w-full object-cover" /> : <UserRound className={compact ? "h-8 w-8 text-emerald-800" : "h-9 w-9 text-emerald-800"} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">My profile photograph</p>
-        <h2 className="mt-1 truncate text-base font-extrabold text-slate-900">{displayName || "Your profile"}</h2>
-        <p className="mt-1 text-sm text-slate-600">{roleLabel} account · JPG, PNG or WebP · up to 5 MB</p>
+        <p className={compact ? "text-[10px] font-bold uppercase tracking-wider text-amber-200" : "text-xs font-bold uppercase tracking-wider text-emerald-800"}>My profile photograph</p>
+        <h2 className={compact ? "mt-1 break-words text-sm font-extrabold text-white" : "mt-1 truncate text-base font-extrabold text-slate-900"}>{displayName || "Your profile"}</h2>
+        <p className={compact ? "mt-1 text-xs leading-4 text-emerald-100" : "mt-1 text-sm text-slate-600"}>{roleLabel} account</p>
       </div>
     </div>
     <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => void upload(e.target.files?.[0])} />
-    <div className="mt-4 flex flex-wrap gap-2">
-      <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+    <div className={compact ? "mt-3 flex flex-wrap gap-2" : "mt-4 flex flex-wrap gap-2"}>
+      <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : photoUrl ? <Camera className="h-4 w-4" /> : <ImagePlus className="h-4 w-4" />}
         {busy ? "Please wait…" : photoUrl ? "Change photograph" : "Upload photograph"}
       </button>
