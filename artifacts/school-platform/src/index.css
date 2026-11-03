@@ -546,8 +546,14 @@ body { background: var(--resa-page); color: var(--resa-ink); font-family: Inter,
 .resa-school-label { display: flex; align-items: flex-start; gap: 8px; margin: 14px 14px 5px; padding: 10px 11px; border-radius: 9px; background: #f5f8fc; color: #53677e; font-size: 10px; font-weight: 650; line-height: 1.45; }
 .resa-school-dot { width: 7px; height: 7px; flex: 0 0 auto; margin-top: 3px; border-radius: 50%; background: #2d8b62; }
 .resa-sidebar-nav { min-height: 0; flex: 1; overflow-y: auto; padding: 12px 11px 18px; scrollbar-width: thin; }
-.resa-nav-group + .resa-nav-group { margin-top: 19px; }
-.resa-nav-label { margin: 0 0 7px; padding: 0 10px; color: #93a0af; font-size: 10px; font-weight: 800; letter-spacing: .13em; }
+.resa-nav-group + .resa-nav-group { margin-top: 8px; }
+.resa-nav-group-toggle { display: flex; width: 100%; min-height: 39px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: #93a0af; font: inherit; font-size: 10px; font-weight: 800; letter-spacing: .13em; text-align: left; cursor: pointer; transition: background .16s ease, color .16s ease; }
+.resa-nav-group-toggle:hover, .resa-nav-group-toggle.has-active { background: #f5f8fc; color: var(--resa-blue-dark); }
+.resa-nav-group-toggle svg { flex: 0 0 auto; transition: transform .18s ease; }
+.resa-nav-group-toggle svg.is-rotated { transform: rotate(180deg); }
+.resa-nav-group-items { padding-top: 3px; animation: resa-menu-reveal .18s ease-out; }
+@keyframes resa-menu-reveal { from { opacity: .45; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+.resa-nav-group-toggle:focus-visible { outline: 2px solid var(--resa-blue); outline-offset: 2px; }
 .resa-nav-link { display: flex; min-height: 42px; align-items: center; gap: 11px; margin: 2px 0; padding: 8px 10px; border: 1px solid transparent; border-radius: 9px; color: #526276; font-size: 12px; font-weight: 600; line-height: 1.35; text-decoration: none; transition: background .16s ease, color .16s ease, border-color .16s ease; }
 .resa-nav-link > svg { flex: 0 0 auto; color: #8191a4; }
 .resa-nav-link:hover { background: #f5f8fc; color: var(--resa-blue); }
