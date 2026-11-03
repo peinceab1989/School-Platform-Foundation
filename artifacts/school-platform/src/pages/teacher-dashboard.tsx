@@ -1009,7 +1009,7 @@ export default function TeacherDashboard({
             marginBottom: 16,
           }}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 270px)', gap: 16, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 16, alignItems: 'start' }}>
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
