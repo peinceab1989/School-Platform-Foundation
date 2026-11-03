@@ -11,6 +11,7 @@ import {
   X,
   Send,
   Clock3,
+  Headset,
 } from "lucide-react";
 import { Link } from "wouter";
 import { SchoolLogo } from "@/components/school-logo";
