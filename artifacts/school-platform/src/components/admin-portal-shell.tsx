@@ -8,12 +8,14 @@ import {
   MessageCircle, Wallet,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
+import ProfilePhotoCard from "@/components/profile-photo-card";
 
 type Props = {
   children: ReactNode;
   schoolId: string;
   schoolName: string;
   email?: string | null;
+  userId: string;
   onSignOut: () => void;
 };
 
@@ -59,7 +61,7 @@ const pageNames = groups.flatMap(group => group.items).reduce<Record<string,stri
   return all;
 }, {});
 
-export default function AdminPortalShell({ children, schoolId, schoolName, email, onSignOut }: Props) {
+export default function AdminPortalShell({ children, schoolId, schoolName, email, userId, onSignOut }: Props) {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
   const activeGroup = groups.find(group => group.items.some(item => item[1] === location))?.label || "MAIN";
@@ -125,7 +127,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
           <button type="button" className="resa-icon-button resa-top-signout" onClick={onSignOut} aria-label="Sign out"><LogOut size={18}/></button>
         </div>
       </header>
-      <main className="resa-page-content">{children}</main>
+      <main className="resa-page-content"><div style={{ marginBottom: 16, borderRadius: 16, background: "#123d2b", padding: 12, maxWidth: 360 }}><ProfilePhotoCard userId={userId} displayName="Administrator profile" roleLabel="School Administrator" compact /></div>{children}</main>
       <footer className="resa-app-footer"><span>© {new Date().getFullYear()} {schoolName}</span><span>Designed &amp; Powered by <strong>JETAB TECH</strong></span><span>RESA Portal · v1.0</span></footer>
     </div>
   </div>;
