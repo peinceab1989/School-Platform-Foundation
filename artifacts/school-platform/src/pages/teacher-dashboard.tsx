@@ -1000,7 +1000,6 @@ export default function TeacherDashboard({
         </section>
       )}
       <div style={{ maxWidth: 1150, margin: '0 auto' }}>
-        <div style={{ marginBottom: 16 }}><ProfilePhotoCard userId={userId} displayName={teacherName || email} roleLabel="Teacher / Staff" /></div>
         <header
           style={{
             background: '#123d2b',
@@ -1010,30 +1009,26 @@ export default function TeacherDashboard({
             marginBottom: 16,
           }}
         >
-          <div
-            style={{
-              color: '#e6c66b',
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: 1.5,
-            }}
-          >
-            RESA • TEACHER WORKSPACE
-          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 270px)', gap: 16, alignItems: 'start' }}>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  color: '#e6c66b',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: 1.5,
+                }}
+              >
+                RESA • TEACHER WORKSPACE
+              </div>
 
-          <h1 style={{ margin: '10px 0', fontSize: 28 }}>
-            Teacher Dashboard
-          </h1>
+              <h1 style={{ margin: '10px 0', fontSize: 28 }}>
+                Teacher Dashboard
+              </h1>
 
-          <p style={{ margin: '0 0 8px' }}>
-            {schoolName || 'RHEMA EXPLOITS SCIENCE ACADEMY'}
-          </p>
-
-          <p style={{ margin: '0 0 16px', overflowWrap: 'anywhere' }}>
-            Signed in as: {teacherName || email || 'Teacher account'}
-          </p>
-
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <p style={{ margin: '0 0 8px' }}>
+                {schoolName || 'RHEMA EXPLOITS SCIENCE ACADEMY'}
+              </p>
             <button
               type="button"
               onClick={() => void loadDashboard()}
@@ -1046,13 +1041,18 @@ export default function TeacherDashboard({
             <Link href="/notifications" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
             <Link href="/form-teacher-attendance" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Form Teacher Attendance</Link>
             <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>School messages</Link>
-            <button
-              type="button"
-              onClick={onSignOut}
-              style={secondaryButtonStyle}
-            >
-              Sign out
-            </button>
+              <button
+                type="button"
+                onClick={onSignOut}
+                style={secondaryButtonStyle}
+              >
+                Sign out
+              </button>
+              </div>
+            </div>
+            <div style={{ minWidth: 0, borderRadius: 12, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.10)', padding: 12 }}>
+              <ProfilePhotoCard userId={userId} displayName="Teacher profile" roleLabel="Teacher / Staff" compact />
+            </div>
           </div>
         </header>
 
