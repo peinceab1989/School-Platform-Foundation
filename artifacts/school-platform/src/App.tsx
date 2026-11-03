@@ -336,14 +336,18 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   return <main className="min-h-screen bg-[#f4f7f4] px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
     <div className="mx-auto grid w-full max-w-6xl gap-5">
       <header className="overflow-hidden rounded-3xl bg-emerald-950 p-5 text-white shadow-sm sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
+        <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(230px,280px)] sm:items-start">
+          <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA · Parent & Guardian Portal</p>
             <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">Parent Dashboard</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Your family's school connection. Follow your linked learners’ fees, attendance, results and school updates from one place.</p>
-            <p className="mt-3 break-words text-xs text-emerald-100">{schoolName}{email ? " · " + email : ""}</p>
+            <p className="mt-3 max-w-full break-words text-xs text-emerald-100">{schoolName}</p>
+            <button type="button" onClick={onSignOut} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100">↪ Sign out</button>
           </div>
-          <button type="button" onClick={onSignOut} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100">↪ Sign out</button>
+          <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3">
+            <ProfilePhotoCard userId={userId} displayName={email ? "Parent account" : "Parent profile"} roleLabel="Parent / Guardian" compact />
+            {email && <p className="mt-2 break-all text-[11px] leading-4 text-emerald-100" title={email}>Account email: {email}</p>}
+          </div>
         </div>
         <nav aria-label="Parent quick links" className="mt-6 flex flex-wrap gap-2">
           <Link href="/my-results" className="rounded-xl bg-amber-200 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-100">My learners’ results</Link>
@@ -362,7 +366,6 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Linked learners</p><p className="mt-2 text-2xl font-extrabold text-emerald-950">{overviewLoading ? "…" : children.length}</p><p className="mt-1 text-sm text-slate-600">Learners connected to this parent account</p></div>
       </section>
 
-      <ProfilePhotoCard userId={userId} displayName={email} roleLabel="Parent / Guardian" />
       {overviewError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{overviewError}</p>}
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]">
