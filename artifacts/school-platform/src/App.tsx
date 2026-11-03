@@ -532,29 +532,28 @@ function StudentDashboard({
             marginBottom: 22,
           }}
         >
-          <div style={{ color: '#e6c66b', fontSize: 12, fontWeight: 700, letterSpacing: 1.5 }}>
-            RESA SCHOOL PORTAL
-          </div>
-          <h1 style={{ fontSize: 27, lineHeight: 1.3, margin: '12px 0' }}>Student Dashboard</h1>
-          <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>Welcome to your learning portal.</p>
-          <p style={{ margin: '0 0 18px', color: '#e8eee8', overflowWrap: 'anywhere' }}>
-            {schoolName}
-          </p>
-          {email && (
-            <p style={{ fontSize: 13, color: '#e8eee8', overflowWrap: 'anywhere', margin: '0 0 18px' }}>
-              Signed in as: {email}
-            </p>
-          )}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(220px, 270px)', gap: 16, alignItems: 'start' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: '#e6c66b', fontSize: 12, fontWeight: 700, letterSpacing: 1.5 }}>
+                RESA SCHOOL PORTAL
+              </div>
+              <h1 style={{ fontSize: 27, lineHeight: 1.3, margin: '12px 0' }}>Student Dashboard</h1>
+              <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>Welcome to your learning portal.</p>
+              <p style={{ margin: '0 0 18px', color: '#e8eee8', overflowWrap: 'anywhere' }}>{schoolName}</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
             <Link href="/my-results" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>My Report Cards</Link>
             <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>School messages</Link>
-            <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
+              <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
+              </div>
+            </div>
+            <div style={{ minWidth: 0, borderRadius: 14, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.10)', padding: 12 }}>
+              <ProfilePhotoCard userId={userId} displayName="Student profile" roleLabel="Student" compact />
+            </div>
           </div>
         </header>
 
         <div style={{ display: 'grid', gap: 14, marginBottom: 18 }}>
-          <ProfilePhotoCard userId={userId} displayName={email} roleLabel="Student" />
           <section style={{ ...panelStyle, borderColor: publishedCbtCount ? '#d6b75a' : '#dce5dd', background: publishedCbtCount ? '#fffaf0' : '#fff' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 0, flex: '1 1 220px' }}>
