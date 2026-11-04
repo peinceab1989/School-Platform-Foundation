@@ -29,7 +29,6 @@ const countOptions = [5, 10, 20, 30];
 
 export default function StudentPracticeDrillsPage() {
   const levels = useMemo(() => ["All levels", ...Array.from(new Set(bank.map(q => q.level)))], []);
-  const subjects = useMemo(() => ["All subjects", ...Array.from(new Set([...bank.map(q => q.subject), ...schoolSubjects])).sort((a, b) => a.localeCompare(b))], [schoolSubjects]);
   const [level, setLevel] = useState("All levels");
   const [subject, setSubject] = useState("All subjects");
   const [schoolSubjects, setSchoolSubjects] = useState<string[]>([]);
@@ -42,6 +41,7 @@ export default function StudentPracticeDrillsPage() {
     });
     return () => { active = false; };
   }, []);
+  const subjects = useMemo(() => ["All subjects", ...Array.from(new Set([...bank.map(q => q.subject), ...schoolSubjects])).sort((a, b) => a.localeCompare(b))], [schoolSubjects]);
   const [requestedCount, setRequestedCount] = useState("5");
   const [questions, setQuestions] = useState<DrillQuestion[]>([]);
   const [index, setIndex] = useState(0);
