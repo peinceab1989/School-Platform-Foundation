@@ -232,6 +232,7 @@ export default function TeacherDashboard({
     maxScore: '100',
     assignmentType: 'homework',
     practicalRubric: '',
+    resourceUrl: '',
   });
 
   const [examForm, setExamForm] = useState({
@@ -705,6 +706,7 @@ export default function TeacherDashboard({
         max_score: maxScore,
         assignment_type: homeworkForm.assignmentType,
         practical_rubric: homeworkForm.assignmentType === 'practical' ? homeworkForm.practicalRubric.split(String.fromCharCode(10)).map((line) => line.replaceAll(String.fromCharCode(13), '').trim()).filter(Boolean).map((criterion) => ({ criterion })) : [],
+        attachment_url: homeworkForm.resourceUrl.trim() || null,
         status: 'published',
       });
 
@@ -718,6 +720,7 @@ export default function TeacherDashboard({
         dueDate: '',
         assignmentType: 'homework',
         practicalRubric: '',
+        resourceUrl: '',
       }));
 
       setNoticeText(homeworkForm.assignmentType === 'practical' ? 'Practical assessment published successfully. Students can now open the task and submit photo, video or document evidence.' : 'Assignment created successfully.');
@@ -1272,7 +1275,7 @@ export default function TeacherDashboard({
           <>
             <section style={panelStyle}>
               <h2 style={sectionTitleStyle}>
-                Create homework or assignment
+                Create homework, practical examination or project
               </h2>
 
               {!currentSessionId && !loading && (
@@ -1441,6 +1444,12 @@ export default function TeacherDashboard({
                     />
                   </label>
                 </div>
+
+                {(homeworkForm.assignmentType === 'practical' || homeworkForm.assignmentType === 'project') && <label style={labelStyle}>
+                  Visual / demonstration resource link (optional)
+                  <input style={fieldStyle} type="url" value={homeworkForm.resourceUrl} onChange={(event) => setHomeworkForm((previous) => ({ ...previous, resourceUrl: event.target.value }))} placeholder="https://… (image, diagram or demonstration video)" />
+                  <small style={{ fontWeight: 400, color: '#536456' }}>Students will see this link with the task. Use a shareable resource link; Google Drive is optional, not required.</small>
+                </label>}
 
                 {homeworkForm.assignmentType === 'practical' && <label style={labelStyle}>
                   Practical rubric / marking criteria (one criterion per line)
