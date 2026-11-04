@@ -39,6 +39,7 @@ export default function StudentPracticeDrillsPage() {
   const [submitted, setSubmitted] = useState(false);
   const [started, setStarted] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
+  const [sourceText, setSourceText] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [aiGenerated, setAiGenerated] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -80,7 +81,7 @@ export default function StudentPracticeDrillsPage() {
     try {
       const count = requestedCount === "all" ? 10 : Math.min(30, Math.max(1, Number(requestedCount) || 5));
       const { data, error } = await getSupabaseClient().functions.invoke("resa-ai-practice", {
-        body: { level, subject, count, topic: aiTopic.trim() },
+        body: { level, subject, count, topic: aiTopic.trim(), sourceText: sourceText.trim() },
       });
       if (error) {
         let message = error.message || "The AI question service could not be reached.";
@@ -165,14 +166,18 @@ export default function StudentPracticeDrillsPage() {
               <p className="mt-1 text-sm leading-6 text-slate-600">Generate fresh practice questions from published RESA lesson notes when available. If the paid AI service is unavailable, RESA can use a free source-based drill instead. These are practice materials, not official exam questions or grades.</p>
             </div>
           </div>
-          <label className="mt-4 flex flex-col gap-1.5 text-sm font-bold">Topic (optional)
+          <label className="mt-4 flex flex-col gap-1.5 text-sm font-bold">Topic (recommended)
             <input value={aiTopic} onChange={e=>setAiTopic(e.target.value)} placeholder="e.g. fractions, photosynthesis, grammar, algebra" maxLength={120} className="rounded-xl border border-slate-300 bg-white px-3 py-3 font-medium outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"/>
+          </label>
+          <label className="mt-3 flex flex-col gap-1.5 text-sm font-bold">Lesson notes or reading passage (optional)
+            <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} rows={5} maxLength={12000} placeholder="Paste at least a few paragraphs of your lesson notes here. RESA can use this text to create a free practice drill even when an external AI key is not configured." className="rounded-xl border border-slate-300 bg-white px-3 py-3 font-medium outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"/>
+            <span className="text-xs font-normal leading-5 text-slate-500">You can also leave this blank if your teacher has already published readable lesson notes for your class and subject.</span>
           </label>
           <button type="button" onClick={()=>void generateAiDrill()} disabled={aiBusy} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-900 px-5 py-3.5 font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">
             {aiBusy ? <><LoaderCircle size={18} className="animate-spin"/> Generating questions…</> : <><Sparkles size={18}/> Generate AI practice questions</>}
           </button>
           {aiError && <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{aiError}</p>}
-          <p className="mt-2 text-xs leading-5 text-slate-500">Requires a signed-in RESA account. Teachers should publish lesson notes with readable extracted text so students can use the free source-based fallback when AI service configuration is unavailable.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Requires a signed-in RESA account. For free generation, paste lesson notes above or use notes published by your teacher. Topic-only generation requires an external AI provider to be configured.</p>
         </div>
         <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-950"><strong>{available.length}</strong> question(s) currently available for this selection. Questions are shuffled for each drill.</div>
         <button type="button" onClick={startDrill} disabled={!available.length} className="mt-5 w-full rounded-xl bg-emerald-900 px-5 py-3.5 font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Start optional practice drill</button>
