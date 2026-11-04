@@ -25,6 +25,7 @@
 - **School Services:** open additional operational services.
 - **School Messages / Notifications / Announcements:** communicate with authorised school users.
 - **School Settings:** manage school profile, academic defaults, user access and account settings.
+- **Student ID Cards:** upload each learner’s passport photograph, grant/revoke ID-card printing and print the approved card.
 
 ## Teacher navigation
 1. Sign in with the teacher's registered login.
@@ -42,7 +43,8 @@
 3. Open **Assignments** to view work published for the learner's active class and academic session.
 4. Select **Open assignment** to read full instructions and open/download any teacher attachment.
 5. Enter the response and select **Submit assignment** before the deadline. Check the submission status afterwards.
-6. Open **Student CBT** to take an available published examination.
+6. Open **My ID Card** to view and print the student ID card when the school has approved printing and uploaded the passport photograph.
+7. Open **Student CBT** to take an available published examination.
 7. Open **My Report Cards** to view results released by the school.
 8. Use **Learning Resources**, **Practice Drills**, **School Messages** and **Notifications** for learning and communication.
 
