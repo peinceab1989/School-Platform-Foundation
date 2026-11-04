@@ -81,7 +81,7 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
     finally{setBusy(null);}
   }
 
-  const card=(row:StudentRow, printTarget=false)=> <section id={printTarget ? "resa-student-id-card" : undefined} className="mx-auto w-full max-w-sm rounded-2xl border-2 border-emerald-900 bg-white p-4 text-slate-900 shadow print:shadow-none">
+  const card=(row:StudentRow, printTarget=false)=> <section id={printTarget || selected?.id === row.id ? "resa-student-id-card" : undefined} className="mx-auto w-full max-w-sm rounded-2xl border-2 border-emerald-900 bg-white p-4 text-slate-900 shadow print:shadow-none">
     <div className="border-b-2 border-amber-400 pb-2 text-center"><p className="text-xs font-extrabold tracking-wide text-emerald-950">RHEMA EXPLOITS SCIENCE ACADEMY</p><p className="text-[10px] font-bold text-emerald-800">STUDENT IDENTIFICATION CARD</p></div>
     <div className="mt-3 flex gap-3"><div className="h-28 w-24 shrink-0 overflow-hidden rounded-lg border bg-slate-100">{photoUrls[row.id]?<img src={photoUrls[row.id]} alt={"Passport photograph of "+row.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-slate-400"><UserRound size={34}/></div>}</div><div className="min-w-0 space-y-2 text-xs"><p><b>Name:</b><br/>{row.name}</p><p><b>Admission No:</b><br/>{row.admission_number}</p><p><b>Card No:</b><br/>{row.cardNumber}</p><p><b>Status:</b> {row.status}</p></div></div>
     <p className="mt-3 border-t pt-2 text-center text-[9px] font-semibold text-emerald-900">PASSION • SKILLS • EXCELLENT SPIRIT · If found, return to RESA</p>
