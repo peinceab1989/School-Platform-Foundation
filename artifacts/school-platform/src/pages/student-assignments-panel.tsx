@@ -68,14 +68,15 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
       const student = await db.from("students").select("id").eq("school_id", schoolId).eq("user_id", userId).eq("status", "active").maybeSingle();
       if (student.error) throw student.error;
       if (!student.data) throw new Error("Your active student record could not be verified.");
-      const { error: saveError } = await db.from("assignment_submissions").upsert({
+      if (item.submission_status) throw new Error("This assignment has already been submitted. Contact your teacher if a correction is required.");
+      const { error: saveError } = await db.from("assignment_submissions").insert({
         school_id: schoolId, assignment_id: item.id, student_id: student.data.id,
         submission_text: submissionText.trim(), submitted_at: new Date().toISOString(), status: "submitted",
-      }, { onConflict: "assignment_id,student_id" });
+      });
       if (saveError) throw saveError;
-      setNotice("Your assignment has been submitted successfully.");
       await load();
       setSelectedId(item.id);
+      setNotice("Your assignment has been submitted successfully.");
     } catch (e) { setError(e instanceof Error ? e.message : "Your assignment could not be submitted. Please try again."); }
     finally { setSubmitting(false); }
   };
@@ -99,7 +100,7 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
           {selectedId === item.id && <div style={{ marginTop: 14, padding: 14, borderRadius: 9, background: "#f5f8f4", border: "1px solid #dce5dc" }}>
             {item.instructions && <p style={{ margin: "0 0 12px", whiteSpace: "pre-wrap", lineHeight: 1.6 }}><strong>Instructions:</strong>{"\n"}{item.instructions}</p>}
             {item.attachment_url && <p style={{ margin: "0 0 12px" }}><a href={item.attachment_url} target="_blank" rel="noreferrer" style={{ color: "#17623d", fontWeight: 700, textDecoration: "underline" }}>Open / download teacher attachment</a></p>}
-            {item.submission_status === "graded" || item.score !== null ? <div><p style={{ fontWeight: 700 }}>Your submitted answer</p><p style={{ whiteSpace: "pre-wrap" }}>{item.submission_text || "No written response was stored for this submission."}</p></div> : <form onSubmit={event => { event.preventDefault(); void submitAssignment(item); }}>
+            {item.submission_status ? <div><p style={{ fontWeight: 700 }}>Your submitted answer</p><p style={{ whiteSpace: "pre-wrap" }}>{item.submission_text || "No written response was stored for this submission."}</p>{item.submitted_at && <p style={{ marginTop: 8, fontSize: 12, color: "#536456" }}>Submitted: {new Date(item.submitted_at).toLocaleString()}</p>}{item.score !== null && <p style={{ marginTop: 8, fontWeight: 700 }}>Teacher score: {item.score} / {item.max_score}</p>}{item.feedback && <p style={{ marginTop: 6 }}>Teacher feedback: {item.feedback}</p>}</div> : <form onSubmit={event => { event.preventDefault(); void submitAssignment(item); }}>
               <label style={{ display: "block", fontWeight: 700, fontSize: 14 }} htmlFor={`assignment-answer-${item.id}`}>Your answer</label>
               <textarea id={`assignment-answer-${item.id}`} value={submissionText} onChange={event => setSubmissionText(event.target.value)} rows={7} maxLength={20000} required placeholder="Type your answer here…" style={{ display: "block", width: "100%", boxSizing: "border-box", marginTop: 8, border: "1px solid #cbd5cb", borderRadius: 8, padding: 12, font: "inherit", resize: "vertical" }} />
               <button type="submit" disabled={submitting} style={{ marginTop: 10, border: 0, borderRadius: 8, padding: "11px 16px", background: "#17623d", color: "#fff", fontWeight: 700, cursor: submitting ? "wait" : "pointer", opacity: submitting ? 0.65 : 1 }}>{submitting ? "Submitting…" : item.submission_status ? "Update submission" : "Submit assignment"}</button>
