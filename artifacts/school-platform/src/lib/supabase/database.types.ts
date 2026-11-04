@@ -342,9 +342,9 @@ export interface Database {
         Relationships: [];
       };
       assignments: {
-        Row: { id: string; school_id: string; academic_session_id: string; class_id: string; subject_id: string; staff_id: string | null; title: string; description: string | null; instructions: string | null; due_date: string | null; max_score: number; attachment_url: string | null; assignment_type: string; practical_rubric: any; status: string; created_at: string };
-        Insert: { id?: string; school_id: string; academic_session_id: string; class_id: string; subject_id: string; staff_id?: string | null; title: string; description?: string | null; instructions?: string | null; due_date?: string | null; max_score?: number; attachment_url?: string | null; assignment_type?: string; practical_rubric?: any; status?: string; created_at?: string };
-        Update: { id?: string; school_id?: string; academic_session_id?: string; class_id?: string; subject_id?: string; staff_id?: string | null; title?: string; description?: string | null; instructions?: string | null; due_date?: string | null; max_score?: number; attachment_url?: string | null; assignment_type?: string; practical_rubric?: any; status?: string; created_at?: string };
+        Row: { id: string; school_id: string; academic_session_id: string; class_id: string; subject_id: string; staff_id: string | null; title: string; description: string | null; instructions: string | null; due_date: string | null; max_score: number; attachment_url: string | null; assignment_type: string; practical_rubric: any; practical_assessment_id: string | null; status: string; created_at: string };
+        Insert: { id?: string; school_id: string; academic_session_id: string; class_id: string; subject_id: string; staff_id?: string | null; title: string; description?: string | null; instructions?: string | null; due_date?: string | null; max_score?: number; attachment_url?: string | null; assignment_type?: string; practical_rubric?: any; practical_assessment_id?: string | null; status?: string; created_at?: string };
+        Update: { id?: string; school_id?: string; academic_session_id?: string; class_id?: string; subject_id?: string; staff_id?: string | null; title?: string; description?: string | null; instructions?: string | null; due_date?: string | null; max_score?: number; attachment_url?: string | null; assignment_type?: string; practical_rubric?: any; practical_assessment_id?: string | null; status?: string; created_at?: string };
         Relationships: [];
       };
       assignment_submissions: {
