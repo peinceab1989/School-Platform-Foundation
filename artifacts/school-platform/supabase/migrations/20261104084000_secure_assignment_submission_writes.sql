@@ -8,7 +8,12 @@ on public.assignment_submissions
 for insert
 to authenticated
 with check (
-  has_school_role(school_id, array['student'::school_role])
+  status <> 'graded'
+  and score is null
+  and feedback is null
+  and graded_by is null
+  and graded_at is null
+  and has_school_role(school_id, array['student'::school_role])
   and exists (
     select 1
     from public.students st
