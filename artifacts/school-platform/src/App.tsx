@@ -851,7 +851,6 @@ function NexusDashboard({
         parentAccountsResult,
         parentGuardiansResult,
         formTeachersResult,
-        testRecordsResult,
         publishedResultsResult,
         subjectResultsResult,
         schoolMessagesResult,
@@ -883,10 +882,6 @@ function NexusDashboard({
           .select('id', { count: 'exact', head: true }),
 
         client
-          .from('resa_test_data_records')
-          .select('id', { count: 'exact', head: true }),
-
-        client
           .from('student_term_results')
           .select('id', { count: 'exact', head: true })
           .eq('workflow_status', 'published'),
@@ -914,7 +909,7 @@ function NexusDashboard({
         activeParentAccounts: parentAccountsResult.error ? null : parentAccountsResult.count ?? 0,
         portalEnabledGuardians: parentGuardiansResult.error ? null : parentGuardiansResult.count ?? 0,
         assignedFormTeachers: formTeachersResult.error ? null : formTeachersResult.count ?? 0,
-        trackedTestRecords: testRecordsResult.error ? null : testRecordsResult.count ?? 0,
+        trackedTestRecords: null,
         publishedTermResults: publishedResultsResult.error ? null : publishedResultsResult.count ?? 0,
         subjectResultRows: subjectResultsResult.error ? null : subjectResultsResult.count ?? 0,
         schoolMessages: schoolMessagesResult.error ? null : schoolMessagesResult.count ?? 0,
