@@ -24,8 +24,8 @@ const sections = [
     title: "Teacher",
     icon: BookOpen,
     items: [
-      ["Assignments & Practical Centre", "/teacher-dashboard", "Create homework, practical examinations or projects for assigned classes and subjects."],
-      ["Marking", "/teacher-dashboard", "Review written responses and student photo, video or document evidence; record marks and feedback."],
+      ["Assignments & Practical Centre", "/teacher-dashboard", "Create homework, practical examinations or projects for assigned classes and subjects. Add an optional visual/demo link and a practical marking rubric."],
+      ["Marking", "/teacher-dashboard", "Review written responses and student photo, video or document evidence; record marks and feedback. Import graded practical averages into CA / 40 from Results Management."],
       ["Online CBT", "/teacher-dashboard", "Create and publish a separate computer-based examination."],
       ["Learning Materials", "/teaching-materials", "Share approved learning resources."],
       ["School Messages", "/school-communication", "Communicate with authorised school members."],
@@ -36,7 +36,7 @@ const sections = [
     icon: GraduationCap,
     items: [
       ["Assignments", "/student-assignments", "Open published work for your active class and academic session."],
-      ["Practical evidence", "/student-assignments", "Attach a photo, video or document and submit it with your explanation."],
+      ["Practical evidence", "/student-assignments", "Attach a photo, video or document and submit it with your explanation. Use Student CBT separately for any published computer-based practical activity."],
       ["Student CBT", "/student-cbt", "Take an examination after it has been published for your class."],
       ["My Report Cards", "/my-results", "View results released by the school."],
       ["My ID Card", "/student-id-card", "View and print your ID card after administrator approval."],
