@@ -1049,7 +1049,6 @@ export default function TeacherDashboard({
                 Sign out
               </button>
               </div>
-            </div>
             <div style={{ minWidth: 0, borderRadius: 12, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.10)', padding: 12 }}>
               <ProfilePhotoCard userId={userId} displayName="Teacher profile" roleLabel="Teacher / Staff" compact />
             </div>
