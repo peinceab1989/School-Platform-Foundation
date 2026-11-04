@@ -62,3 +62,9 @@
 - If a page displays 404, return to the dashboard and report the exact menu item and URL to the portal administrator.
 - Sign out when using a shared device.
 - All records created during portal testing are demo/test records until the school explicitly approves the official data transition. Do not delete or overwrite demo records without authorisation.
+
+### RESA Drive: photos and videos
+- Open **RESA Drive** from the administrator's School Services area.
+- Upload the image or video (maximum 100 MB) and select **Authorised RESA portal members** when teachers/students should be able to view it. **Administrators only** keeps it private.
+- Shared image and video files display inline previews; use **Preview** or **Download** for the full item. Google Drive is optional and is not required for RESA Drive uploads or previews.
+- If an upload succeeds but does not appear, refresh RESA Drive and check the upload confirmation/error message. Do not upload the same file repeatedly while an earlier upload is still processing.
