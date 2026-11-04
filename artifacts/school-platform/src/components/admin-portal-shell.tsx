@@ -37,7 +37,7 @@ const groups = [
     ["Enter & Publish Results", "/results-management", FileText],
     ["Academic Results", "/results", ChartNoAxesCombined],
     ["Examinations & CBT", "/examinations", ClipboardList],
-    ["Assignments & Practical Centre", "/teaching-assignments", BookOpen],
+    ["Teaching Assignments", "/teaching-assignments", BookOpen],
     ["Learning Materials", "/teaching-materials", BookOpen],
     ["Practice & Revision", "/practice-drills", Sparkles],
   ]},
