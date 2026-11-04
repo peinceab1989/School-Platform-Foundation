@@ -70,8 +70,8 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
       if (subjectResult.error) throw subjectResult.error;
       if (submissionResult.error) setNotice("Assignments are loaded, but saved submission details could not be retrieved. You can still prepare your response; contact the school if saving fails.");
 
-      const subjectNames = new Map((subjectResult.data ?? []).map((item: any) => [item.id, item.name]));
-      const submissions = new Map((submissionResult.data ?? []).map((item: any) => [item.assignment_id, item]));
+      const subjectNames = new Map<string, string>((subjectResult.data ?? []).map((item: any) => [String(item.id), String(item.name)]));
+      const submissions = new Map<string, any>((submissionResult.data ?? []).map((item: any) => [String(item.assignment_id), item]));
       setItems(assignments.map((item: any) => {
         const submission: any = submissions.get(item.id);
         return {
