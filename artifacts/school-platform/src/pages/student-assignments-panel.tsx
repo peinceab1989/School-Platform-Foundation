@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BookOpenCheck, CalendarClock, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
-type Assignment = { id: string; title: string; description: string | null; instructions: string | null; due_date: string | null; max_score: number; class_name: string; subject_name: string; submission_status: string | null; score: number | null; feedback: string | null };
+type Assignment = { id: string; title: string; description: string | null; instructions: string | null; due_date: string | null; max_score: number; attachment_url: string | null; class_name: string; subject_name: string; submission_status: string | null; submission_text: string | null; submitted_at: string | null; score: number | null; feedback: string | null };
 
 export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId: string; userId: string }) {
   const [items, setItems] = useState<Assignment[]>([]);
@@ -10,6 +10,9 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [emptyReason, setEmptyReason] = useState("No published assignments are available for your current enrolment yet.");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [submissionText, setSubmissionText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const load = useCallback(async () => {
     setLoading(true); setError(""); setNotice("");
     try {
@@ -22,7 +25,7 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
       const enrollment = enrollmentResult.data;
       if (!enrollment?.class_id || !enrollment?.academic_session_id) { setItems([]); setEmptyReason("No active class enrolment with an academic session was found. Ask the school administrator to verify your enrolment."); return; }
       const [assignmentResult, classResult] = await Promise.all([
-        db.from("assignments").select("id,title,description,instructions,due_date,max_score,subject_id").eq("school_id", schoolId).eq("class_id", enrollment.class_id).eq("academic_session_id", enrollment.academic_session_id).eq("status", "published").order("due_date", { ascending: true }),
+        db.from("assignments").select("id,title,description,instructions,due_date,max_score,subject_id,attachment_url").eq("school_id", schoolId).eq("class_id", enrollment.class_id).eq("academic_session_id", enrollment.academic_session_id).eq("status", "published").order("due_date", { ascending: true }),
         db.from("school_classes").select("id,name").eq("school_id", schoolId).eq("id", enrollment.class_id).maybeSingle(),
       ]);
       if (assignmentResult.error) throw assignmentResult.error;
@@ -33,7 +36,7 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
       const subjectIds = [...new Set(assignments.map((item: any) => item.subject_id).filter(Boolean))];
       const [subjectResult, submissionResult] = await Promise.all([
         subjectIds.length ? db.from("subjects").select("id,name").eq("school_id", schoolId).in("id", subjectIds) : Promise.resolve({ data: [], error: null }),
-        db.from("assignment_submissions").select("assignment_id,status,score,feedback").eq("school_id", schoolId).eq("student_id", student.data.id).in("assignment_id", assignmentIds),
+        db.from("assignment_submissions").select("assignment_id,status,submission_text,submitted_at,score,feedback").eq("school_id", schoolId).eq("student_id", student.data.id).in("assignment_id", assignmentIds),
       ]);
       if (subjectResult.error) throw subjectResult.error;
       if (submissionResult.error) setNotice("Assignments are loaded, but submission status is temporarily unavailable.");
@@ -41,12 +44,42 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
       const submissions = new Map((submissionResult.data ?? []).map((item: any) => [item.assignment_id, item]));
       setItems(assignments.map((item: any) => {
         const submission: any = submissions.get(item.id);
-        return { id: item.id, title: item.title, description: item.description, instructions: item.instructions, due_date: item.due_date, max_score: item.max_score, class_name: classResult.data?.name ?? "Class unavailable", subject_name: subjectNames.get(item.subject_id) ?? "Subject unavailable", submission_status: submission?.status ?? null, score: submission?.score ?? null, feedback: submission?.feedback ?? null };
+        return { id: item.id, title: item.title, description: item.description, instructions: item.instructions, due_date: item.due_date, max_score: item.max_score, attachment_url: item.attachment_url ?? null, class_name: classResult.data?.name ?? "Class unavailable", subject_name: subjectNames.get(item.subject_id) ?? "Subject unavailable", submission_status: submission?.status ?? null, submission_text: submission?.submission_text ?? null, submitted_at: submission?.submitted_at ?? null, score: submission?.score ?? null, feedback: submission?.feedback ?? null };
       }));
     } catch (e) { setError(e instanceof Error ? e.message : "Assignments could not be loaded. Refresh and try again."); }
     finally { setLoading(false); }
   }, [schoolId, userId]);
   useEffect(() => { void load(); }, [load]);
+
+  const openAssignment = (item: Assignment) => {
+    setSelectedId(item.id);
+    setSubmissionText(item.submission_text ?? "");
+    setNotice("");
+  };
+
+  const submitAssignment = async (item: Assignment) => {
+    if (!submissionText.trim()) { setError("Write your answer before submitting."); return; }
+    if (item.due_date && new Date(item.due_date).getTime() < Date.now()) { setError("The submission deadline has passed. Please contact your teacher."); return; }
+    setSubmitting(true); setError(""); setNotice("");
+    try {
+      const db = getSupabaseClient() as any;
+      const { data: auth, error: authError } = await db.auth.getUser();
+      if (authError || !auth.user || auth.user.id !== userId) throw new Error("Your student session could not be verified. Sign in again.");
+      const student = await db.from("students").select("id").eq("school_id", schoolId).eq("user_id", userId).eq("status", "active").maybeSingle();
+      if (student.error) throw student.error;
+      if (!student.data) throw new Error("Your active student record could not be verified.");
+      const { error: saveError } = await db.from("assignment_submissions").upsert({
+        school_id: schoolId, assignment_id: item.id, student_id: student.data.id,
+        submission_text: submissionText.trim(), submitted_at: new Date().toISOString(), status: "submitted",
+      }, { onConflict: "assignment_id,student_id" });
+      if (saveError) throw saveError;
+      setNotice("Your assignment has been submitted successfully.");
+      await load();
+      setSelectedId(item.id);
+    } catch (e) { setError(e instanceof Error ? e.message : "Your assignment could not be submitted. Please try again."); }
+    finally { setSubmitting(false); }
+  };
+
   return <section style={{ background: "#fff", border: "1px solid #e0e7e0", borderRadius: 12, padding: 18, marginBottom: 18 }}>
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BookOpenCheck size={23} color="#17623d" /><div><h2 style={{ margin: 0, fontSize: 21 }}>My Assignments</h2><p style={{ margin: "5px 0 0", color: "#536456", fontSize: 13 }}>Published work for your active class and academic session.</p></div></div>
@@ -60,9 +93,18 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
           <p style={{ margin: "8px 0 0", fontSize: 13, color: "#536456" }}><strong>Class:</strong> {item.class_name} · <strong>Subject:</strong> {item.subject_name}</p>
           <p style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 5, margin: "6px 0 0", fontSize: 13, color: "#536456" }}><strong>Maximum score:</strong> {item.max_score}{item.due_date ? <><span>·</span><CalendarClock size={14}/><strong>Due:</strong> {new Date(item.due_date).toLocaleString()}</> : null}</p>
           {item.description && <p style={{ margin: "9px 0 0", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{item.description}</p>}
-          {item.instructions && <p style={{ margin: "7px 0 0", whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6, color: "#536456" }}>{item.instructions}</p>}
           {item.score !== null && <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Score: {item.score} / {item.max_score}</p>}
           {item.feedback && <p style={{ margin: "6px 0 0", fontSize: 13 }}>Teacher feedback: {item.feedback}</p>}
+          <button type="button" onClick={() => openAssignment(item)} aria-expanded={selectedId === item.id} style={{ marginTop: 12, border: 0, borderRadius: 8, padding: "10px 14px", background: "#17623d", color: "#fff", fontWeight: 700, cursor: "pointer" }}>{selectedId === item.id ? "Assignment opened" : "Open assignment"}</button>
+          {selectedId === item.id && <div style={{ marginTop: 14, padding: 14, borderRadius: 9, background: "#f5f8f4", border: "1px solid #dce5dc" }}>
+            {item.instructions && <p style={{ margin: "0 0 12px", whiteSpace: "pre-wrap", lineHeight: 1.6 }}><strong>Instructions:</strong>{"\n"}{item.instructions}</p>}
+            {item.attachment_url && <p style={{ margin: "0 0 12px" }}><a href={item.attachment_url} target="_blank" rel="noreferrer" style={{ color: "#17623d", fontWeight: 700, textDecoration: "underline" }}>Open / download teacher attachment</a></p>}
+            {item.submission_status === "graded" || item.score !== null ? <div><p style={{ fontWeight: 700 }}>Your submitted answer</p><p style={{ whiteSpace: "pre-wrap" }}>{item.submission_text || "No written response was stored for this submission."}</p></div> : <form onSubmit={event => { event.preventDefault(); void submitAssignment(item); }}>
+              <label style={{ display: "block", fontWeight: 700, fontSize: 14 }} htmlFor={`assignment-answer-${item.id}`}>Your answer</label>
+              <textarea id={`assignment-answer-${item.id}`} value={submissionText} onChange={event => setSubmissionText(event.target.value)} rows={7} maxLength={20000} required placeholder="Type your answer here…" style={{ display: "block", width: "100%", boxSizing: "border-box", marginTop: 8, border: "1px solid #cbd5cb", borderRadius: 8, padding: 12, font: "inherit", resize: "vertical" }} />
+              <button type="submit" disabled={submitting} style={{ marginTop: 10, border: 0, borderRadius: 8, padding: "11px 16px", background: "#17623d", color: "#fff", fontWeight: 700, cursor: submitting ? "wait" : "pointer", opacity: submitting ? 0.65 : 1 }}>{submitting ? "Submitting…" : item.submission_status ? "Update submission" : "Submit assignment"}</button>
+            </form>}
+          </div>}
         </article>)}
       </div>}
   </section>;
