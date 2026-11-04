@@ -58,7 +58,7 @@
 ## Important checks and support
 - A teacher must publish an assignment before it appears in the learner's published assignment list. The learner's active class and academic session must match the assignment.
 - If an assignment is missing, ask the teacher/administrator to verify publication status, class, subject and academic session, then refresh the student assignment page.
-- If an assignment attachment or practical evidence does not open, refresh the page and ask the teacher to verify the file upload and class/subject permissions.\n- RESA Drive is backed by RESA's private storage. Uploads should appear in the Drive file list after both the file and its metadata save successfully. Google Drive is not required for RESA Drive previews.
+- If an assignment attachment or practical evidence does not open, refresh the page and ask the teacher to verify the file upload and class/subject permissions.\n- RESA Drive is backed by RESA's private storage. Uploads should appear in the Drive file list after both the file and its metadata save successfully. Google Drive is not required for RESA Drive previews or practical task resource links; teachers may optionally provide a shareable external reference URL.
 - If a page displays 404, return to the dashboard and report the exact menu item and URL to the portal administrator.
 - Sign out when using a shared device.
 - All records created during portal testing are demo/test records until the school explicitly approves the official data transition. Do not delete or overwrite demo records without authorisation.
