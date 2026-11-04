@@ -632,7 +632,7 @@ export default function TeacherDashboard({
 
   const openSubmissionAttachment = async (path: string) => {
     try {
-      if (/^https?:\\/\\//i.test(path)) {
+      if (path.startsWith('https://') || path.startsWith('http://')) {
         window.open(path, '_blank', 'noopener,noreferrer');
         return;
       }
@@ -704,7 +704,7 @@ export default function TeacherDashboard({
           : null,
         max_score: maxScore,
         assignment_type: homeworkForm.assignmentType,
-        practical_rubric: homeworkForm.assignmentType === 'practical' ? homeworkForm.practicalRubric.split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean).map((criterion) => ({ criterion })) : [],
+        practical_rubric: homeworkForm.assignmentType === 'practical' ? homeworkForm.practicalRubric.split(String.fromCharCode(10)).map((line) => line.replaceAll(String.fromCharCode(13), '').trim()).filter(Boolean).map((criterion) => ({ criterion })) : [],
         status: 'published',
       });
 
