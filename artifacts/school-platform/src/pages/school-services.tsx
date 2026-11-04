@@ -21,14 +21,10 @@ const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math
 const safeFileName = (name: string) => name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(-160) || "file";
 
 export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
-  const [activeKey, setActiveKey] = useState(() => {
-    try {
-      const saved = window.sessionStorage.getItem("resa-school-services-active-module");
-      return MODULES.some((module) => module.key === saved) ? saved! : "drive";
-    } catch {
-      return "drive";
-    }
-  });
+  // Always reopen this page on RESA Drive. Android file pickers can resume
+  // the web app by remounting the route; restoring a previously selected
+  // Fees module made the upload form disappear immediately after file choice.
+  const [activeKey, setActiveKey] = useState("drive");
   useEffect(() => {
     try {
       window.sessionStorage.setItem("resa-school-services-active-module", activeKey);
@@ -199,7 +195,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
                 </select>
               </label>
               <label className="block text-sm font-semibold">Choose a file
-                <input id="resa-drive-file-picker" type="file" onChange={e=>setSelectedFile(e.target.files?.[0]??null)} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
+                <input id="resa-drive-file-picker" type="file" onClick={() => { try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onChange={e=>{ try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } setSelectedFile(e.target.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
               </label>
             </div>
             {selectedFile&&<p className="mt-2 flex items-center gap-2 break-all text-xs text-slate-600"><FileText size={15}/>{selectedFile.name} · {formatBytes(selectedFile.size)}</p>}
