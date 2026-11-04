@@ -50,7 +50,7 @@ type Homework = {
   subject_id: string;
   max_score: number;
   assignment_type?: string;
-  practical_rubric?: string[] | null;
+  practical_rubric?: Array<{ criterion?: string } | string> | null;
 };
 
 type TimetableEntry = {
