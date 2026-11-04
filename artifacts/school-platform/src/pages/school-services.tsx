@@ -29,6 +29,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [search, setSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [folderName, setFolderName] = useState("General");
+  const [driveVisibility, setDriveVisibility] = useState<"school" | "private">("school");
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
@@ -40,7 +41,19 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       const query = db.from(active.table).select("*").eq("school_id", schoolId).limit(100);
       const result = activeKey === "drive" ? await query.order("created_at", { ascending: false }) : await query;
       if (result.error) throw result.error;
-      setRows((result.data ?? []) as RowRecord[]);
+      const records = (result.data ?? []) as RowRecord[];
+      if (activeKey === "drive") {
+        const mediaRecords = await Promise.all(records.map(async (row) => {
+          const mime = String(row.mime_type ?? "").toLowerCase();
+          const path = String(row.storage_path ?? "");
+          if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return row;
+          const signed = await db.storage.from("resa-drive").createSignedUrl(path, 1800);
+          return signed.error || !signed.data?.signedUrl ? row : { ...row, preview_url: signed.data.signedUrl };
+        }));
+        setRows(mediaRecords);
+      } else {
+        setRows(records);
+      }
     } catch (e) {
       setRows([]);
       setError(e instanceof Error ? e.message : "This module could not be loaded. Check its schema and school access policies.");
@@ -74,7 +87,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         folder_name: folderName.trim() || "General",
         mime_type: selectedFile.type || "application/octet-stream",
         file_size: selectedFile.size,
-        visibility: "private",
+        visibility: driveVisibility,
         published_to_website: false,
         is_active: true,
       });
@@ -84,6 +97,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         throw metadataResult.error;
       }
       setSelectedFile(null);
+      setDriveVisibility("school");
       const picker = document.getElementById("resa-drive-file-picker") as HTMLInputElement | null;
       if (picker) picker.value = "";
       setNotice(`Uploaded “${selectedFile.name}” successfully.`);
@@ -116,6 +130,18 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     } catch (e) { setError(e instanceof Error ? e.message : "Preview could not be opened."); }
     finally { setPreviewLoading(null); }
   };
+  const toggleDriveVisibility = async (row: RowRecord) => {
+    const nextVisibility = String(row.visibility ?? "private") === "school" ? "private" : "school";
+    setError(""); setNotice("");
+    try {
+      const { error: updateError } = await (getSupabaseClient() as any).from("resa_drive_files")
+        .update({ visibility: nextVisibility })
+        .eq("id", String(row.id)).eq("school_id", schoolId);
+      if (updateError) throw updateError;
+      setNotice(nextVisibility === "school" ? "File shared with authorised RESA portal members." : "File returned to administrator-only visibility.");
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : "File visibility could not be updated."); }
+  };
   const deleteFile = async (row: RowRecord) => {
     if (!window.confirm(`Delete “${String(row.original_name ?? row.file_name ?? "this file")}” from RESA Drive? This cannot be undone.`)) return;
     setError(""); setNotice("");
@@ -147,10 +173,16 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         {activeKey==="drive" ? <>
           <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 sm:p-5">
             <h3 className="flex items-center gap-2 font-bold text-emerald-950"><Upload size={18}/> Upload to RESA Drive</h3>
-            <p className="mt-1 text-sm leading-6 text-slate-600">Supports videos, photos, PDFs, Word/Excel/PowerPoint files, audio, ZIP archives and other file types. Files remain private unless a separate publishing workflow is explicitly used.</p>
+            <p className="mt-1 text-sm leading-6 text-slate-600">Supports photos, videos, PDFs, Office documents, audio and ZIP files up to 100 MB. Choose whether a file is visible to authorised school members or administrators only. Google Drive is not required.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="block text-sm font-semibold">Folder
                 <input value={folderName} onChange={e=>setFolderName(e.target.value)} maxLength={80} placeholder="e.g. Videos, School Documents" className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 font-normal outline-none focus:border-emerald-700"/>
+              </label>
+              <label className="block text-sm font-semibold">Who can view this file?
+                <select value={driveVisibility} onChange={e=>setDriveVisibility(e.target.value as "school" | "private")} className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 font-normal">
+                  <option value="school">Authorised RESA portal members</option>
+                  <option value="private">Administrators only</option>
+                </select>
               </label>
               <label className="block text-sm font-semibold">Choose a file
                 <input id="resa-drive-file-picker" type="file" onChange={e=>setSelectedFile(e.target.files?.[0]??null)} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
@@ -163,7 +195,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
           <label className="my-4 flex items-center gap-2 rounded-lg border px-3"><Search size={16} className="text-slate-400"/><input className="min-w-0 flex-1 py-3 text-sm outline-none" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search files and folders…"/></label>
           {loading&&<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Loading files…</p>}
           {!loading&&!error&&visibleRows.length===0&&<div className="rounded-xl border border-dashed p-8 text-center"><FolderOpen className="mx-auto mb-3 text-slate-400" size={30}/><h3 className="font-semibold">Your RESA Drive is ready</h3><p className="mt-1 text-sm text-slate-500">Upload the first file or video above. Uploaded files will appear here.</p></div>}
-          {!loading&&visibleRows.length>0&&<div className="mt-3 divide-y rounded-xl border">{visibleRows.map((row,i)=><div key={String(row.id??i)} className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4"><div className="flex min-w-0 items-start gap-3"><span className="rounded-xl bg-emerald-50 p-2 text-emerald-900"><FileText size={20}/></span><div className="min-w-0"><p className="break-words font-semibold">{String(row.original_name??row.file_name??"Unnamed file")}</p><p className="mt-1 break-words text-xs text-slate-500">{String(row.folder_name??"General")} · {formatBytes(Number(row.file_size??0))} · {String(row.mime_type??"file")}</p><p className="mt-1 text-xs text-slate-400">{row.created_at?new Date(String(row.created_at)).toLocaleString():""}</p></div></div><div className="flex shrink-0 gap-2">{(String(row.mime_type ?? "").startsWith("image/") || String(row.mime_type ?? "").startsWith("video/")) && <button type="button" onClick={()=>void previewFile(row)} disabled={previewLoading===String(row.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"><Eye size={15}/>{previewLoading===String(row.id)?"Opening…":"Preview"}</button>}<button type="button" onClick={()=>void downloadFile(row)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-emerald-50"><Download size={15}/> Download</button><button type="button" onClick={()=>void deleteFile(row)} aria-label="Delete file" className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 size={15}/><span className="hidden sm:inline">Delete</span></button></div></div>)}</div>}
+          {!loading&&visibleRows.length>0&&<div className="mt-3 divide-y rounded-xl border">{visibleRows.map((row,i)=><div key={String(row.id??i)} className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4"><div className="flex min-w-0 items-start gap-3">{String(row.mime_type ?? "").startsWith("image/") && row.preview_url ? <img src={String(row.preview_url)} alt={String(row.original_name ?? "RESA Drive image")} loading="lazy" className="h-20 w-24 rounded-lg border object-cover"/> : String(row.mime_type ?? "").startsWith("video/") && row.preview_url ? <video src={String(row.preview_url)} controls playsInline preload="metadata" className="h-20 w-28 rounded-lg bg-black object-cover"/> : <span className="rounded-xl bg-emerald-50 p-2 text-emerald-900"><FileText size={20}/></span>}<div className="min-w-0"><p className="break-words font-semibold">{String(row.original_name??row.file_name??"Unnamed file")}</p><p className="mt-1 break-words text-xs text-slate-500">{String(row.folder_name??"General")} · {formatBytes(Number(row.file_size??0))} · {String(row.mime_type??"file")}</p><p className="mt-1 text-xs text-slate-400">{row.created_at?new Date(String(row.created_at)).toLocaleString():""}</p></div></div><div className="flex shrink-0 flex-wrap gap-2"><button type="button" onClick={()=>void toggleDriveVisibility(row)} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-50">{String(row.visibility ?? "private")==="school"?"Make private":"Share with school"}</button>{(String(row.mime_type ?? "").startsWith("image/") || String(row.mime_type ?? "").startsWith("video/")) && <button type="button" onClick={()=>void previewFile(row)} disabled={previewLoading===String(row.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"><Eye size={15}/>{previewLoading===String(row.id)?"Opening…":"Preview"}</button>}<button type="button" onClick={()=>void downloadFile(row)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-emerald-50"><Download size={15}/> Download</button><button type="button" onClick={()=>void deleteFile(row)} aria-label="Delete file" className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 size={15}/><span className="hidden sm:inline">Delete</span></button></div></div>)}</div>}
         </> : <>
           <label className="my-4 flex items-center gap-2 rounded-lg border px-3"><Search size={16} className="text-slate-400"/><input className="min-w-0 flex-1 py-3 text-sm outline-none" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search loaded records…"/></label>
           {loading&&<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Loading records…</p>}
