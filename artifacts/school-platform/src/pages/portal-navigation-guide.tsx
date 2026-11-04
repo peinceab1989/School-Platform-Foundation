@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ArrowLeft, BookOpen, ClipboardCheck, GraduationCap, Users, Wallet, HardDrive, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BookOpen, GraduationCap, Users, ShieldCheck } from "lucide-react";
 
 const sections = [
   {
