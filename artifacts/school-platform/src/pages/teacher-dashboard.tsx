@@ -173,7 +173,7 @@ const sectionTitleStyle = {
 
 const tabs = [
   'Overview',
-  'Assignments',
+  'Assignments & Practical Centre',
   'Online CBT',
   'Marking',
   'Results',
@@ -1268,7 +1268,7 @@ export default function TeacherDashboard({
           </>
         )}
 
-        {activeTab === 'Assignments' && (
+        {activeTab === 'Assignments & Practical Centre' && (
           <>
             <section style={panelStyle}>
               <h2 style={sectionTitleStyle}>
