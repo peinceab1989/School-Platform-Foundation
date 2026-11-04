@@ -17,12 +17,12 @@
 - **Parents & Guardians:** parent records, student links and portal activation.
 - **Classes / Subjects:** manage class groups and subjects.
 - **Attendance:** review and manage daily student attendance.
-- **Teaching Assignments:** assign each teacher to the correct class, subject and academic session.
+- **Assignments & Practical Centre:** assign teachers to classes/subjects, publish homework, practical examinations and projects, and review evidence submissions and marks.
 - **Examinations & CBT:** create exams, add questions, review attempts and mark written answers.
 - **Results Management:** enter CA/exam marks, review, approve and publish results.
 - **Academic Results:** inspect published result records and broadsheets.
 - **Fees Management:** create fee types, assign charges, record payments already verified by Finance, and print receipts. Do not record a payment until funds are confirmed.
-- **School Services:** open additional operational services.
+- **Additional School Services / RESA Drive:** upload school files, organize folders, preview images and videos, and securely download or remove files. RESA Drive stores its own files; Google Drive is not required.
 - **School Messages / Notifications / Announcements:** communicate with authorised school users.
 - **School Settings:** manage school profile, academic defaults, user access and account settings.
 - **Student ID Cards:** upload each learner’s passport photograph, grant/revoke ID-card printing and print the approved card.
@@ -46,7 +46,7 @@
 6. Open **My ID Card** to view and print the student ID card when the school has approved printing and uploaded the passport photograph.
 7. Open **Student CBT** to take an available published examination.
 7. Open **My Report Cards** to view results released by the school.
-8. Use **Learning Resources**, **Practice Drills**, **School Messages** and **Notifications** for learning and communication.
+9. Use **Learning Resources**, **Practice Drills**, **School Messages** and **Notifications** for learning and communication.
 
 ## Parent / guardian navigation
 1. Sign in using the registered parent email, phone/login ID or RESA login ID and password.
@@ -58,7 +58,7 @@
 ## Important checks and support
 - A teacher must publish an assignment before it appears in the learner's published assignment list. The learner's active class and academic session must match the assignment.
 - If an assignment is missing, ask the teacher/administrator to verify publication status, class, subject and academic session, then refresh the student assignment page.
-- If an attachment does not open, ask the teacher to verify that the file is uploaded and its access permissions allow the intended student to read it.
+- If an assignment attachment or practical evidence does not open, refresh the page and ask the teacher to verify the file upload and class/subject permissions.\n- RESA Drive is backed by RESA's private storage. Uploads should appear in the Drive file list after both the file and its metadata save successfully. Google Drive is not required for RESA Drive previews.
 - If a page displays 404, return to the dashboard and report the exact menu item and URL to the portal administrator.
 - Sign out when using a shared device.
 - All records created during portal testing are demo/test records until the school explicitly approves the official data transition. Do not delete or overwrite demo records without authorisation.
