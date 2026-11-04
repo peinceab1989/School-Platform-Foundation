@@ -12,7 +12,7 @@ const sections = [
       ["Parents & Guardians", "/parent-management", "Manage parent records and approved learner links."],
       ["Classes & Subjects", "/classes", "Maintain classes, subjects and academic sessions."],
       ["Attendance", "/attendance", "Review daily learner attendance."],
-      ["Assignments & Practical Centre", "/teaching-assignments", "Assign teachers and oversee practical work and projects."],
+      ["Teaching Assignments", "/teaching-assignments", "Assign each teacher to the correct class, subject and academic session."],
       ["Examinations & CBT", "/examinations", "Manage online examinations and attempts."],
       ["Results Management", "/results-management", "Enter, review and publish academic results."],
       ["Fees Management", "/fees-management", "Manage fee charges, verified payments and receipts."],
