@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, RefreshCw, Database, Search, ShieldCheck, Upload, FileText, Download, Trash2, FolderOpen } from "lucide-react";
+import { ArrowLeft, RefreshCw, Database, Search, ShieldCheck, Upload, FileText, Download, Trash2, FolderOpen, Eye, X } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 type ModuleDefinition = { key: string; title: string; description: string; table: string };
@@ -30,6 +30,8 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [folderName, setFolderName] = useState("General");
   const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const active = MODULES.find(m => m.key === activeKey) ?? MODULES[0];
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -101,6 +103,19 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       window.open(data.signedUrl, "_blank", "noopener,noreferrer");
     } catch (e) { setError(e instanceof Error ? e.message : "Download failed."); }
   };
+  const previewFile = async (row: RowRecord) => {
+    const path = String(row.storage_path ?? "");
+    const mime = String(row.mime_type ?? "").toLowerCase();
+    if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return;
+    setPreviewLoading(String(row.id ?? path)); setError("");
+    try {
+      const { data, error: signedError } = await (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 120);
+      if (signedError) throw signedError;
+      if (!data?.signedUrl) throw new Error("A secure preview link could not be created.");
+      setPreview({ url: data.signedUrl, mime, name: String(row.original_name ?? row.file_name ?? "RESA Drive media") });
+    } catch (e) { setError(e instanceof Error ? e.message : "Preview could not be opened."); }
+    finally { setPreviewLoading(null); }
+  };
   const deleteFile = async (row: RowRecord) => {
     if (!window.confirm(`Delete “${String(row.original_name ?? row.file_name ?? "this file")}” from RESA Drive? This cannot be undone.`)) return;
     setError(""); setNotice("");
@@ -148,7 +163,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
           <label className="my-4 flex items-center gap-2 rounded-lg border px-3"><Search size={16} className="text-slate-400"/><input className="min-w-0 flex-1 py-3 text-sm outline-none" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search files and folders…"/></label>
           {loading&&<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Loading files…</p>}
           {!loading&&!error&&visibleRows.length===0&&<div className="rounded-xl border border-dashed p-8 text-center"><FolderOpen className="mx-auto mb-3 text-slate-400" size={30}/><h3 className="font-semibold">Your RESA Drive is ready</h3><p className="mt-1 text-sm text-slate-500">Upload the first file or video above. Uploaded files will appear here.</p></div>}
-          {!loading&&visibleRows.length>0&&<div className="mt-3 divide-y rounded-xl border">{visibleRows.map((row,i)=><div key={String(row.id??i)} className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4"><div className="flex min-w-0 items-start gap-3"><span className="rounded-xl bg-emerald-50 p-2 text-emerald-900"><FileText size={20}/></span><div className="min-w-0"><p className="break-words font-semibold">{String(row.original_name??row.file_name??"Unnamed file")}</p><p className="mt-1 break-words text-xs text-slate-500">{String(row.folder_name??"General")} · {formatBytes(Number(row.file_size??0))} · {String(row.mime_type??"file")}</p><p className="mt-1 text-xs text-slate-400">{row.created_at?new Date(String(row.created_at)).toLocaleString():""}</p></div></div><div className="flex shrink-0 gap-2"><button type="button" onClick={()=>void downloadFile(row)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-emerald-50"><Download size={15}/> Download</button><button type="button" onClick={()=>void deleteFile(row)} aria-label="Delete file" className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 size={15}/><span className="hidden sm:inline">Delete</span></button></div></div>)}</div>}
+          {!loading&&visibleRows.length>0&&<div className="mt-3 divide-y rounded-xl border">{visibleRows.map((row,i)=><div key={String(row.id??i)} className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4"><div className="flex min-w-0 items-start gap-3"><span className="rounded-xl bg-emerald-50 p-2 text-emerald-900"><FileText size={20}/></span><div className="min-w-0"><p className="break-words font-semibold">{String(row.original_name??row.file_name??"Unnamed file")}</p><p className="mt-1 break-words text-xs text-slate-500">{String(row.folder_name??"General")} · {formatBytes(Number(row.file_size??0))} · {String(row.mime_type??"file")}</p><p className="mt-1 text-xs text-slate-400">{row.created_at?new Date(String(row.created_at)).toLocaleString():""}</p></div></div><div className="flex shrink-0 gap-2">{(String(row.mime_type ?? "").startsWith("image/") || String(row.mime_type ?? "").startsWith("video/")) && <button type="button" onClick={()=>void previewFile(row)} disabled={previewLoading===String(row.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"><Eye size={15}/>{previewLoading===String(row.id)?"Opening…":"Preview"}</button>}<button type="button" onClick={()=>void downloadFile(row)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-emerald-50"><Download size={15}/> Download</button><button type="button" onClick={()=>void deleteFile(row)} aria-label="Delete file" className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"><Trash2 size={15}/><span className="hidden sm:inline">Delete</span></button></div></div>)}</div>}
         </> : <>
           <label className="my-4 flex items-center gap-2 rounded-lg border px-3"><Search size={16} className="text-slate-400"/><input className="min-w-0 flex-1 py-3 text-sm outline-none" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search loaded records…"/></label>
           {loading&&<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Loading records…</p>}
@@ -158,5 +173,6 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         <p className="mt-5 text-xs leading-5 text-slate-500">RESA Drive uploads and file deletion are restricted by existing administrator-only database and Storage policies. Downloads use short-lived private links.</p>
       </section>
     </div>
+    {preview && <div role="dialog" aria-modal="true" aria-label="RESA Drive media preview" className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6" onClick={()=>setPreview(null)}><section className="relative max-h-full w-full max-w-5xl overflow-auto rounded-2xl bg-white p-3 sm:p-5" onClick={event=>event.stopPropagation()}><div className="mb-3 flex items-center justify-between gap-3"><h2 className="min-w-0 break-words font-bold">{preview.name}</h2><button type="button" onClick={()=>setPreview(null)} aria-label="Close preview" className="rounded-lg border p-2"><X size={18}/></button></div>{preview.mime.startsWith("video/") ? <video src={preview.url} controls playsInline className="mx-auto max-h-[75vh] w-full rounded-lg bg-black" /> : <img src={preview.url} alt={preview.name} className="mx-auto max-h-[75vh] max-w-full rounded-lg object-contain" />}</section></div>}
   </main>;
 }
