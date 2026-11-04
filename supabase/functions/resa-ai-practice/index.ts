@@ -34,9 +34,16 @@ function makeSourceQuestions(sourceText: string, count: number, level: string, s
     const answerKey = candidate.answer.toLowerCase();
     if (usedAnswers.has(answerKey)) continue;
     const distractors = wordPool
-      .filter((word) => word !== answerKey && Math.abs(word.length - answerKey.length) <= 5)
+      .filter((word) => word !== answerKey && Math.abs(word.length - answerKey.length) <= 8)
       .sort(() => Math.random() - 0.5)
       .slice(0, 3);
+    if (distractors.length < 3) {
+      const additional = wordPool
+        .filter((word) => word !== answerKey && !distractors.includes(word))
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3 - distractors.length);
+      distractors.push(...additional);
+    }
     if (distractors.length < 3) continue;
     const options = [candidate.answer, ...distractors].sort(() => Math.random() - 0.5);
     const answerIndex = options.findIndex((option) => option.toLowerCase() === answerKey);
@@ -180,7 +187,14 @@ Deno.serve(async (req: Request) => {
   }
 
   if (sourceText.length < 40 && !topic) {
-    return jsonResponse({ error: "No published lesson note with readable text was found for this class and subject. Ask a teacher to upload and publish lesson material, or enter a topic." }, 400);
+    return jsonResponse({ error: "No readable lesson notes were found. Paste lesson text or enter a topic to continue." }, 400);
+  }
+
+  if (!openAiKey && sourceText.length < 40) {
+    return jsonResponse({
+      error: "Free generation needs lesson text. Paste at least a few paragraphs above, or ask your teacher to publish readable lesson notes for this class and subject. Topic-only AI generation is unavailable until an AI provider key is configured.",
+      code: "LESSON_TEXT_REQUIRED",
+    }, 400);
   }
 
   if (!openAiKey && sourceText.length >= 40) {
