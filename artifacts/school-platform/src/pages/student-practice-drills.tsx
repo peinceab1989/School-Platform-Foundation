@@ -42,6 +42,7 @@ export default function StudentPracticeDrillsPage() {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiGenerated, setAiGenerated] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [generationNote, setGenerationNote] = useState("");
 
   const available = useMemo(
     () => bank.filter(q => (level === "All levels" || q.level === level) && (subject === "All subjects" || q.subject === subject)),
@@ -56,6 +57,7 @@ export default function StudentPracticeDrillsPage() {
     const count = requestedCount === "all" ? shuffled.length : Math.min(Number(requestedCount), shuffled.length);
     setQuestions(shuffled.slice(0, count));
     setAiGenerated(false);
+    setGenerationNote("");
     setPicked({});
     setIndex(0);
     setSubmitted(false);
@@ -111,10 +113,13 @@ export default function StudentPracticeDrillsPage() {
           options,
           answer,
           explanation: String(q.explanation || "Review this answer with your teacher if you are unsure."),
-          source: "AI-generated original practice question — review for accuracy",
+          source: String(q.source || (data?.source_label ? `Published lesson material: ${data.source_label}` : "AI-generated original practice question — review for accuracy")),
         };
       });
       setQuestions(generated);
+      setGenerationNote(data?.mode === "source_based_fallback"
+        ? "RESA used its free source-based generator with published lesson notes. These are revision prompts, not AI-verified questions; ask your teacher to review them."
+        : data?.source_label ? `Questions generated using RESA lesson material: ${data.source_label}.` : "Questions generated from the selected subject and topic.");
       setAiGenerated(true);
       setPicked({});
       setIndex(0);
@@ -157,7 +162,7 @@ export default function StudentPracticeDrillsPage() {
             <span className="rounded-xl bg-emerald-900 p-2.5 text-amber-200"><Sparkles size={22}/></span>
             <div className="min-w-0 flex-1">
               <h3 className="font-extrabold text-emerald-950">AI Question Generator</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-600">Generate fresh practice questions with multiple-choice answers and explanations for revision. These are practice materials, not official exam questions or grades.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Generate fresh practice questions from published RESA lesson notes when available. If the paid AI service is unavailable, RESA can use a free source-based drill instead. These are practice materials, not official exam questions or grades.</p>
             </div>
           </div>
           <label className="mt-4 flex flex-col gap-1.5 text-sm font-bold">Topic (optional)
@@ -167,7 +172,7 @@ export default function StudentPracticeDrillsPage() {
             {aiBusy ? <><LoaderCircle size={18} className="animate-spin"/> Generating questions…</> : <><Sparkles size={18}/> Generate AI practice questions</>}
           </button>
           {aiError && <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{aiError}</p>}
-          <p className="mt-2 text-xs leading-5 text-slate-500">Requires a signed-in RESA account and the school’s AI service configuration. AI-generated answers should be reviewed by a teacher.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Requires a signed-in RESA account. Teachers should publish lesson notes with readable extracted text so students can use the free source-based fallback when AI service configuration is unavailable.</p>
         </div>
         <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-950"><strong>{available.length}</strong> question(s) currently available for this selection. Questions are shuffled for each drill.</div>
         <button type="button" onClick={startDrill} disabled={!available.length} className="mt-5 w-full rounded-xl bg-emerald-900 px-5 py-3.5 font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Start optional practice drill</button>
@@ -184,6 +189,7 @@ export default function StudentPracticeDrillsPage() {
       </div>}
 
       {started && !submitted && question && <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        {generationNote && <p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{generationNote}</p>}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
           <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-emerald-800"><span className="rounded-full bg-emerald-50 px-3 py-1">{question.subject}</span><span className="rounded-full bg-slate-100 px-3 py-1">{question.level}</span></div>
           <span className="text-sm font-semibold text-slate-500">Question {index+1} of {questions.length}</span>
@@ -199,6 +205,7 @@ export default function StudentPracticeDrillsPage() {
       </article>}
 
       {started && submitted && <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+        {generationNote && <p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{generationNote}</p>}
         <div className="flex items-center gap-3"><span className="rounded-2xl bg-amber-50 p-3 text-amber-800"><Trophy size={26}/></span><div><p className="text-sm font-semibold text-slate-500">Practice result · not an official grade</p><h2 className="text-2xl font-extrabold">{score} / {questions.length} correct</h2></div></div>
         <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-600" style={{width:`${questions.length ? score / questions.length * 100 : 0}%`}}/></div>
         <p className="mt-2 text-sm text-slate-600">You answered {answered} of {questions.length} questions. Review each answer and explanation below.</p>
