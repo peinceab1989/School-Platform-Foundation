@@ -37,7 +37,7 @@ const groups = [
     ["Enter & Publish Results", "/results-management", FileText],
     ["Academic Results", "/results", ChartNoAxesCombined],
     ["Examinations & CBT", "/examinations", ClipboardList],
-    ["Teaching Assignments", "/teaching-assignments", BookOpen],
+    ["Assignments & Practical Centre", "/teaching-assignments", BookOpen],
     ["Learning Materials", "/teaching-materials", BookOpen],
     ["Practice & Revision", "/practice-drills", Sparkles],
   ]},
@@ -55,6 +55,7 @@ const groups = [
     ["Publication Centre", "/publication-centre", ShieldCheck],
     ["CCTV & Monitoring", "/school-cctv", Video],
     ["School Settings", "/school-settings", Settings],
+    ["Portal Navigation Guide", "/portal-navigation-guide", BookOpen],
   ]},
 ];
 
