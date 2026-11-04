@@ -896,20 +896,17 @@ export default function TeacherDashboard({
     try {
       const client = getSupabaseClient();
 
-      const { error } = await (client as any)
-        .from('assignment_submissions')
-        .update({
-          score,
-          feedback: value.feedback.trim() || null,
-          status: 'graded',
-          graded_by: userId,
-          graded_at: new Date().toISOString(),
-        })
-        .eq('school_id', schoolId)
-        .eq('id', submission.id)
-        .eq('assignment_id', submission.assignment_id);
+      const { data, error } = await (client as any).rpc(
+        'resa_grade_assignment_submission',
+        {
+          p_submission_id: submission.id,
+          p_score: score,
+          p_feedback: value.feedback.trim() || null,
+        },
+      );
 
       if (error) throw error;
+      if (data !== true) throw new Error('The grading service did not confirm the update.');
 
       setNoticeText('Grade saved successfully.');
       await loadDashboard();
