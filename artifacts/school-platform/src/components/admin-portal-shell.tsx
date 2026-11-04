@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
 import ProfilePhotoCard from "@/components/profile-photo-card";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type Props = {
   children: ReactNode;
@@ -23,6 +24,7 @@ const groups = [
   { label: "MAIN", items: [
     ["Dashboard", "/dashboard", LayoutDashboard],
     ["Students", "/students", Users],
+    ["Student ID Cards", "/student-id-cards", GraduationCap],
     ["Teachers & Staff", "/staff-invitations", GraduationCap],
     ["Parents & Guardians", "/parent-management", UserRound],
     ["Classes", "/classes", School],
@@ -53,6 +55,7 @@ const groups = [
     ["Publication Centre", "/publication-centre", ShieldCheck],
     ["CCTV & Monitoring", "/school-cctv", Video],
     ["School Settings", "/school-settings", Settings],
+    ["Portal Navigation Guide", "/portal-navigation-guide", BookOpen],
   ]},
 ];
 
@@ -64,11 +67,27 @@ const pageNames = groups.flatMap(group => group.items).reduce<Record<string,stri
 export default function AdminPortalShell({ children, schoolId, schoolName, email, userId, onSignOut }: Props) {
   const [location] = useLocation();
   const [open, setOpen] = useState(false);
+  const [administratorName, setAdministratorName] = useState("");
   const activeGroup = groups.find(group => group.items.some(item => item[1] === location))?.label || "MAIN";
   const [openGroups, setOpenGroups] = useState<string[]>([activeGroup]);
   const title = pageNames[location] || "School Administration";
 
   useEffect(() => { setOpen(false); setOpenGroups(current => current.includes(activeGroup) ? current : [...current, activeGroup]); }, [location, activeGroup]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadName() {
+      try {
+        const db = getSupabaseClient() as any;
+        const result = await db.from("people").select("first_name,middle_name,last_name").eq("school_id", schoolId).eq("user_id", userId).limit(1).maybeSingle();
+        if (result.error) throw result.error;
+        const name = [result.data?.first_name, result.data?.middle_name, result.data?.last_name].filter(Boolean).join(" ").trim();
+        if (active) setAdministratorName(name);
+      } catch { if (active) setAdministratorName(""); }
+    }
+    void loadName();
+    return () => { active = false; };
+  }, [schoolId, userId]);
 
   const toggleGroup = (label: string) => setOpenGroups(current => current.includes(label) ? current.filter(item => item !== label) : [...current, label]);
 
@@ -108,7 +127,8 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
     </div>
   );
 
-  const initials = (email || "Admin").slice(0,2).toUpperCase();
+  const visibleName = administratorName || (email ? email.split("@")[0].replace(/[._-]+/g, " ") : "Administrator");
+  const initials = visibleName.split(/\\s+/).filter(Boolean).slice(0,2).map(part => part[0]).join("").toUpperCase() || "AD";
 
   return <div className="resa-portal">
     <aside className="resa-sidebar-desktop">{navigation()}</aside>
@@ -123,11 +143,11 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
         </div>
         <div className="resa-topbar-actions">
           <Link href="/notifications" className="resa-notification-link" aria-label="Open notifications"><Bell size={19}/><span className="resa-notification-dot"/></Link>
-          <div className="resa-user-profile"><span className="resa-avatar">{initials}</span><span className="resa-user-meta"><strong>{email || "Administrator"}</strong><small>School Administrator</small></span></div>
+          <div className="resa-user-profile"><span className="resa-avatar">{initials}</span><span className="resa-user-meta"><strong>{visibleName}</strong><small>School Administrator</small></span></div>
           <button type="button" className="resa-icon-button resa-top-signout" onClick={onSignOut} aria-label="Sign out"><LogOut size={18}/></button>
         </div>
       </header>
-      <main className="resa-page-content"><div style={{ marginBottom: 16, borderRadius: 16, background: "#123d2b", padding: 12, maxWidth: 360 }}><ProfilePhotoCard userId={userId} displayName="Administrator profile" roleLabel="School Administrator" compact /></div>{children}</main>
+      <main className="resa-page-content"><div style={{ marginBottom: 16, borderRadius: 16, background: "#123d2b", padding: 12, maxWidth: 360 }}><ProfilePhotoCard userId={userId} displayName={visibleName} roleLabel="School Administrator" compact /></div>{children}</main>
       <footer className="resa-app-footer"><span>© {new Date().getFullYear()} {schoolName}</span><span>Designed &amp; Powered by <strong>JETAB TECH</strong></span><span>RESA Portal · v1.0</span></footer>
     </div>
   </div>;

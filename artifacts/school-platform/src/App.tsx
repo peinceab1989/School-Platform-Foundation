@@ -31,6 +31,7 @@ import FeesManagementPage from '@/pages/fees-management';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
+import StudentIdCardsPage from '@/pages/student-id-cards';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
 import ResultsPage from '@/pages/results';
@@ -46,6 +47,7 @@ import TeacherDashboard from '@/pages/teacher-dashboard';
 import AcceptInvitationPage from '@/pages/accept-invitation';
 import ResetPasswordPage from '@/pages/reset-password';
 import StudentCbtPage from '@/pages/student-cbt';
+import PortalNavigationGuidePage from '@/pages/portal-navigation-guide';
 import StudentAssignmentsPanel from '@/pages/student-assignments-panel';
 import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
@@ -133,6 +135,7 @@ function normalizePath(path: string): string {
 
 const ADMIN_SCHOOL_PATHS = [
   '/students',
+  '/student-id-cards',
   '/attendance',
   '/announcements',
   '/results',
@@ -209,6 +212,7 @@ const statNumberStyle: CSSProperties = {
 };
 
 function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { schoolId: string; schoolName: string; userId: string; email?: string; onSignOut: () => void }) {
+  const [parentDisplayName, setParentDisplayName] = useState("");
   const [feeRows, setFeeRows] = useState<Array<Record<string, any>>>([]);
   const [feeTypeNames, setFeeTypeNames] = useState<Record<string, string>>({});
   const [paymentRows, setPaymentRows] = useState<Array<Record<string, any>>>([]);
@@ -226,6 +230,10 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       setOverviewError("");
       try {
         const db = getSupabaseClient() as any;
+        const { data: parentPerson, error: parentPersonError } = await db.from("people").select("first_name,middle_name,last_name").eq("school_id", schoolId).eq("user_id", userId).limit(1).maybeSingle();
+        if (parentPersonError) throw parentPersonError;
+        const parentName = [parentPerson?.first_name,parentPerson?.middle_name,parentPerson?.last_name].filter(Boolean).join(" ").trim();
+        if (active) setParentDisplayName(parentName);
         const { data: accounts, error: accountError } = await db
           .from("parent_portal_accounts")
           .select("parent_guardian_id")
@@ -342,12 +350,14 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA · Parent & Guardian Portal</p>
             <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">Parent Dashboard</h1>
+            <p className="mt-1 text-sm font-semibold text-amber-200">{parentDisplayName ? "Welcome, " + parentDisplayName : "Welcome to your parent portal"}</p>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Your family's school connection. Follow your linked learners’ fees, attendance, results and school updates from one place.</p>
             <p className="mt-3 max-w-full break-words text-xs text-emerald-100">{schoolName}</p>
+            <Link href="/portal-navigation-guide" className="mt-4 mr-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-white/40 px-4 py-2 text-sm font-bold text-white">Portal Navigation Guide</Link>
             <button type="button" onClick={onSignOut} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100">↪ Sign out</button>
           </div>
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3">
-            <ProfilePhotoCard userId={userId} displayName="Parent profile" roleLabel="Parent / Guardian" compact />
+            <ProfilePhotoCard userId={userId} displayName={parentDisplayName || "Parent profile"} roleLabel="Parent / Guardian" compact />
             <div className="mt-3 min-w-0 rounded-xl border border-white/10 bg-black/10 px-3 py-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100">Parent account ID</p>
               <p className="mt-1 break-all font-mono text-xs font-bold tracking-wide text-white" title={userId}>{parentDisplayId}</p>
@@ -435,6 +445,7 @@ function StudentDashboard({
   email?: string;
   onSignOut: () => void;
 }) {
+  const [studentDisplayName, setStudentDisplayName] = useState("");
   const [academicSummary, setAcademicSummary] = useState<StudentAcademicSummary | null>(null);
   const [academicLoading, setAcademicLoading] = useState(true);
   const [academicError, setAcademicError] = useState<string | null>(null);
@@ -472,7 +483,7 @@ function StudentDashboard({
         const client = getSupabaseClient();
         const { data: student, error: studentError } = await (client as any)
           .from('students')
-          .select('id')
+          .select('id, person_id')
           .eq('school_id', schoolId)
           .eq('user_id', userId)
           .maybeSingle();
@@ -481,6 +492,14 @@ function StudentDashboard({
         if (!student) {
           if (active) setAcademicSummary(null);
           return;
+        }
+
+        if (student.person_id) {
+          const { data: person, error: personError } = await (client as any).from('people')
+            .select('first_name, middle_name, last_name').eq('school_id', schoolId).eq('id', student.person_id).maybeSingle();
+          if (personError) throw personError;
+          const fullName = [person?.first_name, person?.middle_name, person?.last_name].filter(Boolean).join(' ').trim();
+          if (active) setStudentDisplayName(fullName);
         }
 
         const { data, error } = await (client as any)
@@ -538,17 +557,19 @@ function StudentDashboard({
                 RESA SCHOOL PORTAL
               </div>
               <h1 style={{ fontSize: 27, lineHeight: 1.3, margin: '12px 0' }}>Student Dashboard</h1>
-              <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>Welcome to your learning portal.</p>
+              <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>{studentDisplayName ? `Welcome, ${studentDisplayName}.` : 'Welcome to your learning portal.'}</p>
               <p style={{ margin: '0 0 18px', color: '#e8eee8', overflowWrap: 'anywhere' }}>{schoolName}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
+            <Link href="/portal-navigation-guide" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Portal Guide</Link>
             <Link href="/my-results" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>My Report Cards</Link>
+            <Link href="/student-id-card" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>My ID Card</Link>
             <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>School messages</Link>
               <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
               </div>
             </div>
             <div style={{ minWidth: 0, borderRadius: 14, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.10)', padding: 12 }}>
-              <ProfilePhotoCard userId={userId} displayName="Student profile" roleLabel="Student" compact />
+              <ProfilePhotoCard userId={userId} displayName={studentDisplayName || "Student profile"} roleLabel="Student" compact />
             </div>
           </div>
         </header>
@@ -830,7 +851,6 @@ function NexusDashboard({
         parentAccountsResult,
         parentGuardiansResult,
         formTeachersResult,
-        testRecordsResult,
         publishedResultsResult,
         subjectResultsResult,
         schoolMessagesResult,
@@ -862,10 +882,6 @@ function NexusDashboard({
           .select('id', { count: 'exact', head: true }),
 
         client
-          .from('resa_test_data_records')
-          .select('id', { count: 'exact', head: true }),
-
-        client
           .from('student_term_results')
           .select('id', { count: 'exact', head: true })
           .eq('workflow_status', 'published'),
@@ -893,7 +909,7 @@ function NexusDashboard({
         activeParentAccounts: parentAccountsResult.error ? null : parentAccountsResult.count ?? 0,
         portalEnabledGuardians: parentGuardiansResult.error ? null : parentGuardiansResult.count ?? 0,
         assignedFormTeachers: formTeachersResult.error ? null : formTeachersResult.count ?? 0,
-        trackedTestRecords: testRecordsResult.error ? null : testRecordsResult.count ?? 0,
+        trackedTestRecords: null,
         publishedTermResults: publishedResultsResult.error ? null : publishedResultsResult.count ?? 0,
         subjectResultRows: subjectResultsResult.error ? null : subjectResultsResult.count ?? 0,
         schoolMessages: schoolMessagesResult.error ? null : schoolMessagesResult.count ?? 0,
@@ -1986,6 +2002,16 @@ function FoundationPage() {
     }
   };
 
+  if (
+    currentPath === '/portal-navigation-guide' &&
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    !membershipsLoading &&
+    (adminMembership || teacherMembership || studentMembership || parentMembership)
+  ) {
+    return <PortalNavigationGuidePage />;
+  }
+
   /*
    * Preserve the existing private JETAB Engine Room.
    * Its database owner verification remains in place.
@@ -2076,6 +2102,10 @@ function FoundationPage() {
           onSignOut={() => void signOut()}
         />
       );
+    }
+
+    if (currentPath === '/student-id-cards') {
+      return withAdminShell(<StudentIdCardsPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} role="admin" />);
     }
 
     if (currentPath === '/students') {
@@ -2202,6 +2232,10 @@ function FoundationPage() {
    */
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && session && currentPath === '/my-results') {
     return <MyPublishedResultsPage schoolId={studentMembership.schoolId} userId={session.user.id} role="student" />;
+  }
+
+  if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && session && currentPath === '/student-id-card') {
+    return <StudentIdCardsPage schoolId={studentMembership.schoolId} userId={session.user.id} role="student" />;
   }
 
   if (
@@ -2520,6 +2554,7 @@ function AppRoutes() {
         {/* School portal */}
         <Route path="/test-data-setup" component={TestDataSetupPage} />
         <Route path="/portal" component={FoundationPage} />
+        <Route path="/portal-navigation-guide" component={FoundationPage} />
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/teacher-dashboard" component={FoundationPage} />
         <Route path="/student-dashboard" component={FoundationPage} />
@@ -2528,6 +2563,8 @@ function AppRoutes() {
         <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/student-assignments" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
+        <Route path="/student-id-cards" component={FoundationPage} />
+        <Route path="/student-id-card" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
         <Route path="/form-teacher-attendance" component={FoundationPage} />
         <Route path="/announcements" component={FoundationPage} />
@@ -2545,6 +2582,7 @@ function AppRoutes() {
         <Route path="/hr-management" component={FoundationPage} />
         <Route path="/school-reports" component={FoundationPage} />
         <Route path="/school-services" component={FoundationPage} />
+        <Route path="/fees-management" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />

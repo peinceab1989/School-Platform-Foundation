@@ -49,6 +49,8 @@ type Homework = {
   class_id: string;
   subject_id: string;
   max_score: number;
+  assignment_type?: string;
+  practical_rubric?: Array<{ criterion?: string } | string> | null;
 };
 
 type TimetableEntry = {
@@ -171,7 +173,7 @@ const sectionTitleStyle = {
 
 const tabs = [
   'Overview',
-  'Assignments',
+  'Assignments & Practical Centre',
   'Online CBT',
   'Marking',
   'Results',
@@ -228,6 +230,9 @@ export default function TeacherDashboard({
     subjectId: '',
     dueDate: '',
     maxScore: '100',
+    assignmentType: 'homework',
+    practicalRubric: '',
+    resourceUrl: '',
   });
 
   const [examForm, setExamForm] = useState({
@@ -447,7 +452,7 @@ export default function TeacherDashboard({
           client
             .from('assignments')
             .select(
-              'id, title, description, instructions, due_date, status, class_id, subject_id, max_score',
+              'id, title, description, instructions, due_date, status, class_id, subject_id, max_score, assignment_type, practical_rubric',
             )
             .eq('school_id', schoolId)
             .eq('staff_id', staffRecord.id)
@@ -626,6 +631,22 @@ export default function TeacherDashboard({
     void loadDashboard();
   }, [loadDashboard]);
 
+  const openSubmissionAttachment = async (path: string) => {
+    try {
+      if (path.startsWith('https://') || path.startsWith('http://')) {
+        window.open(path, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const { data, error } = await (getSupabaseClient() as any).storage
+        .from('resa-practical-evidence').createSignedUrl(path, 120);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('A secure evidence link could not be created.');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'The submitted evidence could not be opened.');
+    }
+  };
+
   const handleHomeworkSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
@@ -683,6 +704,9 @@ export default function TeacherDashboard({
           ? new Date(homeworkForm.dueDate).toISOString()
           : null,
         max_score: maxScore,
+        assignment_type: homeworkForm.assignmentType,
+        practical_rubric: homeworkForm.assignmentType === 'practical' ? homeworkForm.practicalRubric.split(String.fromCharCode(10)).map((line) => line.replaceAll(String.fromCharCode(13), '').trim()).filter(Boolean).map((criterion) => ({ criterion })) : [],
+        attachment_url: homeworkForm.resourceUrl.trim() || null,
         status: 'published',
       });
 
@@ -694,9 +718,12 @@ export default function TeacherDashboard({
         description: '',
         instructions: '',
         dueDate: '',
+        assignmentType: 'homework',
+        practicalRubric: '',
+        resourceUrl: '',
       }));
 
-      setNoticeText('Assignment created successfully.');
+      setNoticeText(homeworkForm.assignmentType === 'practical' ? 'Practical assessment published successfully. Students can now open the task and submit photo, video or document evidence.' : 'Assignment created successfully.');
       await loadDashboard();
     } catch (error) {
       setErrorText(
@@ -1023,6 +1050,7 @@ export default function TeacherDashboard({
                 Teacher Dashboard
               </h1>
 
+              <p style={{ margin: '0 0 8px', fontWeight: 700, color: '#f4d98b' }}>{teacherName ? `Welcome, ${teacherName}` : 'Welcome to your teacher workspace'}</p>
               <p style={{ margin: '0 0 8px' }}>
                 {schoolName || 'RHEMA EXPLOITS SCIENCE ACADEMY'}
               </p>
@@ -1036,6 +1064,7 @@ export default function TeacherDashboard({
             </button>
 
             <Link href="/notifications" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
+            <Link href="/portal-navigation-guide" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', background: '#e9f0eb' }}>Portal Guide</Link>
             <Link href="/form-teacher-attendance" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Form Teacher Attendance</Link>
             <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>School messages</Link>
               <button
@@ -1242,11 +1271,11 @@ export default function TeacherDashboard({
           </>
         )}
 
-        {activeTab === 'Assignments' && (
+        {activeTab === 'Assignments & Practical Centre' && (
           <>
             <section style={panelStyle}>
               <h2 style={sectionTitleStyle}>
-                Create homework or assignment
+                Create homework, practical examination or project
               </h2>
 
               {!currentSessionId && !loading && (
@@ -1258,6 +1287,14 @@ export default function TeacherDashboard({
               )}
 
               <form onSubmit={handleHomeworkSubmit}>
+                <label style={labelStyle}>
+                  Activity type
+                  <select style={fieldStyle} value={homeworkForm.assignmentType} onChange={(event) => setHomeworkForm((previous) => ({ ...previous, assignmentType: event.target.value }))}>
+                    <option value="homework">Homework / Class Assignment</option>
+                    <option value="practical">Practical Examination</option>
+                    <option value="project">Project / Practical Work</option>
+                  </select>
+                </label>
                 <label style={labelStyle}>
                   Assignment title
                   <input
@@ -1408,6 +1445,17 @@ export default function TeacherDashboard({
                   </label>
                 </div>
 
+                {(homeworkForm.assignmentType === 'practical' || homeworkForm.assignmentType === 'project') && <label style={labelStyle}>
+                  Visual / demonstration resource link (optional)
+                  <input style={fieldStyle} type="url" value={homeworkForm.resourceUrl} onChange={(event) => setHomeworkForm((previous) => ({ ...previous, resourceUrl: event.target.value }))} placeholder="https://… (image, diagram or demonstration video)" />
+                  <small style={{ fontWeight: 400, color: '#536456' }}>Students will see this link with the task. Use a shareable resource link; Google Drive is optional, not required.</small>
+                </label>}
+
+                {homeworkForm.assignmentType === 'practical' && <label style={labelStyle}>
+                  Practical rubric / marking criteria (one criterion per line)
+                  <textarea style={{ ...fieldStyle, minHeight: 110, resize: 'vertical' }} value={homeworkForm.practicalRubric} onChange={(event) => setHomeworkForm((previous) => ({ ...previous, practicalRubric: event.target.value }))} placeholder={'Correct procedure\nAccuracy of observation\nUse of equipment and safety\nPresentation of evidence'} />
+                </label>}
+
                 <button
                   type="submit"
                   style={{
@@ -1439,6 +1487,9 @@ export default function TeacherDashboard({
                     }}
                   >
                     <h3 style={{ marginTop: 0 }}>{item.title}</h3>
+                    {item.assignment_type === 'practical' && <p style={{ display: 'inline-block', margin: '0 0 8px', borderRadius: 999, padding: '4px 9px', background: '#fff3d6', color: '#815500', fontSize: 12, fontWeight: 700 }}>PRACTICAL EXAMINATION</p>}
+                    {item.assignment_type === 'project' && <p style={{ display: 'inline-block', margin: '0 0 8px', borderRadius: 999, padding: '4px 9px', background: '#e7efff', color: '#234b87', fontSize: 12, fontWeight: 700 }}>PROJECT</p>}
+                    {Array.isArray(item.practical_rubric) && item.practical_rubric.length > 0 && <div style={{ margin: '8px 0', padding: 10, borderRadius: 8, background: '#f5f8f5' }}><strong>Marking criteria</strong><ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>{item.practical_rubric.map((criterion: any, index: number) => <li key={index}>{typeof criterion === 'string' ? criterion : criterion.criterion}</li>)}</ul></div>}
                     <p>
                       {className(item.class_id)} ·{' '}
                       {subjectName(item.subject_id)}
@@ -1954,13 +2005,9 @@ export default function TeacherDashboard({
 
                     {submission.attachment_url && (
                       <p>
-                        <a
-                          href={submission.attachment_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open submitted attachment
-                        </a>
+                        <button type="button" onClick={() => void openSubmissionAttachment(submission.attachment_url!)} style={{ ...secondaryButtonStyle, padding: '8px 11px' }}>
+                          Open submitted photo / video / document
+                        </button>
                       </p>
                     )}
 
