@@ -47,6 +47,7 @@ import TeacherDashboard from '@/pages/teacher-dashboard';
 import AcceptInvitationPage from '@/pages/accept-invitation';
 import ResetPasswordPage from '@/pages/reset-password';
 import StudentCbtPage from '@/pages/student-cbt';
+import PortalNavigationGuidePage from '@/pages/portal-navigation-guide';
 import StudentAssignmentsPanel from '@/pages/student-assignments-panel';
 import Home from '@/pages/home';
 import PortalOptionsPage from '@/pages/portal-options';
@@ -2004,6 +2005,16 @@ function FoundationPage() {
     }
   };
 
+  if (
+    currentPath === '/portal-navigation-guide' &&
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    !membershipsLoading &&
+    (adminMembership || teacherMembership || studentMembership || parentMembership)
+  ) {
+    return <PortalNavigationGuidePage />;
+  }
+
   /*
    * Preserve the existing private JETAB Engine Room.
    * Its database owner verification remains in place.
@@ -2546,6 +2557,7 @@ function AppRoutes() {
         {/* School portal */}
         <Route path="/test-data-setup" component={TestDataSetupPage} />
         <Route path="/portal" component={FoundationPage} />
+        <Route path="/portal-navigation-guide" component={FoundationPage} />
         <Route path="/dashboard" component={FoundationPage} />
         <Route path="/teacher-dashboard" component={FoundationPage} />
         <Route path="/student-dashboard" component={FoundationPage} />
