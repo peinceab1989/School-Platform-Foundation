@@ -437,6 +437,7 @@ function StudentDashboard({
   email?: string;
   onSignOut: () => void;
 }) {
+  const [studentDisplayName, setStudentDisplayName] = useState("");
   const [academicSummary, setAcademicSummary] = useState<StudentAcademicSummary | null>(null);
   const [academicLoading, setAcademicLoading] = useState(true);
   const [academicError, setAcademicError] = useState<string | null>(null);
@@ -474,7 +475,7 @@ function StudentDashboard({
         const client = getSupabaseClient();
         const { data: student, error: studentError } = await (client as any)
           .from('students')
-          .select('id')
+          .select('id, person_id')
           .eq('school_id', schoolId)
           .eq('user_id', userId)
           .maybeSingle();
@@ -483,6 +484,14 @@ function StudentDashboard({
         if (!student) {
           if (active) setAcademicSummary(null);
           return;
+        }
+
+        if (student.person_id) {
+          const { data: person, error: personError } = await (client as any).from('people')
+            .select('first_name, middle_name, last_name').eq('school_id', schoolId).eq('id', student.person_id).maybeSingle();
+          if (personError) throw personError;
+          const fullName = [person?.first_name, person?.middle_name, person?.last_name].filter(Boolean).join(' ').trim();
+          if (active) setStudentDisplayName(fullName);
         }
 
         const { data, error } = await (client as any)
@@ -540,7 +549,7 @@ function StudentDashboard({
                 RESA SCHOOL PORTAL
               </div>
               <h1 style={{ fontSize: 27, lineHeight: 1.3, margin: '12px 0' }}>Student Dashboard</h1>
-              <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>Welcome to your learning portal.</p>
+              <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>{studentDisplayName ? `Welcome, ${studentDisplayName}.` : 'Welcome to your learning portal.'}</p>
               <p style={{ margin: '0 0 18px', color: '#e8eee8', overflowWrap: 'anywhere' }}>{schoolName}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
@@ -551,7 +560,7 @@ function StudentDashboard({
               </div>
             </div>
             <div style={{ minWidth: 0, borderRadius: 14, border: '1px solid rgba(255,255,255,.15)', background: 'rgba(255,255,255,.10)', padding: 12 }}>
-              <ProfilePhotoCard userId={userId} displayName="Student profile" roleLabel="Student" compact />
+              <ProfilePhotoCard userId={userId} displayName={studentDisplayName || "Student profile"} roleLabel="Student" compact />
             </div>
           </div>
         </header>
