@@ -630,6 +630,22 @@ export default function TeacherDashboard({
     void loadDashboard();
   }, [loadDashboard]);
 
+  const openSubmissionAttachment = async (path: string) => {
+    try {
+      if (/^https?:\\/\\//i.test(path)) {
+        window.open(path, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const { data, error } = await (getSupabaseClient() as any).storage
+        .from('resa-practical-evidence').createSignedUrl(path, 120);
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('A secure evidence link could not be created.');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'The submitted evidence could not be opened.');
+    }
+  };
+
   const handleHomeworkSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
@@ -1979,13 +1995,9 @@ export default function TeacherDashboard({
 
                     {submission.attachment_url && (
                       <p>
-                        <a
-                          href={submission.attachment_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open submitted attachment
-                        </a>
+                        <button type="button" onClick={() => void openSubmissionAttachment(submission.attachment_url!)} style={{ ...secondaryButtonStyle, padding: '8px 11px' }}>
+                          Open submitted photo / video / document
+                        </button>
                       </p>
                     )}
 
