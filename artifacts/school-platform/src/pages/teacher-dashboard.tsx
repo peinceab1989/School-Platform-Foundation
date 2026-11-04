@@ -1023,6 +1023,7 @@ export default function TeacherDashboard({
                 Teacher Dashboard
               </h1>
 
+              <p style={{ margin: '0 0 8px', fontWeight: 700, color: '#f4d98b' }}>{teacherName ? `Welcome, ${teacherName}` : 'Welcome to your teacher workspace'}</p>
               <p style={{ margin: '0 0 8px' }}>
                 {schoolName || 'RHEMA EXPLOITS SCIENCE ACADEMY'}
               </p>
