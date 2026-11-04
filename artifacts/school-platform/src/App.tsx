@@ -31,6 +31,7 @@ import FeesManagementPage from '@/pages/fees-management';
 import SchoolCommunicationPage from '@/pages/school-communication';
 import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
+import StudentIdCardsPage from '@/pages/student-id-cards';
 import AttendancePage from '@/pages/attendance';
 import AnnouncementsPage from '@/pages/announcements';
 import ResultsPage from '@/pages/results';
@@ -133,6 +134,7 @@ function normalizePath(path: string): string {
 
 const ADMIN_SCHOOL_PATHS = [
   '/students',
+  '/student-id-cards',
   '/attendance',
   '/announcements',
   '/results',
@@ -2078,6 +2080,10 @@ function FoundationPage() {
       );
     }
 
+    if (currentPath === '/student-id-cards') {
+      return withAdminShell(<StudentIdCardsPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} role="admin" />);
+    }
+
     if (currentPath === '/students') {
       return withAdminShell(<StudentsPage schoolId={adminMembership.schoolId} />);
     }
@@ -2202,6 +2208,10 @@ function FoundationPage() {
    */
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && session && currentPath === '/my-results') {
     return <MyPublishedResultsPage schoolId={studentMembership.schoolId} userId={session.user.id} role="student" />;
+  }
+
+  if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && session && currentPath === '/student-id-card') {
+    return <StudentIdCardsPage schoolId={studentMembership.schoolId} userId={session.user.id} role="student" />;
   }
 
   if (
