@@ -20,6 +20,57 @@ const MAX_FILE_BYTES = 100 * 1024 * 1024;
 const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 const safeFileName = (name: string) => name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(-160) || "file";
 
+// Android may suspend/remount the page while the system file picker is open.
+// Keep the selected File in IndexedDB so returning from the picker does not
+// silently clear the selection before the user can upload it.
+const PENDING_DRIVE_DB = "resa-drive-pending-uploads";
+const PENDING_DRIVE_STORE = "files";
+function openPendingDriveDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") { reject(new Error("Local file recovery is unavailable in this browser.")); return; }
+    const request = indexedDB.open(PENDING_DRIVE_DB, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(PENDING_DRIVE_STORE)) request.result.createObjectStore(PENDING_DRIVE_STORE);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Could not open local upload recovery."));
+  });
+}
+async function savePendingDriveFile(schoolId: string, file: File): Promise<void> {
+  const db = await openPendingDriveDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PENDING_DRIVE_STORE, "readwrite");
+      tx.objectStore(PENDING_DRIVE_STORE).put(file, schoolId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("Could not save the selected file locally."));
+      tx.onabort = () => reject(tx.error ?? new Error("Local file recovery was interrupted."));
+    });
+  } finally { db.close(); }
+}
+async function getPendingDriveFile(schoolId: string): Promise<File | null> {
+  const db = await openPendingDriveDb();
+  try {
+    return await new Promise<File | null>((resolve, reject) => {
+      const tx = db.transaction(PENDING_DRIVE_STORE, "readonly");
+      const request = tx.objectStore(PENDING_DRIVE_STORE).get(schoolId);
+      request.onsuccess = () => resolve(request.result instanceof File ? request.result : null);
+      request.onerror = () => reject(request.error ?? new Error("Could not recover the selected file."));
+    });
+  } finally { db.close(); }
+}
+async function clearPendingDriveFile(schoolId: string): Promise<void> {
+  const db = await openPendingDriveDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PENDING_DRIVE_STORE, "readwrite");
+      tx.objectStore(PENDING_DRIVE_STORE).delete(schoolId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error ?? new Error("Could not clear the local upload copy."));
+    });
+  } finally { db.close(); }
+}
+
 export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   // Always reopen this page on RESA Drive. Android file pickers can resume
   // the web app by remounting the route; restoring a previously selected
@@ -37,7 +88,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);\n  const [restoringFile, setRestoringFile] = useState(true);\n  const [savingFile, setSavingFile] = useState(false);
   const [folderName, setFolderName] = useState("General");
   const [driveVisibility, setDriveVisibility] = useState<"school" | "private">("school");
   const [uploading, setUploading] = useState(false);
@@ -70,6 +121,18 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     } finally { setLoading(false); }
   }, [active.table, activeKey, schoolId]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let mounted = true;
+    void getPendingDriveFile(schoolId).then(file => {
+      if (mounted && file) {
+        setSelectedFile(file);
+        setNotice(`Recovered “${file.name}” from this device. Press Upload file to continue.`);
+      }
+    }).catch(() => {
+      if (mounted) setNotice("Choose your file again if a previous selection was lost. Keep this page open until upload completes.");
+    }).finally(() => { if (mounted) setRestoringFile(false); });
+    return () => { mounted = false; };
+  }, [schoolId]);
   const uploadFile = async () => {
     if (!selectedFile) { setError("Choose a file before uploading."); return; }
     if (selectedFile.size > MAX_FILE_BYTES) { setError("This file is larger than the 100 MB limit. Compress it or choose a smaller file."); return; }
@@ -80,7 +143,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       const { data: authData, error: authError } = await db.auth.getUser();
       if (authError) throw authError;
       if (!authData?.user?.id) throw new Error("Your session has expired. Sign in again and retry.");
-      const cleanedName = safeFileName(selectedFile.name);
+      const cleanedName = safeFileName(fileToUpload.name);
       uploadedPath = `${schoolId}/${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID()}-${cleanedName}`;
       const storageResult = await db.storage.from("resa-drive").upload(uploadedPath, selectedFile, {
         contentType: selectedFile.type || "application/octet-stream",
@@ -92,11 +155,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         school_id: schoolId,
         uploaded_by: authData.user.id,
         file_name: cleanedName,
-        original_name: selectedFile.name,
+        original_name: fileToUpload.name,
         storage_path: uploadedPath,
         folder_name: folderName.trim() || "General",
-        mime_type: selectedFile.type || "application/octet-stream",
-        file_size: selectedFile.size,
+        mime_type: fileToUpload.type || "application/octet-stream",
+        file_size: fileToUpload.size,
         visibility: driveVisibility,
         published_to_website: false,
         is_active: true,
@@ -110,7 +173,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setDriveVisibility("school");
       const picker = document.getElementById("resa-drive-file-picker") as HTMLInputElement | null;
       if (picker) picker.value = "";
-      setNotice(`Uploaded “${selectedFile.name}” successfully.`);
+      setNotice(`Uploaded “${fileToUpload.name}” successfully.`);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed. Check your connection and try again.");
@@ -195,12 +258,12 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
                 </select>
               </label>
               <label className="block text-sm font-semibold">Choose a file
-                <input id="resa-drive-file-picker" type="file" onClick={() => { try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onChange={e=>{ try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } setSelectedFile(e.target.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
+                <input id="resa-drive-file-picker" type="file" onClick={() => { try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onChange={async e=>{ const file=e.target.files?.[0]??null; setSelectedFile(file); setError(""); if(file){ setSavingFile(true); try { await savePendingDriveFile(schoolId,file); setNotice(`“${file.name}” is ready to upload.`); } catch { setNotice("File selected. Keep this page open while uploading; this browser could not enable recovery if Android reloads the page."); } finally { setSavingFile(false); } } }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
               </label>
             </div>
-            {selectedFile&&<p className="mt-2 flex items-center gap-2 break-all text-xs text-slate-600"><FileText size={15}/>{selectedFile.name} · {formatBytes(selectedFile.size)}</p>}
-            <button type="button" onClick={()=>void uploadFile()} disabled={!selectedFile||uploading} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Upload size={16}/>{uploading?"Uploading securely…":"Upload file"}</button>
-            <p className="mt-2 text-xs text-slate-500">Maximum size: 100 MB per file. Keep this page open until the upload completes.</p>
+            {restoringFile&&<p className="mt-2 text-xs text-slate-500">Checking for a file selection interrupted by Android…</p>}{selectedFile&&<p className="mt-2 flex items-center gap-2 break-all text-xs text-slate-600"><FileText size={15}/>{selectedFile.name} · {formatBytes(selectedFile.size)}{savingFile?" · Saving recovery copy…":" · Ready"}</p>}
+            <button type="button" onClick={()=>void uploadFile()} disabled={!selectedFile||uploading||savingFile||restoringFile} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Upload size={16}/>{uploading?"Uploading securely…":"Upload file"}</button>
+            <p className="mt-2 text-xs text-slate-500">Maximum size: 100 MB per file. Your selected file is saved on this device to survive Android page reloads. Keep the page open until upload completes.</p>
           </div>
           <label className="my-4 flex items-center gap-2 rounded-lg border px-3"><Search size={16} className="text-slate-400"/><input className="min-w-0 flex-1 py-3 text-sm outline-none" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search files and folders…"/></label>
           {loading&&<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Loading files…</p>}
