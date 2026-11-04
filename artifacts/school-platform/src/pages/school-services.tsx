@@ -88,7 +88,8 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);\n  const [restoringFile, setRestoringFile] = useState(true);\n  const [savingFile, setSavingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [restoringFile, setRestoringFile] = useState(true);\n  const [savingFile, setSavingFile] = useState(false);
   const [folderName, setFolderName] = useState("General");
   const [driveVisibility, setDriveVisibility] = useState<"school" | "private">("school");
   const [uploading, setUploading] = useState(false);
