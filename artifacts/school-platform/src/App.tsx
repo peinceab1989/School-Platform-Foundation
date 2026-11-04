@@ -2554,6 +2554,8 @@ function AppRoutes() {
         <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/student-assignments" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
+        <Route path="/student-id-cards" component={FoundationPage} />
+        <Route path="/student-id-card" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />
         <Route path="/form-teacher-attendance" component={FoundationPage} />
         <Route path="/announcements" component={FoundationPage} />
