@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { ArrowLeft, BookOpenCheck, CheckCircle2, RotateCcw, ExternalLink, Trophy, Sparkles, LoaderCircle } from "lucide-react";
@@ -29,9 +29,19 @@ const countOptions = [5, 10, 20, 30];
 
 export default function StudentPracticeDrillsPage() {
   const levels = useMemo(() => ["All levels", ...Array.from(new Set(bank.map(q => q.level)))], []);
-  const subjects = useMemo(() => ["All subjects", ...Array.from(new Set(bank.map(q => q.subject)))], []);
+  const subjects = useMemo(() => ["All subjects", ...Array.from(new Set([...bank.map(q => q.subject), ...schoolSubjects])).sort((a, b) => a.localeCompare(b))], [schoolSubjects]);
   const [level, setLevel] = useState("All levels");
   const [subject, setSubject] = useState("All subjects");
+  const [schoolSubjects, setSchoolSubjects] = useState<string[]>([]);
+  useEffect(() => {
+    let active = true;
+    void getSupabaseClient().from("subjects").select("name").order("name").then(({ data, error }) => {
+      if (!active || error) return;
+      const names = [...new Set((data ?? []).map((row: { name: string }) => row.name).filter((name): name is string => typeof name === "string" && name.trim().length > 0))];
+      setSchoolSubjects(names);
+    });
+    return () => { active = false; };
+  }, []);
   const [requestedCount, setRequestedCount] = useState("5");
   const [questions, setQuestions] = useState<DrillQuestion[]>([]);
   const [index, setIndex] = useState(0);
@@ -163,21 +173,21 @@ export default function StudentPracticeDrillsPage() {
             <span className="rounded-xl bg-emerald-900 p-2.5 text-amber-200"><Sparkles size={22}/></span>
             <div className="min-w-0 flex-1">
               <h3 className="font-extrabold text-emerald-950">AI Question Generator</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-600">Generate fresh practice questions from published RESA lesson notes when available. If the paid AI service is unavailable, RESA can use a free source-based drill instead. These are practice materials, not official exam questions or grades.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Choose a subject and enter one or more topics to guide fresh practice questions. Published RESA lesson notes can also be used as source material. These are practice materials, not official exam questions or grades.</p>
             </div>
           </div>
-          <label className="mt-4 flex flex-col gap-1.5 text-sm font-bold">Topic (recommended)
-            <input value={aiTopic} onChange={e=>setAiTopic(e.target.value)} placeholder="e.g. fractions, photosynthesis, grammar, algebra" maxLength={120} className="rounded-xl border border-slate-300 bg-white px-3 py-3 font-medium outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"/>
+          <label className="mt-4 flex flex-col gap-1.5 text-sm font-bold">Topic(s) (recommended)
+            <input value={aiTopic} onChange={e=>setAiTopic(e.target.value)} placeholder="e.g. fractions, decimals, percentages" maxLength={120} className="rounded-xl border border-slate-300 bg-white px-3 py-3 font-medium outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"/>
           </label>
           <label className="mt-3 flex flex-col gap-1.5 text-sm font-bold">Lesson notes or reading passage (optional)
             <textarea value={sourceText} onChange={e=>setSourceText(e.target.value)} rows={5} maxLength={12000} placeholder="Paste at least a few paragraphs of your lesson notes here. RESA can use this text to create a free practice drill even when an external AI key is not configured." className="rounded-xl border border-slate-300 bg-white px-3 py-3 font-medium outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"/>
-            <span className="text-xs font-normal leading-5 text-slate-500">You can also leave this blank if your teacher has already published readable lesson notes for your class and subject.</span>
+            <span className="text-xs font-normal leading-5 text-slate-500">Enter one topic or several, separated by commas. Your selected subject and topics guide the generated questions.</span>
           </label>
           <button type="button" onClick={()=>void generateAiDrill()} disabled={aiBusy} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-900 px-5 py-3.5 font-bold text-white hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60">
             {aiBusy ? <><LoaderCircle size={18} className="animate-spin"/> Generating questions…</> : <><Sparkles size={18}/> Generate AI practice questions</>}
           </button>
           {aiError && <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{aiError}</p>}
-          <p className="mt-2 text-xs leading-5 text-slate-500">Requires a signed-in RESA account. For free generation, paste lesson notes above or use notes published by your teacher. Topic-only generation requires an external AI provider to be configured.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Requires a signed-in RESA account. For free generation, paste lesson notes above or use notes published by your teacher. Topic-based generation requires the RESA AI provider to be configured. If it is unavailable, paste lesson notes to use the free source-based generator.</p>
         </div>
         <div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-950"><strong>{available.length}</strong> question(s) currently available for this selection. Questions are shuffled for each drill.</div>
         <button type="button" onClick={startDrill} disabled={!available.length} className="mt-5 w-full rounded-xl bg-emerald-900 px-5 py-3.5 font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Start optional practice drill</button>
