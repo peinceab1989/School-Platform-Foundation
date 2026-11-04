@@ -49,6 +49,8 @@ type Homework = {
   class_id: string;
   subject_id: string;
   max_score: number;
+  assignment_type?: string;
+  practical_rubric?: string[] | null;
 };
 
 type TimetableEntry = {
@@ -228,6 +230,8 @@ export default function TeacherDashboard({
     subjectId: '',
     dueDate: '',
     maxScore: '100',
+    assignmentType: 'homework',
+    practicalRubric: '',
   });
 
   const [examForm, setExamForm] = useState({
@@ -447,7 +451,7 @@ export default function TeacherDashboard({
           client
             .from('assignments')
             .select(
-              'id, title, description, instructions, due_date, status, class_id, subject_id, max_score',
+              'id, title, description, instructions, due_date, status, class_id, subject_id, max_score, assignment_type, practical_rubric',
             )
             .eq('school_id', schoolId)
             .eq('staff_id', staffRecord.id)
@@ -683,6 +687,8 @@ export default function TeacherDashboard({
           ? new Date(homeworkForm.dueDate).toISOString()
           : null,
         max_score: maxScore,
+        assignment_type: homeworkForm.assignmentType,
+        practical_rubric: homeworkForm.assignmentType === 'practical' ? homeworkForm.practicalRubric.split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean).map((criterion) => ({ criterion })) : [],
         status: 'published',
       });
 
@@ -694,9 +700,11 @@ export default function TeacherDashboard({
         description: '',
         instructions: '',
         dueDate: '',
+        assignmentType: 'homework',
+        practicalRubric: '',
       }));
 
-      setNoticeText('Assignment created successfully.');
+      setNoticeText(homeworkForm.assignmentType === 'practical' ? 'Practical assessment published successfully. Students can now open the task and submit photo, video or document evidence.' : 'Assignment created successfully.');
       await loadDashboard();
     } catch (error) {
       setErrorText(
@@ -1260,6 +1268,14 @@ export default function TeacherDashboard({
 
               <form onSubmit={handleHomeworkSubmit}>
                 <label style={labelStyle}>
+                  Activity type
+                  <select style={fieldStyle} value={homeworkForm.assignmentType} onChange={(event) => setHomeworkForm((previous) => ({ ...previous, assignmentType: event.target.value }))}>
+                    <option value="homework">Homework / Class Assignment</option>
+                    <option value="practical">Practical Examination</option>
+                    <option value="project">Project / Practical Work</option>
+                  </select>
+                </label>
+                <label style={labelStyle}>
                   Assignment title
                   <input
                     style={fieldStyle}
@@ -1409,6 +1425,11 @@ export default function TeacherDashboard({
                   </label>
                 </div>
 
+                {homeworkForm.assignmentType === 'practical' && <label style={labelStyle}>
+                  Practical rubric / marking criteria (one criterion per line)
+                  <textarea style={{ ...fieldStyle, minHeight: 110, resize: 'vertical' }} value={homeworkForm.practicalRubric} onChange={(event) => setHomeworkForm((previous) => ({ ...previous, practicalRubric: event.target.value }))} placeholder={'Correct procedure\nAccuracy of observation\nUse of equipment and safety\nPresentation of evidence'} />
+                </label>}
+
                 <button
                   type="submit"
                   style={{
@@ -1440,6 +1461,9 @@ export default function TeacherDashboard({
                     }}
                   >
                     <h3 style={{ marginTop: 0 }}>{item.title}</h3>
+                    {item.assignment_type === 'practical' && <p style={{ display: 'inline-block', margin: '0 0 8px', borderRadius: 999, padding: '4px 9px', background: '#fff3d6', color: '#815500', fontSize: 12, fontWeight: 700 }}>PRACTICAL EXAMINATION</p>}
+                    {item.assignment_type === 'project' && <p style={{ display: 'inline-block', margin: '0 0 8px', borderRadius: 999, padding: '4px 9px', background: '#e7efff', color: '#234b87', fontSize: 12, fontWeight: 700 }}>PROJECT</p>}
+                    {Array.isArray(item.practical_rubric) && item.practical_rubric.length > 0 && <div style={{ margin: '8px 0', padding: 10, borderRadius: 8, background: '#f5f8f5' }}><strong>Marking criteria</strong><ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>{item.practical_rubric.map((criterion: any, index: number) => <li key={index}>{typeof criterion === 'string' ? criterion : criterion.criterion}</li>)}</ul></div>}
                     <p>
                       {className(item.class_id)} ·{' '}
                       {subjectName(item.subject_id)}
