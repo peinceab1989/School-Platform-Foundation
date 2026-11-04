@@ -20,8 +20,17 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
       const db = getSupabaseClient() as any;
       let studentQuery = db.from("students").select("id,person_id,admission_number,status").eq("school_id", schoolId);
       if (role === "student") studentQuery = studentQuery.eq("user_id", userId);
-      const { data: students, error: studentError } = await studentQuery.order("admission_number");
+      let { data: students, error: studentError } = await studentQuery.order("admission_number");
       if (studentError) throw studentError;
+      if (role === "student" && !(students ?? []).length) {
+        const { data: person, error: personError } = await db.from("people").select("id").eq("school_id", schoolId).eq("user_id", userId).limit(1).maybeSingle();
+        if (personError) throw personError;
+        if (person?.id) {
+          const linked = await db.from("students").select("id,person_id,admission_number,status").eq("school_id", schoolId).eq("person_id", person.id).order("admission_number");
+          if (linked.error) throw linked.error;
+          students = linked.data;
+        }
+      }
       const studentRows = students ?? [];
       const ids = studentRows.map((s:any) => s.id);
       const personIds = studentRows.map((s:any) => s.person_id).filter(Boolean);
@@ -41,7 +50,8 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
       setRows(next);
       const urls:Record<string,string>={};
       for(const row of next) if(row.photoPath){
-        const {data}=await db.storage.from("resa-profile-photos").createSignedUrl(row.photoPath,3600);
+        const {data,error}=await db.storage.from("resa-profile-photos").createSignedUrl(row.photoPath,3600);
+        if(error) throw error;
         if(data?.signedUrl) urls[row.id]=data.signedUrl;
       }
       setPhotoUrls(urls);
