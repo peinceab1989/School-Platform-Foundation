@@ -211,6 +211,7 @@ const statNumberStyle: CSSProperties = {
 };
 
 function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { schoolId: string; schoolName: string; userId: string; email?: string; onSignOut: () => void }) {
+  const [parentDisplayName, setParentDisplayName] = useState("");
   const [feeRows, setFeeRows] = useState<Array<Record<string, any>>>([]);
   const [feeTypeNames, setFeeTypeNames] = useState<Record<string, string>>({});
   const [paymentRows, setPaymentRows] = useState<Array<Record<string, any>>>([]);
@@ -228,6 +229,10 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       setOverviewError("");
       try {
         const db = getSupabaseClient() as any;
+        const { data: parentPerson, error: parentPersonError } = await db.from("people").select("first_name,middle_name,last_name").eq("school_id", schoolId).eq("user_id", userId).limit(1).maybeSingle();
+        if (parentPersonError) throw parentPersonError;
+        const parentName = [parentPerson?.first_name,parentPerson?.middle_name,parentPerson?.last_name].filter(Boolean).join(" ").trim();
+        if (active) setParentDisplayName(parentName);
         const { data: accounts, error: accountError } = await db
           .from("parent_portal_accounts")
           .select("parent_guardian_id")
@@ -344,12 +349,13 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA · Parent & Guardian Portal</p>
             <h1 className="mt-3 text-2xl font-extrabold sm:text-3xl">Parent Dashboard</h1>
+            <p className="mt-1 text-sm font-semibold text-amber-200">{parentDisplayName ? "Welcome, " + parentDisplayName : "Welcome to your parent portal"}</p>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Your family's school connection. Follow your linked learners’ fees, attendance, results and school updates from one place.</p>
             <p className="mt-3 max-w-full break-words text-xs text-emerald-100">{schoolName}</p>
             <button type="button" onClick={onSignOut} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100">↪ Sign out</button>
           </div>
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3">
-            <ProfilePhotoCard userId={userId} displayName="Parent profile" roleLabel="Parent / Guardian" compact />
+            <ProfilePhotoCard userId={userId} displayName={parentDisplayName || "Parent profile"} roleLabel="Parent / Guardian" compact />
             <div className="mt-3 min-w-0 rounded-xl border border-white/10 bg-black/10 px-3 py-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100">Parent account ID</p>
               <p className="mt-1 break-all font-mono text-xs font-bold tracking-wide text-white" title={userId}>{parentDisplayId}</p>
