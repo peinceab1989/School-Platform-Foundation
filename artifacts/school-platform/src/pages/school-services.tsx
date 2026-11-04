@@ -21,7 +21,21 @@ const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math
 const safeFileName = (name: string) => name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(-160) || "file";
 
 export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
-  const [activeKey, setActiveKey] = useState(MODULES[0].key);
+  const [activeKey, setActiveKey] = useState(() => {
+    try {
+      const saved = window.sessionStorage.getItem("resa-school-services-active-module");
+      return MODULES.some((module) => module.key === saved) ? saved! : "drive";
+    } catch {
+      return "drive";
+    }
+  });
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem("resa-school-services-active-module", activeKey);
+    } catch {
+      // Keep the page usable when browser storage is unavailable.
+    }
+  }, [activeKey]);
   const [rows, setRows] = useState<RowRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -58,7 +72,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setRows([]);
       setError(e instanceof Error ? e.message : "This module could not be loaded. Check its schema and school access policies.");
     } finally { setLoading(false); }
-  }, [active.table, schoolId]);
+  }, [active.table, activeKey, schoolId]);
   useEffect(() => { void load(); }, [load]);
   const uploadFile = async () => {
     if (!selectedFile) { setError("Choose a file before uploading."); return; }
@@ -165,9 +179,9 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       <p className="mt-2 max-w-3xl text-sm text-green-100">School-scoped records and secure file storage for authorised school administrators.</p>
     </div></header>
     <div className="mx-auto grid max-w-7xl gap-5 px-4 py-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-      <aside className="h-fit rounded-2xl border bg-white p-3 shadow-sm"><h2 className="px-3 py-2 font-bold">Modules</h2>{MODULES.map(m=><button key={m.key} onClick={()=>{setActiveKey(m.key);setSearch("");setError("");setNotice("");}} className={`mb-1 w-full rounded-xl px-3 py-3 text-left text-sm ${activeKey===m.key?"bg-green-900 font-semibold text-white":"hover:bg-green-50"}`}><span className="block">{m.title}</span><span className={`mt-1 block text-xs ${activeKey===m.key?"text-green-100":"text-slate-500"}`}>{m.description}</span></button>)}</aside>
+      <aside className="h-fit rounded-2xl border bg-white p-3 shadow-sm"><h2 className="px-3 py-2 font-bold">Modules</h2>{MODULES.map(m=><button type="button" key={m.key} onClick={()=>{setActiveKey(m.key);setSearch("");setError("");setNotice("");}} className={`mb-1 w-full rounded-xl px-3 py-3 text-left text-sm ${activeKey===m.key?"bg-green-900 font-semibold text-white":"hover:bg-green-50"}`}><span className="block">{m.title}</span><span className={`mt-1 block text-xs ${activeKey===m.key?"text-green-100":"text-slate-500"}`}>{m.description}</span></button>)}</aside>
       <section className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">{active.title}</h2><p className="mt-1 text-sm text-slate-600">{active.description}</p><p className="mt-2 inline-flex items-center gap-1 text-xs text-slate-500"><ShieldCheck size={14}/> Admin-only uploads · private storage · 100 MB per file</p></div><div className="flex flex-wrap gap-2">{activeKey==="fees"&&<Link href="/fees-management" className="rounded-lg bg-emerald-900 px-3 py-2 text-sm font-bold text-white">Open fee management</Link>}<button onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"><RefreshCw size={15} className={loading?"animate-spin":""}/> Refresh</button></div></div>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">{active.title}</h2><p className="mt-1 text-sm text-slate-600">{active.description}</p><p className="mt-2 inline-flex items-center gap-1 text-xs text-slate-500"><ShieldCheck size={14}/> Admin-only uploads · private storage · 100 MB per file</p></div><div className="flex flex-wrap gap-2">{activeKey==="fees"&&<Link href="/fees-management" className="rounded-lg bg-emerald-900 px-3 py-2 text-sm font-bold text-white">Open fee management</Link>}<button type="button" onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50"><RefreshCw size={15} className={loading?"animate-spin":""}/> Refresh</button></div></div>
         {error&&<div role="alert" className="mt-4 break-words rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
         {notice&&<p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
         {activeKey==="drive" ? <>
