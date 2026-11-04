@@ -134,8 +134,15 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     return () => { mounted = false; };
   }, [schoolId]);
   const uploadFile = async () => {
-    if (!selectedFile) { setError("Choose a file before uploading."); return; }
-    if (selectedFile.size > MAX_FILE_BYTES) { setError("This file is larger than the 100 MB limit. Compress it or choose a smaller file."); return; }
+    let fileToUpload = selectedFile;
+    if (!fileToUpload) {
+      try { fileToUpload = await getPendingDriveFile(schoolId); } catch { /* A fresh selection can still be uploaded. */ }
+    }
+    if (!fileToUpload) {
+      setError("Your file selection was not retained. Please choose it again, wait for its name to appear, then upload.");
+      return;
+    }
+    if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 100 MB limit. Compress it or choose a smaller file."); return; }
     setUploading(true); setError(""); setNotice("");
     const db = getSupabaseClient() as any;
     let uploadedPath = "";
@@ -145,8 +152,8 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       if (!authData?.user?.id) throw new Error("Your session has expired. Sign in again and retry.");
       const cleanedName = safeFileName(fileToUpload.name);
       uploadedPath = `${schoolId}/${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID()}-${cleanedName}`;
-      const storageResult = await db.storage.from("resa-drive").upload(uploadedPath, selectedFile, {
-        contentType: selectedFile.type || "application/octet-stream",
+      const storageResult = await db.storage.from("resa-drive").upload(uploadedPath, fileToUpload, {
+        contentType: fileToUpload.type || "application/octet-stream",
         cacheControl: "3600",
         upsert: false,
       });
@@ -165,11 +172,12 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         is_active: true,
       });
       if (metadataResult.error) {
-        await db.storage.from("resa-drive").remove([uploadedPath]);
-        uploadedPath = "";
+        const cleanup = await db.storage.from("resa-drive").remove([uploadedPath]);
+        if (cleanup.error) console.error("RESA Drive orphan cleanup failed:", cleanup.error);
         throw metadataResult.error;
       }
       setSelectedFile(null);
+      try { await clearPendingDriveFile(schoolId); } catch { /* Cloud upload and metadata are already saved. */ }
       setDriveVisibility("school");
       const picker = document.getElementById("resa-drive-file-picker") as HTMLInputElement | null;
       if (picker) picker.value = "";
