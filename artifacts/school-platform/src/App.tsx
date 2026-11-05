@@ -33,6 +33,7 @@ import StaffAttendancePage from '@/pages/staff-attendance';
 import StudentsPage from '@/pages/students';
 import StudentIdCardsPage from '@/pages/student-id-cards';
 import AttendancePage from '@/pages/attendance';
+import BiometricAttendancePage from '@/pages/biometric-attendance';
 import AnnouncementsPage from '@/pages/announcements';
 import ResultsPage from '@/pages/results';
 import ResultsManagementPage from '@/pages/results-management';
@@ -154,6 +155,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/fees-management',
   '/publication-centre',
   '/staff-attendance',
+  '/biometric-attendance',
   '/school-cctv',
 ];
 
@@ -2088,6 +2090,10 @@ function FoundationPage() {
 
     if (currentPath === '/staff-attendance') {
       return withAdminShell(<StaffAttendancePage schoolId={adminMembership.schoolId} />);
+    }
+
+    if (currentPath === '/biometric-attendance') {
+      return withAdminShell(<BiometricAttendancePage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/teaching-assignments') {
