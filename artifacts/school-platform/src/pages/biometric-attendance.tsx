@@ -63,6 +63,21 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
 
   useEffect(() => { void load(); }, [load]);
 
+  // Keep the live register scoped to the current Lagos calendar day.
+  // Historical student_attendance rows remain untouched for admin/form-teacher review.
+  useEffect(() => {
+    let currentDay = lagosDate();
+    const timer = setInterval(() => {
+      const nextDay = lagosDate();
+      if (nextDay !== currentDay) {
+        currentDay = nextDay;
+        setSearch("");
+        void load();
+      }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [load]);
+
   const filteredStudents = useMemo(() => students.filter(s => (s.name + " " + s.admission_number).toLowerCase().includes(search.trim().toLowerCase())), [students, search]);
   const studentNames = useMemo(() => new Map(students.map(s => [s.id, s.name])), [students]);
 
