@@ -15,6 +15,7 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
   const [staff, setStaff] = useState<Staff[]>([]);
   const [rows, setRows] = useState<RecordRow[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [currentlyOffSiteCount, setCurrentlyOffSiteCount] = useState(0);
   const [date, setDate] = useState(lagosDate());
   const [selected, setSelected] = useState("");
   const [status, setStatus] = useState("present");
@@ -33,7 +34,6 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
 
   const staffById = useMemo(() => new Map(staff.map(s => [s.id, s])), [staff]);
   const filteredStaff = useMemo(() => staff.filter(s => `${s.name} ${s.staff_number ?? ""} ${s.job_title ?? ""}`.toLowerCase().includes(staffSearch.toLowerCase())), [staff, staffSearch]);
-  const openMovements = useMemo(() => movements.filter(m => m.status === "out" || (m.status === "overdue" && !m.actual_return_at)), [movements]);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -42,20 +42,23 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
       const { data: s, error: se } = await db.from("staff").select("id,person_id,staff_number,job_title,status,user_id").eq("school_id", schoolId).eq("status", "active").order("staff_number");
       if (se) throw se;
       const ids = (s ?? []).map((x: any) => x.person_id).filter(Boolean);
-      const { data: p, error: pe } = ids.length ? await db.from("people").select("id,first_name,middle_name,last_name").in("id", ids) : { data: [], error: null };
+      const { data: p, error: pe } = ids.length ? await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id", schoolId).in("id", ids) : { data: [], error: null };
       if (pe) throw pe;
       const people = new Map((p ?? []).map((x: any) => [x.id, [x.first_name, x.middle_name, x.last_name].filter(Boolean).join(" ")]));
       const list = (s ?? []).map((x: any) => ({ ...x, name: people.get(x.person_id) || x.staff_number || "Staff member" }));
       setStaff(list);
       if (!selected && list.length) setSelected(list[0].id);
-      const [attendanceResult, movementResult] = await Promise.all([
+      const [attendanceResult, movementResult, openMovementResult] = await Promise.all([
         db.from("staff_attendance").select("id,staff_id,attendance_date,status,check_in_time,check_out_time,remarks").eq("school_id", schoolId).eq("attendance_date", date).order("created_at", { ascending: false }),
         db.from("staff_movement_book").select("id,staff_id,movement_type,purpose,destination,departure_at,expected_return_at,actual_return_at,status,remarks").eq("school_id", schoolId).gte("departure_at", date + "T00:00:00+01:00").lt("departure_at", new Date(new Date(date + "T00:00:00+01:00").getTime() + 86400000).toISOString()).order("departure_at", { ascending: false }).limit(250),
+        db.from("staff_movement_book").select("id").eq("school_id", schoolId).in("status", ["out", "overdue"]).limit(500),
       ]);
       if (attendanceResult.error) throw attendanceResult.error;
       if (movementResult.error) throw movementResult.error;
+      if (openMovementResult.error) throw openMovementResult.error;
       setRows(attendanceResult.data ?? []);
       setMovements(movementResult.data ?? []);
+      setCurrentlyOffSiteCount((openMovementResult.data ?? []).length);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load staff attendance and movement records.");
     } finally { setLoading(false); }
@@ -159,7 +162,7 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
     </div></header>
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[[ "Active staff", staff.length, "Currently active staff records" ],["Attendance entries", todayAttendance, "Records for selected date"],["Currently checked in", checkedIn, "Staff with no recorded checkout"],["Currently off-site", openMovements.length, `${returnedToday} movements returned today` ]].map(([label,value,caption])=><article key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm font-medium text-slate-500">{label}</p><strong className="mt-1 block text-3xl font-black tracking-tight text-slate-900">{value}</strong><p className="mt-1 text-xs text-slate-500">{caption}</p></article>)}
+        {[[ "Active staff", staff.length, "Currently active staff records" ],["Attendance entries", todayAttendance, "Records for selected date"],["Currently checked in", checkedIn, "Staff with no recorded checkout"],["Currently off-site", currentlyOffSiteCount, `${returnedToday} movements returned on selected date` ]].map(([label,value,caption])=><article key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm font-medium text-slate-500">{label}</p><strong className="mt-1 block text-3xl font-black tracking-tight text-slate-900">{value}</strong><p className="mt-1 text-xs text-slate-500">{caption}</p></article>)}
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(300px,.85fr)_minmax(0,1.15fr)]">
