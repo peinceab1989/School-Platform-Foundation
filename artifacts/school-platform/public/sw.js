@@ -45,6 +45,26 @@ self.addEventListener('fetch', (event) => {
   // This service worker enables registration but does not promise offline access.
 });
 
+// Display server-sent Web Push messages when a push sender is configured.
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : 'You have a new RESA update.' };
+  }
+  const title = payload.title || 'RESA · School update';
+  const options = {
+    body: payload.body || payload.message || 'There is a new update in your parent portal.',
+    icon: payload.icon || '/favicon.ico',
+    badge: payload.badge || '/favicon.ico',
+    tag: payload.tag || 'resa-school-update',
+    data: { url: payload.url || '/parent-dashboard' },
+    renotify: true,
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
 // Open the relevant RESA portal area when a user taps a notification.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
