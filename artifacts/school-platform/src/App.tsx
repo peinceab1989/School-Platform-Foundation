@@ -1842,7 +1842,7 @@ function FoundationPage() {
 
     const showResaNotification = async (title: string, body: string, tag: string, url: string) => {
       if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
-      const options = { body, icon: '/favicon.ico', badge: '/favicon.ico', tag, renotify: true, data: { url } };
+      const options = { body, icon: '/favicon.ico', badge: '/favicon.ico', tag, data: { url } };
       try {
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.ready;
