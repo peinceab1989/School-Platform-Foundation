@@ -119,7 +119,7 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
         throw attendanceWrite.error;
       }
 
-      if (eventType === "check_in") {
+      {
         const { data: links, error: linksError } = await db.from("parent_student_portal_access")
           .select("parent_guardian_id").eq("school_id", schoolId).eq("student_id", student.id).eq("is_active", true);
         if (linksError) throw linksError;
@@ -131,7 +131,7 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
           const messages = (guardians ?? []).map((guardian: any) => ({
             school_id: schoolId, student_id: student.id, biometric_event_id: eventId,
             parent_guardian_id: guardian.id, channel: "portal", notification_type: "attendance",
-            message: `${student.name} checked in at RESA at ${timeLabel(stamp)}.`, status: "sent",
+            message: `${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} at RESA at ${timeLabel(stamp)}.`, status: "sent",
           }));
           if (messages.length) {
             const { error: notificationError } = await db.from("biometric_parent_notifications").insert(messages);
@@ -139,7 +139,7 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
           }
         }
       }
-      setNotice(`${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} successfully at ${timeLabel(stamp)}. Parent portal alerts were queued where an active parent link exists.`);
+      setNotice(`${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} successfully at ${timeLabel(stamp)}. Parent portal alerts were created where an active parent link exists.`);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Attendance could not be recorded.");
