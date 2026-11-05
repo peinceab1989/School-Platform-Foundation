@@ -507,6 +507,9 @@ function StudentDashboard({
   const [academicError, setAcademicError] = useState<string | null>(null);
   const [publishedCbtCount, setPublishedCbtCount] = useState<number | null>(null);
   const [cbtNoticeError, setCbtNoticeError] = useState<string | null>(null);
+  const [studentAttendance, setStudentAttendance] = useState<Record<string, any> | null>(null);
+  const [studentAttendanceLoading, setStudentAttendanceLoading] = useState(true);
+  const [studentAttendanceError, setStudentAttendanceError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -525,7 +528,50 @@ function StudentDashboard({
         if (!active) return;
         setCbtNoticeError(error instanceof Error ? error.message : "Published CBT status is temporarily unavailable.");
       });
-    return () => { active = false; };
+  
+  useEffect(() => {
+    let active = true;
+    let channel: any = null;
+    let refreshTimer: ReturnType<typeof setInterval> | null = null;
+    let currentStudentId = "";
+    const lagosDate = () => {
+      const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+      const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+      return `${values.year}-${values.month}-${values.day}`;
+    };
+    async function loadStudentAttendance() {
+      try {
+        const db = getSupabaseClient() as any;
+        if (!currentStudentId) {
+          const { data: student, error: studentError } = await db.from("students").select("id").eq("school_id", schoolId).eq("user_id", userId).maybeSingle();
+          if (studentError) throw studentError;
+          if (!student) throw new Error("This sign-in is not yet linked to a student record.");
+          currentStudentId = String(student.id);
+        }
+        const { data, error } = await db.from("student_attendance")
+          .select("id,attendance_date,status,check_in_at,check_out_at,remarks")
+          .eq("school_id", schoolId).eq("student_id", currentStudentId).eq("attendance_date", lagosDate())
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (error) throw error;
+        if (active) { setStudentAttendance(data ?? null); setStudentAttendanceError(null); }
+      } catch (error) {
+        if (active) setStudentAttendanceError(error instanceof Error ? error.message : "Attendance could not be loaded.");
+      } finally { if (active) setStudentAttendanceLoading(false); }
+    }
+    async function initialise() {
+      await loadStudentAttendance();
+      if (!active || !currentStudentId) return;
+      const db = getSupabaseClient() as any;
+      channel = db.channel(`student-own-attendance-${schoolId}-${currentStudentId}`)
+        .on("postgres_changes", { event: "*", schema: "public", table: "student_attendance", filter: `student_id=eq.${currentStudentId}` }, () => { void loadStudentAttendance(); })
+        .subscribe();
+      refreshTimer = setInterval(() => { void loadStudentAttendance(); }, 30000);
+    }
+    void initialise();
+    return () => { active = false; if (refreshTimer) clearInterval(refreshTimer); if (channel) void getSupabaseClient().removeChannel(channel); };
+  }, [schoolId, userId]);
+
+  return () => { active = false; };
   }, [schoolId, userId]);
 
   useEffect(() => {
@@ -711,13 +757,18 @@ function StudentDashboard({
             )}
           </section>
 
-          <section style={panelStyle}>
-            <div style={{ fontSize: 25, marginBottom: 10 }}>📅</div>
-            <h3 style={{ margin: '0 0 8px' }}>Attendance</h3>
-            <p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>
-              For your current attendance record, contact your class teacher or school office.
-            </p>
-            <Link href="/school-communication" style={{ display: 'inline-block', marginTop: 12, color: '#17623d', fontWeight: 700 }}>Message the school</Link>
+          <section style={{ ...panelStyle, borderColor: studentAttendance?.status ? '#b7d9c1' : '#e0e7e0', background: studentAttendance?.status ? '#f7fcf8' : '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div><div style={{ fontSize: 25, marginBottom: 8 }}>📅</div><h3 style={{ margin: '0 0 6px', fontSize: 19 }}>My Attendance Today</h3><p style={{ color: '#536456', lineHeight: 1.6, margin: 0 }}>Your attendance updates automatically when the school records your arrival or departure.</p></div>
+              <span style={{ borderRadius: 999, padding: '7px 12px', background: studentAttendance?.status ? '#dff3e5' : '#edf1ed', color: '#174b35', fontSize: 12, fontWeight: 800 }}>{studentAttendanceLoading ? 'Checking…' : studentAttendance?.status ? String(studentAttendance.status).replace(/_/g, ' ').toUpperCase() : 'NOT YET RECORDED'}</span>
+            </div>
+            {studentAttendanceError ? <p role="alert" style={{ color: '#9b2c2c', margin: '12px 0 0', fontSize: 13 }}>{studentAttendanceError}</p> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 10, marginTop: 16 }}>
+              <div style={{ borderRadius: 10, background: '#eef6f0', padding: 12 }}><span style={{ display: 'block', color: '#536456', fontSize: 12 }}>Date</span><strong>{studentAttendance?.attendance_date ? new Date(studentAttendance.attendance_date + 'T00:00:00').toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-NG', { timeZone: 'Africa/Lagos', day: 'numeric', month: 'short', year: 'numeric' })}</strong></div>
+              <div style={{ borderRadius: 10, background: '#eef6f0', padding: 12 }}><span style={{ display: 'block', color: '#536456', fontSize: 12 }}>Arrival / Clock-in</span><strong>{studentAttendance?.check_in_at ? new Date(studentAttendance.check_in_at).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit' }) : 'Not recorded'}</strong></div>
+              <div style={{ borderRadius: 10, background: '#eef6f0', padding: 12 }}><span style={{ display: 'block', color: '#536456', fontSize: 12 }}>Departure / Clock-out</span><strong>{studentAttendance?.check_out_at ? new Date(studentAttendance.check_out_at).toLocaleTimeString('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit' }) : 'Not yet checked out'}</strong></div>
+            </div>}
+            {studentAttendance?.remarks && <p style={{ color: '#536456', margin: '12px 0 0', fontSize: 13 }}>School note: {studentAttendance.remarks}</p>}
+            <p style={{ color: '#647268', fontSize: 11, margin: '12px 0 0' }}>This card refreshes automatically when attendance is updated by an authorised school staff member.</p>
           </section>
         </div>
 
