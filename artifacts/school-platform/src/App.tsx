@@ -264,6 +264,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   useEffect(() => {
     let active = true;
     let attendanceChannel: any = null;
+    let attendancePoll: ReturnType<typeof setInterval> | null = null;
     async function loadParentOverview() {
       setOverviewLoading(true);
       setOverviewError("");
@@ -309,24 +310,62 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         if (attendanceAlertsError) throw attendanceAlertsError;
         if (active) setAttendanceAlerts(initialAttendanceAlerts ?? []);
 
+        // Realtime is the fast path; a short authenticated poll is the recovery
+        // path for mobile browsers that temporarily suspend WebSocket delivery.
+        const processedAttendanceIds = new Set<string>(
+          (initialAttendanceAlerts ?? []).map((row: any) => String(row.id)),
+        );
+        let latestAttendanceCreatedAt = (initialAttendanceAlerts ?? [])
+          .reduce((latest: string, row: any) => String(row.created_at) > latest ? String(row.created_at) : latest, "");
+
+        const deliverAttendanceAlert = (incoming: Record<string, any>) => {
+          const id = String(incoming.id || "");
+          if (!id || processedAttendanceIds.has(id) || !parentIds.includes(String(incoming.parent_guardian_id))) return;
+          processedAttendanceIds.add(id);
+          if (incoming.created_at && String(incoming.created_at) > latestAttendanceCreatedAt) {
+            latestAttendanceCreatedAt = String(incoming.created_at);
+          }
+          if (active) {
+            setAttendanceAlerts(previous => [incoming, ...previous.filter(row => String(row.id) !== id)].slice(0, 100));
+          }
+          if (soundAlertsRef.current && soundChoiceRef.current !== "none" && typeof window !== "undefined") {
+            playParentAttendanceSound(soundChoiceRef.current);
+          }
+          if (phoneNotificationsRef.current && "Notification" in window && Notification.permission === "granted") {
+            const title = "RESA · Attendance update";
+            const body = String(incoming.message || "A linked learner's attendance was updated.");
+            if ("serviceWorker" in navigator) {
+              void navigator.serviceWorker.ready
+                .then(registration => registration.showNotification(title, {
+                  body, icon: "/favicon.ico", badge: "/favicon.ico",
+                  tag: id, renotify: true, data: { url: "/parent-dashboard" },
+                }))
+                .catch(() => { new Notification(title, { body, tag: id }); });
+            } else {
+              new Notification(title, { body, tag: id });
+            }
+          }
+        };
+
         attendanceChannel = db.channel(`parent-attendance-alerts-${schoolId}-${userId}`)
           .on("postgres_changes", { event: "INSERT", schema: "public", table: "biometric_parent_notifications", filter: `school_id=eq.${schoolId}` }, (payload: any) => {
-            const incoming = payload.new as Record<string, any>;
-            if (!parentIds.includes(String(incoming.parent_guardian_id))) return;
-            setAttendanceAlerts(previous => [incoming, ...previous.filter(row => String(row.id) !== String(incoming.id))].slice(0, 100));
-            if (soundAlertsRef.current && soundChoiceRef.current !== "none" && typeof window !== "undefined") {
-              playParentAttendanceSound(soundChoiceRef.current);
-            }
-            if (phoneNotificationsRef.current && "Notification" in window && Notification.permission === "granted") {
-              const title = "RESA · Attendance update";
-              const body = String(incoming.message || "A linked learner's attendance was updated.");
-              void navigator.serviceWorker?.ready.then(registration => registration.showNotification(title, {
-                body, icon: "/favicon.ico", badge: "/favicon.ico",
-                tag: String(incoming.id), data: { url: "/parent-dashboard" },
-              })).catch(() => { new Notification(title, { body }); });
-            }
+            deliverAttendanceAlert(payload.new as Record<string, any>);
           })
           .subscribe();
+
+        attendancePoll = setInterval(async () => {
+          if (!active || !latestAttendanceCreatedAt) return;
+          const { data: freshAlerts, error: pollError } = await db
+            .from("biometric_parent_notifications")
+            .select("id,student_id,parent_guardian_id,message,status,created_at,read_at")
+            .eq("school_id", schoolId)
+            .in("parent_guardian_id", parentIds)
+            .gt("created_at", latestAttendanceCreatedAt)
+            .order("created_at", { ascending: true })
+            .limit(50);
+          if (pollError || !active) return;
+          for (const incoming of freshAlerts ?? []) deliverAttendanceAlert(incoming as Record<string, any>);
+        }, 15000);
 
         const { data: links, error: linksError } = await db
           .from("parent_student_portal_access")
@@ -414,7 +453,11 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       }
     }
     void loadParentOverview();
-    return () => { active = false; if (attendanceChannel) void getSupabaseClient().removeChannel(attendanceChannel); };
+    return () => {
+      active = false;
+      if (attendancePoll) clearInterval(attendancePoll);
+      if (attendanceChannel) void getSupabaseClient().removeChannel(attendanceChannel);
+    };
   }, [schoolId, userId]);
 
 
