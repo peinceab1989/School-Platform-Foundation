@@ -104,7 +104,16 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       const result = await (db as any).from("resa_chat_messages").select("id,sender_id,body,created_at").eq("conversation_id", activeId).order("created_at", { ascending: true }).limit(500);
       if (!cancelled) {
         if (result.error) setError(result.error.message);
-        else setMessages((result.data ?? []) as ChatMessage[]);
+        else {
+          const rows = (result.data ?? []) as ChatMessage[];
+          setMessages(rows);
+          if (rows.length) {
+            await (db as any).from("resa_chat_message_reads").upsert(
+              rows.filter(m => m.sender_id !== userId).map(m => ({ message_id: m.id, school_id: schoolId, user_id: userId })),
+              { onConflict: "message_id,user_id", ignoreDuplicates: true }
+            );
+          }
+        }
       }
     };
     void fetchMessages();
