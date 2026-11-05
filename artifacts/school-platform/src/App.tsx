@@ -680,8 +680,6 @@ function StudentDashboard({
     return () => { active = false; if (refreshTimer) clearInterval(refreshTimer); if (channel) void getSupabaseClient().removeChannel(channel); };
   }, [schoolId, userId]);
 
-  }, [schoolId, userId]);
-
   useEffect(() => {
     let active = true;
 
