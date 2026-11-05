@@ -322,9 +322,6 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
                 tag: String(incoming.id), data: { url: "/parent-dashboard" },
               })).catch(() => { new Notification(title, { body }); });
             }
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("RESA attendance update", { body: String(incoming.message || "A linked learner's attendance was updated.") });
-            }
           })
           .subscribe();
 
