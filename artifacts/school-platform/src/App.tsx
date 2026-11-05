@@ -2647,6 +2647,7 @@ function AppRoutes() {
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
+        <Route path="/biometric-attendance" component={FoundationPage} />
         <Route path="/school-cctv" component={FoundationPage} />
 
         {/* Private control centre */}
