@@ -119,27 +119,31 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
         throw attendanceWrite.error;
       }
 
-      {
-        const { data: links, error: linksError } = await db.from("parent_student_portal_access")
-          .select("parent_guardian_id").eq("school_id", schoolId).eq("student_id", student.id).eq("is_active", true);
-        if (linksError) throw linksError;
-        const parentIds = [...new Set((links ?? []).map((row: any) => String(row.parent_guardian_id)))];
-        if (parentIds.length) {
-          const { data: guardians, error: guardianError } = await db.from("parents_guardians")
-            .select("id,portal_enabled").eq("school_id", schoolId).eq("portal_enabled", true).in("id", parentIds);
-          if (guardianError) throw guardianError;
-          const messages = (guardians ?? []).map((guardian: any) => ({
-            school_id: schoolId, student_id: student.id, biometric_event_id: eventId,
-            parent_guardian_id: guardian.id, channel: "portal", notification_type: "attendance",
-            message: `${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} at RESA at ${timeLabel(stamp)}.`, status: "sent",
-          }));
-          if (messages.length) {
-            const { error: notificationError } = await db.from("biometric_parent_notifications").insert(messages);
-            if (notificationError) throw notificationError;
+      let notificationWarning = "";
+      try {
+          const { data: links, error: linksError } = await db.from("parent_student_portal_access")
+            .select("parent_guardian_id").eq("school_id", schoolId).eq("student_id", student.id).eq("is_active", true);
+          if (linksError) throw linksError;
+          const parentIds = [...new Set((links ?? []).map((row: any) => String(row.parent_guardian_id)))];
+          if (parentIds.length) {
+            const { data: guardians, error: guardianError } = await db.from("parents_guardians")
+              .select("id,portal_enabled").eq("school_id", schoolId).eq("portal_enabled", true).in("id", parentIds);
+            if (guardianError) throw guardianError;
+            const messages = (guardians ?? []).map((guardian: any) => ({
+              school_id: schoolId, student_id: student.id, biometric_event_id: eventId,
+              parent_guardian_id: guardian.id, channel: "portal", notification_type: "attendance",
+              message: `${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} at RESA at ${timeLabel(stamp)}.`, status: "sent",
+            }));
+            if (messages.length) {
+              const { error: notificationError } = await db.from("biometric_parent_notifications").insert(messages);
+              if (notificationError) throw notificationError;
+            }
           }
-        }
+  
+      } catch (notificationError) {
+        notificationWarning = notificationError instanceof Error ? notificationError.message : "Parent alerts could not be created.";
       }
-      setNotice(`${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} successfully at ${timeLabel(stamp)}. Parent portal alerts were created where an active parent link exists.`);
+      setNotice(`${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} successfully at ${timeLabel(stamp)}.${notificationWarning ? " Attendance was saved, but parent alerts failed: " + notificationWarning : " Parent portal alerts were created where an active parent link exists."}`);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Attendance could not be recorded.");
