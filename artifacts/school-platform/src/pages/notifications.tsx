@@ -42,6 +42,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       else if (announcementResult.error) setNotice("Your messages are available, but announcements could not be loaded: " + announcementResult.error.message);
       if (chatResult.error) setNotice(previous => previous ? previous + " Group chat updates could not be loaded: " + chatResult.error.message : "Group chat updates could not be loaded: " + chatResult.error.message);
       const chatRows = chatResult.data ?? [];
+      const chatIds = chatRows.map((m: any) => m.id);
+      const readResult = chatIds.length ? await db.from("resa_chat_message_reads").select("message_id").eq("user_id", uid).in("message_id", chatIds) : { data: [] };
+      const readIds = new Set((readResult.data ?? []).map((r: any) => r.message_id));
       const conversationIds = [...new Set(chatRows.map((m: any) => m.conversation_id).filter(Boolean))];
       const conversationResult = conversationIds.length ? await db.from("resa_chat_conversations").select("id,subject").in("id", conversationIds) : { data: [] };
       const conversationNames = new Map((conversationResult.data ?? []).map((row: any) => [row.id, row.subject]));
@@ -56,7 +59,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           id: a.id, kind: "announcement", title: a.title, body: a.content,
           createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type,
         }));
-      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA group chat", body: m.body, createdAt: m.created_at, unread: false, sender: m.sender_id, channel: "group" }));
+      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, channel: "chat" }));
       setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); }
     finally { setLoading(false); }
@@ -94,11 +97,17 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   }, [schoolId, userId, load]);
 
   async function markRead(item: Notice) {
-    if (item.kind !== "message" || !item.unread) return;
+    if (!item.unread) return;
     try {
       const db = getSupabaseClient() as any;
-      const { error: updateError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", item.id).eq("recipient_id", userId);
-      if (updateError) throw updateError;
+      if (item.kind === "chat") {
+        const messageId = item.id.replace(/^chat-/, "");
+        const { error: updateError } = await db.from("resa_chat_message_reads").upsert({ message_id: messageId, school_id: schoolId, user_id: userId }, { onConflict: "message_id,user_id" });
+        if (updateError) throw updateError;
+      } else if (item.kind === "message") {
+        const { error: updateError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", item.id).eq("recipient_id", userId);
+        if (updateError) throw updateError;
+      } else return;
       setItems(previous => previous.map(n => n.id === item.id ? { ...n, unread: false } : n));
     } catch (e) { setError(e instanceof Error ? e.message : "Could not mark this notification as read."); }
   }
@@ -110,7 +119,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     setNotice(permission === "granted" ? "Browser notifications enabled on this device while RESA is open." : "Browser notifications were not enabled. In-app notifications remain available.");
   }
 
-  const unreadCount = items.filter(item => item.kind === "message" && item.unread).length;
+  const unreadCount = items.filter(item => (item.kind === "message" || item.kind === "chat") && item.unread).length;
   const back = role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "student" ? "/student-dashboard" : "/parent-dashboard";
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
