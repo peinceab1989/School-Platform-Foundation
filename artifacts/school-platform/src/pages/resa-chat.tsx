@@ -41,6 +41,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     if (activeId && !convRows.some(c => c.id === activeId)) setActiveId("");
     const memberRole = role === "teacher" ? "student" : "teacher";
     let contactIds: string[] = [];
+    let parentDirectory: Contact[] = [];
     if (isAdmin) {
       const members = await (db as any).from("school_memberships").select("user_id,role").eq("school_id", schoolId).eq("status", "active").in("role", ["teacher","student","parent"]);
       contactIds = (members.data ?? []).map((m: any) => m.user_id).filter((id: string) => id !== userId);
@@ -59,6 +60,10 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
           }
         }
       }
+    } else if (role === "parent") {
+      const directory = await (db as any).rpc("get_school_message_contacts", { p_school_id: schoolId });
+      if (directory.error) setError(directory.error.message);
+      parentDirectory = (directory.data ?? []).filter((entry: any) => entry.user_id !== userId && entry.role === "admin").map((entry: any) => ({ user_id: entry.user_id, role: entry.role, display_name: entry.display_name || "School administrator" }));
     } else {
       const studentRes = await (db as any).from("students").select("id").eq("school_id", schoolId).eq("user_id", userId).maybeSingle();
       if (studentRes.data?.id) {
@@ -74,11 +79,13 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
         }
       }
     }
-    if (!isAdmin) {
+    if (!isAdmin && role !== "parent") {
       const admins = await (db as any).from("school_memberships").select("user_id").eq("school_id", schoolId).eq("status", "active").eq("role", "admin");
       contactIds = [...new Set<string>([...contactIds, ...(admins.data ?? []).map((x: any) => String(x.user_id)).filter((id: string) => id !== userId)])];
     }
-    if (contactIds.length) {
+    if (role === "parent") {
+      setContacts(parentDirectory);
+    } else if (contactIds.length) {
       const members = await (db as any).from("school_memberships").select("user_id,role").eq("school_id", schoolId).eq("status", "active").in("user_id", contactIds);
       const ids = (members.data ?? []).map((x: any) => x.user_id);
       const profiles = ids.length ? await (db as any).from("profiles").select("id,display_name").in("id", ids) : { data: [] };
