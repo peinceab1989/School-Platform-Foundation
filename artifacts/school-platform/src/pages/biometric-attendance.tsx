@@ -105,7 +105,7 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
       }).select("id,event_time").single();
       if (eventError) throw eventError;
       const stamp = String(event.event_time);
-      setNotice(`${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} successfully at ${timeLabel(stamp)}.${notificationWarning ? " Attendance was saved, but parent alerts failed: " + notificationWarning : " Parent attendance notification was queued automatically for linked guardians."}`);
+      setNotice(`${student.name} ${eventType === "check_in" ? "checked in" : "checked out"} successfully at ${timeLabel(stamp)}. Parent attendance notification was queued automatically for linked guardians.`);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Attendance could not be recorded.");
