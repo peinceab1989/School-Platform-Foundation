@@ -635,7 +635,9 @@ function StudentDashboard({
         if (!active) return;
         setCbtNoticeError(error instanceof Error ? error.message : "Published CBT status is temporarily unavailable.");
       });
-  
+    return () => { active = false; };
+  }, []);
+
   useEffect(() => {
     let active = true;
     let channel: any = null;
@@ -678,7 +680,6 @@ function StudentDashboard({
     return () => { active = false; if (refreshTimer) clearInterval(refreshTimer); if (channel) void getSupabaseClient().removeChannel(channel); };
   }, [schoolId, userId]);
 
-  return () => { active = false; };
   }, [schoolId, userId]);
 
   useEffect(() => {
