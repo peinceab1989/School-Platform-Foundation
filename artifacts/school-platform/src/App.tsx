@@ -2763,31 +2763,31 @@ function AppRoutes() {
       <Switch>
         {/* Public school website */}
         <Route path="/" component={PublicHome} />
-        <Route path="/about" component={AboutPage} />
-        <Route path="/academics" component={AcademicsPage} />
+        <Route path="/about" component={() => <AboutPage />} />
+        <Route path="/academics" component={() => <AcademicsPage />} />
         <Route
           path="/innovation-technology"
-          component={InnovationTechnologyPage}
+          component={() => <InnovationTechnologyPage />}
         />
-        <Route path="/practical-skills" component={PracticalSkillsPage} />
-        <Route path="/wisdom-inspiration" component={WisdomInspirationPage} />
-        <Route path="/activities-gallery" component={ActivitiesGalleryPage} />
-        <Route path="/admissions" component={AdmissionsPage} />
-        <Route path="/contact" component={ContactPage} />
-        <Route path="/portal-options" component={PortalOptionsPage} />
-        <Route path="/practice-drills" component={StudentPracticeDrillsPage} />
+        <Route path="/practical-skills" component={() => <PracticalSkillsPage />} />
+        <Route path="/wisdom-inspiration" component={() => <WisdomInspirationPage />} />
+        <Route path="/activities-gallery" component={() => <ActivitiesGalleryPage />} />
+        <Route path="/admissions" component={() => <AdmissionsPage />} />
+        <Route path="/contact" component={() => <ContactPage />} />
+        <Route path="/portal-options" component={() => <PortalOptionsPage />} />
+        <Route path="/practice-drills" component={() => <StudentPracticeDrillsPage />} />
         <Route path="/teaching-materials" component={FoundationPage} />
         <Route path="/resa-chat" component={FoundationPage} />
 
         {/* Staff invitation acceptance and password recovery */}
         <Route
           path="/accept-invitation"
-          component={AcceptInvitationPage}
+          component={() => <AcceptInvitationPage />}
         />
-        <Route path="/reset-password" component={ResetPasswordPage} />
+        <Route path="/reset-password" component={() => <ResetPasswordPage />} />
 
         {/* School portal */}
-        <Route path="/test-data-setup" component={TestDataSetupPage} />
+        <Route path="/test-data-setup" component={() => <TestDataSetupPage />} />
         <Route path="/portal" component={FoundationPage} />
         <Route path="/portal-navigation-guide" component={FoundationPage} />
         <Route path="/dashboard" component={FoundationPage} />
@@ -2830,7 +2830,7 @@ function AppRoutes() {
         <Route path="/nexus" component={FoundationPage} />
 
         {/* Not found */}
-        <Route component={NotFound} />
+        <Route component={() => <NotFound />} />
       </Switch>
     </RoutedErrorBoundary>
   );
