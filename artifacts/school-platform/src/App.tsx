@@ -7,6 +7,8 @@ import {
   useEffect,
   useRef,
   useState,
+  lazy,
+  Suspense,
 } from 'react';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,47 +24,47 @@ import {
 } from '@/components/foundation/foundation-app-view';
 
 import AdminPortalShell from '@/components/admin-portal-shell';
-import AdminDashboard from '@/pages/admin-dashboard';
+const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
-import StaffInvitationsPage from '@/pages/staff-invitations';
-import TeachingAssignmentsPage from '@/pages/teaching-assignments';
-import HrManagementPage from '@/pages/hr-management';
-import SchoolReportsPage from '@/pages/school-reports';
-import SchoolServicesPage from '@/pages/school-services';
-import FeesManagementPage from '@/pages/fees-management';
-import SchoolCommunicationPage from '@/pages/school-communication';
-import StaffAttendancePage from '@/pages/staff-attendance';
-import StudentsPage from '@/pages/students';
-import StudentIdCardsPage from '@/pages/student-id-cards';
-import AttendancePage from '@/pages/attendance';
-import BiometricAttendancePage from '@/pages/biometric-attendance';
-import AnnouncementsPage from '@/pages/announcements';
-import ResultsPage from '@/pages/results';
-import ResultsManagementPage from '@/pages/results-management';
-import MyPublishedResultsPage from '@/pages/my-published-results';
-import FormTeacherAttendancePage from '@/pages/form-teacher-attendance';
-import ExamsPage from '@/pages/examinations';
-import SchoolSettingsPage from '@/pages/school-settings';
-import ClassManagementPage from '@/pages/class-management';
-import SubjectManagementPage from '@/pages/subject-management';
-import ParentManagementPage from '@/pages/parent-management';
-import TeacherDashboard from '@/pages/teacher-dashboard';
-import AcceptInvitationPage from '@/pages/accept-invitation';
-import ResetPasswordPage from '@/pages/reset-password';
-import StudentCbtPage from '@/pages/student-cbt';
-import PortalNavigationGuidePage from '@/pages/portal-navigation-guide';
-import StudentAssignmentsPanel from '@/pages/student-assignments-panel';
-import Home from '@/pages/home';
-import PortalOptionsPage from '@/pages/portal-options';
-import StudentPracticeDrillsPage from '@/pages/student-practice-drills';
-import TeachingMaterialsPage from '@/pages/teaching-materials';
-import ResaChatPage from '@/pages/resa-chat';
-import PublicationCentre from '@/pages/publication-centre';
-import TestDataSetupPage from '@/pages/test-data-setup';
-import SchoolCctvPage from '@/pages/school-cctv';
-import NotificationsPage from '@/pages/notifications';
+const StaffInvitationsPage = lazy(() => import('@/pages/staff-invitations'));
+const TeachingAssignmentsPage = lazy(() => import('@/pages/teaching-assignments'));
+const HrManagementPage = lazy(() => import('@/pages/hr-management'));
+const SchoolReportsPage = lazy(() => import('@/pages/school-reports'));
+const SchoolServicesPage = lazy(() => import('@/pages/school-services'));
+const FeesManagementPage = lazy(() => import('@/pages/fees-management'));
+const SchoolCommunicationPage = lazy(() => import('@/pages/school-communication'));
+const StaffAttendancePage = lazy(() => import('@/pages/staff-attendance'));
+const StudentsPage = lazy(() => import('@/pages/students'));
+const StudentIdCardsPage = lazy(() => import('@/pages/student-id-cards'));
+const AttendancePage = lazy(() => import('@/pages/attendance'));
+const BiometricAttendancePage = lazy(() => import('@/pages/biometric-attendance'));
+const AnnouncementsPage = lazy(() => import('@/pages/announcements'));
+const ResultsPage = lazy(() => import('@/pages/results'));
+const ResultsManagementPage = lazy(() => import('@/pages/results-management'));
+const MyPublishedResultsPage = lazy(() => import('@/pages/my-published-results'));
+const FormTeacherAttendancePage = lazy(() => import('@/pages/form-teacher-attendance'));
+const ExamsPage = lazy(() => import('@/pages/examinations'));
+const SchoolSettingsPage = lazy(() => import('@/pages/school-settings'));
+const ClassManagementPage = lazy(() => import('@/pages/class-management'));
+const SubjectManagementPage = lazy(() => import('@/pages/subject-management'));
+const ParentManagementPage = lazy(() => import('@/pages/parent-management'));
+const TeacherDashboard = lazy(() => import('@/pages/teacher-dashboard'));
+const AcceptInvitationPage = lazy(() => import('@/pages/accept-invitation'));
+const ResetPasswordPage = lazy(() => import('@/pages/reset-password'));
+const StudentCbtPage = lazy(() => import('@/pages/student-cbt'));
+const PortalNavigationGuidePage = lazy(() => import('@/pages/portal-navigation-guide'));
+const StudentAssignmentsPanel = lazy(() => import('@/pages/student-assignments-panel'));
+const Home = lazy(() => import('@/pages/home'));
+const PortalOptionsPage = lazy(() => import('@/pages/portal-options'));
+const StudentPracticeDrillsPage = lazy(() => import('@/pages/student-practice-drills'));
+const TeachingMaterialsPage = lazy(() => import('@/pages/teaching-materials'));
+const ResaChatPage = lazy(() => import('@/pages/resa-chat'));
+const PublicationCentre = lazy(() => import('@/pages/publication-centre'));
+const TestDataSetupPage = lazy(() => import('@/pages/test-data-setup'));
+const SchoolCctvPage = lazy(() => import('@/pages/school-cctv'));
+const NotificationsPage = lazy(() => import('@/pages/notifications'));
 import UnreadMessageBadge from '@/components/unread-message-badge';
-import NotFound from '@/pages/not-found';
+const NotFound = lazy(() => import('@/pages/not-found'));
 
 import {
   AboutPage,
@@ -2842,7 +2844,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WouterRouter base={basePath}>
-        <AppRoutes />
+        <Suspense fallback={
+          <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-600" role="status" aria-live="polite">
+            <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-emerald-800 border-t-transparent" aria-hidden="true" />
+              <p className="font-semibold">Preparing your RESA workspace…</p>
+              <p className="mt-1 text-xs text-slate-500">Loading the tools for this page</p>
+            </div>
+          </main>
+        }>
+          <AppRoutes />
+        </Suspense>
       </WouterRouter>
     </QueryClientProvider>
   );
