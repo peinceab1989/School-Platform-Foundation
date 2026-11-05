@@ -1878,6 +1878,10 @@ function FoundationPage() {
         currentPath === '/dashboard' ||
         currentPath === '/student-dashboard' ||
         currentPath === '/student-cbt' ||
+        currentPath === '/student-assignments' ||
+        currentPath === '/student-id-card' ||
+        currentPath === '/my-results' ||
+        currentPath === '/parent-dashboard' ||
         ADMIN_SCHOOL_PATHS.includes(currentPath)
       ) {
         setLocation('/teacher-dashboard');
@@ -1890,7 +1894,11 @@ function FoundationPage() {
       if (
         currentPath === '/teacher-dashboard' ||
         currentPath === '/student-dashboard' ||
-        currentPath === '/student-cbt'
+        currentPath === '/student-cbt' ||
+        currentPath === '/student-assignments' ||
+        currentPath === '/student-id-card' ||
+        currentPath === '/my-results' ||
+        currentPath === '/parent-dashboard'
       ) {
         setLocation('/dashboard');
       }
