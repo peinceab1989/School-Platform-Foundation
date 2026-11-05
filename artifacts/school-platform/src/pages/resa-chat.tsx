@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { ArrowLeft, MessageCircle, Send, RefreshCw, ShieldCheck, Users, LockKeyhole, Paperclip, FileText } from "lucide-react";
+import { ArrowLeft, MessageCircle, Send, RefreshCw, ShieldCheck, Users, LockKeyhole, Paperclip, FileText, Mic, Square } from "lucide-react";
 
 type Role = "admin" | "teacher" | "student" | "parent";
 type Contact = { user_id: string; role: string; display_name: string };
@@ -22,6 +22,10 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [readCounts, setReadCounts] = useState<Record<string, number>>({});
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recordingChunks = useRef<Blob[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -187,6 +191,50 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     } finally { setCreatingGroup(false); }
   }
 
+  async function startVoiceNote() {
+    setError("");
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setError("Voice recording is not supported in this browser. You can attach an existing audio file instead.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      recordingChunks.current = [];
+      const preferred = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+      const recorder = new MediaRecorder(stream, preferred ? { mimeType: preferred } : undefined);
+      recorderRef.current = recorder;
+      recorder.ondataavailable = event => { if (event.data.size) recordingChunks.current.push(event.data); };
+      recorder.onstop = () => {
+        const type = recorder.mimeType || "audio/webm";
+        const blob = new Blob(recordingChunks.current, { type });
+        if (blob.size > 0) {
+          const ext = type.includes("ogg") ? "ogg" : "webm";
+          setAttachment(new File([blob], "RESA-voice-note-" + new Date().toISOString().replace(/[:.]/g,"-") + "." + ext, { type }));
+        }
+        stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        recorderRef.current = null;
+        setRecording(false);
+      };
+      recorder.start();
+      setRecording(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Microphone permission was not granted.");
+      streamRef.current?.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }
+
+  function stopVoiceNote() {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+  }
+
+  useEffect(() => () => {
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach(track => track.stop());
+  }, []);
+
   async function sendMessage(e: FormEvent) {
     e.preventDefault(); if ((!draft.trim() && !attachment) || !activeConversation) return;
     if (!enabled) { setError("Chat has been deactivated by the administrator."); return; }
@@ -248,11 +296,11 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
         <form onSubmit={e=>void sendMessage(e)} className="border-t border-slate-200 pt-3">
           {attachment && <div className="mb-2 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-950"><span className="truncate">{attachment.name} · {(attachment.size/1024/1024).toFixed(1)} MB</span><button type="button" onClick={()=>setAttachment(null)} className="font-bold">Remove</button></div>}
           <div className="flex items-end gap-2">
-            <label className="cursor-pointer rounded-lg border p-3 text-slate-700" title="Attach a file"><Paperclip size={18}/><input type="file" className="hidden" disabled={!enabled||!activeConversation} accept="image/*,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,.pdf,.doc,.docx,.txt" onChange={e=>setAttachment(e.target.files?.[0] ?? null)}/></label>
+            <label className="cursor-pointer rounded-lg border p-3 text-slate-700" title="Attach a file"><Paperclip size={18}/><input type="file" className="hidden" disabled={!enabled||!activeConversation||recording} accept="image/*,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,.pdf,.doc,.docx,.txt" onChange={e=>setAttachment(e.target.files?.[0] ?? null)}/></label><button type="button" onClick={()=>recording?stopVoiceNote():void startVoiceNote()} disabled={!enabled||!activeConversation||sending||Boolean(attachment)} className={"rounded-lg border p-3 "+(recording?"border-rose-300 bg-rose-50 text-rose-700":"text-slate-700")} title={recording?"Stop voice note":"Record voice note"}>{recording?<Square size={18}/>:<Mic size={18}/>}</button>
             <textarea value={draft} onChange={e=>setDraft(e.target.value)} maxLength={5000} rows={2} placeholder={enabled?"Write a message…":"Chat is disabled by the administrator"} disabled={!enabled||!activeConversation} className={field+" min-h-[48px] resize-y"}/>
             <button disabled={!enabled||!activeConversation||(!draft.trim()&&!attachment)||sending} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><Send size={16}/>{sending?"Sending":"Send"}</button>
           </div>
-          <p className="mt-2 text-[11px] text-slate-500">Private attachments up to 20 MB. Images, audio, video, PDF and Word files.</p>
+          <p className="mt-2 text-[11px] text-slate-500">{recording?"Recording voice note… Stop recording to attach it.":"Private attachments up to 20 MB. Images, voice notes, video, PDF and Word files."}</p>
         </form>
       </section>
     </div>
