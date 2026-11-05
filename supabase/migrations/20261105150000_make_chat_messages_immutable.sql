@@ -1,1 +1,0 @@
-revoke update, delete on table public.resa_chat_messages from authenticated;
