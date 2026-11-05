@@ -42,7 +42,7 @@ import ResultsManagementPage from '@/pages/results-management';
 import MyPublishedResultsPage from '@/pages/my-published-results';
 import FormTeacherAttendancePage from '@/pages/form-teacher-attendance';
 import ExamsPage from '@/pages/examinations';
-import SchoolSettingsPage from '@/pages/school-settings';
+import SchoolSettingsPage, { SelfServiceSchoolSettingsPage } from '@/pages/school-settings';
 import ClassManagementPage from '@/pages/class-management';
 import SubjectManagementPage from '@/pages/subject-management';
 import ParentManagementPage from '@/pages/parent-management';
@@ -496,7 +496,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           <Link href="/my-results" className="rounded-xl bg-amber-200 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-100">My learners’ results</Link>
           <Link href="/school-communication" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">School messages</Link>
           <Link href="/notifications" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Notifications</Link>
-          <Link href="/reset-password" className="rounded-xl border border-amber-200 bg-amber-200 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-100">Password & Security</Link>
+          <Link href="/school-settings" className="rounded-xl border border-amber-200 bg-amber-200 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-100">Password & Security</Link>
           <a href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care.%20I%20need%20assistance%20with%20the%20parent%20portal." target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Customer Care</a>
         </nav>
       </header>
@@ -773,7 +773,7 @@ function StudentDashboard({
             <Link href="/portal-navigation-guide" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Portal Guide</Link>
             <Link href="/my-results" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>My Report Cards</Link>
             <Link href="/student-id-card" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>My ID Card</Link>
-            <Link href="/reset-password" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#d9efe2', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Password & Security</Link>
+            <Link href="/school-settings" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#d9efe2', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Password & Security</Link>
             <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>School messages</Link>
               <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
               </div>
@@ -1883,7 +1883,7 @@ function FoundationPage() {
         currentPath === '/student-id-card' ||
         currentPath === '/my-results' ||
         currentPath === '/parent-dashboard' ||
-        ADMIN_SCHOOL_PATHS.includes(currentPath)
+        (ADMIN_SCHOOL_PATHS.includes(currentPath) && currentPath !== '/school-settings')
       ) {
         setLocation('/teacher-dashboard');
       }
@@ -1907,14 +1907,14 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/school-settings') {
         setLocation('/student-dashboard');
       }
       return;
     }
 
     if (parentMembership) {
-      if (!['/parent-dashboard', '/school-cctv', '/notifications', '/school-communication', '/my-results', '/reset-password'].includes(currentPath)) {
+      if (!['/parent-dashboard', '/school-cctv', '/notifications', '/school-communication', '/my-results', '/reset-password', '/school-settings'].includes(currentPath)) {
         setLocation('/parent-dashboard');
       }
       return;
@@ -2259,6 +2259,11 @@ function FoundationPage() {
     return <ResetPasswordPage />;
   }
 
+  // Non-admin roles are routed to a limited self-service Settings Centre view.
+  if (authState === 'signed-in' && session && currentPath === '/school-settings' && (teacherMembership || studentMembership || parentMembership) && (!adminMembership || teacherMembership)) {
+    return <SelfServiceSchoolSettingsPage />;
+  }
+
   if (
     authState === 'signed-in' &&
     accessCheckState === 'success' &&
@@ -2425,6 +2430,7 @@ function FoundationPage() {
       '/results-management',
       '/teaching-materials',
       '/resa-chat',
+      '/school-settings',
     ].includes(currentPath)
   ) {
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
