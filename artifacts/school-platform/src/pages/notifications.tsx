@@ -33,12 +33,18 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const [messageResult, announcementResult, chatResult] = await Promise.all([
         db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at,channel").eq("school_id", schoolId).eq("recipient_id", uid).order("sent_at", { ascending: false }).limit(100),
         db.from("announcements").select("id,title,content,announcement_type,is_published,published_at,created_at,expires_at").eq("school_id", schoolId).eq("is_published", true).order("published_at", { ascending: false }).limit(50),
+        db.from("resa_chat_messages").select("id,conversation_id,sender_id,body,created_at").eq("school_id", schoolId).order("created_at", { ascending: false }).limit(100),
       ]);
       if (messageResult.error && announcementResult.error) {
         throw new Error("Messages and announcements could not be loaded. " + messageResult.error.message + " / " + announcementResult.error.message);
       }
       if (messageResult.error) setNotice("Announcements are available, but the message inbox could not be loaded: " + messageResult.error.message);
       else if (announcementResult.error) setNotice("Your messages are available, but announcements could not be loaded: " + announcementResult.error.message);
+      if (chatResult.error) setNotice(previous => previous ? previous + " Group chat updates could not be loaded: " + chatResult.error.message : "Group chat updates could not be loaded: " + chatResult.error.message);
+      const chatRows = chatResult.data ?? [];
+      const conversationIds = [...new Set(chatRows.map((m: any) => m.conversation_id).filter(Boolean))];
+      const conversationResult = conversationIds.length ? await db.from("resa_chat_conversations").select("id,subject").in("id", conversationIds) : { data: [] };
+      const conversationNames = new Map((conversationResult.data ?? []).map((row: any) => [row.id, row.subject]));
       const now = Date.now();
       const messages: Notice[] = (messageResult.data ?? []).map((m: any) => ({
         id: m.id, kind: "message", title: m.subject, body: m.message, createdAt: m.sent_at,
@@ -50,7 +56,8 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           id: a.id, kind: "announcement", title: a.title, body: a.content,
           createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type,
         }));
-      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA group chat", body: m.body, createdAt: m.created_at, unread: false, sender: m.sender_id, channel: "group" }));\n      setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA group chat", body: m.body, createdAt: m.created_at, unread: false, sender: m.sender_id, channel: "group" }));
+      setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); }
     finally { setLoading(false); }
   }, [schoolId]);
@@ -70,7 +77,13 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
             void load();
           }
         })
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {\n          if (payload.new?.sender_id !== userId) {\n            if ("Notification" in window && Notification.permission === "granted") new Notification("RESA group chat", { body: payload.new.body || "A new group message is available." });\n            void load();\n          }\n        })\n        .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
+          if (payload.new?.sender_id !== userId) {
+            if ("Notification" in window && Notification.permission === "granted") new Notification("RESA group chat", { body: payload.new.body || "A new group message is available." });
+            void load();
+          }
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
           if (payload.new?.is_published) {
             if ("Notification" in window && Notification.permission === "granted") new Notification("RESA announcement: " + payload.new.title, { body: payload.new.content || "A new school announcement is available." });
             void load();
