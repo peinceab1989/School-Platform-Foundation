@@ -5,11 +5,13 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Session } from '@supabase/supabase-js';
+import { Bell } from 'lucide-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 
 import {
