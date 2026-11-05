@@ -127,9 +127,10 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
       }).select("id").single();
       if (inserted.error) throw inserted.error;
       const links = await db.from("parent_student_portal_access").select("parent_guardian_id").eq("school_id", schoolId).eq("student_id", student.id).eq("is_active", true);
-      if (links.error) throw links.error;
       let visibilityNotice = "Parent visibility was updated where an active parent-child link exists.";
-      if (links.data?.length) {
+      if (links.error) {
+        visibilityNotice = "The fee was saved, but parent visibility could not be checked: " + links.error.message;
+      } else if (links.data?.length) {
         const views = links.data.map((link: any) => ({ school_id: schoolId, parent_guardian_id: link.parent_guardian_id, student_id: student.id, student_fee_assignment_id: inserted.data.id, can_view: true }));
         const viewResult = await db.from("parent_fee_portal_views").upsert(views, { onConflict: "parent_guardian_id,student_fee_assignment_id" });
         if (viewResult.error) visibilityNotice = "Parent visibility could not be updated: " + viewResult.error.message;
@@ -166,15 +167,18 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
         issued_by: userId,
       });
       if (receipt.error) {
-        await db.from("student_fee_payments").delete().eq("id", payment.data.id).eq("school_id", schoolId);
-        throw new Error("Payment was not saved because the receipt could not be issued: " + receipt.error.message);
+        const rollback = await db.from("student_fee_payments").delete().eq("id", payment.data.id).eq("school_id", schoolId);
+        if (rollback.error) {
+          throw new Error("Receipt issuance failed, and the payment record could not be rolled back. Do not record this payment again. Payment reference: " + payment.data.id + ". Ask the administrator to reconcile it. Receipt error: " + receipt.error.message + "; rollback error: " + rollback.error.message);
+        }
+        throw new Error("Payment was rolled back because the receipt could not be issued: " + receipt.error.message);
       }
       const newPaid = assignment.paid + amount;
-      await db.from("student_fee_assignments").update({ status: newPaid >= assignment.amount_due ? "paid" : "partial" }).eq("id", assignment.id).eq("school_id", schoolId);
+      const statusUpdate = await db.from("student_fee_assignments").update({ status: newPaid >= assignment.amount_due ? "paid" : "partial" }).eq("id", assignment.id).eq("school_id", schoolId);
       const row: PaymentRow = { id: payment.data.id, receipt_number: receiptNumber, studentName: assignment.studentName, admissionNumber: assignment.admissionNumber, amount, payment_method: paymentForm.payment_method, payment_date: new Date().toISOString().slice(0,10), feeName: assignment.feeName, description: paymentForm.remarks };
       setPrintedReceipt(row);
       setPaymentForm({ assignment_id: "", amount: "", payment_method: "cash", reference_number: "", remarks: "" });
-      setNotice("Payment recorded and receipt " + receiptNumber + " issued. This records a payment already received by the school; it does not process online checkout.");
+      setNotice("Payment recorded and receipt " + receiptNumber + " issued. " + (statusUpdate.error ? "The payment is saved, but the fee balance status could not be refreshed; refresh the register and reconcile before recording another payment. " + statusUpdate.error.message + " " : "") + "This records a payment already received by the school; it does not process online checkout.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Payment could not be recorded."); }
     finally { setSaving(false); }
