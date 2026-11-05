@@ -22,6 +22,8 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [readCounts, setReadCounts] = useState<Record<string, number>>({});
+  const [onlineCount, setOnlineCount] = useState(0);
+  const presenceChannelRef = useRef<any>(null);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -137,6 +139,26 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     const channel = db.channel("resa-chat-" + activeId).on("postgres_changes", { event: "*", schema: "public", table: "resa_chat_messages", filter: "conversation_id=eq." + activeId }, () => { void fetchMessages(); }).subscribe();
     return () => { cancelled = true; void db.removeChannel(channel); };
   }, [db, activeId]);
+
+  useEffect(() => {
+    if (!activeId) { setOnlineCount(0); return; }
+    const channel = db.channel("resa-chat-presence-" + activeId, { config: { presence: { key: userId } } });
+    presenceChannelRef.current = channel;
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState();
+      setOnlineCount(Object.keys(state).length);
+    });
+    channel.subscribe(async (status: string) => {
+      if (status === "SUBSCRIBED") {
+        await channel.track({ user_id: userId, online_at: new Date().toISOString() });
+      }
+    });
+    return () => {
+      presenceChannelRef.current = null;
+      setOnlineCount(0);
+      void db.removeChannel(channel);
+    };
+  }, [db, activeId, userId]);
 
   const activeConversation = useMemo(() => conversations.find(c => c.id === activeId), [conversations, activeId]);
   const otherId = activeConversation ? (activeConversation.participant_one === userId ? activeConversation.participant_two : activeConversation.participant_one) : "";
@@ -286,7 +308,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     {!enabled&&<div className="mt-5 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><LockKeyhole size={20}/><div><strong>Messaging is currently disabled.</strong><p className="mt-1">An administrator must activate chat before anyone can start or send messages. Existing messages are preserved.</p></div></div>}
     <div className="mt-5 grid gap-5 lg:grid-cols-[320px_1fr]">
       <section className={panel}><div className="flex items-center gap-2"><Users size={19}/><h2 className="font-extrabold">Start a conversation</h2></div><form onSubmit={e=>void startConversation(e)} className="mt-4 space-y-3"><label className="block text-sm font-semibold">Contact<select className={field+" mt-1"} value={selectedContact} onChange={e=>setSelectedContact(e.target.value)}><option value="">Choose contact…</option>{sortedContacts.map(c=><option key={c.user_id} value={c.user_id}>{c.display_name} · {c.role}</option>)}</select></label><label className="block text-sm font-semibold">Subject<input className={field+" mt-1"} maxLength={160} value={subject} onChange={e=>setSubject(e.target.value)} placeholder="e.g. Mathematics homework"/></label><button disabled={!enabled||!selectedContact} className="w-full rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Open chat</button></form>{isAdmin&&<form onSubmit={e=>void createGroup(e)} className="mt-5 border-t border-slate-200 pt-5"><h3 className="font-extrabold">Create a group</h3><p className="mt-1 text-xs leading-5 text-slate-500">Create a class, staff, parent or custom group. Only selected active school members can read and send messages.</p><input className={field+" mt-3"} value={groupName} onChange={e=>setGroupName(e.target.value)} maxLength={160} placeholder="Group name" aria-label="Group name"/><div className="mt-3 max-h-52 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">{sortedContacts.map(c=><label key={c.user_id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={groupMemberIds.includes(c.user_id)} onChange={e=>setGroupMemberIds(old=>e.target.checked?[...old,c.user_id]:old.filter(id=>id!==c.user_id))}/><span>{c.display_name} <span className="text-xs text-slate-500">· {c.role}</span></span></label>)}{!sortedContacts.length&&<p className="text-xs text-slate-500">No active members available.</p>}</div><button disabled={!enabled||creatingGroup||!groupName.trim()||groupMemberIds.length<2} className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{creatingGroup?"Creating group…":"Create group"}</button></form>}<div className="mt-6 flex items-center justify-between gap-2"><h2 className="font-extrabold">Recent chats</h2><button onClick={()=>void load()} className="rounded-lg border p-2" aria-label="Refresh chats"><RefreshCw size={15}/></button></div>{loading?<p className="py-4 text-sm text-slate-500">Loading…</p>:conversations.length===0?<p className="py-4 text-sm text-slate-500">No conversations yet.</p>:<div className="mt-2 space-y-2">{conversations.map(c=><button key={c.id} onClick={()=>setActiveId(c.id)} className={"w-full rounded-xl border p-3 text-left "+(activeId===c.id?"border-emerald-800 bg-emerald-50":"border-slate-200 bg-white")}><span className="block font-bold">{c.conversation_type==="group"?"👥 ":""}{c.subject}</span><span className="mt-1 block text-xs text-slate-500">{c.conversation_type==="group"?"Group conversation · ":""}{new Date(c.last_message_at).toLocaleString()}</span></button>)}</div>}</section>
-      <section className={panel+" min-h-[460px]"}><div className="flex items-center gap-3 border-b border-slate-200 pb-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><MessageCircle size={22}/></span><div><h2 className="font-extrabold">{activeConversation?.subject ?? "Your messages"}</h2><p className="text-xs text-slate-500">{activeConversation?(activeConversation.conversation_type==="group"?"Group conversation":(otherContact?.display_name??"Conversation participant")):"Choose a conversation or start a new one"}</p></div></div>
+      <section className={panel+" min-h-[460px]"}><div className="flex items-center gap-3 border-b border-slate-200 pb-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><MessageCircle size={22}/></span><div><h2 className="font-extrabold">{activeConversation?.subject ?? "Your messages"}</h2><p className="text-xs text-slate-500">{activeConversation?(activeConversation.conversation_type==="group"?"Group conversation":(otherContact?.display_name??"Conversation participant")):"Choose a conversation or start a new one"}{activeConversation && <span className="ml-2 text-emerald-700">· {onlineCount} online</span>}</p></div></div>
         <div className="flex max-h-[480px] min-h-[300px] flex-col gap-3 overflow-y-auto py-4">{!activeConversation?<div className="m-auto max-w-sm text-center text-sm text-slate-500"><ShieldCheck size={28} className="mx-auto mb-2 text-emerald-800"/><p>Messages are private to conversation participants and authorised school administrators.</p></div>:messages.length===0?<p className="m-auto text-sm text-slate-500">No messages yet. Say hello.</p>:messages.map(m=><div key={m.id} className={"max-w-[88%] rounded-2xl px-4 py-3 "+(m.sender_id===userId?"self-end bg-emerald-900 text-white":"self-start bg-slate-100 text-slate-900")}><p className="whitespace-pre-wrap break-words text-sm leading-6">{m.body}</p>
           {m.attachment_path && <div className="mt-2 rounded-lg bg-black/5 p-2 text-sm">
             {m.attachment_url ? (m.attachment_mime?.startsWith("image/") ? <a href={m.attachment_url} target="_blank" rel="noreferrer"><img src={m.attachment_url} alt={m.attachment_name || "Chat attachment"} className="max-h-64 rounded-lg object-contain"/></a> : m.attachment_mime?.startsWith("audio/") ? <audio controls src={m.attachment_url} className="max-w-full"/> : m.attachment_mime?.startsWith("video/") ? <video controls src={m.attachment_url} className="max-h-64 max-w-full rounded-lg"/> : <a href={m.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 underline"><FileText size={16}/>{m.attachment_name || "Open attachment"}</a>) : "Attachment unavailable"}
