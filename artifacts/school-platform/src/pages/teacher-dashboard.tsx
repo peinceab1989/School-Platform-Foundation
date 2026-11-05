@@ -20,6 +20,15 @@ type TeacherStaff = {
   status: string | null;
 };
 
+type MyStaffAttendance = {
+  id: string;
+  attendance_date: string;
+  status: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  remarks: string | null;
+};
+
 type TeachingAssignment = {
   id: string;
   staff_id: string;
@@ -201,6 +210,8 @@ export default function TeacherDashboard({
   onSignOut,
 }: TeacherDashboardProps) {
   const [staff, setStaff] = useState<TeacherStaff | null>(null);
+  const [myAttendance, setMyAttendance] = useState<MyStaffAttendance | null>(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [printPermissions, setPrintPermissions] = useState({ id_card: false, admission_letter: false });
   const [printDocument, setPrintDocument] = useState<'id_card' | 'admission_letter' | null>(null);
   const [teacherName, setTeacherName] = useState<string | null>(null);
@@ -294,6 +305,29 @@ export default function TeacherDashboard({
     [teachingAssignments, subjects],
   );
 
+  const loadMyAttendance = useCallback(async (staffId: string) => {
+    setAttendanceLoading(true);
+    try {
+      const client = getSupabaseClient();
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date());
+      const { data, error } = await client
+        .from('staff_attendance')
+        .select('id, attendance_date, status, check_in_time, check_out_time, remarks')
+        .eq('school_id', schoolId)
+        .eq('staff_id', staffId)
+        .eq('attendance_date', today)
+        .maybeSingle();
+      if (error) throw error;
+      setMyAttendance(data as MyStaffAttendance | null);
+    } catch (error) {
+      console.error('Could not load own staff attendance:', error);
+    } finally {
+      setAttendanceLoading(false);
+    }
+  }, [schoolId]);
+
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setErrorText(null);
@@ -359,6 +393,7 @@ export default function TeacherDashboard({
       }
 
       setStaff(staffRecord);
+      await loadMyAttendance(staffRecord.id);
 
       const { data: permissionRows, error: permissionError } = await client
         .from('staff_document_permissions')
@@ -625,11 +660,34 @@ export default function TeacherDashboard({
     } finally {
       setLoading(false);
     }
-  }, [schoolId, userId]);
+  }, [schoolId, userId, loadMyAttendance]);
 
   useEffect(() => {
     void loadDashboard();
   }, [loadDashboard]);
+
+  useEffect(() => {
+    if (!staff?.id) return;
+    const client = getSupabaseClient();
+    const channel = client
+      .channel(`staff-attendance-${staff.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'staff_attendance',
+        filter: `staff_id=eq.${staff.id}`,
+      }, () => {
+        void loadMyAttendance(staff.id);
+      })
+      .subscribe();
+    const refreshTimer = window.setInterval(() => {
+      void loadMyAttendance(staff.id);
+    }, 30000);
+    return () => {
+      window.clearInterval(refreshTimer);
+      void client.removeChannel(channel);
+    };
+  }, [staff?.id, loadMyAttendance]);
 
   const openSubmissionAttachment = async (path: string) => {
     try {
@@ -1080,6 +1138,41 @@ export default function TeacherDashboard({
             </div>
           </div>
         </header>
+
+        <section
+          aria-live="polite"
+          style={{
+            ...panelStyle,
+            borderColor: myAttendance?.check_in_time && !myAttendance?.check_out_time ? '#86c6a0' : '#e0e7e0',
+            background: myAttendance?.check_in_time && !myAttendance?.check_out_time ? '#f0fbf4' : '#fff',
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <div>
+            <div style={{ color: '#123d2b', fontSize: 12, fontWeight: 800, letterSpacing: 1 }}>MY STAFF ATTENDANCE • TODAY</div>
+            <h2 style={{ ...sectionTitleStyle, margin: '6px 0' }}>Attendance record</h2>
+            {attendanceLoading ? <p style={{ margin: 0 }}>Updating your attendance…</p> : myAttendance ? (
+              <p style={{ margin: 0, lineHeight: 1.7 }}>
+                <strong>Status:</strong> {myAttendance.status.replaceAll('_', ' ')}
+                {' · '}<strong>Clock-in:</strong> {myAttendance.check_in_time?.slice(0, 5) || 'Not recorded'}
+                {' · '}<strong>Clock-out:</strong> {myAttendance.check_out_time?.slice(0, 5) || 'Not recorded'}
+              </p>
+            ) : <p style={{ margin: 0 }}>No attendance has been recorded for you today yet.</p>}
+            {myAttendance?.remarks && <p style={{ margin: '5px 0 0', fontSize: 13 }}>Admin note: {myAttendance.remarks}</p>}
+          </div>
+          <span style={{
+            borderRadius: 999, padding: '8px 13px', fontWeight: 800, fontSize: 12,
+            color: myAttendance?.check_in_time && !myAttendance?.check_out_time ? '#17633a' : '#475569',
+            background: myAttendance?.check_in_time && !myAttendance?.check_out_time ? '#d9f5e3' : '#eef2f5',
+          }}>
+            {myAttendance?.check_in_time && !myAttendance?.check_out_time ? 'PRESENT • ON CAMPUS' :
+              myAttendance?.check_out_time ? 'CHECKED OUT' : myAttendance ? myAttendance.status.toUpperCase().replaceAll('_', ' ') : 'AWAITING ATTENDANCE'}
+          </span>
+        </section>
 
         {errorText && (
           <section
