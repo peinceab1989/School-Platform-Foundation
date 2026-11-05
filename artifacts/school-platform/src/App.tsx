@@ -215,6 +215,24 @@ const statNumberStyle: CSSProperties = {
   marginTop: 8,
 };
 
+function playParentAttendanceSound(choice: "chime"|"bell"|"soft"|"none") {
+  if(choice==="none"||typeof window==="undefined") return;
+  try {
+    const AudioContextClass=window.AudioContext||(window as any).webkitAudioContext;
+    if(!AudioContextClass) return;
+    const audio=new AudioContextClass();
+    const frequencies=choice==="bell"?[1046,784]:choice==="soft"?[523]:[784,988];
+    frequencies.forEach((frequency,index)=>{
+      const oscillator=audio.createOscillator(); const gain=audio.createGain();
+      oscillator.type="sine"; oscillator.frequency.value=frequency;
+      const start=audio.currentTime+index*0.13;
+      gain.gain.setValueAtTime(0.0001,start); gain.gain.exponentialRampToValueAtTime(0.12,start+0.02); gain.gain.exponentialRampToValueAtTime(0.0001,start+0.18);
+      oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(start); oscillator.stop(start+0.2);
+    });
+    setTimeout(()=>void audio.close(),600);
+  } catch { /* Browser audio can be blocked by device settings. */ }
+}
+
 function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { schoolId: string; schoolName: string; userId: string; email?: string; onSignOut: () => void }) {
   const [parentDisplayName, setParentDisplayName] = useState("");
   const [feeRows, setFeeRows] = useState<Array<Record<string, any>>>([]);
@@ -225,8 +243,15 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [attendanceRows, setAttendanceRows] = useState<Array<Record<string, any>>>([]);
   const [attendanceAlerts, setAttendanceAlerts] = useState<Array<Record<string, any>>>([]);
   const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
+  const [soundChoice, setSoundChoice] = useState<"chime" | "bell" | "soft" | "none">("chime");
+  const [phoneNotificationsEnabled, setPhoneNotificationsEnabled] = useState(false);
+  const [notificationPreferencesLoading, setNotificationPreferencesLoading] = useState(true);
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("all");
   const soundAlertsRef = useRef(false);
+  const soundChoiceRef = useRef<"chime" | "bell" | "soft" | "none">("chime");
   useEffect(() => { soundAlertsRef.current = soundAlertsEnabled; }, [soundAlertsEnabled]);
+  useEffect(() => { soundChoiceRef.current = soundChoice; }, [soundChoice]);
   const [announcements, setAnnouncements] = useState<Array<Record<string, any>>>([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState("");
@@ -252,10 +277,26 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         if (accountError) throw accountError;
         const parentIds = [...new Set<string>((accounts ?? []).map((row: any) => String(row.parent_guardian_id)))];
         if (!parentIds.length) throw new Error("No active parent portal account is linked to this sign-in.");
+        const { data: savedPreferences, error: preferencesError } = await db
+          .from("parent_attendance_notification_preferences")
+          .select("enabled,sound_choice,phone_notifications_enabled")
+          .eq("school_id", schoolId).eq("user_id", userId)
+          .in("parent_guardian_id", parentIds);
+        if (preferencesError) throw preferencesError;
+        const preference = savedPreferences?.[0];
+        if (active) {
+          setSoundAlertsEnabled(Boolean(preference?.enabled));
+          setSoundChoice((preference?.sound_choice || "chime") as "chime" | "bell" | "soft" | "none");
+          setPhoneNotificationsEnabled(Boolean(preference?.phone_notifications_enabled));
+          setNotificationPreferencesLoading(false);
+        }
+        if ("serviceWorker" in navigator) {
+          void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+        }
 
         const { data: initialAttendanceAlerts, error: attendanceAlertsError } = await db
           .from("biometric_parent_notifications")
-          .select("id,student_id,message,status,created_at")
+          .select("id,student_id,message,status,created_at,read_at")
           .eq("school_id", schoolId)
           .in("parent_guardian_id", parentIds)
           .order("created_at", { ascending: false })
@@ -267,8 +308,20 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           .on("postgres_changes", { event: "INSERT", schema: "public", table: "biometric_parent_notifications", filter: `school_id=eq.${schoolId}` }, (payload: any) => {
             const incoming = payload.new as Record<string, any>;
             if (!parentIds.includes(String(incoming.parent_guardian_id))) return;
-            setAttendanceAlerts(previous => [incoming, ...previous.filter(row => String(row.id) !== String(incoming.id))].slice(0, 20));
-            if (soundAlertsRef.current && typeof window !== "undefined") {
+            setAttendanceAlerts(previous => [incoming, ...previous.filter(row => String(row.id) !== String(incoming.id))].slice(0, 100));
+            if (soundAlertsRef.current && soundChoiceRef.current !== "none" && typeof window !== "undefined") {
+              playParentAttendanceSound(soundChoiceRef.current);
+            }
+            if ("Notification" in window && Notification.permission === "granted") {
+              const title = "RESA · Attendance update";
+              const body = String(incoming.message || "A linked learner's attendance was updated.");
+              void navigator.serviceWorker?.ready.then(registration => registration.showNotification(title, {
+                body, icon: "/favicon.ico", badge: "/favicon.ico",
+                tag: String(incoming.id), data: { url: "/parent-dashboard" },
+              })).catch(() => { new Notification(title, { body }); });
+            }
+            /* Legacy in-page audio block removed; notification sound is selected above. */
+            if (false && soundAlertsRef.current && typeof window !== "undefined") {
               try {
                 const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
                 if (AudioContextClass) {
@@ -377,6 +430,49 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
     return () => { active = false; if (attendanceChannel) void getSupabaseClient().removeChannel(attendanceChannel); };
   }, [schoolId, userId]);
 
+
+  async function saveParentNotificationPreferences(enabled: boolean, sound: "chime"|"bell"|"soft"|"none", phoneEnabled: boolean) {
+    setNotificationBusy(true);
+    try {
+      const db=getSupabaseClient() as any;
+      const {data:accounts,error}=await db.from("parent_portal_accounts").select("parent_guardian_id").eq("school_id",schoolId).eq("user_id",userId).eq("is_active",true);
+      if(error) throw error;
+      const ids=[...new Set<string>((accounts??[]).map((x:any)=>String(x.parent_guardian_id)))];
+      if(!ids.length) throw new Error("No active parent account is linked.");
+      const rows=ids.map(parent_guardian_id=>({school_id:schoolId,parent_guardian_id,user_id:userId,enabled,sound_choice:sound,phone_notifications_enabled:phoneEnabled,updated_at:new Date().toISOString()}));
+      const {error:saveError}=await db.from("parent_attendance_notification_preferences").upsert(rows,{onConflict:"school_id,parent_guardian_id,user_id"});
+      if(saveError) throw saveError;
+      setSoundAlertsEnabled(enabled); setSoundChoice(sound); setPhoneNotificationsEnabled(phoneEnabled);
+      if(enabled&&sound!=="none") playParentAttendanceSound(sound);
+    } catch(error) { setOverviewError(error instanceof Error?error.message:"Notification preferences could not be saved."); }
+    finally { setNotificationBusy(false); }
+  }
+
+  async function enableParentPhoneNotifications() {
+    if(!("Notification" in window)) { setOverviewError("This browser does not support phone notifications. Try installing/opening RESA in Chrome on Android."); return; }
+    setNotificationBusy(true);
+    try {
+      const permission=Notification.permission==="granted"?"granted":await Notification.requestPermission();
+      if(permission!=="granted") throw new Error("Phone notification permission was not granted. Enable notifications for Chrome/RESA in Android settings.");
+      if("serviceWorker" in navigator) {
+        const registration=await navigator.serviceWorker.register("/sw.js");
+        await registration.showNotification("RESA notifications enabled",{body:"Attendance updates for your linked learners will appear here.",icon:"/favicon.ico",tag:"resa-notification-test"});
+      } else {
+        new Notification("RESA notifications enabled",{body:"Attendance updates will appear while the portal is open."});
+      }
+      await saveParentNotificationPreferences(soundAlertsEnabled,soundChoice,true);
+    } catch(error) { setOverviewError(error instanceof Error?error.message:"Phone notifications could not be enabled."); }
+    finally { setNotificationBusy(false); }
+  }
+
+  async function markParentAlertsRead(ids: string[]) {
+    if(!ids.length) return;
+    const db=getSupabaseClient() as any;
+    const {error}=await db.from("biometric_parent_notifications").update({read_at:new Date().toISOString()}).in("id",ids);
+    if(error) { setOverviewError(error.message); return; }
+    setAttendanceAlerts(previous=>previous.map((row:any)=>ids.includes(String(row.id))?{...row,read_at:new Date().toISOString()}:row));
+  }
+
   const childName = (id: string) => children.find((child) => child.id === id)?.name || "Linked learner";
   const paidByAssignment = paymentRows.reduce<Record<string, number>>((totals, row) => {
     const key = String(row.student_fee_assignment_id);
@@ -431,12 +527,38 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       {overviewError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{overviewError}</p>}
 
       <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 className="text-lg font-extrabold text-emerald-950">Live attendance alerts</h2><p className="mt-1 text-sm text-slate-600">See when a linked learner is checked in or out of RESA.</p></div>
-          <button type="button" onClick={async () => { setSoundAlertsEnabled(true); if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); try { const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext; if (AudioContextClass) { const audio = new AudioContextClass(); const oscillator = audio.createOscillator(); const gain = audio.createGain(); oscillator.frequency.value = 880; gain.gain.value = 0.12; oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(); oscillator.stop(audio.currentTime + 0.16); oscillator.onended = () => void audio.close(); } } catch { /* Sound may be blocked by device settings. */ } }} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-900 px-3 py-2 text-xs font-bold text-white">{soundAlertsEnabled ? "Sound alerts enabled" : "Enable sound & browser alerts"}</button>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h2 className="text-lg font-extrabold text-emerald-950">RESA Family Notifications</h2><p className="mt-1 text-sm text-slate-600">A message inbox for every attendance update about your linked learners.</p></div>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-900">{attendanceAlerts.filter((a:any)=>!a.read_at).length} unread</span>
         </div>
-        {attendanceAlerts.length === 0 ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">No biometric or admin-assisted attendance alerts yet. New check-in and check-out events will appear here while you are signed in.</p> : <div className="mt-4 space-y-2">{attendanceAlerts.slice(0,8).map((alert: any) => <article key={String(alert.id)} className="flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3"><span className="mt-0.5 rounded-full bg-emerald-100 p-2 text-emerald-900"><Bell size={16}/></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">{String(alert.message || "Attendance update")}</p><p className="mt-1 text-xs text-slate-500">{new Date(String(alert.created_at)).toLocaleString("en-NG", { timeZone: "Africa/Lagos" })}</p></div></article>)}</div>}
-        <p className="mt-3 text-xs leading-5 text-slate-500">Sound and browser pop-up alerts work while this dashboard is open and the browser permits them. Background alerts when the app is closed require push-notification setup on the device.</p>
+        <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50 p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <label className="block text-xs font-bold text-slate-700">Attendance notifications
+            <select disabled={notificationPreferencesLoading||notificationBusy} value={soundAlertsEnabled?"on":"off"} onChange={e=>void saveParentNotificationPreferences(e.target.value==="on",soundChoice,phoneNotificationsEnabled)} className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
+              <option value="on">Enabled — keep on until I disable it</option><option value="off">Disabled</option>
+            </select>
+          </label>
+          <label className="block text-xs font-bold text-slate-700">In-app alert sound
+            <select disabled={notificationPreferencesLoading||notificationBusy} value={soundChoice} onChange={e=>void saveParentNotificationPreferences(soundAlertsEnabled,e.target.value as any,phoneNotificationsEnabled)} className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
+              <option value="chime">RESA Chime</option><option value="bell">Bell</option><option value="soft">Soft tone</option><option value="none">Silent</option>
+            </select>
+          </label>
+          <button type="button" disabled={notificationBusy||notificationPreferencesLoading} onClick={()=>void enableParentPhoneNotifications()} className="rounded-xl bg-emerald-900 px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{phoneNotificationsEnabled?"Phone alerts enabled":"Enable phone notifications"}</button>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-slate-500">Your choices are saved to your parent account and remain in effect after signing out. Phone notification permission is also controlled by Android/browser settings.</p>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+          <div className="flex gap-2">
+            <button type="button" onClick={()=>setNotificationFilter("all")} className={`rounded-full px-3 py-2 text-xs font-bold ${notificationFilter==="all"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>All messages</button>
+            <button type="button" onClick={()=>setNotificationFilter("unread")} className={`rounded-full px-3 py-2 text-xs font-bold ${notificationFilter==="unread"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>Unread</button>
+          </div>
+          <button type="button" onClick={()=>void markParentAlertsRead(attendanceAlerts.filter((a:any)=>!a.read_at).map((a:any)=>String(a.id)))} className="text-xs font-bold text-emerald-800 underline">Mark all as read</button>
+        </div>
+        {attendanceAlerts.filter((a:any)=>notificationFilter==="all"||!a.read_at).length===0
+          ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">No {notificationFilter==="unread"?"unread ":""}attendance messages yet. New arrival and departure alerts will appear here and remain available until cleared by the school retention policy.</p>
+          : <div className="mt-3 divide-y">{attendanceAlerts.filter((a:any)=>notificationFilter==="all"||!a.read_at).map((alert:any)=><article key={String(alert.id)} className={`flex items-start gap-3 rounded-xl p-3 ${alert.read_at?"bg-white":"bg-emerald-50"}`}>
+            <span className="mt-0.5 rounded-full bg-emerald-100 p-2 text-emerald-900"><Bell size={16}/></span>
+            <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">{String(alert.message||"Attendance update")}</p><p className="mt-1 text-xs text-slate-500">{new Date(String(alert.created_at)).toLocaleString("en-NG",{timeZone:"Africa/Lagos"})}</p></div>
+            {!alert.read_at&&<button type="button" onClick={()=>void markParentAlertsRead([String(alert.id)])} className="shrink-0 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-900">Read</button>}
+          </article>)}</div>}
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]">
