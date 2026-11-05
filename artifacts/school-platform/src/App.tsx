@@ -245,6 +245,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
   const [soundChoice, setSoundChoice] = useState<"chime" | "bell" | "soft" | "none">("chime");
   const [phoneNotificationsEnabled, setPhoneNotificationsEnabled] = useState(false);
+  const phoneNotificationsRef = useRef(false);
   const [notificationPreferencesLoading, setNotificationPreferencesLoading] = useState(true);
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("all");
@@ -252,6 +253,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const soundChoiceRef = useRef<"chime" | "bell" | "soft" | "none">("chime");
   useEffect(() => { soundAlertsRef.current = soundAlertsEnabled; }, [soundAlertsEnabled]);
   useEffect(() => { soundChoiceRef.current = soundChoice; }, [soundChoice]);
+  useEffect(() => { phoneNotificationsRef.current = phoneNotificationsEnabled; }, [phoneNotificationsEnabled]);
   const [announcements, setAnnouncements] = useState<Array<Record<string, any>>>([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState("");
@@ -300,7 +302,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           .eq("school_id", schoolId)
           .in("parent_guardian_id", parentIds)
           .order("created_at", { ascending: false })
-          .limit(20);
+          .limit(100);
         if (attendanceAlertsError) throw attendanceAlertsError;
         if (active) setAttendanceAlerts(initialAttendanceAlerts ?? []);
 
@@ -312,31 +314,13 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
             if (soundAlertsRef.current && soundChoiceRef.current !== "none" && typeof window !== "undefined") {
               playParentAttendanceSound(soundChoiceRef.current);
             }
-            if ("Notification" in window && Notification.permission === "granted") {
+            if (phoneNotificationsRef.current && "Notification" in window && Notification.permission === "granted") {
               const title = "RESA · Attendance update";
               const body = String(incoming.message || "A linked learner's attendance was updated.");
               void navigator.serviceWorker?.ready.then(registration => registration.showNotification(title, {
                 body, icon: "/favicon.ico", badge: "/favicon.ico",
                 tag: String(incoming.id), data: { url: "/parent-dashboard" },
               })).catch(() => { new Notification(title, { body }); });
-            }
-            /* Legacy in-page audio block removed; notification sound is selected above. */
-            if (false && soundAlertsRef.current && typeof window !== "undefined") {
-              try {
-                const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-                if (AudioContextClass) {
-                  const audio = new AudioContextClass();
-                  const oscillator = audio.createOscillator();
-                  const gain = audio.createGain();
-                  oscillator.type = "sine"; oscillator.frequency.value = 880;
-                  gain.gain.setValueAtTime(0.0001, audio.currentTime);
-                  gain.gain.exponentialRampToValueAtTime(0.16, audio.currentTime + 0.02);
-                  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.35);
-                  oscillator.connect(gain); gain.connect(audio.destination);
-                  oscillator.start(); oscillator.stop(audio.currentTime + 0.36);
-                  oscillator.onended = () => void audio.close();
-                }
-              } catch { /* Audio is optional and browser-controlled. */ }
             }
             if ("Notification" in window && Notification.permission === "granted") {
               new Notification("RESA attendance update", { body: String(incoming.message || "A linked learner's attendance was updated.") });
