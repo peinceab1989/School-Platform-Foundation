@@ -136,15 +136,19 @@ Deno.serve(async (req: Request) => {
     const { data: student } = await controlClient.from("students")
       .select("id,status").eq("school_id", RESA_SCHOOL_ID).eq("user_id", userData.user.id).maybeSingle();
     let classIds: string[] = [];
+    let activeEnrollmentPairs = new Set<string>();
     if (roles.has("student")) {
       if (!student || student.status !== "active") {
         return jsonResponse({ error: "An active student record is required to use class lesson materials." }, 403);
       }
       const { data: enrollments, error: enrollmentError } = await controlClient.from("student_enrollments")
-        .select("class_id").eq("school_id", RESA_SCHOOL_ID).eq("student_id", student.id).eq("status", "active");
+        .select("class_id,academic_session_id").eq("school_id", RESA_SCHOOL_ID).eq("student_id", student.id).eq("status", "active");
       if (enrollmentError) return jsonResponse({ error: "Could not load your current class enrolment." }, 500);
       classIds = [...new Set((enrollments ?? []).map((row) => row.class_id).filter((id): id is string => typeof id === "string"))];
-      if (!classIds.length) return jsonResponse({ error: "No active class enrolment is linked to your account. Ask the school office to update your enrolment." }, 403);
+      activeEnrollmentPairs = new Set((enrollments ?? [])
+        .filter((row) => typeof row.class_id === "string" && typeof row.academic_session_id === "string")
+        .map((row) => `${row.class_id}:${row.academic_session_id}`));
+      if (!classIds.length || !activeEnrollmentPairs.size) return jsonResponse({ error: "No active class and academic-session enrolment is linked to your account. Ask the school office to update your enrolment." }, 403);
     }
 
     let subjectIds: string[] = [];
@@ -155,7 +159,7 @@ Deno.serve(async (req: Request) => {
     }
 
     let materialQuery = controlClient.from("teaching_materials")
-      .select("title,topic,extracted_text,uploaded_by")
+      .select("title,topic,extracted_text,uploaded_by,class_id,academic_session_id")
       .eq("school_id", RESA_SCHOOL_ID)
       .not("extracted_text", "is", null)
       .order("created_at", { ascending: false })
@@ -178,7 +182,18 @@ Deno.serve(async (req: Request) => {
     }
     const { data: materials, error: materialsError } = await materialQuery;
     if (materialsError) return jsonResponse({ error: "Could not load the published lesson materials for this drill." }, 500);
-    const usableMaterials = (materials ?? []).filter((material) => typeof material.extracted_text === "string" && material.extracted_text.trim().length >= 40);
+    const usableMaterials = (materials ?? []).filter((material) => {
+      if (typeof material.extracted_text !== "string" || material.extracted_text.trim().length < 40) return false;
+      if (!roles.has("student")) return true;
+      if (typeof material.class_id !== "string") return false;
+      // Match the exact class/session pair. A class from a previous academic
+      // session must not expose its notes to a student's current enrolment.
+      return [...activeEnrollmentPairs].some((pair) => {
+        const [classId, sessionId] = pair.split(":");
+        return material.class_id === classId &&
+          (material.academic_session_id === null || material.academic_session_id === sessionId);
+      });
+    });
     if (usableMaterials.length) {
       sourceLabel = usableMaterials.map((material) => material.title).filter(Boolean).slice(0, 3).join(", ");
       sourceText = usableMaterials.map((material) =>
