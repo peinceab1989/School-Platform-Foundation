@@ -467,3 +467,63 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
     </main>
   );
 }
+
+/** Limited Settings Centre view for student, teacher, and parent accounts. */
+export function SelfServiceSchoolSettingsPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    let active = true;
+    void getSupabaseClient().auth.getUser().then(({ data, error: authError }) => {
+      if (!active) return;
+      if (authError) setError(authError.message);
+      setEmail(data.user?.email ?? "");
+    }).catch((cause: unknown) => {
+      if (active) setError(cause instanceof Error ? cause.message : "Could not load your account.");
+    });
+    return () => { active = false; };
+  }, []);
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setError(""); setNotice("");
+    if (password.length < 8) { setError("Use at least 8 characters."); return; }
+    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) { setError("Include at least one letter and one number."); return; }
+    if (password !== confirmation) { setError("The passwords do not match."); return; }
+    setBusy(true);
+    try {
+      const { error: updateError } = await getSupabaseClient().auth.updateUser({ password });
+      if (updateError) throw updateError;
+      setPassword(""); setConfirmation("");
+      setNotice("Your password has been changed successfully.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not change your password.");
+    } finally { setBusy(false); }
+  }
+  return (
+    <main className="min-h-screen bg-[#f5f7f1] text-slate-900">
+      <header className="bg-gradient-to-r from-green-950 via-green-900 to-green-800 text-white"><div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
+        <div className="flex items-center gap-3"><div className="rounded-2xl border border-white/15 bg-white/10 p-3"><Settings2 size={23}/></div><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-200">RESA School Portal</p><h1 className="mt-1 text-2xl font-extrabold sm:text-3xl">Settings centre</h1><p className="mt-1 text-sm text-green-100">Manage your personal account security.</p></div></div>
+        <Link href="/portal" className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-white/25 px-3 py-2 text-sm font-semibold hover:bg-white/10"><ArrowLeft size={16}/> Back</Link>
+      </div></header>
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mb-6"><h2 className="text-xl font-bold">Password &amp; security</h2><p className="mt-1 text-sm text-slate-600">Change the password for your own RESA account. Administrator controls and other users' accounts remain private.</p></div>
+        <section className="max-w-2xl rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4"><span className="rounded-xl bg-green-50 p-3 text-green-900"><ShieldCheck size={22}/></span><div><h3 className="font-extrabold">Your account</h3><p className="text-sm text-slate-500">{email || "Loading signed-in account…"}</p></div></div>
+          {error && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+          {notice && <p role="status" className="mb-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900">{notice}</p>}
+          <form onSubmit={submit} className="space-y-4">
+            <label className={labelClass}>New password<input className={fieldClass} type="password" autoComplete="new-password" minLength={8} required value={password} onChange={event => setPassword(event.target.value)} /></label>
+            <label className={labelClass}>Confirm new password<input className={fieldClass} type="password" autoComplete="new-password" minLength={8} required value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>
+            <p className="text-xs leading-5 text-slate-500">Use a unique password and never share it. Your signed-in session authenticates this change.</p>
+            <div className="flex justify-end"><button type="submit" disabled={busy} className={primaryButton}>{busy ? <LoaderCircle size={16} className="animate-spin"/> : <Save size={16} />}{busy ? "Saving…" : "Update my password"}</button></div>
+          </form>
+        </section>
+        <p className="mt-6 text-center text-xs text-slate-500">RHEMA EXPLOITS SCIENCE ACADEMY (RESA) · PASSION • SKILLS • EXCELLENT SPIRIT</p>
+      </div>
+    </main>
+  );
+}
