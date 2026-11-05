@@ -316,7 +316,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           (initialAttendanceAlerts ?? []).map((row: any) => String(row.id)),
         );
         let latestAttendanceCreatedAt = (initialAttendanceAlerts ?? [])
-          .reduce((latest: string, row: any) => String(row.created_at) > latest ? String(row.created_at) : latest, "");
+          .reduce((latest: string, row: any) => String(row.created_at) > latest ? String(row.created_at) : latest, new Date(Date.now() - 60000).toISOString());
 
         const deliverAttendanceAlert = (incoming: Record<string, any>) => {
           const id = String(incoming.id || "");
