@@ -15,7 +15,7 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
   const [staff, setStaff] = useState<Staff[]>([]);
   const [rows, setRows] = useState<RecordRow[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
-  const [currentlyOffSiteCount, setCurrentlyOffSiteCount] = useState(0);
+  const [openMovementRows, setOpenMovementRows] = useState<Movement[]>([]);
   const [date, setDate] = useState(lagosDate());
   const [selected, setSelected] = useState("");
   const [status, setStatus] = useState("present");
@@ -34,6 +34,15 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
 
   const staffById = useMemo(() => new Map(staff.map(s => [s.id, s])), [staff]);
   const filteredStaff = useMemo(() => staff.filter(s => `${s.name} ${s.staff_number ?? ""} ${s.job_title ?? ""}`.toLowerCase().includes(staffSearch.toLowerCase())), [staff, staffSearch]);
+  const displayedMovements = useMemo(() => {
+    const combined = new Map<string, Movement>();
+    for (const movement of movements) combined.set(movement.id, movement);
+    for (const movement of openMovementRows) combined.set(movement.id, movement);
+    return [...combined.values()]
+      .filter(movement => movementFilter === "all"
+        || (movementFilter === "out" ? movement.status === "out" || movement.status === "overdue" : movement.status === movementFilter))
+      .sort((a, b) => new Date(b.departure_at).getTime() - new Date(a.departure_at).getTime());
+  }, [movements, openMovementRows, movementFilter]);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -51,14 +60,14 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
       const [attendanceResult, movementResult, openMovementResult] = await Promise.all([
         db.from("staff_attendance").select("id,staff_id,attendance_date,status,check_in_time,check_out_time,remarks").eq("school_id", schoolId).eq("attendance_date", date).order("created_at", { ascending: false }),
         db.from("staff_movement_book").select("id,staff_id,movement_type,purpose,destination,departure_at,expected_return_at,actual_return_at,status,remarks").eq("school_id", schoolId).gte("departure_at", date + "T00:00:00+01:00").lt("departure_at", new Date(new Date(date + "T00:00:00+01:00").getTime() + 86400000).toISOString()).order("departure_at", { ascending: false }).limit(250),
-        db.from("staff_movement_book").select("id").eq("school_id", schoolId).in("status", ["out", "overdue"]).limit(500),
+        db.from("staff_movement_book").select("id,staff_id,movement_type,purpose,destination,departure_at,expected_return_at,actual_return_at,status,remarks").eq("school_id", schoolId).in("status", ["out", "overdue"]).order("departure_at", { ascending: false }).limit(500),
       ]);
       if (attendanceResult.error) throw attendanceResult.error;
       if (movementResult.error) throw movementResult.error;
       if (openMovementResult.error) throw openMovementResult.error;
       setRows(attendanceResult.data ?? []);
       setMovements(movementResult.data ?? []);
-      setCurrentlyOffSiteCount((openMovementResult.data ?? []).length);
+      setOpenMovementRows(openMovementResult.data ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to load staff attendance and movement records.");
     } finally { setLoading(false); }
@@ -162,7 +171,7 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
     </div></header>
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[[ "Active staff", staff.length, "Currently active staff records" ],["Attendance entries", todayAttendance, "Records for selected date"],["Currently checked in", checkedIn, "Staff with no recorded checkout"],["Currently off-site", currentlyOffSiteCount, `${returnedToday} movements returned on selected date` ]].map(([label,value,caption])=><article key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm font-medium text-slate-500">{label}</p><strong className="mt-1 block text-3xl font-black tracking-tight text-slate-900">{value}</strong><p className="mt-1 text-xs text-slate-500">{caption}</p></article>)}
+        {[[ "Active staff", staff.length, "Currently active staff records" ],["Attendance entries", todayAttendance, "Records for selected date"],["Currently checked in", checkedIn, "Staff with no recorded checkout"],["Currently off-site", openMovementRows.length, `${returnedToday} movements returned on selected date` ]].map(([label,value,caption])=><article key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm font-medium text-slate-500">{label}</p><strong className="mt-1 block text-3xl font-black tracking-tight text-slate-900">{value}</strong><p className="mt-1 text-xs text-slate-500">{caption}</p></article>)}
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(300px,.85fr)_minmax(0,1.15fr)]">
@@ -201,7 +210,7 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><ClipboardList size={20}/> Staff movement book</h2><p className="text-sm text-slate-500">Official record of departures and returns</p></div><select aria-label="Filter movement records" className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" value={movementFilter} onChange={e=>setMovementFilter(e.target.value)}><option value="all">All movements</option><option value="out">Still off-site</option><option value="returned">Returned</option></select></div>
-            {loading?<p className="py-8 text-sm text-slate-500">Loading movement book…</p>:movements.filter(m=>movementFilter==="all"||m.status===movementFilter).length===0?<div className="py-10 text-center text-sm text-slate-500"><MapPin className="mx-auto mb-2" size={30}/>No movement records for this date.</div>:<div className="mt-4 space-y-3">{movements.filter(m=>movementFilter==="all"||m.status===movementFilter).map(m=>{const overdue=m.status==="out"&&m.expected_return_at&&new Date(m.expected_return_at).getTime()<Date.now();return <article key={m.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-bold">{staffById.get(m.staff_id)?.name||"Staff member"}</p><p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{m.movement_type.replaceAll("_"," ")}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${m.status==="returned"?"bg-emerald-50 text-emerald-800":overdue?"bg-rose-50 text-rose-800":"bg-amber-50 text-amber-800"}`}>{m.status==="returned"?"Returned":overdue?"Overdue":"Off-site"}</span></div><p className="mt-3 text-sm"><strong>Destination:</strong> {m.destination}</p><p className="mt-1 text-sm"><strong>Purpose:</strong> {m.purpose}</p><div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2"><span>Departed: {fmt(m.departure_at)}</span><span>Expected back: {fmt(m.expected_return_at)}</span>{m.actual_return_at&&<span>Returned: {fmt(m.actual_return_at)}</span>}</div>{m.remarks&&<p className="mt-2 text-xs text-slate-600">{m.remarks}</p>}{m.status==="out"&&<button type="button" onClick={()=>void markReturned(m)} disabled={saving} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"><CheckCircle2 size={15}/> Mark as returned</button>}</article>})}</div>}
+            {loading?<p className="py-8 text-sm text-slate-500">Loading movement book…</p>:displayedMovements.length===0?<div className="py-10 text-center text-sm text-slate-500"><MapPin className="mx-auto mb-2" size={30}/>No movement records for this date.</div>:<div className="mt-4 space-y-3">{displayedMovements.map(m=>{const overdue=m.status==="out"&&m.expected_return_at&&new Date(m.expected_return_at).getTime()<Date.now();return <article key={m.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-bold">{staffById.get(m.staff_id)?.name||"Staff member"}</p><p className="mt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{m.movement_type.replaceAll("_"," ")}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${m.status==="returned"?"bg-emerald-50 text-emerald-800":overdue?"bg-rose-50 text-rose-800":"bg-amber-50 text-amber-800"}`}>{m.status==="returned"?"Returned":overdue?"Overdue":"Off-site"}</span></div><p className="mt-3 text-sm"><strong>Destination:</strong> {m.destination}</p><p className="mt-1 text-sm"><strong>Purpose:</strong> {m.purpose}</p><div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2"><span>Departed: {fmt(m.departure_at)}</span><span>Expected back: {fmt(m.expected_return_at)}</span>{m.actual_return_at&&<span>Returned: {fmt(m.actual_return_at)}</span>}</div>{m.remarks&&<p className="mt-2 text-xs text-slate-600">{m.remarks}</p>}{m.status==="out"&&<button type="button" onClick={()=>void markReturned(m)} disabled={saving} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"><CheckCircle2 size={15}/> Mark as returned</button>}</article>})}</div>}
           </section>
         </div>
       </section>
