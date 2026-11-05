@@ -66,16 +66,14 @@ const NotificationsPage = lazy(() => import('@/pages/notifications'));
 import UnreadMessageBadge from '@/components/unread-message-badge';
 const NotFound = lazy(() => import('@/pages/not-found'));
 
-import {
-  AboutPage,
-  AcademicsPage,
-  ActivitiesGalleryPage,
-  AdmissionsPage,
-  ContactPage,
-  InnovationTechnologyPage,
-  PracticalSkillsPage,
-  WisdomInspirationPage,
-} from '@/pages/public-pages';
+const AboutPage = lazy(() => import('@/pages/public-pages').then((module) => ({ default: module.AboutPage })));
+const AcademicsPage = lazy(() => import('@/pages/public-pages').then((module) => ({ default: module.AcademicsPage })));
+const ActivitiesGalleryPage = lazy(() => import('@/pages/public-pages').then((module) => ({ default: module.ActivitiesGalleryPage })));
+const AdmissionsPage = lazy(() => import('@/pages/public-pages').then((module) => ({ default: module.AdmissionsPage })));
+const ContactPage = lazy(() => import('@/pages/public-pages').then((module) => ({ default: module.ContactPage })));
+const InnovationTechnologyPage = lazy(() => import('@/pages/public-pages').then((module) => ({ default: module.InnovationTechnologyPage })));
+const PracticalSkillsPage = lazy(() => import('@/pages/public-pages').then((module) => ({ default: module.PracticalSkillsPage })));
+const WisdomInspirationPage = lazy(() => import('@/pages/public-pages').then((module) => ({ default: module.WisdomInspirationPage })));
 
 import {
   Link,
