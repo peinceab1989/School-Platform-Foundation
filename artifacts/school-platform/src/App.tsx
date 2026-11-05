@@ -526,9 +526,9 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
               <option value="chime">RESA Chime</option><option value="bell">Bell</option><option value="soft">Soft tone</option><option value="none">Silent</option>
             </select>
           </label>
-          <button type="button" disabled={notificationBusy||notificationPreferencesLoading} onClick={()=>void enableParentPhoneNotifications()} className="rounded-xl bg-emerald-900 px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{phoneNotificationsEnabled?"Phone alerts enabled":"Enable phone notifications"}</button>
+          <button type="button" disabled={notificationBusy||notificationPreferencesLoading} onClick={()=>void enableParentPhoneNotifications()} className="rounded-xl bg-emerald-900 px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{phoneNotificationsEnabled?"Phone alerts allowed":"Allow phone notification banners"}</button>
         </div>
-        <p className="mt-2 text-xs leading-5 text-slate-500">Your choices are saved to your parent account and remain in effect after signing out. Phone notification permission is also controlled by Android/browser settings.</p>
+        <p className="mt-2 text-xs leading-5 text-slate-500">Your choices are saved to your parent account and remain in effect after signing out. Phone notification permission is controlled by Android/browser settings. Alerts while the portal is open can appear in the phone notification shade; delivery when the portal is fully closed still needs a secure Web Push sender and VAPID keys.</p>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-b pb-3">
           <div className="flex gap-2">
             <button type="button" onClick={()=>setNotificationFilter("all")} className={`rounded-full px-3 py-2 text-xs font-bold ${notificationFilter==="all"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>All messages</button>
