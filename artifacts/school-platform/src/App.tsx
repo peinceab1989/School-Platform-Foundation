@@ -155,10 +155,14 @@ const ADMIN_SCHOOL_PATHS = [
   '/school-reports',
   '/school-services',
   '/fees-management',
+  '/fees',
+  '/drive',
   '/publication-centre',
   '/staff-attendance',
   '/biometric-attendance',
   '/school-cctv',
+  '/drive',
+  '/fees',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -2309,7 +2313,7 @@ function FoundationPage() {
       return withAdminShell(<SchoolReportsPage schoolId={adminMembership.schoolId} />);
     }
 
-    if (currentPath === '/school-services') {
+    if (currentPath === '/school-services' || currentPath === '/drive') {
       return withAdminShell(<SchoolServicesPage schoolId={adminMembership.schoolId} />);
     }
 
@@ -2375,7 +2379,7 @@ function FoundationPage() {
       return withAdminShell(<SchoolSettingsPage schoolId={adminMembership.schoolId} />);
     }
 
-    if (currentPath === '/fees-management') {
+    if (currentPath === '/fees-management' || currentPath === '/fees') {
       return withAdminShell(<FeesManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} />);
     }
 
@@ -2818,6 +2822,8 @@ function AppRoutes() {
         <Route path="/school-reports" component={FoundationPage} />
         <Route path="/school-services" component={FoundationPage} />
         <Route path="/fees-management" component={FoundationPage} />
+        <Route path="/fees" component={FoundationPage} />
+        <Route path="/drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
