@@ -50,7 +50,7 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
       if (!selected && list.length) setSelected(list[0].id);
       const [attendanceResult, movementResult] = await Promise.all([
         db.from("staff_attendance").select("id,staff_id,attendance_date,status,check_in_time,check_out_time,remarks").eq("school_id", schoolId).eq("attendance_date", date).order("created_at", { ascending: false }),
-        db.from("staff_movement_book").select("id,staff_id,movement_type,purpose,destination,departure_at,expected_return_at,actual_return_at,status,remarks").eq("school_id", schoolId).gte("departure_at", date + "T00:00:00+01:00").lt("departure_at", date + "T00:00:00+01:00").order("departure_at", { ascending: false }).limit(250),
+        db.from("staff_movement_book").select("id,staff_id,movement_type,purpose,destination,departure_at,expected_return_at,actual_return_at,status,remarks").eq("school_id", schoolId).gte("departure_at", date + "T00:00:00+01:00").lt("departure_at", new Date(new Date(date + "T00:00:00+01:00").getTime() + 86400000).toISOString().order("departure_at", { ascending: false }).limit(250),
       ]);
       if (attendanceResult.error) throw attendanceResult.error;
       if (movementResult.error) throw movementResult.error;
