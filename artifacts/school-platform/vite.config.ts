@@ -60,6 +60,32 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Keep frequently reused libraries in stable cacheable chunks. This
+        // reduces repeat downloads when users move between school workspaces.
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return undefined;
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
+          if (id.includes('/node_modules/@supabase/')) return 'vendor-supabase';
+          if (id.includes('/node_modules/@tanstack/')) return 'vendor-query';
+          if (id.includes('/node_modules/recharts/') || id.includes('/node_modules/d3-')) return 'vendor-charts';
+          if (id.includes('/node_modules/lucide-react/') || id.includes('/node_modules/react-icons/')) return 'vendor-icons';
+          if (id.includes('/node_modules/framer-motion/')) return 'vendor-motion';
+          if (id.includes('/node_modules/date-fns/')) return 'vendor-dates';
+          if (
+            id.includes('/node_modules/@radix-ui/') ||
+            id.includes('/node_modules/cmdk/') ||
+            id.includes('/node_modules/vaul/') ||
+            id.includes('/node_modules/embla-carousel') ||
+            id.includes('/node_modules/react-day-picker/') ||
+            id.includes('/node_modules/input-otp/') ||
+            id.includes('/node_modules/sonner/')
+          ) return 'vendor-ui';
+          return undefined;
+        },
+      },
+    },
   },
 
   server: {
