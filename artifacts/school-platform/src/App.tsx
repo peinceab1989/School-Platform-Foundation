@@ -167,7 +167,6 @@ const PROTECTED_SCHOOL_PATHS = [
   '/results-management',
   '/teaching-materials',
   '/resa-chat',
-  '/practice-drills',
   ...ADMIN_SCHOOL_PATHS,
   '/form-teacher-attendance',
   '/teacher-dashboard',
@@ -1898,7 +1897,7 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/practice-drills' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat') {
         setLocation('/student-dashboard');
       }
       return;
