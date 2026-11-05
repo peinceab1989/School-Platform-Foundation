@@ -118,7 +118,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const db = getSupabaseClient() as any;
       if (item.kind === "chat") {
         const messageId = item.id.replace(/^chat-/, "");
-        const { error: updateError } = await db.from("resa_chat_message_reads").upsert({ message_id: messageId, school_id: schoolId, user_id: userId }, { onConflict: "message_id,user_id" });
+        const { error: updateError } = await db.from("resa_chat_message_reads").upsert({ message_id: messageId, school_id: schoolId, user_id: userId }, { onConflict: "message_id,user_id", ignoreDuplicates: true });
         if (updateError) throw updateError;
       } else if (item.kind === "message") {
         const { error: updateError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", item.id).eq("recipient_id", userId);
