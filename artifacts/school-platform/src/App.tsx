@@ -161,8 +161,6 @@ const ADMIN_SCHOOL_PATHS = [
   '/staff-attendance',
   '/biometric-attendance',
   '/school-cctv',
-  '/drive',
-  '/fees',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
