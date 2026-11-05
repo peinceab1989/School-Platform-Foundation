@@ -23,6 +23,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const [attachment, setAttachment] = useState<File | null>(null);
   const [readCounts, setReadCounts] = useState<Record<string, number>>({});
   const [onlineCount, setOnlineCount] = useState(0);
+  const [typingIds, setTypingIds] = useState<string[]>([]);
   const presenceChannelRef = useRef<any>(null);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -148,6 +149,11 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       const state = channel.presenceState();
       setOnlineCount(Object.keys(state).length);
     });
+    channel.on("broadcast", { event: "typing" }, ({ payload }: any) => {
+      const typingId = String(payload?.user_id || "");
+      if (!typingId || typingId === userId) return;
+      setTypingIds(current => payload?.typing ? [...new Set([...current, typingId])] : current.filter(id => id !== typingId));
+    });
     channel.subscribe(async (status: string) => {
       if (status === "SUBSCRIBED") {
         await channel.track({ user_id: userId, online_at: new Date().toISOString() });
@@ -156,6 +162,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     return () => {
       presenceChannelRef.current = null;
       setOnlineCount(0);
+      setTypingIds([]);
       void db.removeChannel(channel);
     };
   }, [db, activeId, userId]);
@@ -164,6 +171,10 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const otherId = activeConversation ? (activeConversation.participant_one === userId ? activeConversation.participant_two : activeConversation.participant_one) : "";
   const otherContact = contacts.find(c => c.user_id === otherId);
   const sortedContacts = useMemo(() => [...contacts].sort((a,b)=>a.display_name.localeCompare(b.display_name)), [contacts]);
+
+  function broadcastTyping(typing: boolean) {
+    void presenceChannelRef.current?.send({ type: "broadcast", event: "typing", payload: { user_id: userId, typing } });
+  }
 
   async function toggleChat() {
     setError(""); setNotice("");
@@ -308,7 +319,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     {!enabled&&<div className="mt-5 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><LockKeyhole size={20}/><div><strong>Messaging is currently disabled.</strong><p className="mt-1">An administrator must activate chat before anyone can start or send messages. Existing messages are preserved.</p></div></div>}
     <div className="mt-5 grid gap-5 lg:grid-cols-[320px_1fr]">
       <section className={panel}><div className="flex items-center gap-2"><Users size={19}/><h2 className="font-extrabold">Start a conversation</h2></div><form onSubmit={e=>void startConversation(e)} className="mt-4 space-y-3"><label className="block text-sm font-semibold">Contact<select className={field+" mt-1"} value={selectedContact} onChange={e=>setSelectedContact(e.target.value)}><option value="">Choose contact…</option>{sortedContacts.map(c=><option key={c.user_id} value={c.user_id}>{c.display_name} · {c.role}</option>)}</select></label><label className="block text-sm font-semibold">Subject<input className={field+" mt-1"} maxLength={160} value={subject} onChange={e=>setSubject(e.target.value)} placeholder="e.g. Mathematics homework"/></label><button disabled={!enabled||!selectedContact} className="w-full rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Open chat</button></form>{isAdmin&&<form onSubmit={e=>void createGroup(e)} className="mt-5 border-t border-slate-200 pt-5"><h3 className="font-extrabold">Create a group</h3><p className="mt-1 text-xs leading-5 text-slate-500">Create a class, staff, parent or custom group. Only selected active school members can read and send messages.</p><input className={field+" mt-3"} value={groupName} onChange={e=>setGroupName(e.target.value)} maxLength={160} placeholder="Group name" aria-label="Group name"/><div className="mt-3 max-h-52 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">{sortedContacts.map(c=><label key={c.user_id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={groupMemberIds.includes(c.user_id)} onChange={e=>setGroupMemberIds(old=>e.target.checked?[...old,c.user_id]:old.filter(id=>id!==c.user_id))}/><span>{c.display_name} <span className="text-xs text-slate-500">· {c.role}</span></span></label>)}{!sortedContacts.length&&<p className="text-xs text-slate-500">No active members available.</p>}</div><button disabled={!enabled||creatingGroup||!groupName.trim()||groupMemberIds.length<2} className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{creatingGroup?"Creating group…":"Create group"}</button></form>}<div className="mt-6 flex items-center justify-between gap-2"><h2 className="font-extrabold">Recent chats</h2><button onClick={()=>void load()} className="rounded-lg border p-2" aria-label="Refresh chats"><RefreshCw size={15}/></button></div>{loading?<p className="py-4 text-sm text-slate-500">Loading…</p>:conversations.length===0?<p className="py-4 text-sm text-slate-500">No conversations yet.</p>:<div className="mt-2 space-y-2">{conversations.map(c=><button key={c.id} onClick={()=>setActiveId(c.id)} className={"w-full rounded-xl border p-3 text-left "+(activeId===c.id?"border-emerald-800 bg-emerald-50":"border-slate-200 bg-white")}><span className="block font-bold">{c.conversation_type==="group"?"👥 ":""}{c.subject}</span><span className="mt-1 block text-xs text-slate-500">{c.conversation_type==="group"?"Group conversation · ":""}{new Date(c.last_message_at).toLocaleString()}</span></button>)}</div>}</section>
-      <section className={panel+" min-h-[460px]"}><div className="flex items-center gap-3 border-b border-slate-200 pb-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><MessageCircle size={22}/></span><div><h2 className="font-extrabold">{activeConversation?.subject ?? "Your messages"}</h2><p className="text-xs text-slate-500">{activeConversation?(activeConversation.conversation_type==="group"?"Group conversation":(otherContact?.display_name??"Conversation participant")):"Choose a conversation or start a new one"}{activeConversation && <span className="ml-2 text-emerald-700">· {onlineCount} online</span>}</p></div></div>
+      <section className={panel+" min-h-[460px]"}><div className="flex items-center gap-3 border-b border-slate-200 pb-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><MessageCircle size={22}/></span><div><h2 className="font-extrabold">{activeConversation?.subject ?? "Your messages"}</h2><p className="text-xs text-slate-500">{activeConversation?(activeConversation.conversation_type==="group"?"Group conversation":(otherContact?.display_name??"Conversation participant")):"Choose a conversation or start a new one"}{activeConversation && <span className="ml-2 text-emerald-700">· {onlineCount} online</span>}</p>{typingIds.length>0 && <span className="ml-2 text-emerald-700">· Someone is typing…</span>}</div></div>
         <div className="flex max-h-[480px] min-h-[300px] flex-col gap-3 overflow-y-auto py-4">{!activeConversation?<div className="m-auto max-w-sm text-center text-sm text-slate-500"><ShieldCheck size={28} className="mx-auto mb-2 text-emerald-800"/><p>Messages are private to conversation participants and authorised school administrators.</p></div>:messages.length===0?<p className="m-auto text-sm text-slate-500">No messages yet. Say hello.</p>:messages.map(m=><div key={m.id} className={"max-w-[88%] rounded-2xl px-4 py-3 "+(m.sender_id===userId?"self-end bg-emerald-900 text-white":"self-start bg-slate-100 text-slate-900")}><p className="whitespace-pre-wrap break-words text-sm leading-6">{m.body}</p>
           {m.attachment_path && <div className="mt-2 rounded-lg bg-black/5 p-2 text-sm">
             {m.attachment_url ? (m.attachment_mime?.startsWith("image/") ? <a href={m.attachment_url} target="_blank" rel="noreferrer"><img src={m.attachment_url} alt={m.attachment_name || "Chat attachment"} className="max-h-64 rounded-lg object-contain"/></a> : m.attachment_mime?.startsWith("audio/") ? <audio controls src={m.attachment_url} className="max-w-full"/> : m.attachment_mime?.startsWith("video/") ? <video controls src={m.attachment_url} className="max-h-64 max-w-full rounded-lg"/> : <a href={m.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 underline"><FileText size={16}/>{m.attachment_name || "Open attachment"}</a>) : "Attachment unavailable"}
@@ -319,7 +330,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
           {attachment && <div className="mb-2 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-950"><span className="truncate">{attachment.name} · {(attachment.size/1024/1024).toFixed(1)} MB</span><button type="button" onClick={()=>setAttachment(null)} className="font-bold">Remove</button></div>}
           <div className="flex items-end gap-2">
             <label className="cursor-pointer rounded-lg border p-3 text-slate-700" title="Attach a file"><Paperclip size={18}/><input type="file" className="hidden" disabled={!enabled||!activeConversation||recording} accept="image/*,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,.pdf,.doc,.docx,.txt" onChange={e=>setAttachment(e.target.files?.[0] ?? null)}/></label><button type="button" onClick={()=>recording?stopVoiceNote():void startVoiceNote()} disabled={!enabled||!activeConversation||sending||Boolean(attachment)} className={"rounded-lg border p-3 "+(recording?"border-rose-300 bg-rose-50 text-rose-700":"text-slate-700")} title={recording?"Stop voice note":"Record voice note"}>{recording?<Square size={18}/>:<Mic size={18}/>}</button>
-            <textarea value={draft} onChange={e=>setDraft(e.target.value)} maxLength={5000} rows={2} placeholder={enabled?"Write a message…":"Chat is disabled by the administrator"} disabled={!enabled||!activeConversation} className={field+" min-h-[48px] resize-y"}/>
+            <textarea value={draft} onChange={e=>{setDraft(e.target.value);broadcastTyping(Boolean(e.target.value.trim()));}} onBlur={()=>broadcastTyping(false)} maxLength={5000} rows={2} placeholder={enabled?"Write a message…":"Chat is disabled by the administrator"} disabled={!enabled||!activeConversation} className={field+" min-h-[48px] resize-y"}/>
             <button disabled={!enabled||!activeConversation||(!draft.trim()&&!attachment)||sending||recording} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><Send size={16}/>{sending?"Sending":"Send"}</button>
           </div>
           <p className="mt-2 text-[11px] text-slate-500">{recording?"Recording voice note… Stop recording to attach it.":"Private attachments up to 20 MB. Images, voice notes, video, PDF and Word files."}</p>
