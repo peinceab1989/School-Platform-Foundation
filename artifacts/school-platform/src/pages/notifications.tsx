@@ -5,7 +5,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 type Notice = {
   id: string;
-  kind: "message" | "announcement";
+  kind: "message" | "announcement" | "chat";
   title: string;
   body: string;
   createdAt: string;
@@ -30,7 +30,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       if (authError || !auth.user) throw new Error("Please sign in again.");
       const uid = auth.user.id;
       setUserId(uid);
-      const [messageResult, announcementResult] = await Promise.all([
+      const [messageResult, announcementResult, chatResult] = await Promise.all([
         db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at,channel").eq("school_id", schoolId).eq("recipient_id", uid).order("sent_at", { ascending: false }).limit(100),
         db.from("announcements").select("id,title,content,announcement_type,is_published,published_at,created_at,expires_at").eq("school_id", schoolId).eq("is_published", true).order("published_at", { ascending: false }).limit(50),
       ]);
@@ -50,7 +50,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           id: a.id, kind: "announcement", title: a.title, body: a.content,
           createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type,
         }));
-      setItems([...messages, ...announcements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA group chat", body: m.body, createdAt: m.created_at, unread: false, sender: m.sender_id, channel: "group" }));\n      setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); }
     finally { setLoading(false); }
   }, [schoolId]);
@@ -70,7 +70,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
             void load();
           }
         })
-        .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {\n          if (payload.new?.sender_id !== userId) {\n            if ("Notification" in window && Notification.permission === "granted") new Notification("RESA group chat", { body: payload.new.body || "A new group message is available." });\n            void load();\n          }\n        })\n        .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
           if (payload.new?.is_published) {
             if ("Notification" in window && Notification.permission === "granted") new Notification("RESA announcement: " + payload.new.title, { body: payload.new.content || "A new school announcement is available." });
             void load();
@@ -110,7 +110,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         <div className="flex flex-wrap gap-2">
           <button onClick={() => void enableBrowserAlerts()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><Bell size={16}/>{pushEnabled ? "Browser alerts enabled" : "Enable browser alerts"}</button>
           <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><RefreshCw size={15} className={loading?"animate-spin":""}/>Refresh</button>
-          <Link href="/school-communication" className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-3 py-2 text-sm font-semibold text-white"><MessageSquare size={15}/>Open messages</Link>
+          <Link href="/school-communication" className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><MessageSquare size={15}/>Open messages</Link><Link href="/resa-chat" className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-3 py-2 text-sm font-semibold text-white"><MessageSquare size={15}/>Open RESA Chat</Link>
         </div>
       </section>
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
@@ -118,7 +118,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       {loading && <p className="rounded-xl border bg-white p-6 text-sm text-slate-500">Loading your notifications…</p>}
       {!loading && !items.length && <section className="rounded-2xl border border-dashed bg-white p-10 text-center"><Bell className="mx-auto text-slate-400" size={34}/><h2 className="mt-3 font-bold">You're all caught up</h2><p className="mt-1 text-sm text-slate-500">New messages and published announcements will appear here.</p></section>}
       <div className="space-y-3">{items.map(item => <article key={item.kind + item.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${item.unread ? "border-emerald-400 ring-1 ring-emerald-100" : "border-slate-200"}`}>
-        <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="message"?<MessageSquare size={20}/>:<Megaphone size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{item.channel==="announcement"?"School notification":item.channel==="customer_care"?"Customer Care":"Private message"}</span></div><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{item.body}</p><p className="mt-3 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
+        <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="announcement"?<Megaphone size={20}/>:<MessageSquare size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{item.kind==="announcement"?"School announcement":item.kind==="chat"?"Group chat":item.channel==="announcement"?"School notification":item.channel==="customer_care"?"Customer Care":"Private message"}</span></div><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{item.body}</p><p className="mt-3 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
       </article>)}</div>
       <p className="text-xs leading-5 text-slate-500">Browser alerts require your permission and work while the portal is open. Reliable background push, email, and WhatsApp delivery require a configured notification service; this page does not claim those external channels are connected.</p>
     </div>
