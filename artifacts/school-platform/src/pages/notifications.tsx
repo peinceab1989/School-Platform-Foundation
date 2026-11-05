@@ -80,16 +80,11 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       channel = db.channel("resa-notifications-" + schoolId)
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
           if (payload.new?.recipient_id === userId) {
-            const title = payload.new.subject || "New school message";
-            if ("Notification" in window && Notification.permission === "granted") new Notification("RESA: " + title, { body: payload.new.message || "You received a new message." });
             void load();
           }
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
-          if (payload.new?.sender_id !== userId) {
-            if ("Notification" in window && Notification.permission === "granted") new Notification("RESA group chat", { body: payload.new.body || "A new group message is available." });
-            void load();
-          }
+          if (payload.new?.sender_id !== userId) void load();
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
           const announcement = payload.new;
@@ -99,13 +94,8 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           const currentlyVisible = announcement?.is_published === true &&
             Number.isFinite(publishedAt) && publishedAt <= now &&
             (expiresAt === Number.POSITIVE_INFINITY || (Number.isFinite(expiresAt) && expiresAt > now));
-          if (currentlyVisible && payload.eventType === "INSERT" &&
-              "Notification" in window && Notification.permission === "granted") {
-            new Notification("RESA announcement: " + announcement.title, {
-              body: announcement.content || "A new school announcement is available.",
-            });
-          }
-          // Refresh on edits and removals too, so expired or unpublished notices disappear.
+          // The authenticated app-level listener handles the phone alert once;
+          // this page only refreshes the inbox to avoid duplicate notifications.
           void load();
         }).subscribe();
     } catch { /* Refresh remains available if Realtime is not configured. */ }
