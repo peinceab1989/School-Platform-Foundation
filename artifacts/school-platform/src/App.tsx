@@ -1838,6 +1838,8 @@ function FoundationPage() {
     const sid = notificationMembership.schoolId;
     let alive = true;
     let channel: any = null;
+    let parentAttendanceChannel: any = null;
+    let parentAttendancePoll: ReturnType<typeof setInterval> | null = null;
 
     const showResaNotification = async (title: string, body: string, tag: string, url: string) => {
       if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
@@ -1885,11 +1887,73 @@ function FoundationPage() {
       })
       .subscribe();
 
+    // Parent attendance alerts follow the parent across portal pages, not just
+    // the dashboard. The dashboard owns its own listener to avoid duplicate banners.
+    if (
+      notificationMembership.role === 'parent' &&
+      currentPath !== '/parent-dashboard' &&
+      currentPath !== '/dashboard'
+    ) {
+      void (async () => {
+        const accounts = await db.from('parent_portal_accounts')
+          .select('parent_guardian_id')
+          .eq('school_id', sid).eq('user_id', uid).eq('is_active', true);
+        if (!alive || accounts.error) return;
+        const parentIds = [...new Set<string>((accounts.data ?? []).map((row: any) => String(row.parent_guardian_id)))];
+        if (!parentIds.length) return;
+        const preferences = await db.from('parent_attendance_notification_preferences')
+          .select('phone_notifications_enabled')
+          .eq('school_id', sid).eq('user_id', uid)
+          .in('parent_guardian_id', parentIds);
+        if (!alive || preferences.error || !(preferences.data ?? []).some((row: any) => row.phone_notifications_enabled)) return;
+
+        const initial = await db.from('biometric_parent_notifications')
+          .select('id,created_at')
+          .eq('school_id', sid).in('parent_guardian_id', parentIds)
+          .order('created_at', { ascending: false }).limit(100);
+        if (!alive || initial.error) return;
+        const seen = new Set<string>((initial.data ?? []).map((row: any) => String(row.id)));
+        let cursor = (initial.data ?? []).reduce(
+          (latest: string, row: any) => String(row.created_at) > latest ? String(row.created_at) : latest,
+          new Date(Date.now() - 60000).toISOString(),
+        );
+        const deliver = (row: Record<string, any>) => {
+          const id = String(row.id || '');
+          if (!id || seen.has(id) || !parentIds.includes(String(row.parent_guardian_id))) return;
+          seen.add(id);
+          if (row.created_at && String(row.created_at) > cursor) cursor = String(row.created_at);
+          void showResaNotification(
+            'RESA · Attendance update',
+            String(row.message || 'A linked learner has checked in or out.'),
+            id,
+            '/parent-dashboard',
+          );
+        };
+        parentAttendanceChannel = db.channel(`resa-parent-attendance-${sid}-${uid}`)
+          .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'biometric_parent_notifications',
+            filter: `school_id=eq.${sid}`,
+          }, (payload: any) => deliver(payload.new as Record<string, any>))
+          .subscribe();
+        parentAttendancePoll = setInterval(async () => {
+          if (!alive || !cursor) return;
+          const fresh = await db.from('biometric_parent_notifications')
+            .select('id,parent_guardian_id,message,created_at')
+            .eq('school_id', sid).in('parent_guardian_id', parentIds)
+            .gt('created_at', cursor).order('created_at', { ascending: true }).limit(50);
+          if (!alive || fresh.error) return;
+          for (const row of fresh.data ?? []) deliver(row as Record<string, any>);
+        }, 15000);
+      })();
+    }
+
     return () => {
       alive = false;
+      if (parentAttendancePoll) clearInterval(parentAttendancePoll);
+      if (parentAttendanceChannel) void db.removeChannel(parentAttendanceChannel);
       if (channel) void db.removeChannel(channel);
     };
-  }, [authState, accessCheckState, membershipsLoading, session?.user?.id, notificationMembership?.schoolId]);
+  }, [authState, accessCheckState, membershipsLoading, session?.user?.id, notificationMembership?.schoolId, notificationMembership?.role, currentPath]);
 
   useEffect(() => {
     if (!hasSupabaseConfig) {
