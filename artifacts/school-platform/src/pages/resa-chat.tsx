@@ -24,6 +24,9 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const isAdmin = role === "admin";
 
   const load = useCallback(async () => {
