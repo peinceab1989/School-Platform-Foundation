@@ -67,7 +67,6 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('/node_modules/')) return undefined;
           if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
-          if (id.includes('/node_modules/@supabase/')) return 'vendor-supabase';
           if (id.includes('/node_modules/@tanstack/')) return 'vendor-query';
           if (id.includes('/node_modules/recharts/') || id.includes('/node_modules/d3-')) return 'vendor-charts';
           if (id.includes('/node_modules/lucide-react/') || id.includes('/node_modules/react-icons/')) return 'vendor-icons';
