@@ -1125,6 +1125,7 @@ export default function TeacherDashboard({
             <Link href="/portal-navigation-guide" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', background: '#e9f0eb' }}>Portal Guide</Link>
             <Link href="/form-teacher-attendance" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Form Teacher Attendance</Link>
             <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>School messages</Link>
+            <Link href="/reset-password" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', background: '#e9f0eb' }}>Password & Security</Link>
               <button
                 type="button"
                 onClick={onSignOut}
