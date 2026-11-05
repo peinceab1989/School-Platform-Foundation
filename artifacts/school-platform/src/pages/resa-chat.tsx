@@ -206,7 +206,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       recorderRef.current = recorder;
       recorder.ondataavailable = event => { if (event.data.size) recordingChunks.current.push(event.data); };
       recorder.onstop = () => {
-        const type = recorder.mimeType || "audio/webm";
+        const type = recorder.mimeType?.startsWith("audio/webm") ? "audio/webm" : recorder.mimeType || "audio/webm";
         const blob = new Blob(recordingChunks.current, { type });
         if (blob.size > 0) {
           const ext = type.includes("ogg") ? "ogg" : "webm";
@@ -298,7 +298,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
           <div className="flex items-end gap-2">
             <label className="cursor-pointer rounded-lg border p-3 text-slate-700" title="Attach a file"><Paperclip size={18}/><input type="file" className="hidden" disabled={!enabled||!activeConversation||recording} accept="image/*,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,.pdf,.doc,.docx,.txt" onChange={e=>setAttachment(e.target.files?.[0] ?? null)}/></label><button type="button" onClick={()=>recording?stopVoiceNote():void startVoiceNote()} disabled={!enabled||!activeConversation||sending||Boolean(attachment)} className={"rounded-lg border p-3 "+(recording?"border-rose-300 bg-rose-50 text-rose-700":"text-slate-700")} title={recording?"Stop voice note":"Record voice note"}>{recording?<Square size={18}/>:<Mic size={18}/>}</button>
             <textarea value={draft} onChange={e=>setDraft(e.target.value)} maxLength={5000} rows={2} placeholder={enabled?"Write a message…":"Chat is disabled by the administrator"} disabled={!enabled||!activeConversation} className={field+" min-h-[48px] resize-y"}/>
-            <button disabled={!enabled||!activeConversation||(!draft.trim()&&!attachment)||sending} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><Send size={16}/>{sending?"Sending":"Send"}</button>
+            <button disabled={!enabled||!activeConversation||(!draft.trim()&&!attachment)||sending||recording} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><Send size={16}/>{sending?"Sending":"Send"}</button>
           </div>
           <p className="mt-2 text-[11px] text-slate-500">{recording?"Recording voice note… Stop recording to attach it.":"Private attachments up to 20 MB. Images, voice notes, video, PDF and Word files."}</p>
         </form>
