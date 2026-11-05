@@ -221,12 +221,17 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [receiptRows, setReceiptRows] = useState<Array<Record<string, any>>>([]);
   const [children, setChildren] = useState<Array<{ id: string; name: string }>>([]);
   const [attendanceRows, setAttendanceRows] = useState<Array<Record<string, any>>>([]);
+  const [attendanceAlerts, setAttendanceAlerts] = useState<Array<Record<string, any>>>([]);
+  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
+  const soundAlertsRef = useRef(false);
+  useEffect(() => { soundAlertsRef.current = soundAlertsEnabled; }, [soundAlertsEnabled]);
   const [announcements, setAnnouncements] = useState<Array<Record<string, any>>>([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState("");
 
   useEffect(() => {
     let active = true;
+    let attendanceChannel: any = null;
     async function loadParentOverview() {
       setOverviewLoading(true);
       setOverviewError("");
@@ -245,6 +250,44 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         if (accountError) throw accountError;
         const parentIds = [...new Set<string>((accounts ?? []).map((row: any) => String(row.parent_guardian_id)))];
         if (!parentIds.length) throw new Error("No active parent portal account is linked to this sign-in.");
+
+        const { data: initialAttendanceAlerts, error: attendanceAlertsError } = await db
+          .from("biometric_parent_notifications")
+          .select("id,student_id,message,status,created_at")
+          .eq("school_id", schoolId)
+          .in("parent_guardian_id", parentIds)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (attendanceAlertsError) throw attendanceAlertsError;
+        if (active) setAttendanceAlerts(initialAttendanceAlerts ?? []);
+
+        attendanceChannel = db.channel(`parent-attendance-alerts-${schoolId}-${userId}`)
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "biometric_parent_notifications", filter: `school_id=eq.${schoolId}` }, (payload: any) => {
+            const incoming = payload.new as Record<string, any>;
+            if (!parentIds.includes(String(incoming.parent_guardian_id))) return;
+            setAttendanceAlerts(previous => [incoming, ...previous.filter(row => String(row.id) !== String(incoming.id))].slice(0, 20));
+            if (soundAlertsRef.current && typeof window !== "undefined") {
+              try {
+                const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+                if (AudioContextClass) {
+                  const audio = new AudioContextClass();
+                  const oscillator = audio.createOscillator();
+                  const gain = audio.createGain();
+                  oscillator.type = "sine"; oscillator.frequency.value = 880;
+                  gain.gain.setValueAtTime(0.0001, audio.currentTime);
+                  gain.gain.exponentialRampToValueAtTime(0.16, audio.currentTime + 0.02);
+                  gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.35);
+                  oscillator.connect(gain); gain.connect(audio.destination);
+                  oscillator.start(); oscillator.stop(audio.currentTime + 0.36);
+                  oscillator.onended = () => void audio.close();
+                }
+              } catch { /* Audio is optional and browser-controlled. */ }
+            }
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("RESA attendance update", { body: String(incoming.message || "A linked learner's attendance was updated.") });
+            }
+          })
+          .subscribe();
 
         const { data: links, error: linksError } = await db
           .from("parent_student_portal_access")
@@ -329,7 +372,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       }
     }
     void loadParentOverview();
-    return () => { active = false; };
+    return () => { active = false; if (attendanceChannel) void getSupabaseClient().removeChannel(attendanceChannel); };
   }, [schoolId, userId]);
 
   const childName = (id: string) => children.find((child) => child.id === id)?.name || "Linked learner";
@@ -384,6 +427,15 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       </section>
 
       {overviewError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{overviewError}</p>}
+
+      <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><h2 className="text-lg font-extrabold text-emerald-950">Live attendance alerts</h2><p className="mt-1 text-sm text-slate-600">See when a linked learner is checked in or out of RESA.</p></div>
+          <button type="button" onClick={async () => { setSoundAlertsEnabled(true); if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission(); try { const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext; if (AudioContextClass) { const audio = new AudioContextClass(); const oscillator = audio.createOscillator(); const gain = audio.createGain(); oscillator.frequency.value = 880; gain.gain.value = 0.12; oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(); oscillator.stop(audio.currentTime + 0.16); oscillator.onended = () => void audio.close(); } } catch { /* Sound may be blocked by device settings. */ } }} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-900 px-3 py-2 text-xs font-bold text-white">{soundAlertsEnabled ? "Sound alerts enabled" : "Enable sound & browser alerts"}</button>
+        </div>
+        {attendanceAlerts.length === 0 ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">No biometric or admin-assisted attendance alerts yet. New check-in and check-out events will appear here while you are signed in.</p> : <div className="mt-4 space-y-2">{attendanceAlerts.slice(0,8).map((alert: any) => <article key={String(alert.id)} className="flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3"><span className="mt-0.5 rounded-full bg-emerald-100 p-2 text-emerald-900"><Bell size={16}/></span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">{String(alert.message || "Attendance update")}</p><p className="mt-1 text-xs text-slate-500">{new Date(String(alert.created_at)).toLocaleString("en-NG", { timeZone: "Africa/Lagos" })}</p></div></article>)}</div>}
+        <p className="mt-3 text-xs leading-5 text-slate-500">Sound and browser pop-up alerts work while this dashboard is open and the browser permits them. Background alerts when the app is closed require push-notification setup on the device.</p>
+      </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
