@@ -1822,6 +1822,76 @@ function FoundationPage() {
       membership.role === 'parent' && membership.status === 'active',
   );
 
+  // Account-wide live notifications: works on every authenticated RESA page,
+  // not only when the user happens to keep the Notifications page open.
+  const notificationMembership = teacherMembership ?? adminMembership ?? studentMembership ?? parentMembership;
+  useEffect(() => {
+    if (
+      authState !== 'signed-in' ||
+      accessCheckState !== 'success' ||
+      membershipsLoading ||
+      !session?.user?.id ||
+      !notificationMembership?.schoolId
+    ) return;
+
+    const db = getSupabaseClient() as any;
+    const uid = session.user.id;
+    const sid = notificationMembership.schoolId;
+    let alive = true;
+    let channel: any = null;
+
+    const showResaNotification = async (title: string, body: string, tag: string, url: string) => {
+      if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
+      const options = { body, icon: '/favicon.ico', badge: '/favicon.ico', tag, renotify: true, data: { url } };
+      try {
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          if (alive) await registration.showNotification(title, options);
+        } else if (alive) {
+          new Notification(title, options);
+        }
+      } catch {
+        if (alive) new Notification(title, options);
+      }
+    };
+
+    channel = db.channel(`resa-account-notifications-${sid}-${uid}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'school_messages',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        const message = payload.new as Record<string, any>;
+        if (String(message.recipient_id) !== uid || String(message.sender_id) === uid) return;
+        void showResaNotification(
+          `RESA · ${String(message.subject || 'New message')}`,
+          String(message.message || 'You have received a new school message.'),
+          String(message.id || `message-${Date.now()}`),
+          '/notifications',
+        );
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'announcements',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        const item = payload.new as Record<string, any>;
+        const publishedAt = item.published_at ? new Date(item.published_at).getTime() : 0;
+        const expiresAt = item.expires_at ? new Date(item.expires_at).getTime() : Number.POSITIVE_INFINITY;
+        if (item.is_published !== true || !Number.isFinite(publishedAt) || publishedAt > Date.now() || expiresAt <= Date.now()) return;
+        void showResaNotification(
+          `RESA · ${String(item.title || 'School announcement')}`,
+          String(item.content || 'A new school announcement is available.'),
+          String(item.id || `announcement-${Date.now()}`),
+          '/notifications',
+        );
+      })
+      .subscribe();
+
+    return () => {
+      alive = false;
+      if (channel) void db.removeChannel(channel);
+    };
+  }, [authState, accessCheckState, membershipsLoading, session?.user?.id, notificationMembership?.schoolId]);
+
   useEffect(() => {
     if (!hasSupabaseConfig) {
       setAuthState('needs-config');
