@@ -202,7 +202,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { error: saveError } = await admin.from("online_exam_answers").insert(answerRows);
+    const { error: saveError } = await admin.from("online_exam_answers").upsert(answerRows, { onConflict: "attempt_id,question_id" });
     if (saveError && answerRows.length) {
       console.error("CBT answer save failed", saveError.message);
       return reply(500, { error: "Your answers could not be saved. Please retry submission." });
