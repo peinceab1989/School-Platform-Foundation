@@ -2423,7 +2423,6 @@ function FoundationPage() {
       '/results-management',
       '/teaching-materials',
       '/resa-chat',
-      '/school-settings',
     ].includes(currentPath)
   ) {
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
