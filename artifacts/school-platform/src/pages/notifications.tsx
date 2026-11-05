@@ -87,13 +87,6 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           if (payload.new?.sender_id !== userId) void load();
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
-          const announcement = payload.new;
-          const now = Date.now();
-          const publishedAt = announcement?.published_at ? new Date(announcement.published_at).getTime() : 0;
-          const expiresAt = announcement?.expires_at ? new Date(announcement.expires_at).getTime() : Number.POSITIVE_INFINITY;
-          const currentlyVisible = announcement?.is_published === true &&
-            Number.isFinite(publishedAt) && publishedAt <= now &&
-            (expiresAt === Number.POSITIVE_INFINITY || (Number.isFinite(expiresAt) && expiresAt > now));
           // The authenticated app-level listener handles the phone alert once;
           // this page only refreshes the inbox to avoid duplicate notifications.
           void load();
