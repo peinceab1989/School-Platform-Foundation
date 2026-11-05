@@ -54,7 +54,12 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         unread: !m.is_read, sender: m.sender_id, channel: m.channel,
       }));
       const announcements: Notice[] = (announcementResult.data ?? [])
-        .filter((a: any) => !a.expires_at || new Date(a.expires_at).getTime() >= now)
+        .filter((a: any) => {
+          const publishedAt = a.published_at ? new Date(a.published_at).getTime() : 0;
+          const expiresAt = a.expires_at ? new Date(a.expires_at).getTime() : Number.POSITIVE_INFINITY;
+          return Number.isFinite(publishedAt) && publishedAt <= now &&
+            (expiresAt === Number.POSITIVE_INFINITY || (Number.isFinite(expiresAt) && expiresAt > now));
+        })
         .map((a: any) => ({
           id: a.id, kind: "announcement", title: a.title, body: a.content,
           createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type,
@@ -87,10 +92,21 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           }
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
-          if (payload.new?.is_published) {
-            if ("Notification" in window && Notification.permission === "granted") new Notification("RESA announcement: " + payload.new.title, { body: payload.new.content || "A new school announcement is available." });
-            void load();
+          const announcement = payload.new;
+          const now = Date.now();
+          const publishedAt = announcement?.published_at ? new Date(announcement.published_at).getTime() : 0;
+          const expiresAt = announcement?.expires_at ? new Date(announcement.expires_at).getTime() : Number.POSITIVE_INFINITY;
+          const currentlyVisible = announcement?.is_published === true &&
+            Number.isFinite(publishedAt) && publishedAt <= now &&
+            (expiresAt === Number.POSITIVE_INFINITY || (Number.isFinite(expiresAt) && expiresAt > now));
+          if (currentlyVisible && payload.eventType === "INSERT" &&
+              "Notification" in window && Notification.permission === "granted") {
+            new Notification("RESA announcement: " + announcement.title, {
+              body: announcement.content || "A new school announcement is available.",
+            });
           }
+          // Refresh on edits and removals too, so expired or unpublished notices disappear.
+          void load();
         }).subscribe();
     } catch { /* Refresh remains available if Realtime is not configured. */ }
     return () => { if (db && channel) void db.removeChannel(channel); };
