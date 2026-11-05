@@ -338,7 +338,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
               void navigator.serviceWorker.ready
                 .then(registration => registration.showNotification(title, {
                   body, icon: "/favicon.ico", badge: "/favicon.ico",
-                  tag: id, renotify: true, data: { url: "/parent-dashboard" },
+                  tag: id, data: { url: "/parent-dashboard" },
                 }))
                 .catch(() => { new Notification(title, { body, tag: id }); });
             } else {
