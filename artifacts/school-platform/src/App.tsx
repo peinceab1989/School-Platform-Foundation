@@ -404,7 +404,10 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       } catch (error) {
         if (active) setOverviewError(error instanceof Error ? error.message : "Parent information could not be loaded.");
       } finally {
-        if (active) setOverviewLoading(false);
+        if (active) {
+          setNotificationPreferencesLoading(false);
+          setOverviewLoading(false);
+        }
       }
     }
     void loadParentOverview();
