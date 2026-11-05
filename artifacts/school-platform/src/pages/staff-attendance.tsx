@@ -63,6 +63,23 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
 
   useEffect(() => { void load(); }, [load]);
 
+  // If the administrator leaves the live register open overnight, advance it
+  // to the new Lagos school day. A deliberately selected historical date is
+  // preserved, and the expected-return date follows today only when it was
+  // still set to the previous current day.
+  useEffect(() => {
+    let currentDay = lagosDate();
+    const timer = window.setInterval(() => {
+      const nextDay = lagosDate();
+      if (nextDay === currentDay) return;
+      const previousDay = currentDay;
+      currentDay = nextDay;
+      setDate((value) => value === previousDay ? nextDay : value);
+      setExpectedDate((value) => value === previousDay ? nextDay : value);
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   async function saveAttendance(action: "check_in" | "check_out" | "status") {
     if (!selected) return;
     setSaving(true); setError(""); setNotice("");
