@@ -180,6 +180,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         upsert: false,
       });
       if (storageResult.error) throw storageResult.error;
+      stage = "saving the file register"; setUploadStage("Saving file details");
       const metadataResult = await db.from("resa_drive_files").insert({
         school_id: schoolId,
         uploaded_by: authData.user.id,
@@ -193,7 +194,6 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         published_to_website: false,
         is_active: true,
       });
-      stage = "saving the file register"; setUploadStage("Saving file details");
       if (metadataResult.error) {
         const cleanup = await db.storage.from("resa-drive").remove([uploadedPath]);
         if (cleanup.error) throw new Error(`File details were rejected (${describeUploadError(metadataResult.error)}). Storage cleanup also failed (${describeUploadError(cleanup.error)}); contact the administrator before retrying.`);
