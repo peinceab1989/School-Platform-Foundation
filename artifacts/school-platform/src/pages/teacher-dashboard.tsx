@@ -9,6 +9,7 @@ import {
 import { Link } from 'wouter';
 import UnreadMessageBadge from '@/components/unread-message-badge';
 import ProfilePhotoCard from '@/components/profile-photo-card';
+import PeopleStatusNotices from '@/components/people-status-notices';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 type TeacherStaff = {
@@ -1138,6 +1139,8 @@ export default function TeacherDashboard({
             </div>
           </div>
         </header>
+
+        <PeopleStatusNotices schoolId={schoolId} userId={userId} roleLabel="Teacher / Staff" />
 
         <section
           aria-live="polite"

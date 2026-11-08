@@ -26,6 +26,7 @@ import {
 import AdminPortalShell from '@/components/admin-portal-shell';
 const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
+import PeopleStatusNotices from '@/components/people-status-notices';
 const StaffInvitationsPage = lazy(() => import('@/pages/staff-invitations'));
 const TeachingAssignmentsPage = lazy(() => import('@/pages/teaching-assignments'));
 const HrManagementPage = lazy(() => import('@/pages/hr-management'));
@@ -882,6 +883,8 @@ function StudentDashboard({
             </div>
           </div>
         </header>
+
+        <PeopleStatusNotices schoolId={schoolId} userId={userId} roleLabel="Student" />
 
         <div style={{ display: 'grid', gap: 14, marginBottom: 18 }}>
           <section style={{ ...panelStyle, borderColor: publishedCbtCount ? '#d6b75a' : '#dce5dd', background: publishedCbtCount ? '#fffaf0' : '#fff' }}>
