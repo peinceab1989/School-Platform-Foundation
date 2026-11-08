@@ -147,7 +147,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
           <button type="button" className="resa-icon-button resa-top-signout" onClick={onSignOut} aria-label="Sign out"><LogOut size={18}/></button>
         </div>
       </header>
-      <main className="resa-page-content"><div style={{ marginBottom: 16, borderRadius: 16, background: "#123d2b", padding: 12, maxWidth: 360 }}><ProfilePhotoCard userId={userId} displayName={visibleName} roleLabel="School Administrator" compact /></div>{children}</main>
+      <main className="resa-page-content"><div style={{ marginBottom: 10, borderRadius: 14, background: "#123d2b", padding: 8, maxWidth: 250 }}><ProfilePhotoCard userId={userId} displayName={visibleName} roleLabel="School Administrator" compact /></div>{children}</main>
       <footer className="resa-app-footer"><span>© {new Date().getFullYear()} {schoolName}</span><span>Designed &amp; Powered by <strong>JETAB TECH</strong></span><span>RESA Portal · v1.0</span></footer>
     </div>
   </div>;
