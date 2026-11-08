@@ -16,7 +16,7 @@ const MODULES: ModuleDefinition[] = [
   { key: "biometric", title: "Biometric Attendance", description: "Registered devices and attendance event records.", table: "biometric_devices" },
 ];
 type RowRecord = Record<string, unknown>;
-const MAX_FILE_BYTES = 100 * 1024 * 1024;
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 const safeFileName = (name: string) => name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(-160) || "file";
 const describeUploadError = (error: unknown) => {
@@ -162,7 +162,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setError("Your file selection was not retained. Please choose it again, wait for its name to appear, then upload.");
       return;
     }
-    if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 100 MB limit. Compress it or choose a smaller file."); return; }
+    if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 50 MB limit on the current Supabase Free plan. Compress it or choose a smaller file."); return; }
     setUploading(true); setError(""); setNotice(""); setUploadStage("Checking your school account");
     const db = getSupabaseClient() as any;
     let uploadedPath = "";
@@ -297,7 +297,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
             {restoringFile&&<p className="mt-2 text-xs text-slate-500">Checking for a file selection interrupted by Android…</p>}{selectedFile&&<p className="mt-2 flex items-center gap-2 break-all text-xs text-slate-600"><FileText size={15}/>{selectedFile.name} · {formatBytes(selectedFile.size)}{savingFile?" · Saving recovery copy…":" · Ready"}</p>}
             <button type="button" onClick={()=>void uploadFile()} disabled={!selectedFile||uploading||savingFile||restoringFile} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Upload size={16}/>{uploading?"Uploading securely…":"Upload file"}</button>
             {uploading&&<p role="status" aria-live="polite" className="mt-2 rounded-lg bg-emerald-50 p-3 text-xs font-semibold text-emerald-900">{uploadStage||"Working securely…"}</p>}
-            <p className="mt-2 text-xs text-slate-500">Maximum size: 100 MB per file. Your selected file is saved on this device to survive Android page reloads. Keep the page open until upload completes.</p>
+            <p className="mt-2 text-xs text-slate-500">Maximum size: 50 MB per file on the current Supabase Free plan. Your selected file is saved on this device to survive Android page reloads. Keep the page open until upload completes.</p>
           </div>
           <label className="my-4 flex items-center gap-2 rounded-lg border px-3"><Search size={16} className="text-slate-400"/><input className="min-w-0 flex-1 py-3 text-sm outline-none" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search files and folders…"/></label>
           {loading&&<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Loading files…</p>}
