@@ -40,6 +40,7 @@ const ExternalCbtManagementPage = lazy(() => import('@/pages/external-cbt-manage
 const SchoolCommunicationPage = lazy(() => import('@/pages/school-communication'));
 const StaffAttendancePage = lazy(() => import('@/pages/staff-attendance'));
 const StudentsPage = lazy(() => import('@/pages/students'));
+const StudentEnrolmentsPage = lazy(() => import('@/pages/student-enrolments'));
 const StudentIdCardsPage = lazy(() => import('@/pages/student-id-cards'));
 const AttendancePage = lazy(() => import('@/pages/attendance'));
 const BiometricAttendancePage = lazy(() => import('@/pages/biometric-attendance'));
@@ -145,6 +146,7 @@ function normalizePath(path: string): string {
 
 const ADMIN_SCHOOL_PATHS = [
   '/students',
+  '/student-enrolments',
   '/student-id-cards',
   '/attendance',
   '/announcements',
@@ -2604,6 +2606,10 @@ function FoundationPage() {
       return withAdminShell(<StudentsPage schoolId={adminMembership.schoolId} />);
     }
 
+    if (currentPath === '/student-enrolments') {
+      return withAdminShell(<StudentEnrolmentsPage schoolId={adminMembership.schoolId} />);
+    }
+
     if (currentPath === '/attendance') {
       return withAdminShell(<AttendancePage schoolId={adminMembership.schoolId} />);
     }
@@ -3065,6 +3071,7 @@ function AppRoutes() {
         <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/student-assignments" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
+        <Route path="/student-enrolments" component={FoundationPage} />
         <Route path="/student-id-cards" component={FoundationPage} />
         <Route path="/student-id-card" component={FoundationPage} />
         <Route path="/attendance" component={FoundationPage} />

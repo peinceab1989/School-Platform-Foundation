@@ -24,6 +24,7 @@ const groups = [
   { label: "MAIN", items: [
     ["Dashboard", "/dashboard", LayoutDashboard],
     ["Students", "/students", Users],
+    ["Class Enrolments", "/student-enrolments", ClipboardList],
     ["Student ID Cards", "/student-id-cards", GraduationCap],
     ["Teachers & Staff", "/staff-invitations", GraduationCap],
     ["Parents & Guardians", "/parent-management", UserRound],
