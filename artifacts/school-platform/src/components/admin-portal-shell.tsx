@@ -52,6 +52,8 @@ const groups = [
     ["Reports", "/school-reports", ChartNoAxesCombined],
     ["Additional School Services", "/school-services", Database],
     ["Fees Management", "/fees-management", Wallet],
+    ["Admissions & Applications", "/admissions-management", FileText],
+    ["External CBT Candidates", "/external-cbt-management", ClipboardList],
     ["Publication Centre", "/publication-centre", ShieldCheck],
     ["CCTV & Monitoring", "/school-cctv", Video],
     ["School Settings", "/school-settings", Settings],
