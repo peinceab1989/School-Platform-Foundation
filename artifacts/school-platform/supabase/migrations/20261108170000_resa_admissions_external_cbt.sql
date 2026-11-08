@@ -232,6 +232,9 @@ begin
   if jsonb_typeof(v_answers) <> 'array' then
     return jsonb_build_object('success', false, 'status', 400, 'error', 'Answers must be an array.');
   end if;
+  if jsonb_array_length(v_answers) > 300 then
+    return jsonb_build_object('success', false, 'status', 400, 'error', 'A maximum of 300 answers can be submitted at once.');
+  end if;
 
   select c.status into v_candidate_status
   from public.external_candidate_registrations c
@@ -304,6 +307,9 @@ declare
 begin
   if jsonb_typeof(v_answers) <> 'array' then
     return jsonb_build_object('success', false, 'status', 400, 'error', 'Answers must be an array.');
+  end if;
+  if jsonb_array_length(v_answers) > 300 then
+    return jsonb_build_object('success', false, 'status', 400, 'error', 'A maximum of 300 answers can be submitted at once.');
   end if;
 
   select c.status into v_candidate_status
