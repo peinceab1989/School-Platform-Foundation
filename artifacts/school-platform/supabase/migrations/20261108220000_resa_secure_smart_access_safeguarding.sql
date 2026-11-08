@@ -1012,6 +1012,10 @@ for each row execute function public.audit_parent_official_request_decision();
 revoke all on function public.audit_parent_official_request_decision() from public,anon,authenticated;
 
 
+alter table public.parent_official_access_requests
+  add column if not exists child_collection_authorization_id uuid
+  references public.child_collection_authorizations(id) on delete set null;
+
 -- Parent submission is atomic: child-pickup requests create both the visit record
 -- and the specific collection authorization in the same transaction.
 create or replace function public.resa_submit_parent_access_request(
@@ -1055,9 +1059,40 @@ begin
    p_requested_visit_at,p_valid_until,'pending',auth.uid()
   from public.parent_portal_accounts p where p.school_id=p_school_id and p.parent_guardian_id=p_parent_guardian_id and p.user_id=auth.uid() and p.is_active
   returning id into v_authorization_id;
+  update public.parent_official_access_requests
+    set child_collection_authorization_id=v_authorization_id where id=v_request_id;
  end if;
  return jsonb_build_object('request_id',v_request_id,'authorization_id',v_authorization_id,'status','pending');
 end;
 $function$;
 revoke all on function public.resa_submit_parent_access_request(uuid,uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) from public,anon;
 grant execute on function public.resa_submit_parent_access_request(uuid,uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) to authenticated;
+
+
+-- Admin review of a parent child-pickup request updates both linked records atomically.
+create or replace function public.resa_review_parent_access_request(
+ p_school_id uuid,p_request_id uuid,p_decision text,p_review_note text default null
+) returns jsonb language plpgsql security definer set search_path=''
+as $function$
+declare v_request public.parent_official_access_requests%rowtype;
+begin
+ if auth.uid() is null or not public.has_school_role(p_school_id,array['admin']::public.school_role[]) then
+  raise exception 'School administrator access is required'; end if;
+ if p_decision not in('approved','rejected','revoked') then raise exception 'Invalid request decision'; end if;
+ select * into v_request from public.parent_official_access_requests
+  where id=p_request_id and school_id=p_school_id for update;
+ if not found or v_request.request_status<>'pending' then raise exception 'Pending parent request not found'; end if;
+ update public.parent_official_access_requests set request_status=p_decision,reviewed_by=auth.uid(),
+  reviewed_at=now(),review_note=nullif(trim(coalesce(p_review_note,'')),'') where id=v_request.id;
+ if v_request.purpose='child_pickup' then
+  if v_request.child_collection_authorization_id is null then raise exception 'Linked pickup authorization is missing'; end if;
+  update public.child_collection_authorizations set approval_status=p_decision,reviewed_by=auth.uid(),
+   reviewed_at=now(),review_note=nullif(trim(coalesce(p_review_note,'')),'')
+  where id=v_request.child_collection_authorization_id and school_id=p_school_id and approval_status='pending';
+  if not found then raise exception 'Linked pickup authorization is no longer pending'; end if;
+ end if;
+ return jsonb_build_object('success',true,'request_id',v_request.id,'decision',p_decision);
+end;
+$function$;
+revoke all on function public.resa_review_parent_access_request(uuid,uuid,text,text) from public,anon;
+grant execute on function public.resa_review_parent_access_request(uuid,uuid,text,text) to authenticated;
