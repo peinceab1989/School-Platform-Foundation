@@ -135,9 +135,12 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
     setSaving(row.id); setError(""); setNotice("");
     try {
       const db=getSupabaseClient() as any;
-      const {error:e}=await db.from("parent_official_access_requests").update({request_status:status,reviewed_by:userId,reviewed_at:new Date().toISOString(),review_note:reviewNote[row.id]?.trim()||null}).eq("id",row.id).eq("school_id",schoolId).eq("request_status","pending");
+      const {data,error:e}=await db.rpc("resa_review_parent_access_request",{
+        p_school_id:schoolId,p_request_id:row.id,p_decision:status,p_review_note:reviewNote[row.id]?.trim()||null,
+      });
       if(e) throw e;
-      setNotice("Parent request decision saved and added to the audit trail."); await load();
+      if(!data?.success)throw new Error("Parent request decision was not saved.");
+      setNotice("Parent request decision saved. Any linked child-pickup authorization was updated in the same transaction."); await load();
     } catch(e){setError(e instanceof Error?e.message:"Could not update parent request.");}
     finally{setSaving("");}
   }
