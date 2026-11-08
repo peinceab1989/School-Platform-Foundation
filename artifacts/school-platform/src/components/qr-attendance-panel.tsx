@@ -64,7 +64,7 @@ export default function QrAttendancePanel({schoolId,stationId}:{schoolId:string;
    setNotice(`${data.person_name||"School member"} (${data.person_type}) ${action==="check_in"?"checked in":"checked out"} successfully at ${new Date(data.event_time).toLocaleTimeString("en-NG",{timeZone:"Africa/Lagos",hour:"2-digit",minute:"2-digit"})}.`);
    setManualCode("");
    stopCamera();
-  }catch(e){setError(e instanceof Error?e.message:"The QR attendance event could not be recorded.");}
+  }catch(e){stopCamera();setError(e instanceof Error?e.message:"The QR attendance event could not be recorded.");}
   finally{setBusy(false);}
  }
 
