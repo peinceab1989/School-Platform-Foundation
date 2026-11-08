@@ -586,7 +586,6 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           <button type="button" disabled={notificationBusy||notificationPreferencesLoading} onClick={()=>void enableParentPhoneNotifications()} className="rounded-xl bg-emerald-900 px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{phoneNotificationsEnabled?"Phone alerts allowed":"Allow phone notification banners"}</button>
         </div>
           <p className="mt-2 text-xs leading-5 text-slate-500">Your choices are saved to your parent account. Background phone alerts require the RESA push sender and VAPID configuration; permission alone does not guarantee delivery while the browser is closed.</p>
-          </div>
         </details>
         <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
           <label className="text-xs font-bold text-slate-600">Search messages
