@@ -25,7 +25,7 @@ const asString = (v: unknown) => typeof v === "string" ? v.trim() : "";
 
 Deno.serve(async (req: Request) => {
   const requestOrigin = req.headers.get("origin") ?? "";
-  if (requestOrigin && !isAllowedOrigin(requestOrigin)) return reply(403, { error: "This website is not authorised to access external CBT." }, requestOrigin, requestOrigin);
+  if (requestOrigin && !isAllowedOrigin(requestOrigin)) return reply(403, { error: "This website is not authorised to access external CBT." }, requestOrigin);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(requestOrigin) });
   if (req.method !== "POST") return reply(405, { error: "POST required." }, requestOrigin);
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) return reply(500, { error: "CBT service is not configured." }, requestOrigin);
