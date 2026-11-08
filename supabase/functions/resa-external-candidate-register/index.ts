@@ -8,7 +8,7 @@ const PRIMARY_ORIGIN = "https://school-platform-foundation.pages.dev";
 const LEGACY_ORIGIN = "https://resa-school-portal.netlify.app";
 function isAllowedOrigin(origin: string) {
   return origin === PRIMARY_ORIGIN || origin === LEGACY_ORIGIN ||
-    /^https:\/\/[a-z0-9-]+\.school-platform-foundation\.pages\.dev$/.test(origin);
+    /^https:\/\/[a-f0-9]{8,40}\.school-platform-foundation\.pages\.dev$/.test(origin);
 }
 function corsHeaders(origin: string) {
   return {
