@@ -38,6 +38,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const streamRef = useRef<MediaStream | null>(null);
   const recordingChunks = useRef<Blob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contactsLoading, setContactsLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -47,7 +48,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const isAdmin = role === "admin";
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
+    setLoading(true); setContactsLoading(true); setError("");
     const settings = await (db as any).from("resa_chat_settings").select("chat_enabled").eq("school_id", schoolId).maybeSingle();
     if (settings.error) setError(settings.error.message);
     setEnabled(Boolean(settings.data?.chat_enabled));
@@ -61,18 +62,23 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     let parentDirectory: Contact[] = [];
     if (isAdmin) {
       const members = await (db as any).from("school_memberships").select("user_id,role").eq("school_id", schoolId).eq("status", "active").in("role", ["teacher","student","parent"]);
+      if (members.error) throw members.error;
       contactIds = (members.data ?? []).map((m: any) => m.user_id).filter((id: string) => id !== userId);
     } else if (role === "teacher") {
       const staffRes = await (db as any).from("staff").select("id").eq("school_id", schoolId).eq("user_id", userId).eq("status", "active");
+      if (staffRes.error) throw staffRes.error;
       const staffIds = (staffRes.data ?? []).map((x: any) => x.id);
       if (staffIds.length) {
         const assignment = await (db as any).from("teacher_assignments").select("class_id").eq("school_id", schoolId).in("staff_id", staffIds);
+        if (assignment.error) throw assignment.error;
         const classIds: string[] = [...new Set<string>((assignment.data ?? []).map((x: any) => String(x.class_id)).filter(Boolean))];
         if (classIds.length) {
           const enrollment = await (db as any).from("student_enrollments").select("student_id").eq("school_id", schoolId).eq("status", "active").in("class_id", classIds);
+          if (enrollment.error) throw enrollment.error;
           const studentIds: string[] = [...new Set<string>((enrollment.data ?? []).map((x: any) => String(x.student_id)).filter(Boolean))];
           if (studentIds.length) {
             const students = await (db as any).from("students").select("user_id").eq("school_id", schoolId).in("id", studentIds);
+            if (students.error) throw students.error;
             contactIds = [...new Set<string>((students.data ?? []).map((x: any) => String(x.user_id ?? "")).filter((id: string) => id && id !== userId))];
           }
         }
@@ -83,14 +89,18 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       parentDirectory = (directory.data ?? []).filter((entry: any) => entry.user_id !== userId && entry.role === "admin").map((entry: any) => ({ user_id: entry.user_id, role: entry.role, display_name: entry.display_name || "School administrator" }));
     } else {
       const studentRes = await (db as any).from("students").select("id").eq("school_id", schoolId).eq("user_id", userId).maybeSingle();
+      if (studentRes.error) throw studentRes.error;
       if (studentRes.data?.id) {
         const enrollments = await (db as any).from("student_enrollments").select("class_id").eq("school_id", schoolId).eq("student_id", studentRes.data.id).eq("status", "active");
+        if (enrollments.error) throw enrollments.error;
         const classIds: string[] = [...new Set<string>((enrollments.data ?? []).map((x: any) => String(x.class_id)).filter(Boolean))];
         if (classIds.length) {
           const assignment = await (db as any).from("teacher_assignments").select("staff_id").eq("school_id", schoolId).in("class_id", classIds);
+          if (assignment.error) throw assignment.error;
           const staffIds: string[] = [...new Set<string>((assignment.data ?? []).map((x: any) => String(x.staff_id)).filter(Boolean))];
           if (staffIds.length) {
             const staff = await (db as any).from("staff").select("user_id").eq("school_id", schoolId).eq("status", "active").in("id", staffIds);
+            if (staff.error) throw staff.error;
             contactIds = [...new Set<string>((staff.data ?? []).map((x: any) => String(x.user_id ?? "")).filter((id: string) => id && id !== userId))];
           }
         }
@@ -98,18 +108,22 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     }
     if (!isAdmin && role !== "parent") {
       const admins = await (db as any).from("school_memberships").select("user_id").eq("school_id", schoolId).eq("status", "active").eq("role", "admin");
+      if (admins.error) throw admins.error;
       contactIds = [...new Set<string>([...contactIds, ...(admins.data ?? []).map((x: any) => String(x.user_id)).filter((id: string) => id !== userId)])];
     }
     if (role === "parent") {
       setContacts(parentDirectory);
     } else if (contactIds.length) {
       const members = await (db as any).from("school_memberships").select("user_id,role").eq("school_id", schoolId).eq("status", "active").in("user_id", contactIds);
+      if (members.error) throw members.error;
       const ids = (members.data ?? []).map((x: any) => x.user_id);
-      const profiles = ids.length ? await (db as any).from("profiles").select("id,display_name").in("id", ids) : { data: [] };
+      const profiles = ids.length ? await (db as any).from("profiles").select("id,display_name").in("id", ids) : { data: [], error: null };
+      if (profiles.error) throw profiles.error;
       const profileMap = new Map((profiles.data ?? []).map((p: any) => [p.id, p.display_name]));
       setContacts((members.data ?? []).map((m: any) => ({ user_id: m.user_id, role: m.role, display_name: profileMap.get(m.user_id) || (m.role === "teacher" ? "Teacher" : m.role === "student" ? "Student" : "School administrator") })));
     } else setContacts([]);
     setLoading(false);
+    setContactsLoading(false);
   }, [db, schoolId, userId, role, isAdmin, activeId]);
 
   useEffect(() => { void load(); }, [load]);
@@ -326,7 +340,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     {error&&<p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}{notice&&<p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
     {!enabled&&<div className="mt-5 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><LockKeyhole size={20}/><div><strong>Messaging is currently disabled.</strong><p className="mt-1">An administrator must activate chat before anyone can start or send messages. Existing messages are preserved.</p></div></div>}
     <div className="mt-5 grid gap-5 lg:grid-cols-[320px_1fr]">
-      <section className={panel}><div className="flex items-center gap-2"><Users size={19}/><h2 className="font-extrabold">Start a conversation</h2></div><form onSubmit={e=>void startConversation(e)} className="mt-4 space-y-3"><label className="block text-sm font-semibold">Contact<select className={field+" mt-1"} value={selectedContact} onChange={e=>setSelectedContact(e.target.value)}><option value="">Choose contact…</option>{sortedContacts.map(c=><option key={c.user_id} value={c.user_id}>{c.display_name} · {c.role}</option>)}</select></label><label className="block text-sm font-semibold">Subject<input className={field+" mt-1"} maxLength={160} value={subject} onChange={e=>setSubject(e.target.value)} placeholder="e.g. Mathematics homework"/></label><button disabled={!enabled||!selectedContact} className="w-full rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Open chat</button></form>{isAdmin&&<form onSubmit={e=>void createGroup(e)} className="mt-5 border-t border-slate-200 pt-5"><h3 className="font-extrabold">Create a group</h3><p className="mt-1 text-xs leading-5 text-slate-500">Create a class, staff, parent or custom group. Only selected active school members can read and send messages.</p><input className={field+" mt-3"} value={groupName} onChange={e=>setGroupName(e.target.value)} maxLength={160} placeholder="Group name" aria-label="Group name"/><div className="mt-3 max-h-52 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">{sortedContacts.map(c=><label key={c.user_id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={groupMemberIds.includes(c.user_id)} onChange={e=>setGroupMemberIds(old=>e.target.checked?[...old,c.user_id]:old.filter(id=>id!==c.user_id))}/><span>{c.display_name} <span className="text-xs text-slate-500">· {c.role}</span></span></label>)}{!sortedContacts.length&&<p className="text-xs text-slate-500">No active members available.</p>}</div><button disabled={!enabled||creatingGroup||!groupName.trim()||groupMemberIds.length<2} className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{creatingGroup?"Creating group…":"Create group"}</button></form>}<div className="mt-6 flex items-center justify-between gap-2"><h2 className="font-extrabold">Recent chats</h2><button onClick={()=>void load()} className="rounded-lg border p-2" aria-label="Refresh chats"><RefreshCw size={15}/></button></div>{loading?<p className="py-4 text-sm text-slate-500">Loading…</p>:conversations.length===0?<p className="py-4 text-sm text-slate-500">No conversations yet.</p>:<div className="mt-2 space-y-2">{conversations.map(c=><button key={c.id} onClick={()=>setActiveId(c.id)} className={"w-full rounded-xl border p-3 text-left "+(activeId===c.id?"border-emerald-800 bg-emerald-50":"border-slate-200 bg-white")}><span className="block font-bold">{c.conversation_type==="group"?"👥 ":""}{c.subject}</span><span className="mt-1 block text-xs text-slate-500">{c.conversation_type==="group"?"Group conversation · ":""}{new Date(c.last_message_at).toLocaleString()}</span></button>)}</div>}</section>
+      <section className={panel}><div className="flex items-center gap-2"><Users size={19}/><h2 className="font-extrabold">Start a conversation</h2></div><form onSubmit={e=>void startConversation(e)} className="mt-4 space-y-3"><label className="block text-sm font-semibold">Contact<select className={field+" mt-1"} value={selectedContact} onChange={e=>setSelectedContact(e.target.value)}><option value="">{contactsLoading?"Loading contacts…":sortedContacts.length?"Choose contact…":"No eligible contacts found"}</option>{sortedContacts.map(c=><option key={c.user_id} value={c.user_id}>{c.display_name} · {c.role}</option>)}</select>{!contactsLoading&&!sortedContacts.length&&<span className="mt-1 block text-xs font-normal text-amber-800">No eligible contacts are currently linked to this account. Ask the administrator to check active memberships and teacher/class assignments.</span>}</label><label className="block text-sm font-semibold">Subject<input className={field+" mt-1"} maxLength={160} value={subject} onChange={e=>setSubject(e.target.value)} placeholder="e.g. Mathematics homework"/></label><button disabled={!enabled||!selectedContact} className="w-full rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Open chat</button></form>{isAdmin&&<form onSubmit={e=>void createGroup(e)} className="mt-5 border-t border-slate-200 pt-5"><h3 className="font-extrabold">Create a group</h3><p className="mt-1 text-xs leading-5 text-slate-500">Create a class, staff, parent or custom group. Only selected active school members can read and send messages.</p><input className={field+" mt-3"} value={groupName} onChange={e=>setGroupName(e.target.value)} maxLength={160} placeholder="Group name" aria-label="Group name"/><div className="mt-3 max-h-52 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-3">{sortedContacts.map(c=><label key={c.user_id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={groupMemberIds.includes(c.user_id)} onChange={e=>setGroupMemberIds(old=>e.target.checked?[...old,c.user_id]:old.filter(id=>id!==c.user_id))}/><span>{c.display_name} <span className="text-xs text-slate-500">· {c.role}</span></span></label>)}{!sortedContacts.length&&<p className="text-xs text-slate-500">No active members available.</p>}</div><button disabled={!enabled||creatingGroup||!groupName.trim()||groupMemberIds.length<2} className="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{creatingGroup?"Creating group…":"Create group"}</button></form>}<div className="mt-6 flex items-center justify-between gap-2"><h2 className="font-extrabold">Recent chats</h2><button onClick={()=>void load()} className="rounded-lg border p-2" aria-label="Refresh chats"><RefreshCw size={15}/></button></div>{loading?<p className="py-4 text-sm text-slate-500">Loading…</p>:conversations.length===0?<p className="py-4 text-sm text-slate-500">No conversations yet.</p>:<div className="mt-2 space-y-2">{conversations.map(c=><button key={c.id} onClick={()=>setActiveId(c.id)} className={"w-full rounded-xl border p-3 text-left "+(activeId===c.id?"border-emerald-800 bg-emerald-50":"border-slate-200 bg-white")}><span className="block font-bold">{c.conversation_type==="group"?"👥 ":""}{c.subject}</span><span className="mt-1 block text-xs text-slate-500">{c.conversation_type==="group"?"Group conversation · ":""}{new Date(c.last_message_at).toLocaleString()}</span></button>)}</div>}</section>
       <section className={panel+" min-h-[460px]"}><div className="flex items-center gap-3 border-b border-slate-200 pb-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><MessageCircle size={22}/></span><div><h2 className="font-extrabold">{activeConversation?.subject ?? "Your messages"}</h2><p className="text-xs text-slate-500">{activeConversation?(activeConversation.conversation_type==="group"?"Group conversation":(otherContact?.display_name??"Conversation participant")):"Choose a conversation or start a new one"}{activeConversation && <span className="ml-2 text-emerald-700">· {onlineCount} online</span>}</p>{typingIds.length>0 && <span className="ml-2 text-emerald-700">· Someone is typing…</span>}</div></div>
         <div className="flex max-h-[480px] min-h-[300px] flex-col gap-3 overflow-y-auto py-4">{!activeConversation?<div className="m-auto max-w-sm text-center text-sm text-slate-500"><ShieldCheck size={28} className="mx-auto mb-2 text-emerald-800"/><p>Messages are private to conversation participants and authorised school administrators.</p></div>:messages.length===0?<p className="m-auto text-sm text-slate-500">No messages yet. Say hello.</p>:messages.map(m=><div key={m.id} className={"max-w-[88%] rounded-2xl px-4 py-3 "+(m.sender_id===userId?"self-end bg-emerald-900 text-white":"self-start bg-slate-100 text-slate-900")}><p className="whitespace-pre-wrap break-words text-sm leading-6">{renderMessageBody(m.body)}</p>
           {m.attachment_path && <div className="mt-2 rounded-lg bg-black/5 p-2 text-sm">
@@ -338,10 +352,10 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
           {attachment && <div className="mb-2 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-950"><span className="truncate">{attachment.name} · {(attachment.size/1024/1024).toFixed(1)} MB</span><button type="button" onClick={()=>setAttachment(null)} className="font-bold">Remove</button></div>}
           <div className="flex items-end gap-2">
             <label className="cursor-pointer rounded-lg border p-3 text-slate-700" title="Attach a file"><Paperclip size={18}/><input type="file" className="hidden" disabled={!enabled||!activeConversation||recording} accept="image/*,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,.pdf,.doc,.docx,.txt" onChange={e=>setAttachment(e.target.files?.[0] ?? null)}/></label><button type="button" onClick={()=>recording?stopVoiceNote():void startVoiceNote()} disabled={!enabled||!activeConversation||sending||Boolean(attachment)} className={"rounded-lg border p-3 "+(recording?"border-rose-300 bg-rose-50 text-rose-700":"text-slate-700")} title={recording?"Stop voice note":"Record voice note"}>{recording?<Square size={18}/>:<Mic size={18}/>}</button>
-            <textarea value={draft} onChange={e=>{setDraft(e.target.value);broadcastTyping(Boolean(e.target.value.trim()));}} onBlur={()=>broadcastTyping(false)} maxLength={5000} rows={2} placeholder={enabled?"Write a message…":"Chat is disabled by the administrator"} disabled={!enabled||!activeConversation} className={field+" min-h-[48px] resize-y"}/>
+            <textarea value={draft} onChange={e=>{setDraft(e.target.value);broadcastTyping(Boolean(e.target.value.trim()));}} onBlur={()=>broadcastTyping(false)} maxLength={5000} rows={2} placeholder={!enabled?"Chat is disabled by the administrator":activeConversation?"Write a message…":"Choose a contact and open a chat to send this message"} disabled={!enabled} className={field+" min-h-[48px] resize-y"}/>
             <button disabled={!enabled||!activeConversation||(!draft.trim()&&!attachment)||sending||recording} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><Send size={16}/>{sending?"Sending":"Send"}</button>
           </div>
-          <p className="mt-2 text-[11px] text-slate-500">{recording?"Recording voice note… Stop recording to attach it.":"Private attachments up to 20 MB. Images, voice notes, video, PDF and Word files."}</p>
+          <p className="mt-2 text-[11px] text-slate-500">{recording?"Recording voice note… Stop recording to attach it.":!activeConversation?"You can draft a message now; open a conversation before sending. Private attachments up to 20 MB.":"Private attachments up to 20 MB. Images, voice notes, video, PDF and Word files."}</p>
         </form>
       </section>
     </div>
