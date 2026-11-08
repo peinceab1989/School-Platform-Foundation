@@ -96,6 +96,12 @@ function PageHero({
               Explore Admissions <ArrowRight size={18} />
             </Link>
             <Link
+              href="/external-cbt-registration"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#e5ca7d]/70 bg-[#e5ca7d]/15 px-6 py-3.5 font-bold text-[#f5e5b5] transition hover:bg-[#e5ca7d]/25"
+            >
+              Open CBT Registration <ArrowRight size={18} />
+            </Link>
+            <Link
               href="/contact"
               className="inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/10 px-6 py-3.5 font-bold text-white transition hover:bg-white/20"
             >
