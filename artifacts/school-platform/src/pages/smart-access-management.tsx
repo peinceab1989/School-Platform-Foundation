@@ -78,7 +78,8 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       const peopleResult = personIds.length ? await db.from("people").select("id,user_id,first_name,middle_name,last_name").eq("school_id",schoolId).in("id",personIds) : {data:[],error:null};
       if (peopleResult.error) throw peopleResult.error;
       const names = new Map((peopleResult.data??[]).map((p:Row)=>[p.id,[p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
-      setPeople(rows.map((p:Row)=>({id:p.id,user_id:p.user_id??null,type:p.type,label:names.get(p.person_id)||p.label})));
+      const personUsers = new Map((peopleResult.data??[]).map((p:Row)=>[p.id,p.user_id??null]));
+      setPeople(rows.map((p:Row)=>({id:p.id,user_id:p.user_id??personUsers.get(p.person_id)??null,type:p.type,label:names.get(p.person_id)||p.label})));
       setRequests(req.data??[]); setAuthorizations(auth.data??[]); setRecords(rec.data??[]); setReleases(rel.data??[]); setSettings(settingsResult.data??{student_qr_enabled:false,staff_qr_enabled:false,parent_qr_enabled:false,child_pickup_enabled:false,parent_events_enabled:false});
       setDevices(devicesResult.data??[]);
       setReleaseStationId((current:string)=>current||devicesResult.data?.[0]?.id||"");
@@ -89,8 +90,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       const guardianPeople=guardianPersonIds.length?await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id",schoolId).in("id",guardianPersonIds):{data:[],error:null};
       if(guardianPeople.error)throw guardianPeople.error;
       const guardianNames=new Map((guardianPeople.data??[]).map((x:any)=>[x.id,[x.first_name,x.middle_name,x.last_name].filter(Boolean).join(" ")]));
-      setParentOptions((guardianResult.data??[]).map((x:any)=>({id:x.id,label:guardianNames.get(x.person_id)||"Parent / guardian"})));
-      setParentQrPersonId((current:string)=>current||guardianResult.data?.[0]?.id||"");
+      setParentOptions((guardianResult.data??[]).map((x:any)=>({id:x.id,label:guardianNames.get(x.person_id)||"Parent / guardian",userId:(parentAccountsResult.data??[]).find((account:any)=>account.parent_guardian_id===x.id)?.user_id??null})));
       setAccessEvents(eventsResult.data??[]);
       setEventAttendance(eventAttendanceResult.data??[]);
       setSelectedEventId((current:string)=>current||eventsResult.data?.find((x:any)=>x.is_open_for_registration)?.id||"");
