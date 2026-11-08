@@ -3029,7 +3029,9 @@ function PublicHome() {
 ========================================================= */
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {
-  return <ErrorBoundary>{children}</ErrorBoundary>;
+  const [location] = useLocation();
+
+  return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
 /* =========================================================
