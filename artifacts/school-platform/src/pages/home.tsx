@@ -129,6 +129,13 @@ export default function HomePage() {
                 </Link>
 
                 <Link
+                  href="/external-cbt-registration"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e7cd83]/70 bg-white/10 px-5 py-3 font-bold text-[#f8e8b5] transition hover:bg-white/20"
+                >
+                  Open CBT Registration <ArrowRight size={18} />
+                </Link>
+
+                <Link
                   href="/activities-gallery"
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/50 px-5 py-3 font-bold text-white transition hover:bg-white/10"
                 >
