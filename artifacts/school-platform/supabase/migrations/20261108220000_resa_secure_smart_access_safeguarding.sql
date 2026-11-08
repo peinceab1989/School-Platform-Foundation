@@ -790,6 +790,22 @@ begin
   values(new.school_id,new.id,'submitted',new.requested_by,'Parent request submitted');
   insert into public.smart_access_notification_outbox(school_id,request_id,notification_type,audience_roles)
   values(new.school_id,new.id,'parent_authorization_submitted',array['admin','hr']::text[]);
+  -- Deliver an immediate in-portal message to active school administrators and
+  -- staff explicitly assigned to HR; the outbox remains available for push/WhatsApp workers.
+  insert into public.school_messages(school_id,sender_id,recipient_id,subject,message)
+  select new.school_id,new.requested_by,rec.user_id,'Parent authorization request',
+    'A parent has submitted a '||replace(new.purpose,'_',' ')||' request for '||
+    new.delegate_full_name||' ('||new.delegate_phone||'). Visit: '||new.requested_visit_at::text||
+    '. Details: '||new.purpose_details
+  from (
+    select m.user_id from public.school_memberships m
+    where m.school_id=new.school_id and m.role='admin' and m.status='active'
+    union
+    select sf.user_id from public.staff sf
+    where sf.school_id=new.school_id and sf.status='active' and sf.user_id is not null
+      and lower(trim(coalesce(sf.department,''))) in ('hr','human resources','human resource','human resources department')
+  ) rec
+  where rec.user_id is not null and rec.user_id<>new.requested_by;
   return new;
 end;
 $function$;
@@ -1003,6 +1019,12 @@ begin
    coalesce(auth.uid(),new.reviewed_by),coalesce(new.review_note,'Request status changed'));
   insert into public.smart_access_notification_outbox(school_id,request_id,notification_type,audience_roles)
   values(new.school_id,new.id,'parent_authorization_decision',array['admin','hr']::text[]);
+  insert into public.school_messages(school_id,sender_id,recipient_id,subject,message)
+  select new.school_id,coalesce(auth.uid(),new.reviewed_by),p.user_id,'Parent request decision',
+   'Your '||replace(new.purpose,'_',' ')||' request has been '||replace(new.request_status,'_',' ')||
+   case when coalesce(new.review_note,'')<>'' then '. School note: '||new.review_note else '.' end
+  from public.parent_portal_accounts p
+  where p.school_id=new.school_id and p.parent_guardian_id=new.parent_guardian_id and p.is_active;
  end if; return new;
 end;
 $function$;
