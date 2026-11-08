@@ -43,6 +43,8 @@ const StudentsPage = lazy(() => import('@/pages/students'));
 const StudentIdCardsPage = lazy(() => import('@/pages/student-id-cards'));
 const AttendancePage = lazy(() => import('@/pages/attendance'));
 const BiometricAttendancePage = lazy(() => import('@/pages/biometric-attendance'));
+const SmartAccessManagementPage = lazy(() => import('@/pages/smart-access-management'));
+const ParentAuthorizationsPage = lazy(() => import('@/pages/parent-authorizations'));
 const AnnouncementsPage = lazy(() => import('@/pages/announcements'));
 const ResultsPage = lazy(() => import('@/pages/results'));
 const ResultsManagementPage = lazy(() => import('@/pages/results-management'));
@@ -167,6 +169,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/publication-centre',
   '/staff-attendance',
   '/biometric-attendance',
+  '/smart-access-management',
   '/school-cctv',
 ];
 
@@ -2509,10 +2512,11 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/resa-chat' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
+    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/resa-chat' || currentPath === '/my-results' || currentPath === '/parent-authorizations' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
+    if (currentPath === '/parent-authorizations' && session) return <ParentAuthorizationsPage schoolId={parentMembership.schoolId} userId={session.user.id} />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/resa-chat' && session) return <ResaChatPage schoolId={parentMembership.schoolId} userId={session.user.id} role="parent" />;
@@ -2569,6 +2573,10 @@ function FoundationPage() {
 
     if (currentPath === '/biometric-attendance') {
       return withAdminShell(<BiometricAttendancePage schoolId={adminMembership.schoolId} />);
+    }
+
+    if (currentPath === '/smart-access-management' && session) {
+      return withAdminShell(<SmartAccessManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
     }
 
     if (currentPath === '/teaching-assignments') {
