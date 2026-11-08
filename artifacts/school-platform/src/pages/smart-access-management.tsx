@@ -14,6 +14,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
   const [authorizations, setAuthorizations] = useState<Row[]>([]);
   const [records, setRecords] = useState<Row[]>([]);
   const [releases, setReleases] = useState<Row[]>([]);
+  const [settings, setSettings] = useState<Row>({student_qr_enabled:false,staff_qr_enabled:false,parent_qr_enabled:false,child_pickup_enabled:false,parent_events_enabled:false});
   const [people, setPeople] = useState<PersonOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
@@ -32,26 +33,38 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
     setLoading(true); setError("");
     try {
       const db = getSupabaseClient() as any;
-      const [req, auth, rec, rel, students, staff] = await Promise.all([
+      const [req, auth, rec, rel, students, staff, settingsResult] = await Promise.all([
         db.from("parent_official_access_requests").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
         db.from("child_collection_authorizations").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
         db.from("people_status_records").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
         db.from("child_collection_releases").select("*").eq("school_id", schoolId).order("release_time",{ascending:false}).limit(100),
         db.from("students").select("id,person_id,user_id,admission_number,status").eq("school_id", schoolId).order("admission_number"),
         db.from("staff").select("id,person_id,user_id,staff_number,job_title,status").eq("school_id", schoolId).order("staff_number"),
+        db.from("smart_access_settings").select("*").eq("school_id",schoolId).maybeSingle(),
       ]);
-      for (const result of [req,auth,rec,rel,students,staff]) if (result.error) throw result.error;
+      for (const result of [req,auth,rec,rel,students,staff,settingsResult]) if (result.error) throw result.error;
       const rows = [...(students.data??[]).map((p:Row)=>({...p,type:"student" as const,label:p.admission_number||"Student"})), ...(staff.data??[]).map((p:Row)=>({...p,type:"staff" as const,label:p.staff_number||p.job_title||"Staff"}))];
       const personIds = [...new Set(rows.map((p:Row)=>p.person_id).filter(Boolean))];
       const peopleResult = personIds.length ? await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id",schoolId).in("id",personIds) : {data:[],error:null};
       if (peopleResult.error) throw peopleResult.error;
       const names = new Map((peopleResult.data??[]).map((p:Row)=>[p.id,[p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
       setPeople(rows.map((p:Row)=>({id:p.id,user_id:p.user_id??null,type:p.type,label:names.get(p.person_id)||p.label})));
-      setRequests(req.data??[]); setAuthorizations(auth.data??[]); setRecords(rec.data??[]); setReleases(rel.data??[]);
+      setRequests(req.data??[]); setAuthorizations(auth.data??[]); setRecords(rec.data??[]); setReleases(rel.data??[]); setSettings(settingsResult.data??{student_qr_enabled:false,staff_qr_enabled:false,parent_qr_enabled:false,child_pickup_enabled:false,parent_events_enabled:false});
     } catch (e) { setError(e instanceof Error ? e.message : "Smart Access records could not be loaded."); }
     finally { setLoading(false); }
   }, [schoolId]);
   useEffect(()=>{void load();},[load]);
+
+  async function saveSettings(next:Row) {
+    setSaving("settings");setError("");setNotice("");
+    try {
+      const db=getSupabaseClient() as any;
+      const {error:e}=await db.from("smart_access_settings").upsert({...next,school_id:schoolId,updated_by:userId,updated_at:new Date().toISOString()},{onConflict:"school_id"});
+      if(e)throw e;
+      setSettings(next);setNotice("Smart Access settings saved. New QR and pickup actions now follow these school controls.");
+    }catch(e){setError(e instanceof Error?e.message:"Could not save Smart Access settings.");}
+    finally{setSaving("");}
+  }
 
   async function updateRequest(row:Row,status:"approved"|"rejected"|"revoked") {
     setSaving(row.id); setError(""); setNotice("");
@@ -112,6 +125,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-100">Review parent permissions, record child collection evidence, and manage confidential student/staff decisions and recognition.</p>
     </div></header>
     <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
+      <section className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold">School feature controls</h2><p className="text-sm text-slate-600">All sensitive access features start disabled and require an administrator to enable them.</p></div><ShieldCheck className="text-emerald-800"/></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{([["student_qr_enabled","Student QR attendance"],["staff_qr_enabled","Staff QR attendance"],["parent_qr_enabled","Parent QR identity"],["child_pickup_enabled","Child pickup authorization"],["parent_events_enabled","Parent event check-in"]] as const).map(([key,label])=><label key={key} className="flex items-center gap-3 rounded-xl border p-3 text-sm font-semibold"><input type="checkbox" checked={Boolean(settings[key])} disabled={!!saving} onChange={e=>void saveSettings({...settings,[key]:e.target.checked})}/>{label}</label>)}</div></section>
       <nav className="flex flex-wrap gap-2">{([["requests","Parent requests"],["pickup","Child pickup approvals"],["people","People records"],["releases","Collection register"]] as const).map(([key,label])=><button key={key} onClick={()=>setTab(key)} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${tab===key?"bg-emerald-900 text-white":"border bg-white text-slate-700"}`}>{label}</button>)}</nav>
       {error&&<p role="alert" className="break-words rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
       {notice&&<p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">{notice}</p>}
