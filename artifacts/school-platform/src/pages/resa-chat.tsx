@@ -49,6 +49,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
 
   const load = useCallback(async () => {
     setLoading(true); setContactsLoading(true); setError("");
+    try {
     const settings = await (db as any).from("resa_chat_settings").select("chat_enabled").eq("school_id", schoolId).maybeSingle();
     if (settings.error) setError(settings.error.message);
     setEnabled(Boolean(settings.data?.chat_enabled));
@@ -122,8 +123,13 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       const profileMap = new Map((profiles.data ?? []).map((p: any) => [p.id, p.display_name]));
       setContacts((members.data ?? []).map((m: any) => ({ user_id: m.user_id, role: m.role, display_name: profileMap.get(m.user_id) || (m.role === "teacher" ? "Teacher" : m.role === "student" ? "Student" : "School administrator") })));
     } else setContacts([]);
-    setLoading(false);
-    setContactsLoading(false);
+    } catch (e) {
+      setContacts([]);
+      setError(e instanceof Error ? e.message : "School contacts could not be loaded. Refresh and try again.");
+    } finally {
+      setLoading(false);
+      setContactsLoading(false);
+    }
   }, [db, schoolId, userId, role, isAdmin, activeId]);
 
   useEffect(() => { void load(); }, [load]);
