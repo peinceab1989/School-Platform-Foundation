@@ -94,9 +94,9 @@ export default function SmartAccessIdCards({
         department: staff.department || "Not specified",
         children: [],
         photoUrl,
-        payload: "RESA1:" + token,
+        payload: "RESA-ID:" + data.credential_id,
       });
-      setNotice("Staff QR credential issued. Any previous staff credential has been revoked. Print the card and keep the QR private.");
+      setNotice("Stable staff ID-card QR issued. It remains unchanged when the card is reopened and changes only when an administrator explicitly rotates it.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Staff QR card could not be issued.");
     } finally { setBusy(""); }
@@ -225,7 +225,7 @@ export default function SmartAccessIdCards({
           <button type="button" onClick={() => setZoomQr(false)} className="rounded-lg bg-emerald-900 px-5 py-2 text-sm font-bold text-white">Close</button>
         </div>
       </div>}
-      <p className="mt-2 text-xs text-slate-500">The raw QR secret is shown only in this live card preview and is not stored in the database. If it is lost, rotate the credential and print a new card.</p>
+      <p className="mt-2 text-xs text-slate-500">The QR contains a unique, non-personal credential reference. It does not reveal private details; attendance still requires an authorised operator and visual photo verification. Rotate it only when an administrator deliberately replaces the card.</p>
     </div>}
   </section>;
 }
