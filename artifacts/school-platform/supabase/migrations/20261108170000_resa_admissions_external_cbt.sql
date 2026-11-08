@@ -207,3 +207,208 @@ revoke all on public.admission_application_rate_events from public, anon, authen
 create unique index if not exists external_candidate_one_active_attempt_uidx
   on public.external_candidate_exam_attempts(candidate_id, exam_id)
   where status = 'in_progress';
+ 
+
+-- Trusted, transactional answer saving and final submission. These RPCs are
+-- callable only by the Edge Function's service-role client after it verifies
+-- the candidate's Auth session and candidate-to-user mapping.
+create or replace function public.resa_external_candidate_cbt_save(
+  p_candidate_id uuid,
+  p_attempt_id uuid,
+  p_answers jsonb
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+declare
+  v_candidate_status text;
+  v_attempt public.external_candidate_exam_attempts%rowtype;
+  v_now timestamptz := clock_timestamp();
+  v_saved integer := 0;
+  v_answers jsonb := coalesce(p_answers, '[]'::jsonb);
+begin
+  if jsonb_typeof(v_answers) <> 'array' then
+    return jsonb_build_object('success', false, 'status', 400, 'error', 'Answers must be an array.');
+  end if;
+
+  select c.status into v_candidate_status
+  from public.external_candidate_registrations c
+  where c.id = p_candidate_id
+  for share;
+
+  if not found or v_candidate_status <> 'approved' then
+    return jsonb_build_object('success', false, 'status', 403, 'error', 'Candidate approval is required.');
+  end if;
+
+  select a.* into v_attempt
+  from public.external_candidate_exam_attempts a
+  where a.id = p_attempt_id and a.candidate_id = p_candidate_id
+  for update;
+
+  if not found then
+    return jsonb_build_object('success', false, 'status', 404, 'error', 'Examination attempt not found.');
+  end if;
+  if v_attempt.status <> 'in_progress' then
+    return jsonb_build_object('success', false, 'status', 409, 'error', 'This examination attempt is no longer active.');
+  end if;
+  if v_attempt.ends_at <= v_now then
+    return jsonb_build_object('success', false, 'status', 409, 'error', 'The examination time has expired. Submit your saved answers now.');
+  end if;
+
+  insert into public.external_candidate_exam_answers
+    (school_id, attempt_id, question_id, answer_text, marks_awarded)
+  select
+    v_attempt.school_id,
+    v_attempt.id,
+    q.id,
+    nullif(left(trim(coalesce(x.answer, '')), 5000), ''),
+    0
+  from jsonb_array_elements(v_answers) with ordinality e(value, ord)
+  cross join lateral jsonb_to_record(e.value) as x(question_id uuid, answer text)
+  join public.online_exam_questions q
+    on q.id = x.question_id
+   and q.school_id = v_attempt.school_id
+   and q.exam_id = v_attempt.exam_id
+  order by q.id, e.ord desc
+  limit 300
+  on conflict (attempt_id, question_id) do update
+    set answer_text = excluded.answer_text,
+        marks_awarded = 0,
+        updated_at = v_now;
+
+  get diagnostics v_saved = row_count;
+  return jsonb_build_object('success', true, 'saved', v_saved);
+end;
+$function$;
+
+create or replace function public.resa_external_candidate_cbt_submit(
+  p_candidate_id uuid,
+  p_attempt_id uuid,
+  p_answers jsonb
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+declare
+  v_candidate_status text;
+  v_attempt public.external_candidate_exam_attempts%rowtype;
+  v_now timestamptz := clock_timestamp();
+  v_answers jsonb := coalesce(p_answers, '[]'::jsonb);
+  v_auto_submitted boolean;
+  v_total numeric(8,2) := 0;
+  v_score numeric(8,2) := 0;
+begin
+  if jsonb_typeof(v_answers) <> 'array' then
+    return jsonb_build_object('success', false, 'status', 400, 'error', 'Answers must be an array.');
+  end if;
+
+  select c.status into v_candidate_status
+  from public.external_candidate_registrations c
+  where c.id = p_candidate_id
+  for share;
+
+  if not found or v_candidate_status <> 'approved' then
+    return jsonb_build_object('success', false, 'status', 403, 'error', 'Candidate approval is required.');
+  end if;
+
+  select a.* into v_attempt
+  from public.external_candidate_exam_attempts a
+  where a.id = p_attempt_id and a.candidate_id = p_candidate_id
+  for update;
+
+  if not found then
+    return jsonb_build_object('success', false, 'status', 404, 'error', 'Examination attempt not found.');
+  end if;
+
+  if v_attempt.status in ('submitted', 'graded') then
+    return jsonb_build_object(
+      'success', true, 'already_submitted', true,
+      'score', v_attempt.score, 'total_marks', v_attempt.total_marks
+    );
+  end if;
+
+  if v_attempt.status <> 'in_progress' then
+    return jsonb_build_object('success', false, 'status', 409, 'error', 'This examination attempt is no longer active.');
+  end if;
+
+  v_auto_submitted := v_now >= v_attempt.ends_at;
+
+  -- The deadline is checked while the attempt row is locked. After expiry,
+  -- client-supplied answers are ignored and only previously saved answers count.
+  if not v_auto_submitted then
+    insert into public.external_candidate_exam_answers
+      (school_id, attempt_id, question_id, answer_text, marks_awarded)
+    select
+      v_attempt.school_id,
+      v_attempt.id,
+      q.id,
+      nullif(left(trim(coalesce(x.answer, '')), 5000), ''),
+      0
+    from jsonb_array_elements(v_answers) with ordinality e(value, ord)
+    cross join lateral jsonb_to_record(e.value) as x(question_id uuid, answer text)
+    join public.online_exam_questions q
+      on q.id = x.question_id
+     and q.school_id = v_attempt.school_id
+     and q.exam_id = v_attempt.exam_id
+    order by q.id, e.ord desc
+    limit 300
+    on conflict (attempt_id, question_id) do update
+      set answer_text = excluded.answer_text,
+          marks_awarded = 0,
+          updated_at = v_now;
+  end if;
+
+  update public.external_candidate_exam_answers a
+  set marks_awarded = case
+    when lower(coalesce(q.question_type, '')) in ('multiple_choice', 'mcq', 'objective')
+      and nullif(trim(coalesce(a.answer_text, '')), '') is not null
+      and upper(trim(a.answer_text)) = upper(trim(coalesce(q.correct_answer, '')))
+    then coalesce(q.marks, 0)
+    else 0
+  end,
+  updated_at = v_now
+  from public.online_exam_questions q
+  where a.attempt_id = v_attempt.id
+    and q.id = a.question_id
+    and q.school_id = v_attempt.school_id
+    and q.exam_id = v_attempt.exam_id;
+
+  select coalesce(sum(q.marks), 0)::numeric(8,2)
+    into v_total
+  from public.online_exam_questions q
+  where q.school_id = v_attempt.school_id
+    and q.exam_id = v_attempt.exam_id;
+
+  select coalesce(sum(a.marks_awarded), 0)::numeric(8,2)
+    into v_score
+  from public.external_candidate_exam_answers a
+  where a.school_id = v_attempt.school_id
+    and a.attempt_id = v_attempt.id;
+
+  update public.external_candidate_exam_attempts
+  set status = 'submitted',
+      submitted_at = v_now,
+      score = v_score,
+      total_marks = v_total
+  where id = v_attempt.id
+    and candidate_id = p_candidate_id
+    and status = 'in_progress';
+
+  return jsonb_build_object(
+    'success', true,
+    'status', 'submitted',
+    'auto_submitted', v_auto_submitted,
+    'score', v_score,
+    'total_marks', v_total
+  );
+end;
+$function$;
+
+revoke all on function public.resa_external_candidate_cbt_save(uuid, uuid, jsonb) from public, anon, authenticated;
+revoke all on function public.resa_external_candidate_cbt_submit(uuid, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.resa_external_candidate_cbt_save(uuid, uuid, jsonb) to service_role;
+grant execute on function public.resa_external_candidate_cbt_submit(uuid, uuid, jsonb) to service_role;
