@@ -1135,7 +1135,7 @@ declare
  v_today date:=(now() at time zone 'Africa/Lagos')::date;
  v_local_time time:=(now() at time zone 'Africa/Lagos')::time;
  v_school record; v_alert record; v_sender uuid; v_reminders integer:=0; v_created integer:=0;
- v_person_name text; v_message text;
+ v_person_name text; v_message text; v_count integer:=0; v_reminder_count integer:=0;
 begin
  if v_local_time<time '10:00' or v_local_time>=time '20:00' then
   return jsonb_build_object('skipped',true,'reason','Outside the Lagos attendance reminder window','date',v_today);
@@ -1152,7 +1152,7 @@ begin
   where st.school_id=v_school.id and st.status='active'
     and (sa.id is null or (sa.check_in_at is null and sa.status not in('present','late')))
   on conflict do nothing;
-  get diagnostics v_created = row_count;
+  get diagnostics v_count = row_count;\n  v_created:=v_created+v_count;
 
   -- Active staff without a present/checked-out record or check-in time.
   insert into public.attendance_checkpoint_alerts(school_id,attendance_date,person_type,staff_id,alert_status)
@@ -1162,7 +1162,7 @@ begin
   where sf.school_id=v_school.id and sf.status='active'
     and (sa.id is null or (sa.check_in_time is null and sa.status not in('present','checked_out')))
   on conflict do nothing;
-  get diagnostics v_created = v_created + row_count;
+  get diagnostics v_count = row_count;\n  v_created:=v_created+v_count;
 
   select m.user_id into v_sender from public.school_memberships m
   where m.school_id=v_school.id and m.role='admin' and m.status='active'
@@ -1187,7 +1187,7 @@ begin
   loop
    update public.attendance_checkpoint_alerts
     set last_reminded_at=now(),reminder_count=reminder_count+1
-    where id=v_alert.id returning reminder_count into v_reminders;
+    where id=v_alert.id returning reminder_count into v_reminder_count;
    v_message:='RESA attendance alert: '||coalesce(v_alert.person_name,'School member')||
     case when v_alert.person_reference is not null then ' ('||v_alert.person_reference||')' else '' end||
     ' has no recorded check-in by 10:00 AM Lagos time. Reminder #'||v_reminders||
