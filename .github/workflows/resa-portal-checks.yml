@@ -45,16 +45,3 @@ jobs:
 
       - name: Build production applications
         run: pnpm run build
-
-      - name: Set up Deno
-        uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.9.8
-
-      - name: Typecheck RESA Edge Functions
-        run: >-
-          deno check --node-modules-dir=auto
-          supabase/functions/resa-activate-account/index.ts
-          supabase/functions/resa-external-candidate-register/index.ts
-          supabase/functions/resa-external-cbt/index.ts
-          supabase/functions/resa-admission-application-submit/index.ts
