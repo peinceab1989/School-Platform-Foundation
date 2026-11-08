@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bell, BellRing, CheckCheck, MessageSquare, Megaphone, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -20,6 +20,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedDate, setSelectedDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+  const [filter, setFilter] = useState<"all" | "unread">("all");
   const [pushEnabled, setPushEnabled] = useState(typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
 
   const load = useCallback(async () => {
@@ -119,6 +122,14 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   }
 
   const unreadCount = items.filter(item => (item.kind === "message" || item.kind === "chat") && item.unread).length;
+  const filteredItems = useMemo(() => items.filter(item => {
+    const itemDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.createdAt));
+    const matchesDate = itemDate === selectedDate;
+    const matchesUnread = filter === "all" || (item.kind !== "announcement" && item.unread);
+    const query = search.trim().toLocaleLowerCase();
+    const matchesSearch = !query || `${item.title} ${item.body} ${item.kind} ${item.channel ?? ""}`.toLocaleLowerCase().includes(query);
+    return matchesDate && matchesUnread && matchesSearch;
+  }), [items, selectedDate, filter, search]);
   const back = role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "student" ? "/student-dashboard" : "/parent-dashboard";
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
@@ -138,8 +149,24 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
       {loading && <p className="rounded-xl border bg-white p-6 text-sm text-slate-500">Loading your notifications…</p>}
       {!loading && !items.length && <section className="rounded-2xl border border-dashed bg-white p-10 text-center"><Bell className="mx-auto text-slate-400" size={34}/><h2 className="mt-3 font-bold">You're all caught up</h2><p className="mt-1 text-sm text-slate-500">New messages and published announcements will appear here.</p></section>}
-      <div className="space-y-3">{items.map(item => <article key={item.kind + item.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${item.unread ? "border-emerald-400 ring-1 ring-emerald-100" : "border-slate-200"}`}>
-        <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="announcement"?<Megaphone size={20}/>:<MessageSquare size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{item.kind==="announcement"?"School announcement":item.kind==="chat"?"Group chat":item.channel==="announcement"?"School notification":item.channel==="customer_care"?"Customer Care":"Private message"}</span></div><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{item.body}</p><p className="mt-3 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
+      <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+          <label className="text-xs font-bold text-slate-600">Search notifications
+            <input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Search messages, announcements or chat" className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal"/>
+          </label>
+          <label className="text-xs font-bold text-slate-600">Day / date
+            <input type="date" value={selectedDate} onChange={event=>setSelectedDate(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"/>
+          </label>
+          <button type="button" onClick={()=>setSelectedDate(new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()))} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-emerald-900">Today</button>
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+          <div className="flex gap-2"><button type="button" onClick={()=>setFilter("all")} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filter==="all"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>All</button><button type="button" onClick={()=>setFilter("unread")} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filter==="unread"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>Unread</button></div>
+          <span className="text-xs text-slate-500">{filteredItems.length} shown · {items.length} loaded</span>
+        </div>
+      </section>
+      {!loading && filteredItems.length===0 && items.length>0 && <p className="rounded-xl border border-dashed bg-white p-4 text-sm text-slate-600">No notifications match this date and search. Choose another date or clear the search to find older items.</p>}
+      <div className="max-h-[68vh] space-y-2 overflow-y-auto pr-1">{filteredItems.map(item => <article key={item.kind + item.id} className={`rounded-xl border bg-white p-3 shadow-sm ${item.unread ? "border-emerald-400 ring-1 ring-emerald-100" : "border-slate-200"}`}>
+        <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="announcement"?<Megaphone size={20}/>:<MessageSquare size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{item.kind==="announcement"?"School announcement":item.kind==="chat"?"Group chat":item.channel==="announcement"?"School notification":item.channel==="customer_care"?"Customer Care":"Private message"}</span></div><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-slate-700">{item.body}</p><p className="mt-2 text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
       </article>)}</div>
       <p className="text-xs leading-5 text-slate-500">Browser alerts require your permission and work while the portal is open. Reliable background push, email, and WhatsApp delivery require a configured notification service; this page does not claim those external channels are connected.</p>
     </div>
