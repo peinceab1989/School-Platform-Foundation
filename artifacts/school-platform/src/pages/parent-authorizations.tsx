@@ -76,7 +76,7 @@ export default function ParentAuthorizationsPage({schoolId,userId}:{schoolId:str
    if(validUntil&&new Date(validUntil)<=visitAt)throw new Error("The authorization expiry must be after the visit time.");
    const db=getSupabaseClient() as any;
    const {data:submitted,error:submitError}=await db.rpc("resa_submit_parent_access_request",{
-    p_parent_guardian_id:parentId,p_purpose:purpose,p_student_id:studentId||null,
+    p_school_id:schoolId,p_parent_guardian_id:parentId,p_purpose:purpose,p_student_id:studentId||null,
     p_delegate_full_name:delegateName.trim(),p_delegate_phone:delegatePhone.trim(),
     p_delegate_relationship:relationship.trim()||null,p_delegate_identity_reference:identityRef.trim()||null,
     p_intended_department:department.trim()||null,p_intended_staff_member:staffMember.trim()||null,
