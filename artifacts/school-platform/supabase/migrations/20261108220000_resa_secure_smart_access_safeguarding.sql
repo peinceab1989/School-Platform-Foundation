@@ -1238,7 +1238,7 @@ create or replace function public.resolve_attendance_checkpoint_after_checkin()
 returns trigger language plpgsql security definer set search_path=''
 as $function$
 begin
- if new.check_in_at is not null then
+ if new.check_in_at is not null or new.status in('present','late') then
   update public.attendance_checkpoint_alerts set alert_status='resolved'
   where school_id=new.school_id and student_id=new.student_id and attendance_date=new.attendance_date
    and person_type='student' and alert_status='pending';
@@ -1247,14 +1247,14 @@ begin
 end;
 $function$;
 drop trigger if exists resolve_student_attendance_checkpoint on public.student_attendance;
-create trigger resolve_student_attendance_checkpoint after insert or update of check_in_at on public.student_attendance
+create trigger resolve_student_attendance_checkpoint after insert or update of check_in_at,status on public.student_attendance
 for each row execute function public.resolve_attendance_checkpoint_after_checkin();
 
 create or replace function public.resolve_staff_attendance_checkpoint_after_checkin()
 returns trigger language plpgsql security definer set search_path=''
 as $function$
 begin
- if new.check_in_time is not null then
+ if new.check_in_time is not null or new.status in('present','checked_out') then
   update public.attendance_checkpoint_alerts set alert_status='resolved'
   where school_id=new.school_id and staff_id=new.staff_id and attendance_date=new.attendance_date
    and person_type='staff' and alert_status='pending';
@@ -1263,7 +1263,7 @@ begin
 end;
 $function$;
 drop trigger if exists resolve_staff_attendance_checkpoint on public.staff_attendance;
-create trigger resolve_staff_attendance_checkpoint after insert or update of check_in_time on public.staff_attendance
+create trigger resolve_staff_attendance_checkpoint after insert or update of check_in_time,status on public.staff_attendance
 for each row execute function public.resolve_staff_attendance_checkpoint_after_checkin();
 revoke all on function public.resolve_attendance_checkpoint_after_checkin() from public,anon,authenticated;
 revoke all on function public.resolve_staff_attendance_checkpoint_after_checkin() from public,anon,authenticated;
