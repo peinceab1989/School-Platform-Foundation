@@ -10,7 +10,7 @@ const field = "mt-1 block w-full rounded-xl border border-slate-300 bg-white px-
 const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "—";
 
 export default function SmartAccessManagementPage({ schoolId, userId }: { schoolId: string; userId: string }) {
-  const [tab, setTab] = useState<"requests" | "pickup" | "people" | "releases">("requests");
+  const [tab, setTab] = useState<"requests" | "pickup" | "people" | "releases" | "events">("requests");
   const [requests, setRequests] = useState<Row[]>([]);
   const [authorizations, setAuthorizations] = useState<Row[]>([]);
   const [records, setRecords] = useState<Row[]>([]);
@@ -44,6 +44,14 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
   const parentStreamRef=useRef<MediaStream|null>(null);
   const parentScanActive=useRef(false);
   const [parentQrScanning,setParentQrScanning]=useState(false);
+  const [accessEvents,setAccessEvents]=useState<Row[]>([]);
+  const [eventAttendance,setEventAttendance]=useState<Row[]>([]);
+  const [eventName,setEventName]=useState("");
+  const [eventDescription,setEventDescription]=useState("");
+  const [eventStart,setEventStart]=useState("");
+  const [eventEnd,setEventEnd]=useState("");
+  const [selectedEventId,setSelectedEventId]=useState("");
+  const [eventParentQr,setEventParentQr]=useState("");
 
 
 
@@ -53,7 +61,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
     setLoading(true); setError("");
     try {
       const db = getSupabaseClient() as any;
-      const [req, auth, rec, rel, students, staff, settingsResult, devicesResult, parentAccountsResult] = await Promise.all([
+      const [req, auth, rec, rel, students, staff, settingsResult, devicesResult, parentAccountsResult, eventsResult, eventAttendanceResult] = await Promise.all([
         db.from("parent_official_access_requests").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
         db.from("child_collection_authorizations").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
         db.from("people_status_records").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
@@ -63,8 +71,10 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
         db.from("smart_access_settings").select("*").eq("school_id",schoolId).maybeSingle(),
         db.from("biometric_devices").select("id,device_name").eq("school_id",schoolId).eq("is_active",true).order("device_name"),
         db.from("parent_portal_accounts").select("parent_guardian_id").eq("school_id",schoolId).eq("is_active",true),
+        db.from("school_access_events").select("*").eq("school_id",schoolId).order("starts_at",{ascending:false}).limit(100),
+        db.from("school_access_event_attendance").select("*").eq("school_id",schoolId).order("checked_in_at",{ascending:false}).limit(200),
       ]);
-      for (const result of [req,auth,rec,rel,students,staff,settingsResult,devicesResult,parentAccountsResult]) if (result.error) throw result.error;
+      for (const result of [req,auth,rec,rel,students,staff,settingsResult,devicesResult,parentAccountsResult,eventsResult,eventAttendanceResult]) if (result.error) throw result.error;
       const rows = [...(students.data??[]).map((p:Row)=>({...p,type:"student" as const,label:p.admission_number||"Student"})), ...(staff.data??[]).map((p:Row)=>({...p,type:"staff" as const,label:p.staff_number||p.job_title||"Staff"}))];
       const personIds = [...new Set(rows.map((p:Row)=>p.person_id).filter(Boolean))];
       const peopleResult = personIds.length ? await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id",schoolId).in("id",personIds) : {data:[],error:null};
@@ -83,6 +93,9 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       const guardianNames=new Map((guardianPeople.data??[]).map((x:any)=>[x.id,[x.first_name,x.middle_name,x.last_name].filter(Boolean).join(" ")]));
       setParentOptions((guardianResult.data??[]).map((x:any)=>({id:x.id,label:guardianNames.get(x.person_id)||"Parent / guardian"})));
       setParentQrPersonId((current:string)=>current||guardianResult.data?.[0]?.id||"");
+      setAccessEvents(eventsResult.data??[]);
+      setEventAttendance(eventAttendanceResult.data??[]);
+      setSelectedEventId((current:string)=>current||eventsResult.data?.find((x:any)=>x.is_open_for_registration)?.id||"");
     } catch (e) { setError(e instanceof Error ? e.message : "Smart Access records could not be loaded."); }
     finally { setLoading(false); }
   }, [schoolId]);
@@ -153,6 +166,45 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       if(e) throw e;
       setNotice("Collection authorization decision saved. The approval is still subject to identity verification at collection."); await load();
     } catch(e){setError(e instanceof Error?e.message:"Could not update collection authorization.");}
+    finally{setSaving("");}
+  }
+
+  async function createAccessEvent(event:FormEvent){
+    event.preventDefault();setSaving("event");setError("");setNotice("");
+    try{
+      if(eventName.trim().length<2||!eventStart)throw new Error("Enter the event name and start time.");
+      const startsAt=new Date(eventStart+":00+01:00");
+      const endsAt=eventEnd?new Date(eventEnd+":00+01:00"):null;
+      if(Number.isNaN(startsAt.getTime())||(endsAt&&endsAt<=startsAt))throw new Error("Check the event date and end time.");
+      const db=getSupabaseClient() as any;
+      const {data,error:e}=await db.from("school_access_events").insert({
+        school_id:schoolId,event_name:eventName.trim(),event_description:eventDescription.trim(),
+        starts_at:startsAt.toISOString(),ends_at:endsAt?.toISOString()||null,is_open_for_registration:true,created_by:userId,
+      }).select("*").single();
+      if(e)throw e;
+      setAccessEvents(previous=>[data,...previous]);setSelectedEventId(data.id);
+      setEventName("");setEventDescription("");setEventStart("");setEventEnd("");
+      setNotice("School event created. Parent event check-in is separate from child collection.");
+    }catch(e){setError(e instanceof Error?e.message:"Could not create school event.");}
+    finally{setSaving("");}
+  }
+
+  async function checkinParentEvent(event:FormEvent){
+    event.preventDefault();setSaving("event-checkin");setError("");setNotice("");
+    try{
+      if(!selectedEventId)throw new Error("Select an event that is open for check-in.");
+      const raw=eventParentQr.trim().replace(/^RESA1:/i,"");
+      if(!/^[A-Za-z0-9_-]{22}$/.test(raw))throw new Error("Enter a valid parent QR credential.");
+      const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
+      const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+      const db=getSupabaseClient() as any;
+      const {data,error:e}=await db.rpc("resa_record_parent_event_checkin",{
+        p_school_id:schoolId,p_event_id:selectedEventId,p_parent_qr_hash:hash,p_station_id:releaseStationId||null,
+      });
+      if(e)throw e;if(!data?.success)throw new Error("Parent event check-in was not recorded.");
+      setEventParentQr("");setNotice("Parent checked in for the school event. This does not release any child.");
+      await load();
+    }catch(e){setError(e instanceof Error?e.message:"Parent event check-in failed.");}
     finally{setSaving("");}
   }
 
@@ -251,13 +303,32 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
        </div>
        {parentQrPayload&&<div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 p-3"><QrCodeDisplay value={parentQrPayload} size={180}/><div className="min-w-0 flex-1"><p className="text-sm font-bold">One-time parent QR</p><p className="mt-1 text-xs text-slate-600">This is an identity credential, not permission to collect a child. Staff must still verify the parent's identity and linked child.</p><textarea readOnly rows={2} value={parentQrPayload} className="mt-2 w-full break-all rounded-lg border bg-white p-2 font-mono text-xs"/><button type="button" onClick={()=>void navigator.clipboard.writeText(parentQrPayload)} className="mt-2 rounded-lg border bg-white px-3 py-2 text-xs font-bold">Copy credential</button></div></div>}
       </section>
-      <nav className="flex flex-wrap gap-2">{([["requests","Parent requests"],["pickup","Child pickup approvals"],["people","People records"],["releases","Collection register"]] as const).map(([key,label])=><button key={key} onClick={()=>setTab(key)} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${tab===key?"bg-emerald-900 text-white":"border bg-white text-slate-700"}`}>{label}</button>)}</nav>
+      <nav className="flex flex-wrap gap-2">{([["requests","Parent requests"],["pickup","Child pickup approvals"],["people","People records"],["releases","Collection register"],["events","School events"]] as const).map(([key,label])=><button key={key} onClick={()=>setTab(key)} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${tab===key?"bg-emerald-900 text-white":"border bg-white text-slate-700"}`}>{label}</button>)}</nav>
       {error&&<p role="alert" className="break-words rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
       {notice&&<p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">{notice}</p>}
       {loading?<p className="rounded-2xl border bg-white p-8 text-center text-sm text-slate-500">Loading safeguarding records…</p>:null}
       {!loading&&tab==="requests"&&<section className="space-y-3">{requests.length===0?<p className="rounded-2xl border bg-white p-6 text-sm text-slate-500">No parent official-access requests have been submitted.</p>:requests.map(row=><article key={row.id} className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-extrabold capitalize">{String(row.purpose).replaceAll("_"," ")}</h2><p className="mt-1 text-sm text-slate-600">Delegate: {row.delegate_full_name} · {row.delegate_phone} · {row.delegate_relationship||"Relationship not stated"}</p><p className="mt-1 text-xs text-slate-500">Visit: {dateLabel(row.requested_visit_at)} · Submitted: {dateLabel(row.created_at)}</p><p className="mt-3 whitespace-pre-wrap text-sm">{row.purpose_details}</p><p className="mt-2 text-xs text-slate-500">Department: {row.intended_department||"Not specified"} · Staff: {row.intended_staff_member||"Not specified"}</p></div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold capitalize text-amber-900">{String(row.request_status).replaceAll("_"," ")}</span></div>{row.request_status==="pending"&&<div className="mt-4 border-t pt-4"><label className="block text-sm font-semibold">Review note<input className={field} value={reviewNote[row.id]||""} onChange={e=>setReviewNote(p=>({...p,[row.id]:e.target.value}))} placeholder="Optional decision note"/></label><div className="mt-3 flex flex-wrap gap-2"><button disabled={!!saving} onClick={()=>void updateRequest(row,"approved")} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><CheckCircle2 className="mr-1 inline" size={16}/> Approve</button><button disabled={!!saving} onClick={()=>void updateRequest(row,"rejected")} className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-800 disabled:opacity-50"><XCircle className="mr-1 inline" size={16}/> Reject</button></div></div>}</article>)}</section>}
       {!loading&&tab==="pickup"&&<section className="space-y-3">{authorizations.length===0?<p className="rounded-2xl border bg-white p-6 text-sm text-slate-500">No child collection authorizations have been submitted.</p>:authorizations.map(row=><article key={row.id} className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-extrabold">{row.collector_full_name}</h2><p className="mt-1 text-sm text-slate-600">{row.collector_phone} · {row.relationship}</p><p className="mt-1 text-xs text-slate-500">Valid from {dateLabel(row.valid_from)} · Until {dateLabel(row.valid_until)}</p><p className="mt-2 text-xs text-slate-600">Student record: {row.student_id}</p>{row.consumed_at&&<p className="mt-2 text-xs font-bold text-emerald-800">Used for collection at {dateLabel(row.consumed_at)}</p>}</div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold capitalize text-amber-900">{String(row.approval_status).replaceAll("_"," ")}</span></div>{row.approval_status==="pending"&&<div className="mt-4 border-t pt-4"><label className="block text-sm font-semibold">Review note<input className={field} value={reviewNote[row.id]||""} onChange={e=>setReviewNote(p=>({...p,[row.id]:e.target.value}))} placeholder="Optional decision note"/></label><div className="mt-3 flex flex-wrap gap-2"><button disabled={!!saving} onClick={()=>void updateAuthorization(row,"approved")} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Approve pickup</button><button disabled={!!saving} onClick={()=>void updateAuthorization(row,"rejected")} className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-800 disabled:opacity-50">Reject</button></div></div>}</article>)}</section>}
       {!loading&&tab==="people"&&<div className="grid gap-5 lg:grid-cols-[minmax(300px,.8fr)_minmax(0,1.2fr)]"><form onSubmit={createRecord} className="rounded-2xl border bg-white p-5 shadow-sm"><h2 className="text-lg font-extrabold">Create confidential record</h2><p className="mt-1 text-sm text-slate-600">New records begin as drafts and are not shown to the subject until formally issued.</p><label className="mt-4 block text-sm font-semibold">Person type<select className={field} value={subjectType} onChange={e=>{setSubjectType(e.target.value as any);setSubjectId("");}}><option value="student">Student</option><option value="staff">Teacher / staff</option></select></label><label className="mt-3 block text-sm font-semibold">Person<select className={field} value={subjectId} onChange={e=>setSubjectId(e.target.value)} required><option value="">Select person</option>{selectedPeople.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></label><label className="mt-3 block text-sm font-semibold">Record category<select className={field} value={category} onChange={e=>setCategory(e.target.value)}>{["query","investigation","warning","suspension","expulsion","termination","commendation","award","promotion","appointment","role_change","other"].map(v=><option key={v} value={v}>{v.replaceAll("_"," ")}</option>)}</select></label><label className="mt-3 block text-sm font-semibold">Title<input className={field} value={title} onChange={e=>setTitle(e.target.value)} minLength={3} maxLength={180} required/></label><label className="mt-3 block text-sm font-semibold">Details<textarea className={field} rows={4} value={details} onChange={e=>setDetails(e.target.value)} minLength={5} maxLength={5000} required/></label><label className="mt-3 block text-sm font-semibold">Severity<select className={field} value={severity} onChange={e=>setSeverity(e.target.value)}><option value="low">Low</option><option value="moderate">Moderate</option><option value="serious">Serious</option><option value="critical">Critical</option></select></label><button disabled={saving==="record"} className="mt-4 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving==="record"?"Saving…":"Save as confidential draft"}</button></form><section className="space-y-3"><h2 className="text-lg font-extrabold">Student and staff records</h2>{records.length===0?<p className="rounded-2xl border bg-white p-6 text-sm text-slate-500">No people-status records yet.</p>:records.map(row=>{const person=peopleById.get(row.subject_record_id);return <article key={row.id} className="rounded-2xl border bg-white p-4 shadow-sm"><div className="flex flex-wrap justify-between gap-2"><div><p className="font-extrabold">{row.record_title}</p><p className="mt-1 text-sm text-slate-600">{person?.label||row.subject_record_id} · {row.subject_type} · {row.record_category.replaceAll("_"," ")}</p><p className="mt-2 whitespace-pre-wrap text-sm">{row.record_details}</p><p className="mt-2 text-xs text-slate-500">Created {dateLabel(row.created_at)} · Effective {dateLabel(row.effective_from)}</p></div><span className="h-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold capitalize">{row.record_status.replaceAll("_"," ")}</span></div>{row.record_status==="draft"&&<div className="mt-3 flex flex-wrap gap-2"><button disabled={!!saving} onClick={()=>void updateRecord(row,"pending_review")} className="rounded-xl border px-3 py-2 text-xs font-bold">Submit for review</button><button disabled={!!saving} onClick={()=>void updateRecord(row,"issued")} className="rounded-xl bg-emerald-800 px-3 py-2 text-xs font-bold text-white">Issue record</button></div>}{row.record_status==="under_appeal"&&<div className="mt-3 flex gap-2"><button disabled={!!saving} onClick={()=>void updateRecord(row,"upheld")} className="rounded-xl bg-emerald-800 px-3 py-2 text-xs font-bold text-white">Uphold</button><button disabled={!!saving} onClick={()=>void updateRecord(row,"reversed")} className="rounded-xl border px-3 py-2 text-xs font-bold">Reverse</button></div>}</article>})}</section></div>}
+      {!loading&&tab==="events"&&<div className="grid gap-4 lg:grid-cols-2">
+       <form onSubmit={createAccessEvent} className="rounded-2xl border bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-extrabold">Create school event</h2>
+        <p className="mt-1 text-sm text-slate-600">For PTA meetings, parent meetings, school events and visitor attendance. This register is separate from student pickup.</p>
+        <label className="mt-3 block text-sm font-semibold">Event name<input className={field} value={eventName} onChange={e=>setEventName(e.target.value)} minLength={2} maxLength={160} required/></label>
+        <label className="mt-3 block text-sm font-semibold">Description<textarea className={field} value={eventDescription} onChange={e=>setEventDescription(e.target.value)} maxLength={1000}/></label>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-sm font-semibold">Starts<input type="datetime-local" className={field} value={eventStart} onChange={e=>setEventStart(e.target.value)} required/></label><label className="text-sm font-semibold">Ends (optional)<input type="datetime-local" className={field} value={eventEnd} onChange={e=>setEventEnd(e.target.value)}/></label></div>
+        <button disabled={saving==="event"} className="mt-4 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving==="event"?"Creating…":"Create event"}</button>
+       </form>
+       <form onSubmit={checkinParentEvent} className="rounded-2xl border bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-extrabold">Parent event check-in</h2>
+        <p className="mt-1 text-sm text-slate-600">Enter the parent's school-issued QR credential after visually verifying identity.</p>
+        <label className="mt-3 block text-sm font-semibold">Event<select className={field} value={selectedEventId} onChange={e=>setSelectedEventId(e.target.value)} required><option value="">Select event</option>{accessEvents.filter(e=>e.is_open_for_registration).map(e=><option key={e.id} value={e.id}>{e.event_name} · {dateLabel(e.starts_at)}</option>)}</select></label>
+        <label className="mt-3 block text-sm font-semibold">Parent QR credential<input className={field+" font-mono"} value={eventParentQr} onChange={e=>setEventParentQr(e.target.value)} placeholder="RESA1:…"/></label>
+        <label className="mt-3 block text-sm font-semibold">Station (optional)<select className={field} value={releaseStationId} onChange={e=>setReleaseStationId(e.target.value)}><option value="">No station selected</option>{devices.map(d=><option key={d.id} value={d.id}>{d.device_name}</option>)}</select></label>
+        <button disabled={saving==="event-checkin"||!settings.parent_events_enabled||!settings.parent_qr_enabled} className="mt-4 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving==="event-checkin"?"Recording…":"Record parent event check-in"}</button>
+       </form>
+       <section className="rounded-2xl border bg-white p-5 shadow-sm lg:col-span-2"><h2 className="text-lg font-extrabold">Recent event attendance</h2>{eventAttendance.length===0?<p className="mt-3 text-sm text-slate-500">No parent event check-ins recorded.</p>:<div className="mt-3 divide-y">{eventAttendance.map(row=><div key={row.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span>{accessEvents.find(e=>e.id===row.event_id)?.event_name||"School event"} · Parent record {row.parent_guardian_id}</span><span className="text-slate-500">{dateLabel(row.checked_in_at)}</span></div>)}</div>}</section>
+      </div>}
       {!loading&&tab==="releases"&&<section className="space-y-4">
        <form onSubmit={recordChildRelease} className="rounded-2xl border bg-white p-5 shadow-sm">
         <h2 className="text-lg font-extrabold">Verify and record child collection</h2>
