@@ -489,7 +489,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       const {error:saveError}=await db.from("parent_attendance_notification_preferences").upsert(rows,{onConflict:"school_id,parent_guardian_id,user_id"});
       if(saveError) throw saveError;
       setSoundAlertsEnabled(enabled); setSoundChoice(sound); setPhoneNotificationsEnabled(phoneEnabled);
-      if(enabled&&sound!=="none") playParentAttendanceSound(sound);
+      // Changing preferences must not play an attendance sound. Sound is emitted only when a new attendance event arrives.
     } catch(error) { setOverviewError(error instanceof Error?error.message:"Notification preferences could not be saved."); }
     finally { setNotificationBusy(false); }
   }
