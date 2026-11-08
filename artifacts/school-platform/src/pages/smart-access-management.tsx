@@ -182,8 +182,8 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
         authorizationId=releaseAuthorizationId;
       } else if(releaseMethod==="parent_qr"){
         const raw=parentQrCode.trim().replace(/^RESA1:/i,"");
-        if(!/^[a-f0-9]{64}$/i.test(raw))throw new Error("Enter a valid parent QR credential.");
-        const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw.toLowerCase()));
+        if(!/^[A-Za-z0-9_-]{22}$/.test(raw))throw new Error("Enter a valid parent QR credential.");
+        const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw));
         parentHash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
       }
       const db=getSupabaseClient() as any;
