@@ -1179,3 +1179,106 @@ using (
       and public.has_school_role(r.school_id,array['admin']::public.school_role[])
   )
 );
+
+
+-- Append-only audit history for parent collection authorization decisions.
+create table if not exists public.child_collection_authorization_events (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references public.schools(id) on delete cascade,
+  authorization_id uuid not null references public.child_collection_authorizations(id) on delete restrict,
+  event_type text not null check (event_type in ('submitted','approved','rejected','revoked','consumed')),
+  actor_user_id uuid references auth.users(id),
+  event_note text,
+  occurred_at timestamptz not null default now()
+);
+create index if not exists child_collection_authorization_events_idx
+  on public.child_collection_authorization_events(authorization_id,occurred_at);
+alter table public.child_collection_authorization_events enable row level security;
+grant select on public.child_collection_authorization_events to authenticated;
+create policy child_collection_authorization_events_admin_read
+  on public.child_collection_authorization_events for select to authenticated
+  using (public.has_school_role(school_id,array['admin']::public.school_role[]));
+create policy child_collection_authorization_events_parent_read
+  on public.child_collection_authorization_events for select to authenticated
+  using (
+    exists (
+      select 1 from public.child_collection_authorizations a
+      join public.parent_portal_accounts p
+        on p.school_id=a.school_id and p.parent_guardian_id=a.parent_guardian_id
+      where a.id=child_collection_authorization_events.authorization_id
+        and p.user_id=(select auth.uid()) and p.is_active
+    )
+  );
+
+create or replace function public.audit_child_collection_authorization()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare v_event text;
+begin
+  if tg_op='INSERT' then
+    v_event:='submitted';
+  elsif new.consumed_at is not null and old.consumed_at is null then
+    v_event:='consumed';
+  elsif new.approval_status is distinct from old.approval_status then
+    v_event:=new.approval_status;
+  else
+    return new;
+  end if;
+  insert into public.child_collection_authorization_events(
+    school_id,authorization_id,event_type,actor_user_id,event_note
+  ) values(
+    new.school_id,new.id,v_event,coalesce(auth.uid(),new.reviewed_by,new.consumed_by),
+    case when v_event='approved' then coalesce(new.review_note,'Approved by school')
+         when v_event='rejected' then coalesce(new.review_note,'Rejected by school')
+         when v_event='consumed' then 'Authorization used for a recorded child collection'
+         else new.review_note end
+  );
+  return new;
+end;
+$function$;
+
+drop trigger if exists child_collection_authorization_audit on public.child_collection_authorizations;
+create trigger child_collection_authorization_audit
+after insert or update of approval_status,consumed_at
+on public.child_collection_authorizations
+for each row execute function public.audit_child_collection_authorization();
+
+revoke insert,update,delete,truncate on public.child_collection_authorization_events from authenticated;
+revoke all on function public.audit_child_collection_authorization() from public,anon,authenticated;
+
+create or replace function public.audit_parent_official_request_decision()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if new.request_status is distinct from old.request_status then
+    insert into public.parent_official_access_request_events(
+      school_id,request_id,event_type,actor_user_id,event_note
+    ) values(
+      new.school_id,new.id,
+      case when new.request_status='completed' then 'completed'
+           when new.request_status='approved' then 'approved'
+           when new.request_status='rejected' then 'rejected'
+           when new.request_status='revoked' then 'revoked'
+           else 'checked_out' end,
+      coalesce(auth.uid(),new.reviewed_by),
+      coalesce(new.review_note,'Request status changed to '||new.request_status)
+    );
+    insert into public.smart_access_notification_outbox(school_id,request_id,notification_type,audience_roles)
+    values(new.school_id,new.id,'parent_authorization_decision',array['admin','hr']::text[]);
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists parent_official_request_decision_audit on public.parent_official_access_requests;
+create trigger parent_official_request_decision_audit
+after update of request_status on public.parent_official_access_requests
+for each row execute function public.audit_parent_official_request_decision();
+
+revoke all on function public.audit_parent_official_request_decision() from public,anon,authenticated;
