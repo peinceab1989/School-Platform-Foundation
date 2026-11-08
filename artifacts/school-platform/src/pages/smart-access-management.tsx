@@ -43,7 +43,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
     setLoading(true); setError("");
     try {
       const db = getSupabaseClient() as any;
-      const [req, auth, rec, rel, students, staff, settingsResult] = await Promise.all([
+      const [req, auth, rec, rel, students, staff, settingsResult, devicesResult] = await Promise.all([
         db.from("parent_official_access_requests").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
         db.from("child_collection_authorizations").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
         db.from("people_status_records").select("*").eq("school_id", schoolId).order("created_at",{ascending:false}).limit(250),
