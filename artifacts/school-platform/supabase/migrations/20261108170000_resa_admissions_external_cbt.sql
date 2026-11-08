@@ -4,8 +4,6 @@
 -- Separate external CBT candidates and trusted form-purchase verification.
 -- External candidates never become ordinary RESA student records.
 
-begin;
-
 create table if not exists public.external_candidate_form_purchases (
   id uuid primary key default gen_random_uuid(),
   school_id uuid not null references public.schools(id) on delete cascade,
@@ -178,8 +176,6 @@ create policy "school admins manage external candidate answers"
 
 -- Public admission application workflow backed by school-issued, verified forms.
 -- The public endpoint validates the form purchase before creating any application.
-
-begin;
 
 alter table public.admission_applications
   add column if not exists form_purchase_id uuid
