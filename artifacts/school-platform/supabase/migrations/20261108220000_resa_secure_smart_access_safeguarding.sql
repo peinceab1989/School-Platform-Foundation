@@ -1137,6 +1137,9 @@ declare
  v_school record; v_alert record; v_sender uuid; v_reminders integer:=0; v_created integer:=0;
  v_person_name text; v_message text; v_count integer:=0; v_reminder_count integer:=0;
 begin
+ if extract(isodow from (now() at time zone 'Africa/Lagos'))=7 then
+  return jsonb_build_object('skipped',true,'reason','Sunday is not a standard attendance day','date',v_today);
+ end if;
  if v_local_time<time '10:00' or v_local_time>=time '20:00' then
   return jsonb_build_object('skipped',true,'reason','Outside the Lagos attendance reminder window','date',v_today);
  end if;
