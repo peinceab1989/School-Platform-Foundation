@@ -1046,3 +1046,136 @@ comment on function public.resa_record_child_collection_release(uuid,uuid,text,t
 'Trusted one-time release operation. Requires school staff, active child-pickup settings, and a valid approved authorization or linked parent QR. A scan alone never releases a child.';
 comment on function public.resa_record_qr_attendance(text,uuid,text) is
 'Records a QR attendance event through the existing biometric attendance and parent notification triggers.';
+
+
+-- Parent QR check-in for school events is separate from child collection.
+revoke insert, update, delete, truncate on public.school_access_event_attendance from authenticated;
+
+create or replace function public.resa_record_parent_event_checkin(
+  p_school_id uuid,
+  p_event_id uuid,
+  p_parent_qr_hash text,
+  p_station_id uuid default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_parent_id uuid;
+  v_attendance_id uuid;
+  v_event public.school_access_events%rowtype;
+begin
+  if auth.uid() is null or not public.has_school_role(p_school_id,array['admin','teacher']::public.school_role[]) then
+    raise exception 'School staff access is required';
+  end if;
+  if p_parent_qr_hash !~ '^[a-f0-9]{64}$' then raise exception 'Invalid parent QR credential'; end if;
+  if not exists (select 1 from public.smart_access_settings s where s.school_id=p_school_id and s.parent_events_enabled and s.parent_qr_enabled) then
+    raise exception 'Parent event QR check-in is not enabled by the school';
+  end if;
+  select * into v_event from public.school_access_events
+    where id=p_event_id and school_id=p_school_id and is_open_for_registration
+      and starts_at<=now() and (ends_at is null or ends_at>now());
+  if not found then raise exception 'This event is not open for check-in'; end if;
+  select q.parent_guardian_id into v_parent_id from public.parent_qr_credentials q
+    where q.school_id=p_school_id and q.token_hash=p_parent_qr_hash and q.is_active;
+  if not found then raise exception 'Parent QR credential is invalid or revoked'; end if;
+  if p_station_id is not null and not exists (
+    select 1 from public.biometric_devices d where d.id=p_station_id and d.school_id=p_school_id and d.is_active
+  ) then raise exception 'Invalid attendance station'; end if;
+  insert into public.school_access_event_attendance(
+    school_id,event_id,parent_guardian_id,recorded_by,station_id
+  ) values(p_school_id,p_event_id,v_parent_id,auth.uid(),p_station_id)
+  on conflict(event_id,parent_guardian_id) do nothing
+  returning id into v_attendance_id;
+  if v_attendance_id is null then raise exception 'This parent is already checked in for the event'; end if;
+  return jsonb_build_object('success',true,'attendance_id',v_attendance_id,'parent_guardian_id',v_parent_id,'checked_in_at',now(),'event_name',v_event.event_name);
+end;
+$function$;
+
+revoke all on function public.resa_record_parent_event_checkin(uuid,uuid,text,uuid) from public,anon;
+grant execute on function public.resa_record_parent_event_checkin(uuid,uuid,text,uuid) to authenticated;
+
+-- Private supporting documents for disciplinary, safeguarding and recognition records.
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values('resa-people-records','resa-people-records',false,104857600,
+  array['application/pdf','image/jpeg','image/png','image/webp','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+on conflict(id) do nothing;
+
+drop policy if exists "RESA people records admin read" on storage.objects;
+create policy "RESA people records admin read" on storage.objects
+for select to authenticated
+using (
+  bucket_id='resa-people-records'
+  and exists (
+    select 1 from public.people_status_documents d
+    join public.people_status_records r on r.id=d.record_id and r.school_id=d.school_id
+    where d.storage_path=storage.objects.name
+      and public.has_school_role(r.school_id,array['admin']::public.school_role[])
+  )
+);
+
+drop policy if exists "RESA people records subjects read issued" on storage.objects;
+create policy "RESA people records subjects read issued" on storage.objects
+for select to authenticated
+using (
+  bucket_id='resa-people-records'
+  and exists (
+    select 1 from public.people_status_documents d
+    join public.people_status_records r on r.id=d.record_id and r.school_id=d.school_id
+    where d.storage_path=storage.objects.name
+      and r.subject_user_id=(select auth.uid())
+      and r.record_status in ('issued','under_appeal','upheld','reversed')
+  )
+);
+
+drop policy if exists "RESA people records admins upload" on storage.objects;
+create policy "RESA people records admins upload" on storage.objects
+for insert to authenticated
+with check (
+  bucket_id='resa-people-records'
+  and (storage.foldername(name))[1] is not null
+  and (storage.foldername(name))[2] is not null
+  and exists (
+    select 1 from public.people_status_records r
+    where r.id=((storage.foldername(name))[2])::uuid
+      and r.school_id=((storage.foldername(name))[1])::uuid
+      and public.has_school_role(r.school_id,array['admin']::public.school_role[])
+  )
+);
+
+drop policy if exists "RESA people records admins update" on storage.objects;
+create policy "RESA people records admins update" on storage.objects
+for update to authenticated
+using (
+  bucket_id='resa-people-records'
+  and exists (
+    select 1 from public.people_status_records r
+    where r.id=((storage.foldername(name))[2])::uuid
+      and r.school_id=((storage.foldername(name))[1])::uuid
+      and public.has_school_role(r.school_id,array['admin']::public.school_role[])
+  )
+)
+with check (
+  bucket_id='resa-people-records'
+  and exists (
+    select 1 from public.people_status_records r
+    where r.id=((storage.foldername(name))[2])::uuid
+      and r.school_id=((storage.foldername(name))[1])::uuid
+      and public.has_school_role(r.school_id,array['admin']::public.school_role[])
+  )
+);
+
+drop policy if exists "RESA people records admins delete" on storage.objects;
+create policy "RESA people records admins delete" on storage.objects
+for delete to authenticated
+using (
+  bucket_id='resa-people-records'
+  and exists (
+    select 1 from public.people_status_records r
+    where r.id=((storage.foldername(name))[2])::uuid
+      and r.school_id=((storage.foldername(name))[1])::uuid
+      and public.has_school_role(r.school_id,array['admin']::public.school_role[])
+  )
+);
