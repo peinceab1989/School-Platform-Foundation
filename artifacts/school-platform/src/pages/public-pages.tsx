@@ -605,6 +605,7 @@ export function AdmissionsPage() {
               <p className="font-extrabold text-[#163c2e]">Document to prepare</p>
               <p className="mt-2 leading-7 text-slate-600">Four (4) recent passport photographs. Please confirm whether any additional documents are required.</p>
             </div>
+            <Link href="/admissions-apply" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#d8b765] px-5 py-4 font-extrabold text-[#163c2e] shadow-[0_5px_0_#98783a] transition hover:-translate-y-1">Apply online with your verified form</Link>
             <a href={`tel:${PHONE}`} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#163c2e] px-5 py-4 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-1">
               <Phone size={18} /> Call Admissions
             </a>
