@@ -1190,7 +1190,7 @@ begin
     where id=v_alert.id returning reminder_count into v_reminder_count;
    v_message:='RESA attendance alert: '||coalesce(v_alert.person_name,'School member')||
     case when v_alert.person_reference is not null then ' ('||v_alert.person_reference||')' else '' end||
-    ' has no recorded check-in by 10:00 AM Lagos time. Reminder #'||v_reminders||
+    ' has no recorded check-in by 10:00 AM Lagos time. Reminder #'||v_reminder_count||
     '. Please investigate and acknowledge this alert in the Smart Attendance Centre.';
    insert into public.school_messages(school_id,sender_id,recipient_id,subject,message)
    select v_school.id,v_sender,rec.user_id,'Attendance checkpoint alert',v_message
