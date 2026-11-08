@@ -1010,3 +1010,54 @@ drop trigger if exists parent_official_request_decision_audit on public.parent_o
 create trigger parent_official_request_decision_audit after update of request_status on public.parent_official_access_requests
 for each row execute function public.audit_parent_official_request_decision();
 revoke all on function public.audit_parent_official_request_decision() from public,anon,authenticated;
+
+
+-- Parent submission is atomic: child-pickup requests create both the visit record
+-- and the specific collection authorization in the same transaction.
+create or replace function public.resa_submit_parent_access_request(
+ p_parent_guardian_id uuid,p_purpose text,p_student_id uuid,
+ p_delegate_full_name text,p_delegate_phone text,p_delegate_relationship text,
+ p_delegate_identity_reference text,p_intended_department text,p_intended_staff_member text,
+ p_purpose_details text,p_requested_visit_at timestamptz,p_valid_until timestamptz default null
+) returns jsonb language plpgsql security definer set search_path=''
+as $function$
+declare v_request_id uuid; v_authorization_id uuid;
+begin
+ if auth.uid() is null then raise exception 'Sign in as a parent to submit a request'; end if;
+ if not exists(select 1 from public.parent_portal_accounts p where p.parent_guardian_id=p_parent_guardian_id
+  and p.user_id=auth.uid() and p.is_active) then raise exception 'Active parent account not found'; end if;
+ if p_purpose not in('child_pickup','document_collection','meeting','payment_or_finance','academic_consultation','event_attendance','other') then
+  raise exception 'Invalid request purpose'; end if;
+ if p_purpose='child_pickup' and p_student_id is null then raise exception 'Select the child'; end if;
+ if p_student_id is not null and not exists(select 1 from public.parent_student_portal_access l
+  where l.parent_guardian_id=p_parent_guardian_id and l.student_id=p_student_id and l.is_active) then
+  raise exception 'Selected child is not linked to this parent'; end if;
+ if length(trim(coalesce(p_delegate_full_name,'')))<2 or length(trim(coalesce(p_delegate_phone,'')))<7
+  or length(trim(coalesce(p_purpose_details,'')))<5 then raise exception 'Complete the delegate and request details'; end if;
+ if p_requested_visit_at<now()-interval '1 minute' or (p_valid_until is not null and p_valid_until<=p_requested_visit_at) then
+  raise exception 'Invalid visit or expiry time'; end if;
+ insert into public.parent_official_access_requests(
+  school_id,parent_guardian_id,purpose,student_id,delegate_full_name,delegate_phone,delegate_relationship,
+  delegate_identity_reference,intended_department,intended_staff_member,purpose_details,requested_visit_at,
+  valid_until,request_status,requested_by
+ ) select p.school_id,p_parent_guardian_id,p_purpose,p_student_id,trim(p_delegate_full_name),trim(p_delegate_phone),
+  nullif(trim(coalesce(p_delegate_relationship,'')),''),nullif(trim(coalesce(p_delegate_identity_reference,'')),''),
+  nullif(trim(coalesce(p_intended_department,'')),''),nullif(trim(coalesce(p_intended_staff_member,'')),''),
+  trim(p_purpose_details),p_requested_visit_at,p_valid_until,'pending',auth.uid()
+ from public.parent_portal_accounts p where p.parent_guardian_id=p_parent_guardian_id and p.user_id=auth.uid() and p.is_active
+ returning id into v_request_id;
+ if p_purpose='child_pickup' then
+  insert into public.child_collection_authorizations(
+   school_id,parent_guardian_id,student_id,collector_full_name,collector_phone,relationship,
+   valid_from,valid_until,approval_status,requested_by
+  ) select p.school_id,p_parent_guardian_id,p_student_id,trim(p_delegate_full_name),trim(p_delegate_phone),
+   coalesce(nullif(trim(coalesce(p_delegate_relationship,'')),''),'Not specified'),
+   p_requested_visit_at,p_valid_until,'pending',auth.uid()
+  from public.parent_portal_accounts p where p.parent_guardian_id=p_parent_guardian_id and p.user_id=auth.uid() and p.is_active
+  returning id into v_authorization_id;
+ end if;
+ return jsonb_build_object('request_id',v_request_id,'authorization_id',v_authorization_id,'status','pending');
+end;
+$function$;
+revoke all on function public.resa_submit_parent_access_request(uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) from public,anon;
+grant execute on function public.resa_submit_parent_access_request(uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) to authenticated;
