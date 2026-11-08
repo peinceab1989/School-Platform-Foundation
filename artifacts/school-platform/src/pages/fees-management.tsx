@@ -154,33 +154,31 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
       if (!assignment || !Number.isFinite(amount) || amount <= 0) throw new Error("Select an outstanding fee and enter a valid payment amount.");
       if (amount > balanceFor(assignment) + 0.001) throw new Error("The payment cannot exceed the outstanding balance of " + money(balanceFor(assignment)) + ".");
       const db = getSupabaseClient() as any;
-      const receiptNumber = "RESA-" + new Date().toISOString().slice(0,10).replace(/-/g,"") + "-" + crypto.randomUUID().slice(0,8).toUpperCase();
-      const payment = await db.from("student_fee_payments").insert({
-        school_id: schoolId, student_fee_assignment_id: assignment.id, student_id: assignment.student_id,
-        amount_paid: amount, payment_date: new Date().toISOString().slice(0,10),
-        payment_method: paymentForm.payment_method, reference_number: paymentForm.reference_number.trim() || null,
-        remarks: paymentForm.remarks.trim() || null, receipt_number: receiptNumber,
-      }).select("id").single();
-      if (payment.error) throw payment.error;
-      const receipt = await db.from("student_payment_receipts").insert({
-        school_id: schoolId, payment_id: payment.data.id, receipt_number: receiptNumber,
-        receipt_date: new Date().toISOString().slice(0,10), issued_to_student_id: assignment.student_id,
-        amount, payment_method: paymentForm.payment_method, description: assignment.feeName,
-        issued_by: userId,
+      const result = await db.rpc("record_verified_school_fee_payment", {
+        p_school_id: schoolId,
+        p_assignment_id: assignment.id,
+        p_amount: amount,
+        p_payment_method: paymentForm.payment_method,
+        p_reference_number: paymentForm.reference_number.trim() || null,
+        p_remarks: paymentForm.remarks.trim() || null,
       });
-      if (receipt.error) {
-        const rollback = await db.from("student_fee_payments").delete().eq("id", payment.data.id).eq("school_id", schoolId);
-        if (rollback.error) {
-          throw new Error("Receipt issuance failed, and the payment record could not be rolled back. Do not record this payment again. Payment reference: " + payment.data.id + ". Ask the administrator to reconcile it. Receipt error: " + receipt.error.message + "; rollback error: " + rollback.error.message);
-        }
-        throw new Error("Payment was rolled back because the receipt could not be issued: " + receipt.error.message);
-      }
-      const newPaid = assignment.paid + amount;
-      const statusUpdate = await db.from("student_fee_assignments").update({ status: newPaid >= assignment.amount_due ? "paid" : "partial" }).eq("id", assignment.id).eq("school_id", schoolId);
-      const row: PaymentRow = { id: payment.data.id, receipt_number: receiptNumber, studentName: assignment.studentName, admissionNumber: assignment.admissionNumber, amount, payment_method: paymentForm.payment_method, payment_date: new Date().toISOString().slice(0,10), feeName: assignment.feeName, description: paymentForm.remarks };
+      if (result.error) throw result.error;
+      const receipt = result.data as { success?: boolean; receipt_number?: string; amount?: number; payment_date?: string; payment_method?: string };
+      if (!receipt?.success || !receipt.receipt_number) throw new Error("The payment service did not confirm receipt issuance. Refresh the register before trying again.");
+      const row: PaymentRow = {
+        id: receipt.receipt_number,
+        receipt_number: receipt.receipt_number,
+        studentName: assignment.studentName,
+        admissionNumber: assignment.admissionNumber,
+        amount: Number(receipt.amount ?? amount),
+        payment_method: String(receipt.payment_method ?? paymentForm.payment_method),
+        payment_date: String(receipt.payment_date ?? new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" })),
+        feeName: assignment.feeName,
+        description: paymentForm.remarks.trim(),
+      };
       setPrintedReceipt(row);
       setPaymentForm({ assignment_id: "", amount: "", payment_method: "cash", reference_number: "", remarks: "" });
-      setNotice("Payment recorded and receipt " + receiptNumber + " issued. " + (statusUpdate.error ? "The payment is saved, but the fee balance status could not be refreshed; refresh the register and reconcile before recording another payment. " + statusUpdate.error.message + " " : "") + "This records a payment already received by the school; it does not process online checkout.");
+      setNotice("Payment recorded and receipt " + receipt.receipt_number + " issued atomically. The database verified your administrator permission and remaining balance.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Payment could not be recorded."); }
     finally { setSaving(false); }
