@@ -2941,3 +2941,11 @@ before insert on public.parent_official_access_requests
 for each row execute function public.validate_parent_smart_access_request();
 
 revoke all on function public.validate_parent_smart_access_request() from public,anon,authenticated;
+
+
+-- QR scans are a distinct verification method; retain all legacy methods.
+alter table public.biometric_attendance_events
+  drop constraint if exists biometric_attendance_verification_check;
+alter table public.biometric_attendance_events
+  add constraint biometric_attendance_verification_check
+  check (verification_method = any (array['fingerprint','face','card','other','qr_code']::text[]));
