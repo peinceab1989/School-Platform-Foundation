@@ -124,7 +124,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
         try{
           const found=await detector.detect(parentVideoRef.current);
           const value=found?.[0]?.rawValue;
-          if(value){setParentQrCode(value);stopParentQrScan();setNotice("Parent QR read. Confirm the collector's photo and identity before recording collection.");return;}
+          if(value){setParentQrCode(value);setEventParentQr(value);stopParentQrScan();setNotice("Parent QR read. Visually verify identity before recording collection or event attendance.");return;}
         }catch(e){setError(e instanceof Error?e.message:"Parent QR scan failed.");}
         if(parentScanActive.current)window.requestAnimationFrame(()=>void scan());
       };
@@ -323,7 +323,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
         <h2 className="text-lg font-extrabold">Parent event check-in</h2>
         <p className="mt-1 text-sm text-slate-600">Enter the parent's school-issued QR credential after visually verifying identity.</p>
         <label className="mt-3 block text-sm font-semibold">Event<select className={field} value={selectedEventId} onChange={e=>setSelectedEventId(e.target.value)} required><option value="">Select event</option>{accessEvents.filter(e=>e.is_open_for_registration).map(e=><option key={e.id} value={e.id}>{e.event_name} · {dateLabel(e.starts_at)}</option>)}</select></label>
-        <label className="mt-3 block text-sm font-semibold">Parent QR credential<input className={field+" font-mono"} value={eventParentQr} onChange={e=>setEventParentQr(e.target.value)} placeholder="RESA1:…"/></label>
+        <label className="mt-3 block text-sm font-semibold">Parent QR credential<input className={field+" font-mono"} value={eventParentQr} onChange={e=>setEventParentQr(e.target.value)} placeholder="RESA1:…"/></label><video ref={parentVideoRef} muted playsInline className={parentQrScanning?"mt-2 aspect-video w-full rounded-xl bg-slate-950 object-cover":"hidden"}/><div className="mt-2 flex gap-2"><button type="button" onClick={()=>void startParentQrScan()} disabled={parentQrScanning} className="rounded-lg border px-3 py-2 text-xs font-bold">Scan parent QR with camera</button>{parentQrScanning&&<button type="button" onClick={stopParentQrScan} className="rounded-lg border px-3 py-2 text-xs font-bold">Stop camera</button>}</div>
         <label className="mt-3 block text-sm font-semibold">Station (optional)<select className={field} value={releaseStationId} onChange={e=>setReleaseStationId(e.target.value)}><option value="">No station selected</option>{devices.map(d=><option key={d.id} value={d.id}>{d.device_name}</option>)}</select></label>
         <button disabled={saving==="event-checkin"||!settings.parent_events_enabled||!settings.parent_qr_enabled} className="mt-4 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving==="event-checkin"?"Recording…":"Record parent event check-in"}</button>
        </form>
