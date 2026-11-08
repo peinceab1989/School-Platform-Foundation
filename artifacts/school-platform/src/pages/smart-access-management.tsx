@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, RefreshCw, ShieldCheck, ClipboardList, UserRound, CheckCircle2, XCircle, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -40,6 +40,11 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
   const [parentOptions,setParentOptions] = useState<Array<{id:string;label:string}>>([]);
   const [parentQrPersonId,setParentQrPersonId] = useState("");
   const [parentQrPayload,setParentQrPayload] = useState("");
+  const parentVideoRef=useRef<HTMLVideoElement|null>(null);
+  const parentStreamRef=useRef<MediaStream|null>(null);
+  const parentScanActive=useRef(false);
+  const [parentQrScanning,setParentQrScanning]=useState(false);
+
 
 
 
@@ -82,6 +87,38 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
     finally { setLoading(false); }
   }, [schoolId]);
   useEffect(()=>{void load();},[load]);
+  useEffect(()=>()=>{parentScanActive.current=false;parentStreamRef.current?.getTracks().forEach(t=>t.stop());},[]);
+  function stopParentQrScan(){
+    parentScanActive.current=false;
+    parentStreamRef.current?.getTracks().forEach(t=>t.stop());
+    parentStreamRef.current=null;
+    if(parentVideoRef.current)parentVideoRef.current.srcObject=null;
+    setParentQrScanning(false);
+  }
+  async function startParentQrScan(){
+    setError("");setNotice("");
+    try{
+      const Detector=(window as any).BarcodeDetector;
+      if(!Detector)throw new Error("This browser does not support built-in QR scanning. Use a supported Android Chrome browser or paste the credential.");
+      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+      parentStreamRef.current=stream;
+      if(!parentVideoRef.current)throw new Error("Camera preview is unavailable.");
+      parentVideoRef.current.srcObject=stream;await parentVideoRef.current.play();
+      const detector=new Detector({formats:["qr_code"]});
+      parentScanActive.current=true;setParentQrScanning(true);
+      const scan=async()=>{
+        if(!parentScanActive.current||!parentVideoRef.current)return;
+        try{
+          const found=await detector.detect(parentVideoRef.current);
+          const value=found?.[0]?.rawValue;
+          if(value){setParentQrCode(value);stopParentQrScan();setNotice("Parent QR read. Confirm the collector's photo and identity before recording collection.");return;}
+        }catch(e){setError(e instanceof Error?e.message:"Parent QR scan failed.");}
+        if(parentScanActive.current)window.requestAnimationFrame(()=>void scan());
+      };
+      window.requestAnimationFrame(()=>void scan());
+    }catch(e){stopParentQrScan();setError(e instanceof Error?e.message:"Could not start the parent QR scanner.");}
+  }
+
 
   async function saveSettings(next:Row) {
     setSaving("settings");setError("");setNotice("");
@@ -228,7 +265,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
          <label className="text-sm font-semibold">Collector full name<input className={field} value={releaseCollector} onChange={e=>setReleaseCollector(e.target.value)} minLength={2} maxLength={160} required/></label>
          <label className="text-sm font-semibold">Relationship<input className={field} value={releaseRelationship} onChange={e=>setReleaseRelationship(e.target.value)} maxLength={80}/></label>
          {releaseMethod==="approved_collector"&&<label className="text-sm font-semibold sm:col-span-2">Approved, unused authorization<select className={field} value={releaseAuthorizationId} onChange={e=>{setReleaseAuthorizationId(e.target.value);const a=authorizations.find(x=>x.id===e.target.value);if(a){setReleaseStudentId(a.student_id);setReleaseCollector(a.collector_full_name);setReleaseRelationship(a.relationship||"");}}} required><option value="">Select approved authorization</option>{authorizations.filter(a=>a.approval_status==="approved"&&!a.consumed_at&&(!a.valid_until||new Date(a.valid_until)>new Date())).map(a=><option key={a.id} value={a.id}>{a.collector_full_name} · {a.student_id} · expires {dateLabel(a.valid_until)}</option>)}</select></label>}
-         {releaseMethod==="parent_qr"&&<label className="text-sm font-semibold sm:col-span-2">Parent QR credential<input className={field+" font-mono"} value={parentQrCode} onChange={e=>setParentQrCode(e.target.value)} placeholder="Paste RESA1:… parent credential" required/></label>}
+         {releaseMethod==="parent_qr"&&<div className="sm:col-span-2"><label className="text-sm font-semibold">Parent QR credential<input className={field+" font-mono"} value={parentQrCode} onChange={e=>setParentQrCode(e.target.value)} placeholder="Scan or paste RESA1:… parent credential" required/></label><video ref={parentVideoRef} muted playsInline className={parentQrScanning?"mt-2 aspect-video w-full rounded-xl bg-slate-950 object-cover":"hidden"}/><div className="mt-2 flex gap-2"><button type="button" onClick={()=>void startParentQrScan()} disabled={parentQrScanning} className="rounded-lg border px-3 py-2 text-xs font-bold">Scan parent QR with camera</button>{parentQrScanning&&<button type="button" onClick={stopParentQrScan} className="rounded-lg border px-3 py-2 text-xs font-bold">Stop camera</button>}</div></div>}
          <label className="text-sm font-semibold">Attendance station (optional)<select className={field} value={releaseStationId} onChange={e=>setReleaseStationId(e.target.value)}><option value="">No station selected</option>{devices.map(d=><option key={d.id} value={d.id}>{d.device_name}</option>)}</select></label>
          <label className="text-sm font-semibold sm:col-span-2">Identity verification note<textarea className={field} value={releaseNote} onChange={e=>setReleaseNote(e.target.value)} minLength={3} maxLength={1000} required placeholder="Record how the collector's identity and authorization were checked."/></label>
         </div>
