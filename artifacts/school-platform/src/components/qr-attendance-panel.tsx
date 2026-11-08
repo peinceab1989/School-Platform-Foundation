@@ -73,8 +73,8 @@ export default function QrAttendancePanel({schoolId,stationId}:{schoolId:string;
   setBusy(true);setError("");setNotice("");setPayload("");
   try{
    if(!personId)throw new Error("Select a student or staff member.");
-   const bytes=crypto.getRandomValues(new Uint8Array(32));
-   const token=hex(bytes);
+   const bytes=crypto.getRandomValues(new Uint8Array(16));
+   const token=btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
    const tokenHash=await sha256(token);
    const db=getSupabaseClient() as any;
    const {data,error:e}=await db.rpc("resa_issue_attendance_qr",{p_school_id:schoolId,p_person_type:personType,p_person_id:personId,p_token_hash:tokenHash});
