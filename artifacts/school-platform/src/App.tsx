@@ -196,8 +196,8 @@ const panelStyle: CSSProperties = {
   background: '#fff',
   border: '1px solid #e0e7e0',
   borderRadius: 12,
-  padding: 18,
-  marginBottom: 18,
+  padding: 14,
+  marginBottom: 12,
   overflowWrap: 'anywhere',
 };
 
