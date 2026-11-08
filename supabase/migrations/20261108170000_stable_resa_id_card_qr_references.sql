@@ -21,15 +21,17 @@ begin
     or (
       p_person_type = 'student' and exists (
         select 1 from public.students s
+        left join public.people p on p.id = s.person_id and p.school_id = s.school_id
         where s.id = p_person_id and s.school_id = p_school_id
-          and s.user_id = auth.uid() and s.status = 'active'
+          and (s.user_id = auth.uid() or p.user_id = auth.uid()) and s.status = 'active'
       )
     )
     or (
       p_person_type = 'staff' and exists (
         select 1 from public.staff st
+        left join public.people p on p.id = st.person_id and p.school_id = st.school_id
         where st.id = p_person_id and st.school_id = p_school_id
-          and st.user_id = auth.uid() and st.status = 'active'
+          and (st.user_id = auth.uid() or p.user_id = auth.uid()) and st.status = 'active'
       )
     )
   ) then
