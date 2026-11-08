@@ -1139,8 +1139,8 @@ with check (
   and (storage.foldername(name))[2] is not null
   and exists (
     select 1 from public.people_status_records r
-    where r.id=((storage.foldername(name))[2])::uuid
-      and r.school_id=((storage.foldername(name))[1])::uuid
+    where r.id::text=(storage.foldername(name))[2]
+      and r.school_id::text=(storage.foldername(name))[1]
       and public.has_school_role(r.school_id,array['admin']::public.school_role[])
   )
 );
@@ -1152,8 +1152,8 @@ using (
   bucket_id='resa-people-records'
   and exists (
     select 1 from public.people_status_records r
-    where r.id=((storage.foldername(name))[2])::uuid
-      and r.school_id=((storage.foldername(name))[1])::uuid
+    where r.id::text=(storage.foldername(name))[2]
+      and r.school_id::text=(storage.foldername(name))[1]
       and public.has_school_role(r.school_id,array['admin']::public.school_role[])
   )
 )
@@ -1161,8 +1161,8 @@ with check (
   bucket_id='resa-people-records'
   and exists (
     select 1 from public.people_status_records r
-    where r.id=((storage.foldername(name))[2])::uuid
-      and r.school_id=((storage.foldername(name))[1])::uuid
+    where r.id::text=(storage.foldername(name))[2]
+      and r.school_id::text=(storage.foldername(name))[1]
       and public.has_school_role(r.school_id,array['admin']::public.school_role[])
   )
 );
@@ -1174,8 +1174,8 @@ using (
   bucket_id='resa-people-records'
   and exists (
     select 1 from public.people_status_records r
-    where r.id=((storage.foldername(name))[2])::uuid
-      and r.school_id=((storage.foldername(name))[1])::uuid
+    where r.id::text=(storage.foldername(name))[2]
+      and r.school_id::text=(storage.foldername(name))[1]
       and public.has_school_role(r.school_id,array['admin']::public.school_role[])
   )
 );
