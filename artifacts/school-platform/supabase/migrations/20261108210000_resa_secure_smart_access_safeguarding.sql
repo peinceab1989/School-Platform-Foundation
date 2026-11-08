@@ -1282,3 +1282,42 @@ after update of request_status on public.parent_official_access_requests
 for each row execute function public.audit_parent_official_request_decision();
 
 revoke all on function public.audit_parent_official_request_decision() from public,anon,authenticated;
+
+
+-- Automatic append-only audit for creation, issuance, appeal and closure of
+-- student/staff status records.
+create or replace function public.audit_people_status_record()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare v_event text;
+begin
+  if tg_op='INSERT' then
+    v_event:='created';
+  elsif new.record_status is distinct from old.record_status then
+    v_event:=case new.record_status
+      when 'pending_review' then 'submitted_for_review'
+      when 'issued' then 'issued'
+      when 'under_appeal' then 'appealed'
+      when 'upheld' then 'upheld'
+      when 'reversed' then 'reversed'
+      when 'closed' then 'closed'
+      when 'withdrawn' then 'withdrawn'
+      else 'reviewed' end;
+  else
+    return new;
+  end if;
+  insert into public.people_status_record_events(school_id,record_id,event_type,actor_user_id,event_details)
+  values(new.school_id,new.id,v_event,coalesce(auth.uid(),new.issued_by),new.record_details);
+  return new;
+end;
+$function$;
+
+drop trigger if exists people_status_record_audit on public.people_status_records;
+create trigger people_status_record_audit
+after insert or update of record_status on public.people_status_records
+for each row execute function public.audit_people_status_record();
+
+revoke all on function public.audit_people_status_record() from public,anon,authenticated;
