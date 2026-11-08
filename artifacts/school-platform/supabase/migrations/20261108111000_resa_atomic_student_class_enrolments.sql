@@ -16,10 +16,11 @@ as $function$
 declare
   v_actor uuid := auth.uid();
   v_student_id uuid;
-  v_existing_id uuid;
-  v_new_id uuid;
+  v_target record;
   v_old record;
+  v_new_id uuid;
   v_closed integer := 0;
+  v_assignment_date date := coalesce(p_enrollment_date, current_date);
 begin
   if v_actor is null then
     raise exception 'Sign in is required';
@@ -52,25 +53,29 @@ begin
     raise exception 'Choose an academic session belonging to this school';
   end if;
 
-  select e.id into v_existing_id
+  -- The live schema enforces one enrolment row per student/session, including
+  -- completed rows. Reuse that row on a class change or readmission rather
+  -- than inserting a conflicting duplicate.
+  select e.id, e.class_id, e.academic_session_id, e.enrollment_date, e.status
+    into v_target
   from public.student_enrollments e
   where e.school_id = p_school_id
     and e.student_id = p_student_id
-    and e.class_id = p_class_id
     and e.academic_session_id = p_academic_session_id
-    and e.status = 'active'
   for update;
 
-  if found then
-    return jsonb_build_object('success', true, 'unchanged', true, 'enrollment_id', v_existing_id);
+  if found and v_target.status = 'active' and v_target.class_id = p_class_id then
+    return jsonb_build_object('success', true, 'unchanged', true, 'enrollment_id', v_target.id);
   end if;
 
+  -- Close any other active session enrolments and preserve their history.
   for v_old in
     select e.id, e.class_id, e.academic_session_id, e.enrollment_date
     from public.student_enrollments e
     where e.school_id = p_school_id
       and e.student_id = p_student_id
       and e.status = 'active'
+      and (v_target.id is null or e.id <> v_target.id)
     for update
   loop
     update public.student_enrollments
@@ -82,27 +87,51 @@ begin
       enrollment_date, exit_date, status, reason, recorded_by
     ) values (
       p_school_id, p_student_id, v_old.academic_session_id, v_old.class_id,
-      v_old.enrollment_date, coalesce(p_enrollment_date, current_date),
+      v_old.enrollment_date, v_assignment_date,
       'completed', 'Class/session reassignment', v_actor
     );
     v_closed := v_closed + 1;
   end loop;
 
-  insert into public.student_enrollments(
-    school_id, student_id, class_id, academic_session_id, enrollment_date, status
-  ) values (
-    p_school_id, p_student_id, p_class_id, p_academic_session_id,
-    coalesce(p_enrollment_date, current_date), 'active'
-  )
-  returning id into v_new_id;
+  if v_target.id is not null then
+    if v_target.status = 'active' then
+      insert into public.student_enrollment_history(
+        school_id, student_id, academic_session_id, class_id,
+        enrollment_date, exit_date, status, reason, recorded_by
+      ) values (
+        p_school_id, p_student_id, v_target.academic_session_id, v_target.class_id,
+        v_target.enrollment_date, v_assignment_date,
+        'completed', 'Class reassignment within academic session', v_actor
+      );
+      v_closed := v_closed + 1;
+    end if;
+
+    update public.student_enrollments
+    set class_id = p_class_id,
+        enrollment_date = v_assignment_date,
+        status = 'active'
+    where id = v_target.id and school_id = p_school_id
+    returning id into v_new_id;
+  else
+    insert into public.student_enrollments(
+      school_id, student_id, class_id, academic_session_id, enrollment_date, status
+    ) values (
+      p_school_id, p_student_id, p_class_id, p_academic_session_id,
+      v_assignment_date, 'active'
+    )
+    returning id into v_new_id;
+  end if;
 
   insert into public.student_enrollment_history(
     school_id, student_id, academic_session_id, class_id,
     enrollment_date, status, reason, recorded_by
   ) values (
     p_school_id, p_student_id, p_academic_session_id, p_class_id,
-    coalesce(p_enrollment_date, current_date), 'active',
-    case when v_closed > 0 then 'New class/session assignment' else 'Initial class assignment' end,
+    v_assignment_date, 'active',
+    case when v_closed > 0 or (v_target.id is not null and v_target.status = 'completed')
+      then 'New class/session assignment or readmission'
+      else 'Initial class assignment'
+    end,
     v_actor
   );
 
