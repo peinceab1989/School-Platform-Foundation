@@ -61,7 +61,7 @@ function encodeVersion2L(value:string):boolean[][] {
         if(matrix[y][x]!==null)continue;
         const bit=bitIndex<codewords.length*8?((codewords[bitIndex>>>3]>>>(7-(bitIndex&7)))&1):0;
         bitIndex++;
-        set(x,y,(bit===1)^((x+y)%2===0));
+        set(x,y,(bit===1)!==((x+y)%2===0));
       }
     }
     upward=!upward;
