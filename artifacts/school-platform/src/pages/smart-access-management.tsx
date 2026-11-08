@@ -5,7 +5,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import SmartAccessIdCards from "@/components/smart-access-id-cards";
 
 type Row = Record<string, any>;
-type PersonOption = { id: string; user_id: string | null; label: string; type: "student" | "staff" };
+type PersonOption = { id: string; user_id: string | null; label: string; type: "student" | "staff"; is_active: boolean };
 const field = "mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900";
 const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "—";
 
@@ -79,7 +79,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       if (peopleResult.error) throw peopleResult.error;
       const names = new Map((peopleResult.data??[]).map((p:Row)=>[p.id,[p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
       const personUsers = new Map((peopleResult.data??[]).map((p:Row)=>[p.id,p.user_id??null]));
-      setPeople(rows.map((p:Row)=>({id:p.id,user_id:p.user_id??personUsers.get(p.person_id)??null,type:p.type,label:names.get(p.person_id)||p.label})));
+      setPeople(rows.map((p:Row)=>({id:p.id,user_id:p.user_id??personUsers.get(p.person_id)??null,type:p.type,label:names.get(p.person_id)||p.label,is_active:p.status==="active"})));
       setRequests(req.data??[]); setAuthorizations(auth.data??[]); setRecords(rec.data??[]); setReleases(rel.data??[]); setSettings(settingsResult.data??{student_qr_enabled:false,staff_qr_enabled:false,parent_qr_enabled:false,child_pickup_enabled:false,parent_events_enabled:false});
       setDevices(devicesResult.data??[]);
       setReleaseStationId((current:string)=>current||devicesResult.data?.[0]?.id||"");
@@ -90,7 +90,9 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       const guardianPeople=guardianPersonIds.length?await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id",schoolId).in("id",guardianPersonIds):{data:[],error:null};
       if(guardianPeople.error)throw guardianPeople.error;
       const guardianNames=new Map((guardianPeople.data??[]).map((x:any)=>[x.id,[x.first_name,x.middle_name,x.last_name].filter(Boolean).join(" ")]));
-      setParentOptions((guardianResult.data??[]).map((x:any)=>({id:x.id,label:guardianNames.get(x.person_id)||"Parent / guardian",userId:(parentAccountsResult.data??[]).find((account:any)=>account.parent_guardian_id===x.id)?.user_id??null})));
+      const activeParentAccounts = parentAccountsResult.data ?? [];
+      const activeParentIds = new Set(activeParentAccounts.map((account:any)=>account.parent_guardian_id));
+      setParentOptions((guardianResult.data??[]).filter((x:any)=>activeParentIds.has(x.id)).map((x:any)=>({id:x.id,label:guardianNames.get(x.person_id)||"Parent / guardian",userId:activeParentAccounts.find((account:any)=>account.parent_guardian_id===x.id)?.user_id??null})));
       setAccessEvents(eventsResult.data??[]);
       setEventAttendance(eventAttendanceResult.data??[]);
       setSelectedEventId((current:string)=>current||eventsResult.data?.find((x:any)=>x.is_open_for_registration)?.id||"");

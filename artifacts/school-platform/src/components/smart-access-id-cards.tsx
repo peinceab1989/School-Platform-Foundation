@@ -2,7 +2,7 @@ import { useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import QrCodeDisplay from "@/components/qr-code-display";
 
-type PersonOption = { id: string; user_id: string | null; label: string; type: "student" | "staff" };
+type PersonOption = { id: string; user_id: string | null; label: string; type: "student" | "staff"; is_active: boolean };
 type ParentOption = { id: string; label: string; userId: string | null };
 type CardData = {
   kind: "staff" | "parent";
@@ -61,7 +61,7 @@ export default function SmartAccessIdCards({
   const [notice, setNotice] = useState("");
 
   async function issueStaffCard() {
-    const person = people.find((item) => item.id === staffId && item.type === "staff");
+    const person = people.find((item) => item.id === staffId && item.type === "staff" && item.is_active);
     if (!person) { setError("Select a staff member."); return; }
     setBusy("staff"); setError(""); setNotice(""); setCard(null);
     try {
@@ -169,7 +169,7 @@ export default function SmartAccessIdCards({
         <label className="mt-3 block text-sm font-semibold">Teacher / staff member
           <select className={field} value={staffId} onChange={(e) => setStaffId(e.target.value)}>
             <option value="">Select staff</option>
-            {people.filter((item) => item.type === "staff").map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            {people.filter((item) => item.type === "staff" && item.is_active).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
         <button type="button" onClick={() => void issueStaffCard()} disabled={busy !== "" || !staffId || !staffQrEnabled} className="mt-3 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy === "staff" ? "Issuing…" : "Issue / rotate staff QR card"}</button>
