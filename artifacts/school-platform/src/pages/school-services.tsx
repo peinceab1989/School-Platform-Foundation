@@ -106,12 +106,19 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       if (result.error) throw result.error;
       const records = (result.data ?? []) as RowRecord[];
       if (activeKey === "drive") {
+        // A failed preview URL for one old/moved file must never hide the
+        // entire Drive register. Keep every metadata row visible and let the
+        // administrator open/download the affected file to see a clear error.
         const mediaRecords = await Promise.all(records.map(async (row) => {
-          const mime = String(row.mime_type ?? "").toLowerCase();
-          const path = String(row.storage_path ?? "");
-          if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return row;
-          const signed = await db.storage.from("resa-drive").createSignedUrl(path, 1800);
-          return signed.error || !signed.data?.signedUrl ? row : { ...row, preview_url: signed.data.signedUrl };
+          try {
+            const mime = String(row.mime_type ?? "").toLowerCase();
+            const path = String(row.storage_path ?? "");
+            if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return row;
+            const signed = await db.storage.from("resa-drive").createSignedUrl(path, 1800);
+            return signed.error || !signed.data?.signedUrl ? row : { ...row, preview_url: signed.data.signedUrl };
+          } catch {
+            return row;
+          }
         }));
         setRows(mediaRecords);
       } else {
