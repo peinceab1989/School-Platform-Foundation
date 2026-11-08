@@ -20,6 +20,7 @@ const options = [
   { title: "Check Results", description: "View published academic results and progress.", href: "/my-results", icon: ClipboardCheck, tone: "blue", group: "Student services" },
   { title: "E-learning", description: "Lessons, study resources and practice activities.", href: "/student-dashboard", icon: BookOpen, tone: "orange", group: "Student services" },
   { title: "Computer Based Test", description: "Open online assessments and CBT activities.", href: "/student-cbt", icon: Laptop, tone: "slate", group: "Student services" },
+  { title: "External Candidate Registration", description: "RESA · External CBT — Register with your school-verified form number. Each verified form number can only be used once.", href: "/external-cbt-registration", icon: ClipboardCheck, tone: "gold", group: "Student services" },
   { title: "Assignments", description: "View and track class assignments separately from CBT.", href: "/student-assignments", icon: GraduationCap, tone: "blue", group: "Student services" },
   { title: "Admin Platform", description: "Secure sign-in for school staff and administration.", href: "/portal", icon: ShieldCheck, tone: "green", group: "Staff & administration" },
 ];
@@ -136,15 +137,6 @@ export default function PortalOptionsPage() {
               <ArrowUpRight size={18} className="shrink-0 text-slate-400 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-emerald-800" />
             </Link>;
           })}
-          <Link href="/external-cbt-registration" className="group flex min-h-[116px] items-center gap-4 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-amber-400 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 sm:p-5">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-900 ring-1 ring-amber-200"><ClipboardCheck size={23} strokeWidth={1.8}/></span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-extrabold uppercase tracking-[0.14em] text-amber-800">RESA · External CBT</span>
-              <span className="mt-1 block font-extrabold text-slate-900">External Candidate Registration</span>
-              <span className="mt-1 block text-sm leading-5 text-slate-600">Register with your school-verified CBT form number. Each verified form number can only be used once.</span>
-            </span>
-            <ArrowUpRight size={18} className="shrink-0 text-amber-700 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5"/>
-          </Link>
         </div>
 
         <section aria-labelledby="learning-websites-heading" className="mt-8 rounded-2xl border border-emerald-900/10 bg-white p-4 shadow-sm sm:p-6">
