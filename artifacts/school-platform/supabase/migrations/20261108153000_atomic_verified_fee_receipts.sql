@@ -33,8 +33,11 @@ begin
     raise exception 'Only an active school administrator may record a verified payment' using errcode = '42501';
   end if;
 
+  if p_amount is null or p_amount::text in ('NaN', 'Infinity', '-Infinity') then
+    raise exception 'Enter a finite payment amount';
+  end if;
   v_amount := round(p_amount, 2);
-  if v_amount is null or v_amount <= 0 then
+  if v_amount <= 0 then
     raise exception 'Enter a payment amount greater than zero';
   end if;
 
@@ -102,3 +105,19 @@ $function$;
 
 revoke all on function public.record_verified_school_fee_payment(uuid, uuid, numeric, text, text, text) from public, anon;
 grant execute on function public.record_verified_school_fee_payment(uuid, uuid, numeric, text, text, text) to authenticated;
+
+-- Payment and receipt rows are now written only by the authorized transaction above.
+-- Keep the existing admin/parent/student read policies, but remove direct table writes
+-- that could bypass the atomic receipt and balance update.
+drop policy if exists "school admins can manage student fee payments" on public.student_fee_payments;
+create policy "school admins can read student fee payments"
+  on public.student_fee_payments for select to authenticated
+  using (public.has_school_role(school_id, array['admin'::public.school_role]));
+
+drop policy if exists "school admins can manage student payment receipts" on public.student_payment_receipts;
+create policy "school admins can read student payment receipts"
+  on public.student_payment_receipts for select to authenticated
+  using (public.has_school_role(school_id, array['admin'::public.school_role]));
+
+revoke insert, update, delete on public.student_fee_payments from anon, authenticated;
+revoke insert, update, delete on public.student_payment_receipts from anon, authenticated;
