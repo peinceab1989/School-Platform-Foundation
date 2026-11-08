@@ -36,7 +36,7 @@ async function hashKey(value: string) {
 
 Deno.serve(async (req: Request) => {
   const requestOrigin = req.headers.get("origin") ?? "";
-  if (requestOrigin && !isAllowedOrigin(requestOrigin)) return reply(403, { success: false, error: "This website is not authorised to register external CBT candidates." }, requestOrigin, requestOrigin);
+  if (requestOrigin && !isAllowedOrigin(requestOrigin)) return reply(403, { success: false, error: "This website is not authorised to register external CBT candidates." }, requestOrigin);
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(requestOrigin) });
   if (req.method !== "POST") return reply(405, { success: false, error: "POST required." }, requestOrigin);
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
