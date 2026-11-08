@@ -196,8 +196,8 @@ const panelStyle: CSSProperties = {
   background: '#fff',
   border: '1px solid #e0e7e0',
   borderRadius: 12,
-  padding: 18,
-  marginBottom: 18,
+  padding: 14,
+  marginBottom: 12,
   overflowWrap: 'anywhere',
 };
 
@@ -252,6 +252,8 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [notificationPreferencesLoading, setNotificationPreferencesLoading] = useState(true);
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("all");
+  const [notificationDate, setNotificationDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+  const [notificationSearch, setNotificationSearch] = useState("");
   const soundAlertsRef = useRef(false);
   const soundChoiceRef = useRef<"chime" | "bell" | "soft" | "none">("chime");
   useEffect(() => { soundAlertsRef.current = soundAlertsEnabled; }, [soundAlertsEnabled]);
@@ -514,6 +516,13 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const money = (value: number) => "₦" + value.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Short, presentation-only identifier. The real Supabase user ID and login remain unchanged.
   const parentDisplayId = "RESA-PARENT-" + userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase();
+  const visibleAttendanceAlerts = attendanceAlerts.filter((alert: any) => {
+    const alertDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(String(alert.created_at)));
+    const matchesDay = alertDay === notificationDate;
+    const matchesRead = notificationFilter === "all" || !alert.read_at;
+    const matchesSearch = !notificationSearch.trim() || String(alert.message || "").toLowerCase().includes(notificationSearch.trim().toLowerCase());
+    return matchesDay && matchesRead && matchesSearch;
+  });
 
   return <main className="min-h-screen bg-[#f4f7f4] px-4 py-5 text-slate-900 sm:px-6 sm:py-8">
     <div className="mx-auto grid w-full max-w-6xl gap-5">
@@ -561,7 +570,9 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           <div><h2 className="text-lg font-extrabold text-emerald-950">RESA Family Notifications</h2><p className="mt-1 text-sm text-slate-600">A message inbox for every attendance update about your linked learners.</p></div>
           <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-900">{attendanceAlerts.filter((a:any)=>!a.read_at).length} unread</span>
         </div>
-        <div className="mt-4 grid gap-3 rounded-2xl bg-slate-50 p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+        <details className="mt-3 rounded-xl bg-slate-50 px-3 py-2">
+          <summary className="cursor-pointer list-none text-xs font-bold text-slate-700">Notification preferences · {soundAlertsEnabled ? "Alerts on" : "Alerts off"} · {phoneNotificationsEnabled ? "Phone permission allowed" : "Phone permission not enabled"}</summary>
+          <div className="mt-3 grid gap-3 border-t border-slate-200 pt-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
           <label className="block text-xs font-bold text-slate-700">Attendance notifications
             <select disabled={notificationPreferencesLoading||notificationBusy} value={soundAlertsEnabled?"on":"off"} onChange={e=>void saveParentNotificationPreferences(e.target.value==="on",soundChoice,phoneNotificationsEnabled)} className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
               <option value="on">Enabled — keep on until I disable it</option><option value="off">Disabled</option>
@@ -574,23 +585,36 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           </label>
           <button type="button" disabled={notificationBusy||notificationPreferencesLoading} onClick={()=>void enableParentPhoneNotifications()} className="rounded-xl bg-emerald-900 px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{phoneNotificationsEnabled?"Phone alerts allowed":"Allow phone notification banners"}</button>
         </div>
-        <p className="mt-2 text-xs leading-5 text-slate-500">Your choices are saved to your parent account and remain in effect after signing out. Phone notification permission is controlled by Android/browser settings. Alerts while the portal is open can appear in the phone notification shade; delivery when the portal is fully closed still needs a secure Web Push sender and VAPID keys.</p>
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+          <p className="mt-2 text-xs leading-5 text-slate-500">Your choices are saved to your parent account. Background phone alerts require the RESA push sender and VAPID configuration; permission alone does not guarantee delivery while the browser is closed.</p>
+        </details>
+        <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+          <label className="text-xs font-bold text-slate-600">Search messages
+            <input value={notificationSearch} onChange={e=>setNotificationSearch(e.target.value)} placeholder="Search attendance messages" className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal" />
+          </label>
+          <label className="text-xs font-bold text-slate-600">Day / date
+            <input type="date" value={notificationDate} onChange={e=>setNotificationDate(e.target.value)} className="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+          </label>
+          <button type="button" onClick={()=>setNotificationDate(new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()))} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-emerald-900">Today</button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b pb-2">
           <div className="flex gap-2">
             <button type="button" onClick={()=>setNotificationFilter("all")} className={`rounded-full px-3 py-2 text-xs font-bold ${notificationFilter==="all"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>All messages</button>
             <button type="button" onClick={()=>setNotificationFilter("unread")} className={`rounded-full px-3 py-2 text-xs font-bold ${notificationFilter==="unread"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>Unread</button>
           </div>
-          <button type="button" onClick={()=>void markParentAlertsRead(attendanceAlerts.filter((a:any)=>!a.read_at).map((a:any)=>String(a.id)))} className="text-xs font-bold text-emerald-800 underline">Mark all as read</button>
+          <button type="button" onClick={()=>void markParentAlertsRead(visibleAttendanceAlerts.filter((a:any)=>!a.read_at).map((a:any)=>String(a.id)))} className="text-xs font-bold text-emerald-800 underline">Mark visible as read</button>
         </div>
-        {attendanceAlerts.filter((a:any)=>notificationFilter==="all"||!a.read_at).length===0
-          ? <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">No {notificationFilter==="unread"?"unread ":""}attendance messages yet. New arrival and departure alerts will appear here and remain available until cleared by the school retention policy.</p>
-          : <div className="mt-3 divide-y">{attendanceAlerts.filter((a:any)=>notificationFilter==="all"||!a.read_at).map((alert:any)=><article key={String(alert.id)} className={`flex items-start gap-3 rounded-xl p-3 ${alert.read_at?"bg-white":"bg-emerald-50"}`}>
-            <span className="mt-0.5 rounded-full bg-emerald-100 p-2 text-emerald-900"><Bell size={16}/></span>
-            <div className="min-w-0 flex-1"><p className="text-sm font-semibold text-slate-900">{String(alert.message||"Attendance update")}</p><p className="mt-1 text-xs text-slate-500">{new Date(String(alert.created_at)).toLocaleString("en-NG",{timeZone:"Africa/Lagos"})}</p></div>
-            {!alert.read_at&&<button type="button" onClick={()=>void markParentAlertsRead([String(alert.id)])} className="shrink-0 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-900">Read</button>}
+        {visibleAttendanceAlerts.length===0
+          ? <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">No matching attendance messages for {notificationDate}. Choose another date or clear your search to find older alerts.</p>
+          : <div className="mt-2 max-h-72 divide-y overflow-y-auto rounded-xl border border-slate-100">{visibleAttendanceAlerts.map((alert:any)=><article key={String(alert.id)} className={`flex items-start gap-2 p-2.5 ${alert.read_at?"bg-white":"bg-emerald-50"}`}>
+            <span className="mt-0.5 rounded-full bg-emerald-100 p-1.5 text-emerald-900"><Bell size={14}/></span>
+            <div className="min-w-0 flex-1"><p className="text-xs font-semibold leading-5 text-slate-900">{String(alert.message||"Attendance update")}</p><p className="mt-0.5 text-[11px] text-slate-500">{new Date(String(alert.created_at)).toLocaleString("en-NG",{timeZone:"Africa/Lagos"})}</p></div>
+            {!alert.read_at&&<button type="button" onClick={()=>void markParentAlertsRead([String(alert.id)])} className="shrink-0 rounded-lg border border-emerald-200 bg-white px-2 py-1.5 text-[11px] font-bold text-emerald-900">Read</button>}
           </article>)}</div>}
       </section>
 
+      <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <summary className="cursor-pointer list-none px-2 py-2 text-sm font-extrabold text-emerald-950">School fees & payment history · {money(totalDue)} assigned · {money(totalPaid)} paid · {money(totalBalance)} outstanding</summary>
+        <div className="mt-3">
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.85fr)]">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-extrabold text-emerald-950">School fees & payments</h2><p className="mt-1 text-sm text-slate-600">Charges, due dates and balances for your linked learners.</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">Parent view</span></div>
@@ -603,6 +627,12 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         </article>
       </section>
 
+        </div>
+      </details>
+
+      <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <summary className="cursor-pointer list-none px-2 py-2 text-sm font-extrabold text-emerald-950">Linked learners, attendance and current announcements</summary>
+        <div className="mt-3">
       <section className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-extrabold text-emerald-950">My linked learners · Attendance</h2>
@@ -614,6 +644,12 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         </article>
       </section>
 
+        </div>
+      </details>
+
+      <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <summary className="cursor-pointer list-none px-2 py-2 text-sm font-extrabold text-emerald-950">Parent services · results, messages, chat, notifications and authorised monitoring</summary>
+        <div className="mt-3">
       <section>
         <div className="mb-3"><h2 className="text-lg font-extrabold text-emerald-950">Parent services</h2><p className="mt-1 text-sm text-slate-600">Quick access to your family’s school services.</p></div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -624,6 +660,9 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700"><span className="text-xs font-bold uppercase tracking-wide text-amber-700">If authorised</span><h3 className="mt-2 font-extrabold text-emerald-950">School monitoring</h3><p className="mt-2 text-sm leading-6 text-slate-600">Open monitoring services only when enabled for your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
         </div>
       </section>
+        </div>
+      </details>
+
       <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-500">Designed &amp; Powered by <strong>JETAB TECH</strong></footer>
     </div>
   </main>;

@@ -125,7 +125,7 @@ type TeacherDashboardProps = {
 
 const pageStyle = {
   minHeight: '100vh',
-  padding: 16,
+  padding: 12,
   background: '#f4f7f4',
   color: '#17251b',
   fontFamily: 'Arial, sans-serif',
@@ -136,8 +136,8 @@ const panelStyle = {
   background: '#fff',
   border: '1px solid #e0e7e0',
   borderRadius: 12,
-  padding: 18,
-  marginBottom: 16,
+  padding: 12,
+  marginBottom: 10,
   overflowWrap: 'anywhere' as const,
 };
 
