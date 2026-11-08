@@ -16,7 +16,7 @@ const MODULES: ModuleDefinition[] = [
   { key: "biometric", title: "Biometric Attendance", description: "Registered devices and attendance event records.", table: "biometric_devices" },
 ];
 type RowRecord = Record<string, unknown>;
-const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_FILE_BYTES = 100 * 1024 * 1024;
 const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 const safeFileName = (name: string) => name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(-160) || "file";
 const describeUploadError = (error: unknown) => {
