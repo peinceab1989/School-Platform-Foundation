@@ -14,6 +14,9 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
   const [students, setStudents] = useState<Student[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [checkpointAlerts,setCheckpointAlerts]=useState<Array<Record<string,any>>>([]);
+  const [acknowledgementNotes,setAcknowledgementNotes]=useState<Record<string,string>>({});
+
   const [search, setSearch] = useState("");
   const [selectedDevice, setSelectedDevice] = useState("");
   const [deviceName, setDeviceName] = useState("");
@@ -27,16 +30,18 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
     setLoading(true); setError("");
     try {
       const db = getSupabaseClient() as any;
-      const [deviceResult, studentResult, sessionResult, eventResult] = await Promise.all([
+      const [deviceResult, studentResult, sessionResult, eventResult, checkpointResult] = await Promise.all([
         db.from("biometric_devices").select("id,device_name,device_type,location,is_active").eq("school_id", schoolId).eq("is_active", true).order("created_at", { ascending: false }),
         db.from("students").select("id,person_id,admission_number").eq("school_id", schoolId).eq("status", "active").order("admission_number").limit(1000),
         db.from("academic_sessions").select("id,is_current").eq("school_id", schoolId).order("start_date", { ascending: false }),
         db.from("biometric_attendance_events").select("id,student_id,event_type,event_time,verification_method").eq("school_id", schoolId).gte("event_time", lagosDate() + "T00:00:00+01:00").order("event_time", { ascending: false }).limit(150),
+        db.from("attendance_checkpoint_alerts").select("*").eq("school_id",schoolId).eq("attendance_date",lagosDate()).order("first_detected_at",{ascending:false}).limit(250),
       ]);
       if (deviceResult.error) throw deviceResult.error;
       if (studentResult.error) throw studentResult.error;
       if (sessionResult.error) throw sessionResult.error;
       if (eventResult.error) throw eventResult.error;
+      if (checkpointResult.error) throw checkpointResult.error;
       const studentRows = studentResult.data ?? [];
       const personIds = studentRows.map((s: any) => s.person_id).filter(Boolean);
       const [peopleResult, enrollmentResult] = await Promise.all([
@@ -58,6 +63,7 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
       setDevices((deviceResult.data ?? []) as Device[]);
       setSelectedDevice((current: string) => current || deviceResult.data?.[0]?.id || "");
       setEvents((eventResult.data ?? []) as EventRow[]);
+      setCheckpointAlerts(checkpointResult.data??[]);
     } catch (e) { setError(e instanceof Error ? e.message : "Biometric attendance data could not be loaded."); }
     finally { setLoading(false); }
   }, [schoolId]);
@@ -98,6 +104,19 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
       setNotice("Attendance station registered. This records the station details; it does not enrol fingerprint templates.");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not register the attendance station."); }
     finally { setSaving(""); }
+  }
+
+  async function acknowledgeCheckpoint(alertId:string){
+    setSaving("checkpoint:"+alertId);setError("");setNotice("");
+    try{
+      const db=getSupabaseClient() as any;
+      const {data,error:e}=await db.rpc("resa_acknowledge_attendance_checkpoint",{
+        p_alert_id:alertId,p_note:acknowledgementNotes[alertId]?.trim()||null,
+      });
+      if(e)throw e;if(!data?.success)throw new Error("The alert was not acknowledged.");
+      setNotice("Attendance checkpoint alert acknowledged.");await load();
+    }catch(e){setError(e instanceof Error?e.message:"Could not acknowledge attendance alert.");}
+    finally{setSaving("");}
   }
 
   async function recordEvent(student: Student, eventType: "check_in" | "check_out") {
@@ -153,6 +172,10 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4 sm:p-5"><div><h2 className="text-lg font-extrabold">Student check-in / check-out</h2><p className="mt-1 text-sm text-slate-600">Search by student name or admission number. All actions are timestamped in Lagos time.</p></div><button type="button" onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><RefreshCw size={15} className={loading?"animate-spin":""}/> Refresh</button></div>
         <label className="relative mx-4 mt-4 block"><Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input className="w-full rounded-xl border px-3 py-3 pl-10 text-sm" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search student name or admission number…"/></label>
         {loading?<p className="p-8 text-center text-sm text-slate-500">Loading student roster…</p>:filteredStudents.length===0?<p className="p-8 text-center text-sm text-slate-500">No enrolled students match this search.</p>:<div className="mt-3 divide-y">{filteredStudents.map(student=>{const studentEvents=events.filter(e=>e.student_id===student.id);const checkedIn=studentEvents.some(e=>e.event_type==="check_in");const checkedOut=studentEvents.some(e=>e.event_type==="check_out");return <article key={student.id} className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-slate-50"><div className="min-w-0"><p className="font-bold">{student.name}</p><p className="mt-1 text-xs text-slate-500">{student.admission_number} · {studentEvents[0]?studentEvents[0].event_type.replace("_"," ")+ " "+timeLabel(studentEvents[0].event_time):"No check-in recorded today"}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={()=>void recordEvent(student,"check_in")} disabled={!selectedDevice||!!saving||checkedIn} className="inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"><LogIn size={16}/>{saving===student.id+"check_in"?"Saving…":"Clock in"}</button><button type="button" onClick={()=>void recordEvent(student,"check_out")} disabled={!selectedDevice||!!saving||!checkedIn||checkedOut} className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-bold text-amber-900 disabled:opacity-40"><LogOut size={16}/>{saving===student.id+"check_out"?"Saving…":"Clock out"}</button></div></article>})}</div>}
+      </section>
+      <section className="rounded-2xl border bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-extrabold">10:00 AM attendance checkpoint alerts</h2><p className="mt-1 text-sm text-slate-600">Repeated admin/HR reminders stop when the alert is acknowledged or the person checks in.</p></div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900">{checkpointAlerts.filter(a=>a.alert_status==="pending").length} pending</span></div>
+        {checkpointAlerts.length===0?<p className="mt-3 text-sm text-slate-500">No checkpoint alerts for today.</p>:<div className="mt-3 divide-y">{checkpointAlerts.map(alert=><article key={alert.id} className="py-3"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-bold">{alert.person_type==="student"?(studentNames.get(alert.student_id)||"Student"):"Staff member"} · {alert.person_type}</p><p className="mt-1 text-xs text-slate-500">Reminder count: {alert.reminder_count} · First detected: {timeLabel(alert.first_detected_at)}</p>{alert.acknowledgement_note&&<p className="mt-1 text-sm text-slate-600">Note: {alert.acknowledgement_note}</p>}</div><span className={alert.alert_status==="pending"?"rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900":"rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900"}>{alert.alert_status}</span></div>{alert.alert_status==="pending"&&<div className="mt-3 flex flex-wrap gap-2"><input className="min-w-[200px] flex-1 rounded-lg border px-3 py-2 text-sm" value={acknowledgementNotes[alert.id]||""} onChange={e=>setAcknowledgementNotes(p=>({...p,[alert.id]:e.target.value}))} placeholder="Acknowledgement note (optional)"/><button type="button" onClick={()=>void acknowledgeCheckpoint(alert.id)} disabled={!!saving} className="rounded-lg bg-emerald-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{saving==="checkpoint:"+alert.id?"Saving…":"Acknowledge"}</button></div>}</article>)}</div>}
       </section>
       <section className="rounded-2xl border bg-white p-5 shadow-sm"><h2 className="font-extrabold">Today's attendance event log</h2>{events.length===0?<p className="mt-3 text-sm text-slate-500">No check-in or check-out events have been recorded today.</p>:<div className="mt-3 divide-y">{events.slice(0,30).map(event=><div key={event.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"><span className="font-semibold">{studentNames.get(event.student_id)||"Student"}</span><span className="text-slate-600">{event.event_type.replace("_"," ")} · {timeLabel(event.event_time)} · Admin recorded</span></div>)}</div>}</section>
     </div>
