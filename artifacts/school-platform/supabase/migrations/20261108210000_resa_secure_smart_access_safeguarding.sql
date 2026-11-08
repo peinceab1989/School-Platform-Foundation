@@ -735,57 +735,6 @@ before insert or update of school_id, subject_type, subject_record_id, subject_u
 on public.people_status_records
 for each row execute function public.validate_people_status_subject();
 
--- Admin-only issuance. The browser creates a high-entropy random token and
--- submits only its SHA-256 hash; the raw token is never stored in the database.
-create or replace function public.resa_issue_attendance_qr(
-  p_school_id uuid,
-  p_person_type text,
-  p_person_id uuid,
-  p_token_hash text
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_credential_id uuid;
-begin
-  if auth.uid() is null or not public.has_school_role(p_school_id, array['admin']::public.school_role[]) then
-    raise exception 'School administrator access is required';
-  end if;
-  if p_token_hash !~ '^[a-f0-9]{64}
-    if not exists (select 1 from public.students s where s.id=p_person_id and s.school_id=p_school_id and s.status='active') then
-      raise exception 'Active student not found in this school';
-    end if;
-    update public.attendance_qr_credentials
-      set is_active=false, revoked_at=now()
-      where school_id=p_school_id and student_id=p_person_id and is_active;
-    insert into public.attendance_qr_credentials(school_id,person_type,student_id,token_hash,created_by)
-      values(p_school_id,'student',p_person_id,p_token_hash,auth.uid())
-      returning id into v_credential_id;
-  elsif p_person_type = 'staff' then
-    if not exists (select 1 from public.staff sf where sf.id=p_person_id and sf.school_id=p_school_id and sf.status='active') then
-      raise exception 'Active staff member not found in this school';
-    end if;
-    update public.attendance_qr_credentials
-      set is_active=false, revoked_at=now()
-      where school_id=p_school_id and staff_id=p_person_id and is_active;
-    insert into public.attendance_qr_credentials(school_id,person_type,staff_id,token_hash,created_by)
-      values(p_school_id,'staff',p_person_id,p_token_hash,auth.uid())
-      returning id into v_credential_id;
-  else
-    raise exception 'Unsupported QR person type';
-  end if;
-  return jsonb_build_object('credential_id',v_credential_id,'person_type',p_person_type,'issued_at',now());
-end;
-$function$;
-
-revoke all on function public.resa_issue_attendance_qr(uuid,text,uuid,text) from public,anon;
-grant execute on function public.resa_issue_attendance_qr(uuid,text,uuid,text) to authenticated;
-
--- Admin/teacher scan. Locks the person row and writes through the existing
--- attendance pipeline so existing student attendance and parent alerts remain active.
 create or replace function public.resa_record_qr_attendance(
   p_token_hash text,
   p_station_id uuid,
@@ -1321,307 +1270,6 @@ after insert or update of record_status on public.people_status_records
 for each row execute function public.audit_people_status_record();
 
 revoke all on function public.audit_people_status_record() from public,anon,authenticated;
- then
-    raise exception 'Invalid QR credential hash';
-  end if;
-  if p_person_type not in ('student','staff') then raise exception 'Unsupported QR person type'; end if;
-  if not exists (
-    select 1 from public.smart_access_settings s
-    where s.school_id=p_school_id
-      and ((p_person_type='student' and s.student_qr_enabled)
-        or (p_person_type='staff' and s.staff_qr_enabled))
-  ) then raise exception 'QR attendance is not enabled for this person type'; end if;
-
-  if p_person_type = 'student' then
-    if not exists (select 1 from public.students s where s.id=p_person_id and s.school_id=p_school_id and s.status='active') then
-      raise exception 'Active student not found in this school';
-    end if;
-    update public.attendance_qr_credentials
-      set is_active=false, revoked_at=now()
-      where school_id=p_school_id and student_id=p_person_id and is_active;
-    insert into public.attendance_qr_credentials(school_id,person_type,student_id,token_hash,created_by)
-      values(p_school_id,'student',p_person_id,p_token_hash,auth.uid())
-      returning id into v_credential_id;
-  elsif p_person_type = 'staff' then
-    if not exists (select 1 from public.staff sf where sf.id=p_person_id and sf.school_id=p_school_id and sf.status='active') then
-      raise exception 'Active staff member not found in this school';
-    end if;
-    update public.attendance_qr_credentials
-      set is_active=false, revoked_at=now()
-      where school_id=p_school_id and staff_id=p_person_id and is_active;
-    insert into public.attendance_qr_credentials(school_id,person_type,staff_id,token_hash,created_by)
-      values(p_school_id,'staff',p_person_id,p_token_hash,auth.uid())
-      returning id into v_credential_id;
-  else
-    raise exception 'Unsupported QR person type';
-  end if;
-  return jsonb_build_object('credential_id',v_credential_id,'person_type',p_person_type,'issued_at',now());
-end;
-$function$;
-
-revoke all on function public.resa_issue_attendance_qr(uuid,text,uuid,text) from public,anon;
-grant execute on function public.resa_issue_attendance_qr(uuid,text,uuid,text) to authenticated;
-
--- Admin/teacher scan. Locks the person row and writes through the existing
--- attendance pipeline so existing student attendance and parent alerts remain active.
-create or replace function public.resa_record_qr_attendance(
-  p_token_hash text,
-  p_station_id uuid,
-  p_event_type text
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_credential public.attendance_qr_credentials%rowtype;
-  v_device public.biometric_devices%rowtype;
-  v_person_name text;
-  v_today date := (now() at time zone 'Africa/Lagos')::date;
-  v_time time := (now() at time zone 'Africa/Lagos')::time;
-  v_attendance public.student_attendance%rowtype;
-  v_staff_attendance public.staff_attendance%rowtype;
-  v_event_id uuid;
-  v_event_time timestamptz;
-begin
-  if auth.uid() is null then raise exception 'Sign in is required'; end if;
-  if p_event_type not in ('check_in','check_out') then raise exception 'Invalid attendance action'; end if;
-  if p_token_hash !~ '^[a-f0-9]{64}$' then raise exception 'Invalid QR credential'; end if;
-
-  select * into v_credential from public.attendance_qr_credentials
-    where token_hash=p_token_hash and is_active=true for update;
-  if not found then raise exception 'QR credential is invalid or has been revoked'; end if;
-  if not public.has_school_role(v_credential.school_id,array['admin','teacher']::public.school_role[]) then
-    raise exception 'Attendance operator access is required';
-  end if;
-
-  select * into v_device from public.biometric_devices
-    where id=p_station_id and school_id=v_credential.school_id and is_active=true;
-  if not found then raise exception 'Select an active attendance station for this school'; end if;
-
-  if v_credential.person_type='student' then
-    perform 1 from public.students s
-      where s.id=v_credential.student_id and s.school_id=v_credential.school_id and s.status='active'
-      for update;
-    if not found then raise exception 'Student is inactive or no longer belongs to this school'; end if;
-    select * into v_attendance from public.student_attendance
-      where school_id=v_credential.school_id and student_id=v_credential.student_id and attendance_date=v_today
-      for update;
-    if p_event_type='check_in' and v_attendance.check_in_at is not null then
-      raise exception 'This student has already checked in today';
-    end if;
-    if p_event_type='check_out' and (v_attendance.id is null or v_attendance.check_in_at is null) then
-      raise exception 'The student must check in before checking out';
-    end if;
-    if p_event_type='check_out' and v_attendance.check_out_at is not null then
-      raise exception 'This student has already checked out today';
-    end if;
-
-    insert into public.biometric_attendance_events(
-      school_id,biometric_device_id,student_id,event_type,event_time,verification_method
-    ) values (
-      v_credential.school_id,p_station_id,v_credential.student_id,p_event_type,now(),'qr_code'
-    ) returning id,event_time into v_event_id,v_event_time;
-
-    select concat_ws(' ',p.first_name,p.middle_name,p.last_name) into v_person_name
-    from public.students s join public.people p on p.id=s.person_id and p.school_id=s.school_id
-    where s.id=v_credential.student_id;
-  else
-    perform 1 from public.staff sf
-      where sf.id=v_credential.staff_id and sf.school_id=v_credential.school_id and sf.status='active'
-      for update;
-    if not found then raise exception 'Staff member is inactive or no longer belongs to this school'; end if;
-    if p_event_type='check_in' then
-      insert into public.staff_attendance(
-        school_id,staff_id,attendance_date,status,check_in_time,recorded_by,remarks
-      ) values (
-        v_credential.school_id,v_credential.staff_id,v_today,'present',v_time,auth.uid(),
-        'QR check-in at '||coalesce(v_device.device_name,'attendance station')
-      )
-      on conflict (staff_id,attendance_date) do update
-        set status='present',check_in_time=excluded.check_in_time,recorded_by=auth.uid(),
-            remarks=concat_ws(' · ',public.staff_attendance.remarks,excluded.remarks)
-        where public.staff_attendance.check_in_time is null
-      returning * into v_staff_attendance;
-      if not found then raise exception 'This staff member has already checked in today'; end if;
-    else
-      update public.staff_attendance
-        set check_out_time=v_time,status='checked_out',recorded_by=auth.uid(),
-            remarks=concat_ws(' · ',remarks,'QR check-out at '||coalesce(v_device.device_name,'attendance station'))
-        where school_id=v_credential.school_id and staff_id=v_credential.staff_id
-          and attendance_date=v_today and check_in_time is not null and check_out_time is null
-      returning * into v_staff_attendance;
-      if not found then raise exception 'A valid staff check-in is required before check-out'; end if;
-    end if;
-    select concat_ws(' ',p.first_name,p.middle_name,p.last_name) into v_person_name
-    from public.staff sf join public.people p on p.id=sf.person_id and p.school_id=sf.school_id
-    where sf.id=v_credential.staff_id;
-  end if;
-
-  return jsonb_build_object(
-    'success',true,'person_type',v_credential.person_type,'person_id',
-    coalesce(v_credential.student_id,v_credential.staff_id),'person_name',v_person_name,
-    'event_type',p_event_type,'event_time',coalesce(v_event_time,now()),
-    'station_name',v_device.device_name
-  );
-end;
-$function$;
-
-revoke all on function public.resa_record_qr_attendance(text,uuid,text) from public,anon;
-grant execute on function public.resa_record_qr_attendance(text,uuid,text) to authenticated;
-
--- Parent QR issuance and one-time collection release.
-create or replace function public.resa_issue_parent_qr(
-  p_school_id uuid,
-  p_parent_guardian_id uuid,
-  p_token_hash text
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare v_id uuid;
-begin
-  if auth.uid() is null or not public.has_school_role(p_school_id,array['admin']::public.school_role[]) then
-    raise exception 'School administrator access is required';
-  end if;
-  if p_token_hash !~ '^[a-f0-9]{64}$' then raise exception 'Invalid QR credential hash'; end if;
-  if not exists (
-    select 1 from public.parents_guardians pg
-    where pg.id=p_parent_guardian_id and pg.school_id=p_school_id and pg.portal_enabled=true
-  ) then raise exception 'Active parent portal record not found'; end if;
-  update public.parent_qr_credentials set is_active=false,revoked_at=now()
-    where school_id=p_school_id and parent_guardian_id=p_parent_guardian_id and is_active;
-  insert into public.parent_qr_credentials(school_id,parent_guardian_id,token_hash,created_by)
-    values(p_school_id,p_parent_guardian_id,p_token_hash,auth.uid())
-    on conflict (school_id,parent_guardian_id) do update
-      set token_hash=excluded.token_hash,is_active=true,created_by=auth.uid(),created_at=now(),revoked_at=null
-    returning id into v_id;
-  return jsonb_build_object('credential_id',v_id,'issued_at',now());
-end;
-$function$;
-
-revoke all on function public.resa_issue_parent_qr(uuid,uuid,text) from public,anon;
-grant execute on function public.resa_issue_parent_qr(uuid,uuid,text) to authenticated;
-
-create or replace function public.resa_record_child_collection_release(
-  p_school_id uuid,
-  p_student_id uuid,
-  p_collector_full_name text,
-  p_collector_relationship text,
-  p_verification_method text,
-  p_verification_note text,
-  p_authorization_id uuid default null,
-  p_parent_qr_hash text default null,
-  p_station_id uuid default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-declare
-  v_parent_id uuid;
-  v_authorization public.child_collection_authorizations%rowtype;
-  v_release_id uuid;
-begin
-  if auth.uid() is null or not public.has_school_role(p_school_id,array['admin','teacher']::public.school_role[]) then
-    raise exception 'School staff attendance permission is required';
-  end if;
-  if not exists (select 1 from public.smart_access_settings s where s.school_id=p_school_id and s.child_pickup_enabled) then
-    raise exception 'Child collection is not enabled by the school';
-  end if;
-  if length(trim(coalesce(p_collector_full_name,'')))<2 or length(trim(coalesce(p_verification_note,'')))<3 then
-    raise exception 'Collector name and verification note are required';
-  end if;
-  if not exists (select 1 from public.students s where s.id=p_student_id and s.school_id=p_school_id and s.status='active') then
-    raise exception 'Active student not found in this school';
-  end if;
-  if p_station_id is not null and not exists (
-    select 1 from public.biometric_devices d where d.id=p_station_id and d.school_id=p_school_id and d.is_active
-  ) then raise exception 'Invalid attendance station'; end if;
-
-  if p_authorization_id is not null then
-    select * into v_authorization from public.child_collection_authorizations
-      where id=p_authorization_id and school_id=p_school_id and student_id=p_student_id
-      for update;
-    if not found or v_authorization.approval_status<>'approved'
-      or v_authorization.consumed_at is not null
-      or v_authorization.valid_from>now()
-      or (v_authorization.valid_until is not null and v_authorization.valid_until<=now()) then
-      raise exception 'No valid, unused school-approved collection authorization was found';
-    end if;
-    if lower(trim(v_authorization.collector_full_name))<>lower(trim(p_collector_full_name)) then
-      raise exception 'The collector name does not match the approved authorization';
-    end if;
-    if p_collector_relationship is not null and v_authorization.relationship is not null
-      and lower(trim(v_authorization.relationship))<>lower(trim(p_collector_relationship)) then
-      raise exception 'The collector relationship does not match the approved authorization';
-    end if;
-    v_parent_id:=v_authorization.parent_guardian_id;
-    update public.child_collection_authorizations set consumed_at=now(),consumed_by=auth.uid()
-      where id=v_authorization.id;
-  elsif p_verification_method='parent_qr' and p_parent_qr_hash is not null then
-    if p_parent_qr_hash !~ '^[a-f0-9]{64}$' then raise exception 'Invalid parent QR credential'; end if;
-    select q.parent_guardian_id into v_parent_id
-      from public.parent_qr_credentials q
-      join public.parent_student_portal_access l
-        on l.school_id=q.school_id and l.parent_guardian_id=q.parent_guardian_id
-      where q.school_id=p_school_id and q.token_hash=p_parent_qr_hash and q.is_active
-        and l.student_id=p_student_id and l.is_active;
-    if not found then raise exception 'Parent QR is invalid or is not linked to this student'; end if;
-  elsif p_verification_method<>'manual_verified' then
-    raise exception 'A valid approved collector authorization or verified parent QR is required';
-  end if;
-
-  insert into public.child_collection_releases(
-    school_id,student_id,parent_guardian_id,authorization_id,collector_full_name,
-    collector_relationship,verification_method,released_by,station_id,verification_note
-  ) values (
-    p_school_id,p_student_id,v_parent_id,p_authorization_id,trim(p_collector_full_name),
-    nullif(trim(coalesce(p_collector_relationship,'')),''),p_verification_method,auth.uid(),p_station_id,trim(p_verification_note)
-  ) returning id into v_release_id;
-
-  return jsonb_build_object('success',true,'release_id',v_release_id,'released_at',now());
-end;
-$function$;
-
-revoke all on function public.resa_record_child_collection_release(uuid,uuid,text,text,text,text,uuid,text,uuid) from public,anon;
-grant execute on function public.resa_record_child_collection_release(uuid,uuid,text,text,text,text,uuid,text,uuid) to authenticated;
-
--- Parent official requests automatically create an audit event and a queue
--- item for the school's admin notification worker.
-create or replace function public.enqueue_parent_official_request()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  insert into public.parent_official_access_request_events(school_id,request_id,event_type,actor_user_id,event_note)
-  values(new.school_id,new.id,'submitted',new.requested_by,'Parent request submitted');
-  insert into public.smart_access_notification_outbox(school_id,request_id,notification_type,audience_roles)
-  values(new.school_id,new.id,'parent_authorization_submitted',array['admin','hr']::text[]);
-  return new;
-end;
-$function$;
-
-drop trigger if exists parent_official_request_enqueue on public.parent_official_access_requests;
-create trigger parent_official_request_enqueue
-after insert on public.parent_official_access_requests
-for each row execute function public.enqueue_parent_official_request();
-
-revoke all on function public.validate_people_status_subject() from public,anon,authenticated;
-revoke all on function public.enqueue_parent_official_request() from public,anon,authenticated;
-
-comment on function public.resa_record_child_collection_release(uuid,uuid,text,text,text,text,uuid,text,uuid) is
-'Trusted one-time release operation. Requires school staff, active child-pickup settings, and a valid approved authorization or linked parent QR. A scan alone never releases a child.';
-comment on function public.resa_record_qr_attendance(text,uuid,text) is
-'Records a QR attendance event through the existing biometric attendance and parent notification triggers.';
-
-
 -- Parent QR check-in for school events is separate from child collection.
 revoke insert, update, delete, truncate on public.school_access_event_attendance from authenticated;
 
@@ -2949,3 +2597,54 @@ alter table public.biometric_attendance_events
 alter table public.biometric_attendance_events
   add constraint biometric_attendance_verification_check
   check (verification_method = any (array['fingerprint','face','card','other','qr_code']::text[]));
+
+
+-- Issue a revocable QR credential only when the school has enabled that QR mode.
+create or replace function public.resa_issue_attendance_qr(
+  p_school_id uuid,
+  p_person_type text,
+  p_person_id uuid,
+  p_token_hash text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare v_credential_id uuid;
+begin
+  if auth.uid() is null or not public.has_school_role(p_school_id,array['admin']::public.school_role[]) then
+    raise exception 'School administrator access is required';
+  end if;
+  if p_person_type not in ('student','staff') then raise exception 'Unsupported QR person type'; end if;
+  if p_token_hash !~ '^[a-f0-9]{64}$' then raise exception 'Invalid QR credential hash'; end if;
+  if not exists (
+    select 1 from public.smart_access_settings s
+    where s.school_id=p_school_id
+      and ((p_person_type='student' and s.student_qr_enabled)
+        or (p_person_type='staff' and s.staff_qr_enabled))
+  ) then raise exception 'QR attendance is not enabled for this person type'; end if;
+
+  if p_person_type='student' then
+    if not exists(select 1 from public.students where id=p_person_id and school_id=p_school_id and status='active') then
+      raise exception 'Active student not found in this school';
+    end if;
+    update public.attendance_qr_credentials set is_active=false,revoked_at=now()
+      where school_id=p_school_id and student_id=p_person_id and is_active;
+    insert into public.attendance_qr_credentials(school_id,person_type,student_id,token_hash,created_by)
+      values(p_school_id,'student',p_person_id,p_token_hash,auth.uid()) returning id into v_credential_id;
+  else
+    if not exists(select 1 from public.staff where id=p_person_id and school_id=p_school_id and status='active') then
+      raise exception 'Active staff member not found in this school';
+    end if;
+    update public.attendance_qr_credentials set is_active=false,revoked_at=now()
+      where school_id=p_school_id and staff_id=p_person_id and is_active;
+    insert into public.attendance_qr_credentials(school_id,person_type,staff_id,token_hash,created_by)
+      values(p_school_id,'staff',p_person_id,p_token_hash,auth.uid()) returning id into v_credential_id;
+  end if;
+  return jsonb_build_object('credential_id',v_credential_id,'person_type',p_person_type,'issued_at',now());
+end;
+$function$;
+
+revoke all on function public.resa_issue_attendance_qr(uuid,text,uuid,text) from public,anon;
+grant execute on function public.resa_issue_attendance_qr(uuid,text,uuid,text) to authenticated;
