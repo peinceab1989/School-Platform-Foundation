@@ -200,6 +200,7 @@ Deno.serve(async (req: Request) => {
     if (action === "save") {
       const attemptId = asString(body.attempt_id);
       const answers = Array.isArray(body.answers) ? body.answers : [];
+      if (answers.length > 300) return reply(400, { error: "A maximum of 300 answers can be submitted at once." }, requestOrigin);
       if (!attemptId) return reply(400, { error: "An attempt_id is required." }, requestOrigin);
       const { data, error } = await admin.rpc("resa_external_candidate_cbt_save", {
         p_candidate_id: candidate.id,
@@ -214,6 +215,7 @@ Deno.serve(async (req: Request) => {
     if (action === "submit") {
       const attemptId = asString(body.attempt_id);
       const answers = Array.isArray(body.answers) ? body.answers : [];
+      if (answers.length > 300) return reply(400, { error: "A maximum of 300 answers can be submitted at once." }, requestOrigin);
       if (!attemptId) return reply(400, { error: "An attempt_id is required." }, requestOrigin);
       const { data, error } = await admin.rpc("resa_external_candidate_cbt_submit", {
         p_candidate_id: candidate.id,
