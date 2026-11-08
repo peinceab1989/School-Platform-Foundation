@@ -1015,7 +1015,7 @@ revoke all on function public.audit_parent_official_request_decision() from publ
 -- Parent submission is atomic: child-pickup requests create both the visit record
 -- and the specific collection authorization in the same transaction.
 create or replace function public.resa_submit_parent_access_request(
- p_parent_guardian_id uuid,p_purpose text,p_student_id uuid,
+ p_school_id uuid,p_parent_guardian_id uuid,p_purpose text,p_student_id uuid,
  p_delegate_full_name text,p_delegate_phone text,p_delegate_relationship text,
  p_delegate_identity_reference text,p_intended_department text,p_intended_staff_member text,
  p_purpose_details text,p_requested_visit_at timestamptz,p_valid_until timestamptz default null
@@ -1024,7 +1024,7 @@ as $function$
 declare v_request_id uuid; v_authorization_id uuid;
 begin
  if auth.uid() is null then raise exception 'Sign in as a parent to submit a request'; end if;
- if not exists(select 1 from public.parent_portal_accounts p where p.parent_guardian_id=p_parent_guardian_id
+ if not exists(select 1 from public.parent_portal_accounts p where p.school_id=p_school_id and p.parent_guardian_id=p_parent_guardian_id
   and p.user_id=auth.uid() and p.is_active) then raise exception 'Active parent account not found'; end if;
  if p_purpose not in('child_pickup','document_collection','meeting','payment_or_finance','academic_consultation','event_attendance','other') then
   raise exception 'Invalid request purpose'; end if;
@@ -1044,7 +1044,7 @@ begin
   nullif(trim(coalesce(p_delegate_relationship,'')),''),nullif(trim(coalesce(p_delegate_identity_reference,'')),''),
   nullif(trim(coalesce(p_intended_department,'')),''),nullif(trim(coalesce(p_intended_staff_member,'')),''),
   trim(p_purpose_details),p_requested_visit_at,p_valid_until,'pending',auth.uid()
- from public.parent_portal_accounts p where p.parent_guardian_id=p_parent_guardian_id and p.user_id=auth.uid() and p.is_active
+ from public.parent_portal_accounts p where p.school_id=p_school_id and p.parent_guardian_id=p_parent_guardian_id and p.user_id=auth.uid() and p.is_active
  returning id into v_request_id;
  if p_purpose='child_pickup' then
   insert into public.child_collection_authorizations(
@@ -1053,11 +1053,11 @@ begin
   ) select p.school_id,p_parent_guardian_id,p_student_id,trim(p_delegate_full_name),trim(p_delegate_phone),
    coalesce(nullif(trim(coalesce(p_delegate_relationship,'')),''),'Not specified'),
    p_requested_visit_at,p_valid_until,'pending',auth.uid()
-  from public.parent_portal_accounts p where p.parent_guardian_id=p_parent_guardian_id and p.user_id=auth.uid() and p.is_active
+  from public.parent_portal_accounts p where p.school_id=p_school_id and p.parent_guardian_id=p_parent_guardian_id and p.user_id=auth.uid() and p.is_active
   returning id into v_authorization_id;
  end if;
  return jsonb_build_object('request_id',v_request_id,'authorization_id',v_authorization_id,'status','pending');
 end;
 $function$;
-revoke all on function public.resa_submit_parent_access_request(uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) from public,anon;
+revoke all on function public.resa_submit_parent_access_request(uuid,uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) from public,anon;
 grant execute on function public.resa_submit_parent_access_request(uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) to authenticated;
