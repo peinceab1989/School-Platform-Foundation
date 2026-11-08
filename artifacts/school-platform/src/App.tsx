@@ -3113,6 +3113,8 @@ function AppRoutes() {
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
         <Route path="/biometric-attendance" component={FoundationPage} />
+        <Route path="/smart-access-management" component={FoundationPage} />
+        <Route path="/parent-authorizations" component={FoundationPage} />
         <Route path="/school-cctv" component={FoundationPage} />
 
         {/* Private control centre */}
