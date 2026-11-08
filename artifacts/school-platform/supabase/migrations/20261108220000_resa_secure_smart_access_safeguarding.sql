@@ -1152,7 +1152,8 @@ begin
   where st.school_id=v_school.id and st.status='active'
     and (sa.id is null or (sa.check_in_at is null and sa.status not in('present','late')))
   on conflict do nothing;
-  get diagnostics v_count = row_count;\n  v_created:=v_created+v_count;
+  get diagnostics v_count = row_count;
+  v_created:=v_created+v_count;
 
   -- Active staff without a present/checked-out record or check-in time.
   insert into public.attendance_checkpoint_alerts(school_id,attendance_date,person_type,staff_id,alert_status)
@@ -1162,7 +1163,8 @@ begin
   where sf.school_id=v_school.id and sf.status='active'
     and (sa.id is null or (sa.check_in_time is null and sa.status not in('present','checked_out')))
   on conflict do nothing;
-  get diagnostics v_count = row_count;\n  v_created:=v_created+v_count;
+  get diagnostics v_count = row_count;
+  v_created:=v_created+v_count;
 
   select m.user_id into v_sender from public.school_memberships m
   where m.school_id=v_school.id and m.role='admin' and m.status='active'
