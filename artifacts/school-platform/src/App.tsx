@@ -32,6 +32,11 @@ const HrManagementPage = lazy(() => import('@/pages/hr-management'));
 const SchoolReportsPage = lazy(() => import('@/pages/school-reports'));
 const SchoolServicesPage = lazy(() => import('@/pages/school-services'));
 const FeesManagementPage = lazy(() => import('@/pages/fees-management'));
+const AdmissionsApplicationPage = lazy(() => import('@/pages/admissions-application'));
+const AdmissionsManagementPage = lazy(() => import('@/pages/admissions-management'));
+const ExternalCbtRegistrationPage = lazy(() => import('@/pages/external-cbt-registration'));
+const ExternalCbtPage = lazy(() => import('@/pages/external-cbt'));
+const ExternalCbtManagementPage = lazy(() => import('@/pages/external-cbt-management'));
 const SchoolCommunicationPage = lazy(() => import('@/pages/school-communication'));
 const StaffAttendancePage = lazy(() => import('@/pages/staff-attendance'));
 const StudentsPage = lazy(() => import('@/pages/students'));
@@ -156,6 +161,8 @@ const ADMIN_SCHOOL_PATHS = [
   '/school-services',
   '/fees-management',
   '/fees',
+  '/external-cbt-management',
+  '/admissions-management',
   '/drive',
   '/publication-centre',
   '/staff-attendance',
@@ -179,6 +186,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-assignments',
   '/school-communication',
   '/notifications',
+  '/external-cbt',
   '/school-cctv',
 ];
 
@@ -1819,6 +1827,7 @@ function FoundationPage() {
   const currentPath = normalizePath(location);
 
   const [session, setSession] = useState<Session | null>(null);
+  const isExternalCandidate = session?.user.app_metadata?.account_type === 'external_candidate';
 
   const [authState, setAuthState] = useState<FoundationAuthState>(
     hasSupabaseConfig ? 'loading' : 'needs-config',
@@ -2089,6 +2098,11 @@ function FoundationPage() {
       return;
     }
 
+    if (isExternalCandidate) {
+      if (currentPath !== '/external-cbt') setLocation('/external-cbt');
+      return;
+    }
+
     // A teacher account must never be routed into administrator pages,
     // even if an old or duplicate admin membership is also present.
     if (teacherMembership) {
@@ -2147,6 +2161,7 @@ function FoundationPage() {
     teacherMembership,
     studentMembership,
     parentMembership,
+    isExternalCandidate,
     setLocation,
   ]);
 
@@ -2164,9 +2179,10 @@ function FoundationPage() {
       return;
     }
 
-    // Keep the portal landing redirect consistent with protected-route
-    // handling: teacher membership takes priority over any stale admin row.
-    if (teacherMembership) {
+    // External candidates use a separate CBT workspace and never become enrolled students.
+    if (isExternalCandidate) {
+      setLocation('/external-cbt');
+    } else if (teacherMembership) {
       setLocation('/teacher-dashboard');
     } else if (adminMembership) {
       setLocation('/dashboard');
@@ -2184,6 +2200,7 @@ function FoundationPage() {
     teacherMembership,
     studentMembership,
     parentMembership,
+    isExternalCandidate,
     setLocation,
   ]);
 
@@ -2201,6 +2218,14 @@ function FoundationPage() {
       setMemberships([]);
       setMembershipsLoading(false);
       setAccessCheckState('idle');
+      return;
+    }
+
+    if (isExternalCandidate) {
+      setMemberships([]);
+      setMembershipsLoading(false);
+      setAccessCheckState('success');
+      setStatusText('External candidate account verified. Examination access is controlled by the school.');
       return;
     }
 
@@ -2246,7 +2271,7 @@ function FoundationPage() {
     return () => {
       active = false;
     };
-  }, [authState, session]);
+  }, [authState, session, isExternalCandidate]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!hasSupabaseConfig) {
@@ -2494,6 +2519,10 @@ function FoundationPage() {
     return <SchoolCctvPage schoolId={parentMembership.schoolId} role="parent" />;
   }
 
+  if (authState === 'signed-in' && accessCheckState === 'success' && isExternalCandidate && !membershipsLoading && currentPath === '/external-cbt') {
+    return <ExternalCbtPage onSignOut={() => void signOut()} />;
+  }
+
   /* Shared presentation shell for all administrator routes; role checks remain above this UI layer. */
   const withAdminShell = (content: ReactNode) => adminMembership ? (
     <AdminPortalShell schoolId={adminMembership.schoolId} schoolName={adminMembership.schoolName} email={session?.user.email} userId={session?.user.id || ""} onSignOut={() => void signOut()}>{content}</AdminPortalShell>
@@ -2594,6 +2623,14 @@ function FoundationPage() {
 
     if (currentPath === '/fees-management' || currentPath === '/fees') {
       return withAdminShell(<FeesManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} />);
+    }
+
+    if (currentPath === '/admissions-management' && session) {
+      return withAdminShell(<AdmissionsManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
+    }
+
+    if (currentPath === '/external-cbt-management' && session) {
+      return withAdminShell(<ExternalCbtManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
     }
 
     if (currentPath === '/classes') {
@@ -2990,6 +3027,8 @@ function AppRoutes() {
         <Route path="/wisdom-inspiration" component={() => <WisdomInspirationPage />} />
         <Route path="/activities-gallery" component={() => <ActivitiesGalleryPage />} />
         <Route path="/admissions" component={() => <AdmissionsPage />} />
+        <Route path="/admissions-apply" component={AdmissionsApplicationPage} />
+        <Route path="/external-cbt-registration" component={ExternalCbtRegistrationPage} />
         <Route path="/contact" component={() => <ContactPage />} />
         <Route path="/portal-options" component={() => <PortalOptionsPage />} />
         <Route path="/practice-drills" component={() => <StudentPracticeDrillsPage />} />
@@ -3036,6 +3075,9 @@ function AppRoutes() {
         <Route path="/school-services" component={FoundationPage} />
         <Route path="/fees-management" component={FoundationPage} />
         <Route path="/fees" component={FoundationPage} />
+        <Route path="/external-cbt" component={FoundationPage} />
+        <Route path="/external-cbt-management" component={FoundationPage} />
+        <Route path="/admissions-management" component={FoundationPage} />
         <Route path="/drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />

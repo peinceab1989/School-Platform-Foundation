@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -72,36 +72,100 @@ Deno.serve(async (req: Request) => {
     const [
       { data: membershipRows, error: membershipError },
       { data: studentRows, error: studentError },
+      { data: parentAccountRows, error: parentAccountError },
+      { data: externalCandidateRows, error: externalCandidateError },
     ] = await Promise.all([
       adminClient
         .from("school_memberships")
-        .select("role,status")
+        .select("school_id,role,status")
         .eq("user_id", user.id)
-        .in("role", ["student", "teacher"])
+        .in("role", ["student", "teacher", "parent"])
         .in("status", ["invited", "active"])
-        .limit(5),
+        .limit(10),
       adminClient
         .from("students")
         .select("id")
         .eq("user_id", user.id)
         .limit(1),
+      adminClient
+        .from("parent_portal_accounts")
+        .select("id,school_id,parent_guardian_id,is_active")
+        .eq("user_id", user.id)
+        .limit(2),
+      adminClient
+        .from("external_candidate_registrations")
+        .select("id,status,candidate_number,school_id")
+        .eq("auth_user_id", user.id)
+        .limit(1),
     ]);
 
-    if (membershipError || studentError) {
-      console.error("Account activation lookup failed", membershipError?.message, studentError?.message);
+    if (membershipError || studentError || parentAccountError || externalCandidateError) {
+      console.error("Account activation lookup failed", membershipError?.message, studentError?.message, parentAccountError?.message, externalCandidateError?.message);
       return reply(500, { error: "Could not verify your school account. Please try again or contact the administrator." });
     }
 
     const memberships = membershipRows ?? [];
     const hasEligibleMembership = memberships.some(
       (row: { role: string; status: string }) =>
-        (row.role === "teacher" || row.role === "student") &&
+        (row.role === "teacher" || row.role === "student" || row.role === "parent") &&
         (row.status === "invited" || row.status === "active"),
     );
     const hasStudentLink = (studentRows ?? []).length > 0;
+    const parentAccount = (parentAccountRows ?? [])[0] ?? null;
+    const externalCandidate = (externalCandidateRows ?? [])[0] ?? null;
+    if (externalCandidate && (externalCandidate.status === "rejected" || externalCandidate.status === "suspended")) {
+      return reply(403, { error: "This external candidate registration is not eligible for account activation. Contact the school office." });
+    }
+    const parentMembership = memberships.find((row: { role: string; status: string; school_id: string }) =>
+      row.role === "parent" && (row.status === "invited" || row.status === "active") &&
+      parentAccount?.school_id === row.school_id
+    );
 
-    if (!hasEligibleMembership && !hasStudentLink) {
-      return reply(403, { error: "This account is not eligible for student or teacher activation. Ask the school administrator to verify the invitation." });
+    if (parentAccount && !parentMembership) {
+      return reply(403, { error: "This parent portal account has no matching invited school membership. Ask the administrator to review the invitation." });
+    }
+    if (parentMembership && !parentAccount) {
+      return reply(403, { error: "The parent portal account is incomplete. Ask the administrator to resend the invitation." });
+    }
+
+    let parentGuardianId: string | null = null;
+    if (parentAccount && parentMembership) {
+      parentGuardianId = parentAccount.parent_guardian_id;
+      const { data: guardian, error: guardianError } = await adminClient
+        .from("parents_guardians")
+        .select("id,school_id,person_id")
+        .eq("id", parentGuardianId)
+        .eq("school_id", parentAccount.school_id)
+        .maybeSingle();
+      if (guardianError || !guardian) {
+        console.error("Parent guardian activation lookup failed", guardianError?.message);
+        return reply(403, { error: "The parent record could not be verified. Ask the administrator to review the invitation." });
+      }
+      const { data: person, error: personError } = await adminClient
+        .from("people")
+        .select("id,user_id")
+        .eq("id", guardian.person_id)
+        .eq("school_id", guardian.school_id)
+        .maybeSingle();
+      if (personError || !person || person.user_id !== user.id) {
+        console.error("Parent identity link verification failed", personError?.message);
+        return reply(403, { error: "This invitation is not linked to your parent identity. Ask the administrator for help." });
+      }
+      const { data: accessLinks, error: accessError } = await adminClient
+        .from("parent_student_portal_access")
+        .select("id")
+        .eq("school_id", guardian.school_id)
+        .eq("parent_guardian_id", guardian.id)
+        .eq("is_active", true)
+        .limit(1);
+      if (accessError || !accessLinks?.length) {
+        console.error("Parent student access verification failed", accessError?.message);
+        return reply(403, { error: "No active student link was found for this parent account. Ask the administrator to link the student first." });
+      }
+    }
+
+    if (!hasEligibleMembership && !hasStudentLink && !externalCandidate) {
+      return reply(403, { error: "This account is not eligible for school activation. Ask the school administrator to verify the invitation." });
     }
 
     const { error: updateError } = await adminClient.auth.admin.updateUserById(user.id, { password });
@@ -110,9 +174,37 @@ Deno.serve(async (req: Request) => {
       return reply(400, { error: updateError.message || "Could not set your password. Please try again." });
     }
 
+    if (parentGuardianId && parentAccount) {
+      const [guardianUpdate, portalUpdate, membershipUpdate] = await Promise.all([
+        adminClient.from("parents_guardians")
+          .update({ portal_enabled: true })
+          .eq("id", parentGuardianId)
+          .eq("school_id", parentAccount.school_id),
+        adminClient.from("parent_portal_accounts")
+          .update({ is_active: true })
+          .eq("id", parentAccount.id)
+          .eq("user_id", user.id),
+        adminClient.from("school_memberships")
+          .update({ status: "active" })
+          .eq("school_id", parentAccount.school_id)
+          .eq("user_id", user.id)
+          .eq("role", "parent"),
+      ]);
+      if (guardianUpdate.error || portalUpdate.error || membershipUpdate.error) {
+        console.error("Parent account activation write failed", guardianUpdate.error?.message, portalUpdate.error?.message, membershipUpdate.error?.message);
+        return reply(500, { error: "Your password was saved, but parent portal activation did not finish. Ask the administrator to retry activation." });
+      }
+    }
+
     return reply(200, {
       success: true,
-      message: "Password created successfully. School access remains controlled by the account's school membership status.",
+      message: parentGuardianId
+        ? "Parent password created and parent portal access activated."
+        : externalCandidate
+          ? "External candidate password created. CBT access will be available after the school approves the registration and assigns an examination."
+          : "Password created successfully. School access remains controlled by the account's school membership status.",
+      role: parentGuardianId ? "parent" : externalCandidate ? "external_candidate" : undefined,
+      candidate_number: externalCandidate?.candidate_number,
       email: user.email,
     });
   } catch (error) {

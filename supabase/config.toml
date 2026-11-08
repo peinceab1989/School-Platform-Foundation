@@ -2,3 +2,12 @@ project_id = "mhwwzzxwpsqwhxrsuwaa"
 
 [functions.resa-login-by-id]
 verify_jwt = false
+
+[functions.resa-external-candidate-register]
+verify_jwt = false
+
+[functions.resa-admission-application-submit]
+verify_jwt = false
+
+[functions.resa-external-cbt]
+verify_jwt = true
