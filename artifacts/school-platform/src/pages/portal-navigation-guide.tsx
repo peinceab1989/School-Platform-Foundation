@@ -7,6 +7,7 @@ const sections = [
     icon: ShieldCheck,
     items: [
       ["Students", "/students", "Register, search and update learners; check account links."],
+      ["Class Enrolments", "/student-enrolments", "Assign each active student to the correct class and academic session; previous placements are recorded in enrolment history."],
       ["Student ID Cards", "/student-id-cards", "Upload passport photos, grant printing and print approved cards."],
       ["Teachers & Staff", "/staff-invitations", "Invite staff, approve access and manage active staff records."],
       ["Parents & Guardians", "/parent-management", "Manage parent records and approved learner links."],
