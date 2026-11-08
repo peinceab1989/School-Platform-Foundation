@@ -161,7 +161,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
     try{
       if(!parentQrPersonId)throw new Error("Select an active parent portal account.");
       const bytes=crypto.getRandomValues(new Uint8Array(16));
-      const token=btoa(String.fromCharCode(...bytes)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/g,"");
+      const token=btoa(String.fromCharCode(...bytes)).replaceAll("+","-").replaceAll("/","_").replace(/=+$/g,"");
       const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token));
       const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
       const db=getSupabaseClient() as any;
