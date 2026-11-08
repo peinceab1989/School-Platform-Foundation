@@ -20,6 +20,7 @@ const options = [
   { title: "Check Results", description: "View published academic results and progress.", href: "/my-results", icon: ClipboardCheck, tone: "blue", group: "Student services" },
   { title: "E-learning", description: "Lessons, study resources and practice activities.", href: "/student-dashboard", icon: BookOpen, tone: "orange", group: "Student services" },
   { title: "Computer Based Test", description: "Open online assessments and CBT activities.", href: "/student-cbt", icon: Laptop, tone: "slate", group: "Student services" },
+  { title: "External Candidate Registration", description: "RESA · External CBT — Register with your school-verified form number. Each verified form number can only be used once.", href: "/external-cbt-registration", icon: ClipboardCheck, tone: "gold", group: "Student services" },
   { title: "Assignments", description: "View and track class assignments separately from CBT.", href: "/student-assignments", icon: GraduationCap, tone: "blue", group: "Student services" },
   { title: "Admin Platform", description: "Secure sign-in for school staff and administration.", href: "/portal", icon: ShieldCheck, tone: "green", group: "Staff & administration" },
 ];
