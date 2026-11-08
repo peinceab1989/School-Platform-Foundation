@@ -185,6 +185,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-dashboard',
   '/student-id-card',
   '/my-results',
+  '/parent-authorizations',
   '/student-cbt',
   '/student-assignments',
   '/school-communication',
