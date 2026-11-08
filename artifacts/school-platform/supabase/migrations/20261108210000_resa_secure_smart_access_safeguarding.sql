@@ -2882,3 +2882,62 @@ after insert or update of record_status on public.people_status_records
 for each row execute function public.audit_people_status_record();
 
 revoke all on function public.audit_people_status_record() from public,anon,authenticated;
+
+
+-- Parent-owned requests must be tied to the authenticated portal account and
+-- an active parent/child relationship in the same school.
+create or replace function public.validate_parent_smart_access_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if auth.uid() is null or new.requested_by is distinct from auth.uid() then
+    raise exception 'The signed-in parent account must submit this request';
+  end if;
+  if not exists (
+    select 1 from public.parent_portal_accounts p
+    where p.school_id=new.school_id
+      and p.parent_guardian_id=new.parent_guardian_id
+      and p.user_id=auth.uid()
+      and p.is_active
+  ) then
+    raise exception 'The parent portal account is not linked to this guardian';
+  end if;
+  if tg_table_name='child_collection_authorizations' then
+    if not exists (
+      select 1 from public.parent_student_portal_access l
+      where l.school_id=new.school_id
+        and l.parent_guardian_id=new.parent_guardian_id
+        and l.student_id=new.student_id
+        and l.is_active
+    ) then
+      raise exception 'This student is not linked to the signed-in parent';
+    end if;
+  elsif new.student_id is not null then
+    if not exists (
+      select 1 from public.parent_student_portal_access l
+      where l.school_id=new.school_id
+        and l.parent_guardian_id=new.parent_guardian_id
+        and l.student_id=new.student_id
+        and l.is_active
+    ) then
+      raise exception 'This student is not linked to the signed-in parent';
+    end if;
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists validate_parent_collection_request on public.child_collection_authorizations;
+create trigger validate_parent_collection_request
+before insert on public.child_collection_authorizations
+for each row execute function public.validate_parent_smart_access_request();
+
+drop trigger if exists validate_parent_official_access_request on public.parent_official_access_requests;
+create trigger validate_parent_official_access_request
+before insert on public.parent_official_access_requests
+for each row execute function public.validate_parent_smart_access_request();
+
+revoke all on function public.validate_parent_smart_access_request() from public,anon,authenticated;
