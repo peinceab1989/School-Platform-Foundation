@@ -45,16 +45,7 @@ create table if not exists public.child_collection_authorizations (
   reviewed_at timestamptz,
   review_note text,
   created_at timestamptz not null default now(),
-  constraint collection_authorization_valid_window check (valid_until is null or valid_until > valid_from),
-  constraint collection_authorization_student_parent_link check (
-    exists (
-      select 1 from public.parent_student_portal_access a
-      where a.school_id = child_collection_authorizations.school_id
-        and a.parent_guardian_id = child_collection_authorizations.parent_guardian_id
-        and a.student_id = child_collection_authorizations.student_id
-        and a.is_active
-    )
-  )
+  constraint collection_authorization_valid_window check (valid_until is null or valid_until > valid_from)
 );
 
 create index if not exists child_collection_authorizations_lookup_idx
