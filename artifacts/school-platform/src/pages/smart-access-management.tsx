@@ -27,6 +27,16 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [severity, setSeverity] = useState("low");
+  const [devices,setDevices] = useState<Array<{id:string;device_name:string}>>([]);
+  const [releaseStudentId,setReleaseStudentId] = useState("");
+  const [releaseAuthorizationId,setReleaseAuthorizationId] = useState("");
+  const [releaseCollector,setReleaseCollector] = useState("");
+  const [releaseRelationship,setReleaseRelationship] = useState("");
+  const [releaseMethod,setReleaseMethod] = useState<"approved_collector"|"parent_qr"|"manual_verified">("approved_collector");
+  const [releaseNote,setReleaseNote] = useState("");
+  const [parentQrCode,setParentQrCode] = useState("");
+  const [releaseStationId,setReleaseStationId] = useState("");
+
 
   const peopleById = useMemo(() => new Map(people.map(p => [p.id, p])), [people]);
   const load = useCallback(async () => {
@@ -41,8 +51,9 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
         db.from("students").select("id,person_id,user_id,admission_number,status").eq("school_id", schoolId).order("admission_number"),
         db.from("staff").select("id,person_id,user_id,staff_number,job_title,status").eq("school_id", schoolId).order("staff_number"),
         db.from("smart_access_settings").select("*").eq("school_id",schoolId).maybeSingle(),
+        db.from("biometric_devices").select("id,device_name").eq("school_id",schoolId).eq("is_active",true).order("device_name"),
       ]);
-      for (const result of [req,auth,rec,rel,students,staff,settingsResult]) if (result.error) throw result.error;
+      for (const result of [req,auth,rec,rel,students,staff,settingsResult,devicesResult]) if (result.error) throw result.error;
       const rows = [...(students.data??[]).map((p:Row)=>({...p,type:"student" as const,label:p.admission_number||"Student"})), ...(staff.data??[]).map((p:Row)=>({...p,type:"staff" as const,label:p.staff_number||p.job_title||"Staff"}))];
       const personIds = [...new Set(rows.map((p:Row)=>p.person_id).filter(Boolean))];
       const peopleResult = personIds.length ? await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id",schoolId).in("id",personIds) : {data:[],error:null};
@@ -50,6 +61,8 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       const names = new Map((peopleResult.data??[]).map((p:Row)=>[p.id,[p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
       setPeople(rows.map((p:Row)=>({id:p.id,user_id:p.user_id??null,type:p.type,label:names.get(p.person_id)||p.label})));
       setRequests(req.data??[]); setAuthorizations(auth.data??[]); setRecords(rec.data??[]); setReleases(rel.data??[]); setSettings(settingsResult.data??{student_qr_enabled:false,staff_qr_enabled:false,parent_qr_enabled:false,child_pickup_enabled:false,parent_events_enabled:false});
+      setDevices(devicesResult.data??[]);
+      setReleaseStationId((current:string)=>current||devicesResult.data?.[0]?.id||"");
     } catch (e) { setError(e instanceof Error ? e.message : "Smart Access records could not be loaded."); }
     finally { setLoading(false); }
   }, [schoolId]);
@@ -85,6 +98,37 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       if(e) throw e;
       setNotice("Collection authorization decision saved. The approval is still subject to identity verification at collection."); await load();
     } catch(e){setError(e instanceof Error?e.message:"Could not update collection authorization.");}
+    finally{setSaving("");}
+  }
+
+  async function recordChildRelease(event:FormEvent) {
+    event.preventDefault();setSaving("release");setError("");setNotice("");
+    try {
+      if(!releaseStudentId)throw new Error("Select the student being collected.");
+      if(releaseCollector.trim().length<2||releaseNote.trim().length<3)throw new Error("Enter the collector name and identity-verification note.");
+      let authorizationId:string|null=null;
+      let parentHash:string|null=null;
+      if(releaseMethod==="approved_collector"){
+        if(!releaseAuthorizationId)throw new Error("Select an approved, unused collection authorization.");
+        authorizationId=releaseAuthorizationId;
+      } else if(releaseMethod==="parent_qr"){
+        const raw=parentQrCode.trim().replace(/^RESA1:/i,"");
+        if(!/^[a-f0-9]{64}$/i.test(raw))throw new Error("Enter a valid parent QR credential.");
+        const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(raw.toLowerCase()));
+        parentHash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+      }
+      const db=getSupabaseClient() as any;
+      const {data,error:e}=await db.rpc("resa_record_child_collection_release",{
+        p_school_id:schoolId,p_student_id:releaseStudentId,p_collector_full_name:releaseCollector.trim(),
+        p_collector_relationship:releaseRelationship.trim()||null,p_verification_method:releaseMethod,
+        p_verification_note:releaseNote.trim(),p_authorization_id:authorizationId,p_parent_qr_hash:parentHash,
+        p_station_id:releaseStationId||null,
+      });
+      if(e)throw e;if(!data?.success)throw new Error("The child release was not recorded.");
+      setReleaseCollector("");setReleaseRelationship("");setReleaseNote("");setParentQrCode("");setReleaseAuthorizationId("");
+      setNotice("Child collection recorded successfully. The approved authorization was consumed where applicable.");
+      await load();
+    }catch(e){setError(e instanceof Error?e.message:"Child collection could not be recorded.");}
     finally{setSaving("");}
   }
 
@@ -133,7 +177,24 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
       {!loading&&tab==="requests"&&<section className="space-y-3">{requests.length===0?<p className="rounded-2xl border bg-white p-6 text-sm text-slate-500">No parent official-access requests have been submitted.</p>:requests.map(row=><article key={row.id} className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-extrabold capitalize">{String(row.purpose).replaceAll("_"," ")}</h2><p className="mt-1 text-sm text-slate-600">Delegate: {row.delegate_full_name} · {row.delegate_phone} · {row.delegate_relationship||"Relationship not stated"}</p><p className="mt-1 text-xs text-slate-500">Visit: {dateLabel(row.requested_visit_at)} · Submitted: {dateLabel(row.created_at)}</p><p className="mt-3 whitespace-pre-wrap text-sm">{row.purpose_details}</p><p className="mt-2 text-xs text-slate-500">Department: {row.intended_department||"Not specified"} · Staff: {row.intended_staff_member||"Not specified"}</p></div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold capitalize text-amber-900">{String(row.request_status).replaceAll("_"," ")}</span></div>{row.request_status==="pending"&&<div className="mt-4 border-t pt-4"><label className="block text-sm font-semibold">Review note<input className={field} value={reviewNote[row.id]||""} onChange={e=>setReviewNote(p=>({...p,[row.id]:e.target.value}))} placeholder="Optional decision note"/></label><div className="mt-3 flex flex-wrap gap-2"><button disabled={!!saving} onClick={()=>void updateRequest(row,"approved")} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><CheckCircle2 className="mr-1 inline" size={16}/> Approve</button><button disabled={!!saving} onClick={()=>void updateRequest(row,"rejected")} className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-800 disabled:opacity-50"><XCircle className="mr-1 inline" size={16}/> Reject</button></div></div>}</article>)}</section>}
       {!loading&&tab==="pickup"&&<section className="space-y-3">{authorizations.length===0?<p className="rounded-2xl border bg-white p-6 text-sm text-slate-500">No child collection authorizations have been submitted.</p>:authorizations.map(row=><article key={row.id} className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-extrabold">{row.collector_full_name}</h2><p className="mt-1 text-sm text-slate-600">{row.collector_phone} · {row.relationship}</p><p className="mt-1 text-xs text-slate-500">Valid from {dateLabel(row.valid_from)} · Until {dateLabel(row.valid_until)}</p><p className="mt-2 text-xs text-slate-600">Student record: {row.student_id}</p>{row.consumed_at&&<p className="mt-2 text-xs font-bold text-emerald-800">Used for collection at {dateLabel(row.consumed_at)}</p>}</div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold capitalize text-amber-900">{String(row.approval_status).replaceAll("_"," ")}</span></div>{row.approval_status==="pending"&&<div className="mt-4 border-t pt-4"><label className="block text-sm font-semibold">Review note<input className={field} value={reviewNote[row.id]||""} onChange={e=>setReviewNote(p=>({...p,[row.id]:e.target.value}))} placeholder="Optional decision note"/></label><div className="mt-3 flex flex-wrap gap-2"><button disabled={!!saving} onClick={()=>void updateAuthorization(row,"approved")} className="rounded-xl bg-emerald-800 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">Approve pickup</button><button disabled={!!saving} onClick={()=>void updateAuthorization(row,"rejected")} className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-bold text-red-800 disabled:opacity-50">Reject</button></div></div>}</article>)}</section>}
       {!loading&&tab==="people"&&<div className="grid gap-5 lg:grid-cols-[minmax(300px,.8fr)_minmax(0,1.2fr)]"><form onSubmit={createRecord} className="rounded-2xl border bg-white p-5 shadow-sm"><h2 className="text-lg font-extrabold">Create confidential record</h2><p className="mt-1 text-sm text-slate-600">New records begin as drafts and are not shown to the subject until formally issued.</p><label className="mt-4 block text-sm font-semibold">Person type<select className={field} value={subjectType} onChange={e=>{setSubjectType(e.target.value as any);setSubjectId("");}}><option value="student">Student</option><option value="staff">Teacher / staff</option></select></label><label className="mt-3 block text-sm font-semibold">Person<select className={field} value={subjectId} onChange={e=>setSubjectId(e.target.value)} required><option value="">Select person</option>{selectedPeople.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></label><label className="mt-3 block text-sm font-semibold">Record category<select className={field} value={category} onChange={e=>setCategory(e.target.value)}>{["query","investigation","warning","suspension","expulsion","termination","commendation","award","promotion","appointment","role_change","other"].map(v=><option key={v} value={v}>{v.replaceAll("_"," ")}</option>)}</select></label><label className="mt-3 block text-sm font-semibold">Title<input className={field} value={title} onChange={e=>setTitle(e.target.value)} minLength={3} maxLength={180} required/></label><label className="mt-3 block text-sm font-semibold">Details<textarea className={field} rows={4} value={details} onChange={e=>setDetails(e.target.value)} minLength={5} maxLength={5000} required/></label><label className="mt-3 block text-sm font-semibold">Severity<select className={field} value={severity} onChange={e=>setSeverity(e.target.value)}><option value="low">Low</option><option value="moderate">Moderate</option><option value="serious">Serious</option><option value="critical">Critical</option></select></label><button disabled={saving==="record"} className="mt-4 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving==="record"?"Saving…":"Save as confidential draft"}</button></form><section className="space-y-3"><h2 className="text-lg font-extrabold">Student and staff records</h2>{records.length===0?<p className="rounded-2xl border bg-white p-6 text-sm text-slate-500">No people-status records yet.</p>:records.map(row=>{const person=peopleById.get(row.subject_record_id);return <article key={row.id} className="rounded-2xl border bg-white p-4 shadow-sm"><div className="flex flex-wrap justify-between gap-2"><div><p className="font-extrabold">{row.record_title}</p><p className="mt-1 text-sm text-slate-600">{person?.label||row.subject_record_id} · {row.subject_type} · {row.record_category.replaceAll("_"," ")}</p><p className="mt-2 whitespace-pre-wrap text-sm">{row.record_details}</p><p className="mt-2 text-xs text-slate-500">Created {dateLabel(row.created_at)} · Effective {dateLabel(row.effective_from)}</p></div><span className="h-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold capitalize">{row.record_status.replaceAll("_"," ")}</span></div>{row.record_status==="draft"&&<div className="mt-3 flex flex-wrap gap-2"><button disabled={!!saving} onClick={()=>void updateRecord(row,"pending_review")} className="rounded-xl border px-3 py-2 text-xs font-bold">Submit for review</button><button disabled={!!saving} onClick={()=>void updateRecord(row,"issued")} className="rounded-xl bg-emerald-800 px-3 py-2 text-xs font-bold text-white">Issue record</button></div>}{row.record_status==="under_appeal"&&<div className="mt-3 flex gap-2"><button disabled={!!saving} onClick={()=>void updateRecord(row,"upheld")} className="rounded-xl bg-emerald-800 px-3 py-2 text-xs font-bold text-white">Uphold</button><button disabled={!!saving} onClick={()=>void updateRecord(row,"reversed")} className="rounded-xl border px-3 py-2 text-xs font-bold">Reverse</button></div>}</article>})}</section></div>}
-      {!loading&&tab==="releases"&&<section className="space-y-3">{releases.length===0?<p className="rounded-2xl border bg-white p-6 text-sm text-slate-500">No child collection releases have been recorded.</p>:releases.map(row=><article key={row.id} className="flex flex-wrap justify-between gap-3 rounded-2xl border bg-white p-4"><div><p className="font-bold">{row.collector_full_name}</p><p className="mt-1 text-xs text-slate-500">Student: {row.student_id} · {row.collector_relationship||"Relationship not stated"}</p><p className="mt-1 text-xs text-slate-500">{row.verification_method.replaceAll("_"," ")} · {dateLabel(row.release_time)}</p><p className="mt-2 text-sm">{row.verification_note}</p></div><span className="h-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">Recorded</span></article>)}</section>}
+      {!loading&&tab==="releases"&&<section className="space-y-4">
+       <form onSubmit={recordChildRelease} className="rounded-2xl border bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-extrabold">Verify and record child collection</h2>
+        <p className="mt-1 text-sm text-slate-600">A QR scan alone never releases a child. Staff must check the approved permission and visually verify the collector.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+         <label className="text-sm font-semibold">Student<select className={field} value={releaseStudentId} onChange={e=>setReleaseStudentId(e.target.value)} required><option value="">Select student</option>{people.filter(p=>p.type==="student").map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
+         <label className="text-sm font-semibold">Verification method<select className={field} value={releaseMethod} onChange={e=>setReleaseMethod(e.target.value as any)}><option value="approved_collector">Approved delegate authorization</option><option value="parent_qr">Verified parent QR</option><option value="manual_verified">Manual identity verification</option></select></label>
+         <label className="text-sm font-semibold">Collector full name<input className={field} value={releaseCollector} onChange={e=>setReleaseCollector(e.target.value)} minLength={2} maxLength={160} required/></label>
+         <label className="text-sm font-semibold">Relationship<input className={field} value={releaseRelationship} onChange={e=>setReleaseRelationship(e.target.value)} maxLength={80}/></label>
+         {releaseMethod==="approved_collector"&&<label className="text-sm font-semibold sm:col-span-2">Approved, unused authorization<select className={field} value={releaseAuthorizationId} onChange={e=>{setReleaseAuthorizationId(e.target.value);const a=authorizations.find(x=>x.id===e.target.value);if(a){setReleaseStudentId(a.student_id);setReleaseCollector(a.collector_full_name);setReleaseRelationship(a.relationship||"");}}} required><option value="">Select approved authorization</option>{authorizations.filter(a=>a.approval_status==="approved"&&!a.consumed_at&&(!a.valid_until||new Date(a.valid_until)>new Date())).map(a=><option key={a.id} value={a.id}>{a.collector_full_name} · {a.student_id} · expires {dateLabel(a.valid_until)}</option>)}</select></label>}
+         {releaseMethod==="parent_qr"&&<label className="text-sm font-semibold sm:col-span-2">Parent QR credential<input className={field+" font-mono"} value={parentQrCode} onChange={e=>setParentQrCode(e.target.value)} placeholder="Paste RESA1:… parent credential" required/></label>}
+         <label className="text-sm font-semibold">Attendance station (optional)<select className={field} value={releaseStationId} onChange={e=>setReleaseStationId(e.target.value)}><option value="">No station selected</option>{devices.map(d=><option key={d.id} value={d.id}>{d.device_name}</option>)}</select></label>
+         <label className="text-sm font-semibold sm:col-span-2">Identity verification note<textarea className={field} value={releaseNote} onChange={e=>setReleaseNote(e.target.value)} minLength={3} maxLength={1000} required placeholder="Record how the collector's identity and authorization were checked."/></label>
+        </div>
+        <button disabled={saving==="release"} className="mt-4 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving==="release"?"Recording…":"Confirm verified child release"}</button>
+       </form>
+       {releases.length===0?<p className="rounded-2xl border bg-white p-6 text-sm text-slate-500">No child collection releases have been recorded.</p>:releases.map(row=><article key={row.id} className="flex flex-wrap justify-between gap-3 rounded-2xl border bg-white p-4"><div><p className="font-bold">{row.collector_full_name}</p><p className="mt-1 text-xs text-slate-500">Student: {row.student_id} · {row.collector_relationship||"Relationship not stated"}</p><p className="mt-1 text-xs text-slate-500">{row.verification_method.replaceAll("_"," ")} · {dateLabel(row.release_time)}</p><p className="mt-2 text-sm">{row.verification_note}</p></div><span className="h-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">Recorded</span></article>)}
+      </section>}
       <div className="flex justify-end"><button onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold"><RefreshCw size={15}/> Refresh records</button></div>
     </div>
   </main>;
