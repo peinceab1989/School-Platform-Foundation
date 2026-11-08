@@ -43,6 +43,8 @@ const StudentsPage = lazy(() => import('@/pages/students'));
 const StudentIdCardsPage = lazy(() => import('@/pages/student-id-cards'));
 const AttendancePage = lazy(() => import('@/pages/attendance'));
 const BiometricAttendancePage = lazy(() => import('@/pages/biometric-attendance'));
+const SmartAccessManagementPage = lazy(() => import('@/pages/smart-access-management'));
+const ParentAuthorizationsPage = lazy(() => import('@/pages/parent-authorizations'));
 const AnnouncementsPage = lazy(() => import('@/pages/announcements'));
 const ResultsPage = lazy(() => import('@/pages/results'));
 const ResultsManagementPage = lazy(() => import('@/pages/results-management'));
@@ -167,6 +169,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/publication-centre',
   '/staff-attendance',
   '/biometric-attendance',
+  '/smart-access-management',
   '/school-cctv',
 ];
 
@@ -182,6 +185,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/student-dashboard',
   '/student-id-card',
   '/my-results',
+  '/parent-authorizations',
   '/student-cbt',
   '/student-assignments',
   '/school-communication',
@@ -543,6 +547,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
             <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Your family's school connection. Follow your linked learners’ fees, attendance, results and school updates from one place.</p>
             <p className="mt-3 max-w-full break-words text-xs text-emerald-100">{schoolName}</p>
             <Link href="/portal-navigation-guide" className="mt-4 mr-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-white/40 px-4 py-2 text-sm font-bold text-white">Portal Navigation Guide</Link>
+            <Link href="/parent-authorizations" className="mt-4 mr-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950">Parent Authorizations &amp; Visits</Link>
             <button type="button" onClick={onSignOut} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100">↪ Sign out</button>
           </div>
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3">
@@ -555,6 +560,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         </div>
         <nav aria-label="Parent quick links" className="mt-6 flex flex-wrap gap-2">
           <Link href="/my-results" className="rounded-xl bg-amber-200 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-100">My learners’ results</Link>
+          <Link href="/parent-authorizations" className="rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">Parent Authorizations</Link>
           <Link href="/school-communication" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">School messages</Link>
           <Link href="/resa-chat" className="rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">RESA Chat</Link>
           <Link href="/notifications" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Notifications</Link>
@@ -2509,10 +2515,11 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/resa-chat' || currentPath === '/my-results' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
+    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/resa-chat' || currentPath === '/my-results' || currentPath === '/parent-authorizations' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
+    if (currentPath === '/parent-authorizations' && session) return <ParentAuthorizationsPage schoolId={parentMembership.schoolId} userId={session.user.id} />;
     if (currentPath === '/notifications') return <NotificationsPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/school-communication') return <SchoolCommunicationPage schoolId={parentMembership.schoolId} role="parent" />;
     if (currentPath === '/resa-chat' && session) return <ResaChatPage schoolId={parentMembership.schoolId} userId={session.user.id} role="parent" />;
@@ -2569,6 +2576,10 @@ function FoundationPage() {
 
     if (currentPath === '/biometric-attendance') {
       return withAdminShell(<BiometricAttendancePage schoolId={adminMembership.schoolId} />);
+    }
+
+    if (currentPath === '/smart-access-management' && session) {
+      return withAdminShell(<SmartAccessManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
     }
 
     if (currentPath === '/teaching-assignments') {
