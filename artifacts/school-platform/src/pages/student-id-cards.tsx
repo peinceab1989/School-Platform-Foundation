@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Printer, RefreshCw, Upload, ShieldCheck, UserRound } from "lucide-react";
+import { Printer, RefreshCw, Upload, ShieldCheck, UserRound, QrCode, Copy } from "lucide-react";
+import QrCodeDisplay from "@/components/qr-code-display";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 type StudentRow = { id: string; person_id: string; admission_number: string; status: string; name: string; photoPath: string | null; canPrint: boolean; cardNumber: string };
@@ -13,6 +14,7 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
   const [notice, setNotice] = useState("");
   const [photoUrls, setPhotoUrls] = useState<Record<string,string>>({});
   const [selected, setSelected] = useState<StudentRow | null>(null);
+  const [qrPayloads, setQrPayloads] = useState<Record<string,string>>({});
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -79,6 +81,24 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
     finally{setBusy(null);}
   }
 
+  async function issueQr(row:StudentRow){
+    setBusy(row.id);setError("");setNotice("");
+    try{
+      const bytes=crypto.getRandomValues(new Uint8Array(16));
+      const token=btoa(String.fromCharCode(...bytes)).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/g,"");
+      const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token));
+      const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+      const db=getSupabaseClient() as any;
+      const {error:e}=await db.rpc("resa_issue_attendance_qr",{p_school_id:schoolId,p_person_type:"student",p_person_id:row.id,p_token_hash:hash});
+      if(e)throw e;
+      const payload="RESA1:"+token;
+      setQrPayloads(previous=>({...previous,[row.id]:payload}));
+      setSelected(row);
+      setNotice("A new secure attendance QR was issued for "+row.name+". Any previous QR for this student is revoked. Print the ID card now; the raw QR is shown only in this session.");
+    }catch(e){setError(e instanceof Error?e.message:"Student QR could not be issued.");}
+    finally{setBusy(null);}
+  }
+
   async function grant(row:StudentRow,canPrint:boolean){
     setBusy(row.id);setError("");setNotice("");
     try{
@@ -94,6 +114,7 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
   const card=(row:StudentRow, printTarget=false)=> <section id={printTarget || selected?.id === row.id ? "resa-student-id-card" : undefined} className="mx-auto w-full max-w-sm rounded-2xl border-2 border-emerald-900 bg-white p-4 text-slate-900 shadow print:shadow-none">
     <div className="border-b-2 border-amber-400 pb-2 text-center"><p className="text-xs font-extrabold tracking-wide text-emerald-950">RHEMA EXPLOITS SCIENCE ACADEMY</p><p className="text-[10px] font-bold text-emerald-800">STUDENT IDENTIFICATION CARD</p></div>
     <div className="mt-3 flex gap-3"><div className="h-28 w-24 shrink-0 overflow-hidden rounded-lg border bg-slate-100">{photoUrls[row.id]?<img src={photoUrls[row.id]} alt={"Passport photograph of "+row.name} className="h-full w-full object-cover"/>:<div className="flex h-full items-center justify-center text-slate-400"><UserRound size={34}/></div>}</div><div className="min-w-0 space-y-2 text-xs"><p><b>Name:</b><br/>{row.name}</p><p><b>Admission No:</b><br/>{row.admission_number}</p><p><b>Card No:</b><br/>{row.cardNumber}</p><p><b>Status:</b> {row.status}</p></div></div>
+    {qrPayloads[row.id]&&<div className="mt-3 flex items-center justify-center gap-3 border-t pt-3"><QrCodeDisplay value={qrPayloads[row.id]} size={104}/><div className="min-w-0 text-[9px]"><p className="font-extrabold">SECURE ATTENDANCE QR</p><p className="mt-1 break-all font-mono">{qrPayloads[row.id]}</p><p className="mt-1">Staff must visually verify the photograph.</p></div></div>}
     <p className="mt-3 border-t pt-2 text-center text-[9px] font-semibold text-emerald-900">PASSION • SKILLS • EXCELLENT SPIRIT · If found, return to RESA</p>
   </section>;
 
@@ -101,6 +122,6 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
     <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-emerald-950 p-5 text-white"><div><p className="text-xs font-bold uppercase tracking-widest text-amber-200">RESA · Student Services</p><h1 className="mt-1 text-2xl font-extrabold">Student ID Cards</h1><p className="mt-1 text-sm text-emerald-100">{role==="admin"?"Upload passport photographs and control student ID-card printing.":"Your school identification card."}</p></div><button onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-white/30 px-3 py-2 text-sm font-bold"><RefreshCw size={15}/>Refresh</button></header>
     {error&&<p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {notice&&<p role="status" className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900">{notice}</p>}
-    {loading?<p className="rounded-xl bg-white p-6 text-sm text-slate-600">Loading student cards…</p>:role==="student"?selected?(selected.canPrint?<div className="space-y-3">{card(selected,true)}<div className="text-center print:hidden"><button onClick={()=>window.print()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-2.5 font-bold text-white"><Printer size={16}/>Print ID card</button></div></div>:<p className="rounded-xl border bg-white p-5 text-sm text-slate-700">Your student ID card has not yet been approved for printing. Please contact the school administrator.</p>):<p className="rounded-xl bg-white p-5 text-sm">No student record is linked to this login.</p>:<div className="grid gap-4 md:grid-cols-2">{rows.map(row=><article key={row.id} className="space-y-3 rounded-2xl border bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><h2 className="font-bold">{row.name}</h2><p className="text-xs text-slate-500">{row.admission_number}</p></div><span className={"rounded-full px-2 py-1 text-xs font-bold "+(row.canPrint?"bg-green-100 text-green-800":"bg-amber-100 text-amber-800")}>{row.canPrint?"Printing enabled":"Not granted"}</span></div>{card(row)}<label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold"><Upload size={15}/>{busy===row.id?"Uploading…":"Upload passport photograph"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={busy!==null} onChange={e=>{const file=e.target.files?.[0];if(file)void uploadPhoto(row,file);e.currentTarget.value="";}}/></label><div className="flex flex-wrap gap-2"><button disabled={busy!==null||!row.photoPath} onClick={()=>void grant(row,!row.canPrint)} className="flex-1 rounded-lg bg-emerald-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">{row.canPrint?"Revoke ID-card printing":"Grant ID-card printing"}</button><button disabled={!row.canPrint||!row.photoPath} onClick={()=>{setSelected(row);setTimeout(()=>window.print(),100);}} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40"><Printer size={15}/>Print</button></div></article>)}</div>}
+    {loading?<p className="rounded-xl bg-white p-6 text-sm text-slate-600">Loading student cards…</p>:role==="student"?selected?(selected.canPrint?<div className="space-y-3">{card(selected,true)}<div className="text-center print:hidden"><button onClick={()=>window.print()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-2.5 font-bold text-white"><Printer size={16}/>Print ID card</button></div></div>:<p className="rounded-xl border bg-white p-5 text-sm text-slate-700">Your student ID card has not yet been approved for printing. Please contact the school administrator.</p>):<p className="rounded-xl bg-white p-5 text-sm">No student record is linked to this login.</p>:<div className="grid gap-4 md:grid-cols-2">{rows.map(row=><article key={row.id} className="space-y-3 rounded-2xl border bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><h2 className="font-bold">{row.name}</h2><p className="text-xs text-slate-500">{row.admission_number}</p></div><span className={"rounded-full px-2 py-1 text-xs font-bold "+(row.canPrint?"bg-green-100 text-green-800":"bg-amber-100 text-amber-800")}>{row.canPrint?"Printing enabled":"Not granted"}</span></div>{card(row)}<label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold"><Upload size={15}/>{busy===row.id?"Uploading…":"Upload passport photograph"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={busy!==null} onChange={e=>{const file=e.target.files?.[0];if(file)void uploadPhoto(row,file);e.currentTarget.value="";}}/></label><div className="flex flex-wrap gap-2"><button disabled={busy!==null} onClick={()=>void issueQr(row)} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40"><QrCode size={15}/>{busy===row.id?"Issuing…":"Issue / rotate QR"}</button><button disabled={!qrPayloads[row.id]} onClick={()=>void navigator.clipboard.writeText(qrPayloads[row.id]||"")} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40"><Copy size={15}/>Copy QR</button><button disabled={busy!==null||!row.photoPath} onClick={()=>void grant(row,!row.canPrint)} className="flex-1 rounded-lg bg-emerald-900 px-3 py-2 text-sm font-bold text-white disabled:opacity-40">{row.canPrint?"Revoke ID-card printing":"Grant ID-card printing"}</button><button disabled={!row.canPrint||!row.photoPath} onClick={()=>{setSelected(row);setTimeout(()=>window.print(),100);}} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold disabled:opacity-40"><Printer size={15}/>Print</button></div></article>)}</div>}
   </div><style>{'@media print { body * { visibility: hidden !important; } #resa-student-id-card, #resa-student-id-card * { visibility: visible !important; } #resa-student-id-card { position: absolute; left: 0; top: 0; width: 86mm; } }'}</style></main>;
 }
