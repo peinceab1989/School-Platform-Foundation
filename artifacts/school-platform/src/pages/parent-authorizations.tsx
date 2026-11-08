@@ -75,16 +75,17 @@ export default function ParentAuthorizationsPage({schoolId,userId}:{schoolId:str
    const validUntil=validDate?new Date(validDate+"T"+(validTime||"23:59")+":00+01:00").toISOString():null;
    if(validUntil&&new Date(validUntil)<=visitAt)throw new Error("The authorization expiry must be after the visit time.");
    const db=getSupabaseClient() as any;
-   const {error:insertError}=await db.from("parent_official_access_requests").insert({
-    school_id:schoolId,parent_guardian_id:parentId,purpose,student_id:studentId||null,
-    delegate_full_name:delegateName.trim(),delegate_phone:delegatePhone.trim(),
-    delegate_relationship:relationship.trim()||null,delegate_identity_reference:identityRef.trim()||null,
-    intended_department:department.trim()||null,intended_staff_member:staffMember.trim()||null,
-    purpose_details:details.trim(),requested_visit_at:visitAt.toISOString(),valid_until:validUntil,
-    request_status:"pending",requested_by:userId,
+   const {data:submitted,error:submitError}=await db.rpc("resa_submit_parent_access_request",{
+    p_parent_guardian_id:parentId,p_purpose:purpose,p_student_id:studentId||null,
+    p_delegate_full_name:delegateName.trim(),p_delegate_phone:delegatePhone.trim(),
+    p_delegate_relationship:relationship.trim()||null,p_delegate_identity_reference:identityRef.trim()||null,
+    p_intended_department:department.trim()||null,p_intended_staff_member:staffMember.trim()||null,
+    p_purpose_details:details.trim(),p_requested_visit_at:visitAt.toISOString(),p_valid_until:validUntil,
    });
-   if(insertError)throw insertError;
-   setNotice("Your request has been sent to the school for approval. It is not permission to collect a child or enter restricted areas until the school confirms it.");
+   if(submitError)throw submitError;
+   if(!submitted?.request_id)throw new Error("The school request was not created.");
+
+   setNotice("Your request has been sent to the school for approval. For child pickup, the linked collection authorization was also created atomically. It is not permission to collect a child until the school approves it and staff verify identity.");
    setDelegateName("");setDelegatePhone("");setRelationship("");setIdentityRef("");setDepartment("");setStaffMember("");setDetails("");
    await load();
   }catch(e){setError(e instanceof Error?e.message:"Your request could not be submitted.");}
