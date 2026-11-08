@@ -166,9 +166,11 @@ const ADMIN_SCHOOL_PATHS = [
   '/school-services',
   '/fees-management',
   '/fees',
+  '/school-fees',
   '/external-cbt-management',
   '/admissions-management',
   '/drive',
+  '/resa-drive',
   '/publication-centre',
   '/staff-attendance',
   '/biometric-attendance',
@@ -191,6 +193,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/parent-authorizations',
   '/student-cbt',
   '/student-assignments',
+  '/assignments',
   '/school-communication',
   '/notifications',
   '/external-cbt',
@@ -2122,6 +2125,7 @@ function FoundationPage() {
         currentPath === '/student-dashboard' ||
         currentPath === '/student-cbt' ||
         currentPath === '/student-assignments' ||
+        currentPath === '/assignments' ||
         currentPath === '/student-id-card' ||
         currentPath === '/my-results' ||
         currentPath === '/parent-dashboard' ||
@@ -2139,6 +2143,7 @@ function FoundationPage() {
         currentPath === '/student-dashboard' ||
         currentPath === '/student-cbt' ||
         currentPath === '/student-assignments' ||
+        currentPath === '/assignments' ||
         currentPath === '/student-id-card' ||
         currentPath === '/my-results' ||
         currentPath === '/parent-dashboard'
@@ -2149,7 +2154,7 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password') {
         setLocation('/student-dashboard');
       }
       return;
@@ -2567,7 +2572,7 @@ function FoundationPage() {
       return withAdminShell(<SchoolReportsPage schoolId={adminMembership.schoolId} />);
     }
 
-    if (currentPath === '/school-services' || currentPath === '/drive') {
+    if (currentPath === '/school-services' || currentPath === '/drive' || currentPath === '/resa-drive') {
       return withAdminShell(<SchoolServicesPage schoolId={adminMembership.schoolId} />);
     }
 
@@ -2641,7 +2646,7 @@ function FoundationPage() {
       return withAdminShell(<SchoolSettingsPage schoolId={adminMembership.schoolId} />);
     }
 
-    if (currentPath === '/fees-management' || currentPath === '/fees') {
+    if (currentPath === '/fees-management' || currentPath === '/fees' || currentPath === '/school-fees') {
       return withAdminShell(<FeesManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} />);
     }
 
@@ -2755,7 +2760,7 @@ function FoundationPage() {
     !teacherMembership &&
     studentMembership &&
     session &&
-    currentPath === '/student-assignments'
+    (currentPath === '/student-assignments' || currentPath === '/assignments')
   ) {
     return (
       <main style={{ minHeight: '100vh', padding: 16, boxSizing: 'border-box', background: '#f4f7f1', color: '#17251b', fontFamily: 'Arial, sans-serif' }}>
@@ -3073,6 +3078,7 @@ function AppRoutes() {
         <Route path="/my-results" component={FoundationPage} />
         <Route path="/student-cbt" component={FoundationPage} />
         <Route path="/student-assignments" component={FoundationPage} />
+        <Route path="/assignments" component={FoundationPage} />
         <Route path="/students" component={FoundationPage} />
         <Route path="/student-enrolments" component={FoundationPage} />
         <Route path="/student-id-cards" component={FoundationPage} />
@@ -3096,10 +3102,12 @@ function AppRoutes() {
         <Route path="/school-services" component={FoundationPage} />
         <Route path="/fees-management" component={FoundationPage} />
         <Route path="/fees" component={FoundationPage} />
+        <Route path="/school-fees" component={FoundationPage} />
         <Route path="/external-cbt" component={FoundationPage} />
         <Route path="/external-cbt-management" component={FoundationPage} />
         <Route path="/admissions-management" component={FoundationPage} />
         <Route path="/drive" component={FoundationPage} />
+        <Route path="/resa-drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
