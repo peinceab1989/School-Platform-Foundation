@@ -53,7 +53,7 @@ jobs:
 
       - name: Typecheck RESA Edge Functions
         run: >-
-          deno --node-modules-dir=auto check
+          deno check --node-modules-dir=auto
           supabase/functions/resa-activate-account/index.ts
           supabase/functions/resa-external-candidate-register/index.ts
           supabase/functions/resa-external-cbt/index.ts
