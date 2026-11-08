@@ -119,5 +119,5 @@ create policy "school admins can read student payment receipts"
   on public.student_payment_receipts for select to authenticated
   using (public.has_school_role(school_id, array['admin'::public.school_role]));
 
-revoke insert, update, delete on public.student_fee_payments from anon, authenticated;
-revoke insert, update, delete on public.student_payment_receipts from anon, authenticated;
+revoke insert, update, delete, truncate, references, trigger on public.student_fee_payments from anon, authenticated;
+revoke insert, update, delete, truncate, references, trigger on public.student_payment_receipts from anon, authenticated;
