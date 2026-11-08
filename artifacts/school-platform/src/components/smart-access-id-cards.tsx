@@ -61,6 +61,46 @@ export default function SmartAccessIdCards({
   const [notice, setNotice] = useState("");
   const [zoomQr, setZoomQr] = useState(false);
 
+  async function loadExistingStaffCard() {
+    const person = people.find((item) => item.id === staffId && item.type === "staff" && item.is_active);
+    if (!person) { setError("Select a staff member."); return; }
+    setBusy("staff"); setError(""); setNotice(""); setCard(null);
+    try {
+      const client = getSupabaseClient() as any;
+      const { data: staff, error: staffError } = await client.from("staff")
+        .select("staff_number,job_title,department,person_id,user_id")
+        .eq("school_id", schoolId).eq("id", person.id).maybeSingle();
+      if (staffError) throw staffError;
+      if (!staff) throw new Error("The selected staff record could not be found.");
+      const { data: credentialId, error: qrError } = await client.rpc("resa_get_active_attendance_qr", {
+        p_school_id: schoolId, p_person_type: "staff", p_person_id: person.id,
+      });
+      if (qrError) throw qrError;
+      if (!credentialId) throw new Error("No active staff QR exists yet. Use Issue / rotate only when an administrator intends to create or replace the credential.");
+      let profileUserId = person.user_id || staff.user_id || null;
+      if (!profileUserId && staff.person_id) {
+        const { data: linkedPerson, error: linkedError } = await client.from("people")
+          .select("user_id").eq("school_id", schoolId).eq("id", staff.person_id).maybeSingle();
+        if (linkedError) throw linkedError;
+        profileUserId = linkedPerson?.user_id ?? null;
+      }
+      const photoUrl = await loadProfilePhoto(client, profileUserId);
+      setCard({
+        kind: "staff",
+        name: person.label,
+        reference: staff.staff_number || "Staff ID not assigned",
+        role: staff.job_title || "Staff",
+        department: staff.department || "Not specified",
+        children: [],
+        photoUrl,
+        payload: "RESA-ID:" + credentialId,
+      });
+      setNotice("Existing staff ID-card QR loaded. The credential is unchanged; only an administrator can deliberately rotate it.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Existing staff QR card could not be loaded.");
+    } finally { setBusy(""); }
+  }
+
   async function issueStaffCard() {
     const person = people.find((item) => item.id === staffId && item.type === "staff" && item.is_active);
     if (!person) { setError("Select a staff member."); return; }
@@ -94,9 +134,9 @@ export default function SmartAccessIdCards({
         department: staff.department || "Not specified",
         children: [],
         photoUrl,
-        payload: "RESA1:" + token,
+        payload: "RESA-ID:" + data.credential_id,
       });
-      setNotice("Staff QR credential issued. Any previous staff credential has been revoked. Print the card and keep the QR private.");
+      setNotice("Stable staff ID-card QR issued. It remains unchanged when the card is reopened and changes only when an administrator explicitly rotates it.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Staff QR card could not be issued.");
     } finally { setBusy(""); }
@@ -173,7 +213,7 @@ export default function SmartAccessIdCards({
             {people.filter((item) => item.type === "staff" && item.is_active).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
-        <button type="button" onClick={() => void issueStaffCard()} disabled={busy !== "" || !staffId || !staffQrEnabled} className="mt-3 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy === "staff" ? "Issuing…" : "Issue / rotate staff QR card"}</button>
+        <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void loadExistingStaffCard()} disabled={busy !== "" || !staffId || !staffQrEnabled} className="rounded-xl border border-emerald-800 px-4 py-3 text-sm font-bold text-emerald-900 disabled:opacity-50">{busy === "staff" ? "Loading…" : "Load existing staff card"}</button><button type="button" onClick={() => void issueStaffCard()} disabled={busy !== "" || !staffId || !staffQrEnabled} className="rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy === "staff" ? "Working…" : "Issue / rotate QR (admin)"}</button></div>
         {!staffQrEnabled && <p className="mt-2 text-xs text-amber-800">Enable Staff QR attendance in School feature controls first.</p>}
       </div>
       <div className="rounded-xl border p-4">
@@ -225,7 +265,7 @@ export default function SmartAccessIdCards({
           <button type="button" onClick={() => setZoomQr(false)} className="rounded-lg bg-emerald-900 px-5 py-2 text-sm font-bold text-white">Close</button>
         </div>
       </div>}
-      <p className="mt-2 text-xs text-slate-500">The raw QR secret is shown only in this live card preview and is not stored in the database. If it is lost, rotate the credential and print a new card.</p>
+      <p className="mt-2 text-xs text-slate-500">The QR contains a unique, non-personal credential reference. It does not reveal private details; attendance still requires an authorised operator and visual photo verification. Rotate it only when an administrator deliberately replaces the card.</p>
     </div>}
   </section>;
 }
