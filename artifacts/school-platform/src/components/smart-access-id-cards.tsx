@@ -61,6 +61,46 @@ export default function SmartAccessIdCards({
   const [notice, setNotice] = useState("");
   const [zoomQr, setZoomQr] = useState(false);
 
+  async function loadExistingStaffCard() {
+    const person = people.find((item) => item.id === staffId && item.type === "staff" && item.is_active);
+    if (!person) { setError("Select a staff member."); return; }
+    setBusy("staff"); setError(""); setNotice(""); setCard(null);
+    try {
+      const client = getSupabaseClient() as any;
+      const { data: staff, error: staffError } = await client.from("staff")
+        .select("staff_number,job_title,department,person_id,user_id")
+        .eq("school_id", schoolId).eq("id", person.id).maybeSingle();
+      if (staffError) throw staffError;
+      if (!staff) throw new Error("The selected staff record could not be found.");
+      const { data: credentialId, error: qrError } = await client.rpc("resa_get_active_attendance_qr", {
+        p_school_id: schoolId, p_person_type: "staff", p_person_id: person.id,
+      });
+      if (qrError) throw qrError;
+      if (!credentialId) throw new Error("No active staff QR exists yet. Use Issue / rotate only when an administrator intends to create or replace the credential.");
+      let profileUserId = person.user_id || staff.user_id || null;
+      if (!profileUserId && staff.person_id) {
+        const { data: linkedPerson, error: linkedError } = await client.from("people")
+          .select("user_id").eq("school_id", schoolId).eq("id", staff.person_id).maybeSingle();
+        if (linkedError) throw linkedError;
+        profileUserId = linkedPerson?.user_id ?? null;
+      }
+      const photoUrl = await loadProfilePhoto(client, profileUserId);
+      setCard({
+        kind: "staff",
+        name: person.label,
+        reference: staff.staff_number || "Staff ID not assigned",
+        role: staff.job_title || "Staff",
+        department: staff.department || "Not specified",
+        children: [],
+        photoUrl,
+        payload: "RESA-ID:" + credentialId,
+      });
+      setNotice("Existing staff ID-card QR loaded. The credential is unchanged; only an administrator can deliberately rotate it.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Existing staff QR card could not be loaded.");
+    } finally { setBusy(""); }
+  }
+
   async function issueStaffCard() {
     const person = people.find((item) => item.id === staffId && item.type === "staff" && item.is_active);
     if (!person) { setError("Select a staff member."); return; }
