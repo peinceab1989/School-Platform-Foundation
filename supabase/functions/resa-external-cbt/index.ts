@@ -201,112 +201,31 @@ Deno.serve(async (req: Request) => {
       const attemptId = asString(body.attempt_id);
       const answers = Array.isArray(body.answers) ? body.answers : [];
       if (!attemptId) return reply(400, { error: "An attempt_id is required." }, requestOrigin);
-      const { data: attempt, error: attemptError } = await admin
-        .from("external_candidate_exam_attempts")
-        .select("id,school_id,candidate_id,exam_id,ends_at,status")
-        .eq("id", attemptId).eq("candidate_id", candidate.id).maybeSingle();
-      if (attemptError) throw new Error("Could not verify the examination attempt.");
-      if (!attempt || attempt.status !== "in_progress") return reply(409, { error: "This examination attempt is no longer active." }, requestOrigin);
-      if (Date.now() >= new Date(attempt.ends_at).getTime()) return reply(409, { error: "The examination time has expired. Submit your saved answers now." }, requestOrigin);
-      const { data: questions, error: questionsError } = await admin
-        .from("online_exam_questions").select("id")
-        .eq("school_id", candidate.school_id).eq("exam_id", attempt.exam_id);
-      if (questionsError) throw new Error("Could not verify the examination questions.");
-      const validIds = new Set((questions ?? []).map((q) => q.id));
-      const rows = answers.slice(0, 300).flatMap((item) => {
-        if (!item || typeof item !== "object") return [];
-        const questionId = asString((item as Record<string, unknown>).question_id);
-        if (!validIds.has(questionId)) return [];
-        const rawAnswer = (item as Record<string, unknown>).answer;
-        const answerText = typeof rawAnswer === "string" ? rawAnswer.trim().slice(0, 5000) : "";
-        return [{ school_id: candidate.school_id, attempt_id: attempt.id, question_id: questionId, answer_text: answerText || null, marks_awarded: 0 }];
+      const { data, error } = await admin.rpc("resa_external_candidate_cbt_save", {
+        p_candidate_id: candidate.id,
+        p_attempt_id: attemptId,
+        p_answers: answers,
       });
-      if (rows.length) {
-        const { error: saveError } = await admin.from("external_candidate_exam_answers")
-          .upsert(rows, { onConflict: "attempt_id,question_id" });
-        if (saveError) throw new Error("Could not save your answers.");
-      }
-      return reply(200, { success: true, saved: rows.length }, requestOrigin);
+      if (error) throw new Error("Could not save your answers. Refresh and try again.");
+      if (!data?.success) return reply(Number(data?.status) || 409, { error: data?.error || "The answers could not be saved." }, requestOrigin);
+      return reply(200, data, requestOrigin);
     }
 
     if (action === "submit") {
       const attemptId = asString(body.attempt_id);
       const answers = Array.isArray(body.answers) ? body.answers : [];
       if (!attemptId) return reply(400, { error: "An attempt_id is required." }, requestOrigin);
-      const { data: attempt, error: attemptError } = await admin
-        .from("external_candidate_exam_attempts")
-        .select("id,school_id,candidate_id,exam_id,ends_at,status")
-        .eq("id", attemptId).eq("candidate_id", candidate.id).maybeSingle();
-      if (attemptError) throw new Error("Could not verify the examination attempt.");
-      if (!attempt || attempt.status !== "in_progress") return reply(409, { error: "This examination attempt is no longer active." }, requestOrigin);
-      const now = Date.now();
-      const autoSubmitted = now >= new Date(attempt.ends_at).getTime();
-
-      // Before the deadline, persist the final client state. After the deadline,
-      // grade only answers already saved by the server before expiry. This prevents
-      // changing answers in a modified browser after the timer has elapsed.
-      if (!autoSubmitted) {
-        const { data: validQuestions, error: validQuestionsError } = await admin
-          .from("online_exam_questions").select("id")
-          .eq("school_id", candidate.school_id).eq("exam_id", attempt.exam_id);
-        if (validQuestionsError) throw new Error("Could not verify examination questions.");
-        const validIds = new Set((validQuestions ?? []).map((q) => q.id));
-        const finalRows = answers.slice(0, 300).flatMap((item) => {
-          if (!item || typeof item !== "object") return [];
-          const questionId = asString((item as Record<string, unknown>).question_id);
-          if (!validIds.has(questionId)) return [];
-          const rawAnswer = (item as Record<string, unknown>).answer;
-          const answerText = typeof rawAnswer === "string" ? rawAnswer.trim().slice(0, 5000) : "";
-          return [{ school_id: candidate.school_id, attempt_id: attempt.id, question_id: questionId, answer_text: answerText || null, marks_awarded: 0 }];
-        });
-        if (finalRows.length) {
-          const { error: finalSaveError } = await admin.from("external_candidate_exam_answers")
-            .upsert(finalRows, { onConflict: "attempt_id,question_id" });
-          if (finalSaveError) throw new Error("Could not save your final answers. Your attempt remains open; try again.");
-        }
-      }
-
-      const { data: savedAnswers, error: savedAnswersError } = await admin
-        .from("external_candidate_exam_answers")
-        .select("question_id,answer_text")
-        .eq("school_id", candidate.school_id).eq("attempt_id", attempt.id);
-      if (savedAnswersError) throw new Error("Could not load your saved answers for marking.");
-
-      const { data: questions, error: questionsError } = await admin
-        .from("online_exam_questions")
-        .select("id,question_type,correct_answer,marks")
-        .eq("school_id", candidate.school_id).eq("exam_id", attempt.exam_id);
-      if (questionsError) throw new Error("Could not load the grading key.");
-      const questionMap = new Map((questions ?? []).map((q) => [q.id, q] as const));
-      const answerRows = [];
-      let score = 0;
-      const totalMarks = (questions ?? []).reduce((sum, question) => sum + (Number(question.marks) || 0), 0);
-      for (const item of (savedAnswers ?? [])) {
-        const questionId = item.question_id;
-        const answerText = typeof item.answer_text === "string" ? item.answer_text.trim().slice(0, 5000) : "";
-        const question = questionMap.get(questionId);
-        if (!question) continue;
-        const marks = Number(question.marks) || 0;
-        const type = String(question.question_type || "").toLowerCase();
-        const isChoice = ["multiple_choice","mcq","objective"].includes(type);
-        const correct = isChoice && answerText.toUpperCase() === String(question.correct_answer ?? "").trim().toUpperCase();
-        const awarded = correct ? marks : 0;
-        score += awarded;
-        answerRows.push({
-          school_id: candidate.school_id, attempt_id: attempt.id, question_id: questionId,
-          answer_text: answerText || null, marks_awarded: awarded,
-        });
-      }
-      if (answerRows.length) {
-        const { error: answerError } = await admin.from("external_candidate_exam_answers")
-          .upsert(answerRows, { onConflict: "attempt_id,question_id" });
-        if (answerError) throw new Error("Could not save your answers. Your attempt remains open; try submitting again.");
-      }
-      const { error: updateError } = await admin.from("external_candidate_exam_attempts")
-        .update({ status: "submitted", submitted_at: new Date(now).toISOString(), score, total_marks: totalMarks })
-        .eq("id", attempt.id).eq("candidate_id", candidate.id).eq("status", "in_progress");
-      if (updateError) throw new Error("Answers were saved but submission could not be finalised. Contact the school office.");
-      return reply(200, { success: true, status: "submitted", auto_submitted: autoSubmitted, message: "Your examination has been submitted. Results will be released by the school after review." }, requestOrigin);
+      const { data, error } = await admin.rpc("resa_external_candidate_cbt_submit", {
+        p_candidate_id: candidate.id,
+        p_attempt_id: attemptId,
+        p_answers: answers,
+      });
+      if (error) throw new Error("Could not finalise your examination. Refresh once and contact the school if the problem continues.");
+      if (!data?.success) return reply(Number(data?.status) || 409, { error: data?.error || "This examination attempt could not be submitted." }, requestOrigin);
+      return reply(200, {
+        ...data,
+        message: "Your examination has been submitted. Results will be released by the school after review.",
+      }, requestOrigin);
     }
 
     return reply(400, { error: "Unsupported CBT action." }, requestOrigin);
