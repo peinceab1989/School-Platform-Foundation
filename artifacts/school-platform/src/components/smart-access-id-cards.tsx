@@ -59,6 +59,7 @@ export default function SmartAccessIdCards({
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [zoomQr, setZoomQr] = useState(false);
 
   async function issueStaffCard() {
     const person = people.find((item) => item.id === staffId && item.type === "staff" && item.is_active);
@@ -156,7 +157,7 @@ export default function SmartAccessIdCards({
       @media print {
         body * { visibility: hidden !important; }
         .resa-smart-id-card, .resa-smart-id-card * { visibility: visible !important; }
-        .resa-smart-id-card { display: block !important; position: fixed !important; left: 12mm !important; top: 12mm !important; width: 85.6mm !important; min-height: 54mm !important; margin: 0 !important; padding: 4mm !important; box-sizing: border-box !important; border: 1px solid #164e36 !important; border-radius: 3mm !important; background: #fff !important; color: #111 !important; box-shadow: none !important; }
+        .resa-smart-id-card { display: block !important; position: fixed !important; left: 12mm !important; top: 12mm !important; width: 85.6mm !important; height: 54mm !important; min-height: 54mm !important; max-height: 54mm !important; overflow: hidden !important; margin: 0 !important; padding: 2.5mm !important; box-sizing: border-box !important; border: 0.35mm solid #164e36 !important; border-radius: 2mm !important; background: #fff !important; color: #111 !important; box-shadow: none !important; }
         @page { size: A4; margin: 0; }
       }
     `}</style>
@@ -191,23 +192,39 @@ export default function SmartAccessIdCards({
     {notice && <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
     {card && <div className="mt-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold">New {card.kind} ID card preview</p><button type="button" onClick={() => window.print()} className="rounded-lg border px-3 py-2 text-sm font-bold">Print ID card</button></div>
-      <article className="resa-smart-id-card mx-auto w-full max-w-[420px] rounded-xl border-2 border-emerald-900 bg-white p-4 shadow-sm">
-        <header className="mb-2 border-b-2 border-amber-300 pb-2 text-center text-xs font-extrabold tracking-wide text-emerald-950">RHEMA EXPLOITS SCIENCE ACADEMY INT’L · RESA</header>
-        <div className="flex items-center gap-3">
-          <div className="grid h-20 w-16 shrink-0 place-items-center overflow-hidden rounded-lg border bg-emerald-50">
-            {card.photoUrl ? <img src={card.photoUrl} alt={card.name + " passport photograph"} className="h-full w-full object-cover" /> : <span className="text-[10px] font-bold text-emerald-900">PHOTO</span>}
+      <article className="resa-smart-id-card relative mx-auto flex aspect-[1.586/1] w-full max-w-[420px] flex-col overflow-hidden rounded-xl border-2 border-emerald-900 bg-white p-3 text-slate-900 shadow-sm">
+        <header className="flex items-center justify-between gap-2 border-b-2 border-amber-400 pb-1.5">
+          <img src="/media/logo/resa-logo.jpg" alt="RESA crest" className="h-8 w-8 shrink-0 rounded-full object-contain" />
+          <div className="min-w-0 flex-1 text-center"><p className="text-[10px] font-black leading-tight tracking-wide text-emerald-950">RHEMA EXPLOITS SCIENCE ACADEMY INT’L</p><p className="text-[8px] font-bold tracking-[0.16em] text-emerald-800">OFFICIAL SCHOOL IDENTIFICATION</p></div>
+          <span className="text-[8px] font-black text-amber-700">RESA</span>
+        </header>
+        <div className="flex min-h-0 flex-1 items-center gap-2.5 py-2">
+          <div className="h-[76px] w-[60px] shrink-0 overflow-hidden rounded-md border border-slate-300 bg-slate-100">
+            {card.photoUrl ? <img src={card.photoUrl} alt={card.name + " passport photograph"} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-[8px] font-bold text-slate-500">PHOTO</span>}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="break-words text-sm font-extrabold text-slate-950">{card.name}</p>
-            <p className="mt-1 text-[10px] font-bold uppercase text-emerald-900">{card.kind === "staff" ? "STAFF IDENTIFICATION" : "PARENT / GUARDIAN ID"}</p>
-            <p className="mt-1 text-[10px] text-slate-700">{card.reference}</p>
-            {card.kind === "staff" && <><p className="text-[10px] text-slate-700">{card.role}</p><p className="text-[10px] text-slate-700">{card.department}</p></>}
-            {card.kind === "parent" && <div className="mt-1"><p className="text-[9px] font-bold text-slate-700">LINKED CHILDREN</p>{card.children.length ? card.children.slice(0, 3).map((name) => <p key={name} className="truncate text-[9px] text-slate-700">{name}</p>) : <p className="text-[9px] text-slate-500">No active child links</p>}{card.children.length > 3 && <p className="text-[9px] text-slate-600">+{card.children.length - 3} more</p>}</div>}
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="line-clamp-2 break-words text-[11px] font-black text-slate-950">{card.name}</p>
+            <p className="mt-1 text-[8px] font-extrabold uppercase tracking-wide text-emerald-800">{card.kind === "staff" ? "STAFF IDENTIFICATION" : "PARENT / GUARDIAN ID"}</p>
+            <p className="mt-1 truncate text-[9px] font-bold text-slate-800">{card.reference}</p>
+            {card.kind === "staff" && <><p className="truncate text-[8px] text-slate-700">{card.role}</p><p className="truncate text-[8px] text-slate-700">{card.department}</p></>}
+            {card.kind === "parent" && <div className="mt-1"><p className="text-[7px] font-bold text-slate-700">LINKED CHILDREN</p>{card.children.slice(0, 2).map((name) => <p key={name} className="truncate text-[7px] text-slate-700">{name}</p>)}</div>}
           </div>
-          <div className="shrink-0"><QrCodeDisplay value={card.payload} size={104}/></div>
+          <div className="flex shrink-0 flex-col items-center gap-0.5">
+            <QrCodeDisplay value={card.payload} size={76}/>
+            <span className="text-[7px] font-black tracking-wide text-slate-700">SCAN TO VERIFY</span>
+          </div>
         </div>
-        <footer className="mt-2 border-t border-amber-300 pt-1 text-center text-[8px] text-slate-600">School identity credential · Verify the holder’s photograph · QR scan alone does not authorise child release</footer>
+        <footer className="border-t border-amber-300 pt-1 text-center text-[7px] font-semibold text-emerald-950">PASSION • SKILLS • EXCELLENT SPIRIT</footer>
       </article>
+      <div className="mt-2 flex justify-center print:hidden"><button type="button" onClick={() => setZoomQr(true)} className="rounded-lg border border-emerald-800 px-3 py-2 text-xs font-bold text-emerald-900">Enlarge QR code</button></div>
+      {zoomQr && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 print:hidden" role="dialog" aria-modal="true" aria-label="Enlarged QR code" onClick={() => setZoomQr(false)}>
+        <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <p className="font-extrabold text-emerald-950">RESA secure QR credential</p>
+          <div className="my-4 flex justify-center"><QrCodeDisplay value={card.payload} size={280}/></div>
+          <p className="mb-4 text-xs text-slate-600">Keep this code private. Verify the cardholder’s photograph before accepting a scan.</p>
+          <button type="button" onClick={() => setZoomQr(false)} className="rounded-lg bg-emerald-900 px-5 py-2 text-sm font-bold text-white">Close</button>
+        </div>
+      </div>}
       <p className="mt-2 text-xs text-slate-500">The raw QR secret is shown only in this live card preview and is not stored in the database. If it is lost, rotate the credential and print a new card.</p>
     </div>}
   </section>;
