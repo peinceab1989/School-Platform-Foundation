@@ -1186,7 +1186,7 @@ create table if not exists public.child_collection_authorization_events (
   id uuid primary key default gen_random_uuid(),
   school_id uuid not null references public.schools(id) on delete cascade,
   authorization_id uuid not null references public.child_collection_authorizations(id) on delete restrict,
-  event_type text not null check (event_type in ('submitted','approved','rejected','revoked','consumed')),
+  event_type text not null check (event_type in ('submitted','approved','rejected','revoked','expired','consumed')),
   actor_user_id uuid references auth.users(id),
   event_note text,
   occurred_at timestamptz not null default now()
