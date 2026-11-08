@@ -1030,7 +1030,7 @@ begin
   raise exception 'Invalid request purpose'; end if;
  if p_purpose='child_pickup' and p_student_id is null then raise exception 'Select the child'; end if;
  if p_student_id is not null and not exists(select 1 from public.parent_student_portal_access l
-  where l.parent_guardian_id=p_parent_guardian_id and l.student_id=p_student_id and l.is_active) then
+  where l.school_id=p_school_id and l.parent_guardian_id=p_parent_guardian_id and l.student_id=p_student_id and l.is_active) then
   raise exception 'Selected child is not linked to this parent'; end if;
  if length(trim(coalesce(p_delegate_full_name,'')))<2 or length(trim(coalesce(p_delegate_phone,'')))<7
   or length(trim(coalesce(p_purpose_details,'')))<5 then raise exception 'Complete the delegate and request details'; end if;
@@ -1060,4 +1060,4 @@ begin
 end;
 $function$;
 revoke all on function public.resa_submit_parent_access_request(uuid,uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) from public,anon;
-grant execute on function public.resa_submit_parent_access_request(uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) to authenticated;
+grant execute on function public.resa_submit_parent_access_request(uuid,uuid,text,uuid,text,text,text,text,text,text,text,timestamptz,timestamptz) to authenticated;
