@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { ArrowLeft, RefreshCw, ShieldCheck, ClipboardList, UserRound, CheckCircle2, XCircle, FileText } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import QrCodeDisplay from "@/components/qr-code-display";
+import SmartAccessIdCards from "@/components/smart-access-id-cards";
 
 type Row = Record<string, any>;
 type PersonOption = { id: string; user_id: string | null; label: string; type: "student" | "staff" };
@@ -37,9 +37,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
   const [releaseNote,setReleaseNote] = useState("");
   const [parentQrCode,setParentQrCode] = useState("");
   const [releaseStationId,setReleaseStationId] = useState("");
-  const [parentOptions,setParentOptions] = useState<Array<{id:string;label:string}>>([]);
-  const [parentQrPersonId,setParentQrPersonId] = useState("");
-  const [parentQrPayload,setParentQrPayload] = useState("");
+  const [parentOptions,setParentOptions] = useState<Array<{id:string;label:string;userId:string|null}>>([]);
   const parentVideoRef=useRef<HTMLVideoElement|null>(null);
   const parentStreamRef=useRef<MediaStream|null>(null);
   const parentScanActive=useRef(false);
@@ -70,14 +68,14 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
         db.from("staff").select("id,person_id,user_id,staff_number,job_title,status").eq("school_id", schoolId).order("staff_number"),
         db.from("smart_access_settings").select("*").eq("school_id",schoolId).maybeSingle(),
         db.from("biometric_devices").select("id,device_name").eq("school_id",schoolId).eq("is_active",true).order("device_name"),
-        db.from("parent_portal_accounts").select("parent_guardian_id").eq("school_id",schoolId).eq("is_active",true),
+        db.from("parent_portal_accounts").select("parent_guardian_id,user_id").eq("school_id",schoolId).eq("is_active",true),
         db.from("school_access_events").select("*").eq("school_id",schoolId).order("starts_at",{ascending:false}).limit(100),
         db.from("school_access_event_attendance").select("*").eq("school_id",schoolId).order("checked_in_at",{ascending:false}).limit(200),
       ]);
       for (const result of [req,auth,rec,rel,students,staff,settingsResult,devicesResult,parentAccountsResult,eventsResult,eventAttendanceResult]) if (result.error) throw result.error;
       const rows = [...(students.data??[]).map((p:Row)=>({...p,type:"student" as const,label:p.admission_number||"Student"})), ...(staff.data??[]).map((p:Row)=>({...p,type:"staff" as const,label:p.staff_number||p.job_title||"Staff"}))];
       const personIds = [...new Set(rows.map((p:Row)=>p.person_id).filter(Boolean))];
-      const peopleResult = personIds.length ? await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id",schoolId).in("id",personIds) : {data:[],error:null};
+      const peopleResult = personIds.length ? await db.from("people").select("id,user_id,first_name,middle_name,last_name").eq("school_id",schoolId).in("id",personIds) : {data:[],error:null};
       if (peopleResult.error) throw peopleResult.error;
       const names = new Map((peopleResult.data??[]).map((p:Row)=>[p.id,[p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
       setPeople(rows.map((p:Row)=>({id:p.id,user_id:p.user_id??null,type:p.type,label:names.get(p.person_id)||p.label})));
@@ -208,23 +206,6 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
     finally{setSaving("");}
   }
 
-  async function issueParentQr(){
-    setSaving("parent-qr");setError("");setNotice("");setParentQrPayload("");
-    try{
-      if(!parentQrPersonId)throw new Error("Select an active parent portal account.");
-      const bytes=crypto.getRandomValues(new Uint8Array(16));
-      const token=btoa(String.fromCharCode(...bytes)).replaceAll("+","-").replaceAll("/","_").replace(/=+$/g,"");
-      const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token));
-      const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
-      const db=getSupabaseClient() as any;
-      const {error:e}=await db.rpc("resa_issue_parent_qr",{p_school_id:schoolId,p_parent_guardian_id:parentQrPersonId,p_token_hash:hash});
-      if(e)throw e;
-      setParentQrPayload("RESA1:"+token);
-      setNotice("Parent QR credential issued. Any previous parent credential has been revoked. Save or print this QR securely.");
-    }catch(e){setError(e instanceof Error?e.message:"Could not issue parent QR credential.");}
-    finally{setSaving("");}
-  }
-
   async function recordChildRelease(event:FormEvent) {
     event.preventDefault();setSaving("release");setError("");setNotice("");
     try {
@@ -294,15 +275,7 @@ export default function SmartAccessManagementPage({ schoolId, userId }: { school
     </div></header>
     <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6">
       <section className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold">School feature controls</h2><p className="text-sm text-slate-600">All sensitive access features start disabled and require an administrator to enable them.</p></div><ShieldCheck className="text-emerald-800"/></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{([["student_qr_enabled","Student QR attendance"],["staff_qr_enabled","Staff QR attendance"],["parent_qr_enabled","Parent QR identity"],["child_pickup_enabled","Child pickup authorization"],["parent_events_enabled","Parent event check-in"]] as const).map(([key,label])=><label key={key} className="flex items-center gap-3 rounded-xl border p-3 text-sm font-semibold"><input type="checkbox" checked={Boolean(settings[key])} disabled={!!saving} onChange={e=>void saveSettings({...settings,[key]:e.target.checked})}/>{label}</label>)}</div></section>
-      <section className="rounded-2xl border bg-white p-5 shadow-sm">
-       <h2 className="text-lg font-extrabold">Parent QR identity</h2>
-       <p className="mt-1 text-sm text-slate-600">Issue a revocable QR credential for an active parent portal account. The QR is rendered locally in this browser.</p>
-       <div className="mt-3 flex flex-wrap items-end gap-3">
-        <label className="min-w-[220px] flex-1 text-sm font-semibold">Parent / guardian<select className={field} value={parentQrPersonId} onChange={e=>setParentQrPersonId(e.target.value)}><option value="">Select parent</option>{parentOptions.map(p=><option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
-        <button type="button" onClick={()=>void issueParentQr()} disabled={saving==="parent-qr"||!parentQrPersonId||!settings.parent_qr_enabled} className="rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{saving==="parent-qr"?"Issuing…":"Issue / rotate parent QR"}</button>
-       </div>
-       {parentQrPayload&&<div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl bg-slate-50 p-3"><QrCodeDisplay value={parentQrPayload} size={180}/><div className="min-w-0 flex-1"><p className="text-sm font-bold">One-time parent QR</p><p className="mt-1 text-xs text-slate-600">This is an identity credential, not permission to collect a child. Staff must still verify the parent's identity and linked child.</p><textarea readOnly rows={2} value={parentQrPayload} className="mt-2 w-full break-all rounded-lg border bg-white p-2 font-mono text-xs"/><button type="button" onClick={()=>void navigator.clipboard.writeText(parentQrPayload)} className="mt-2 rounded-lg border bg-white px-3 py-2 text-xs font-bold">Copy credential</button></div></div>}
-      </section>
+      <SmartAccessIdCards schoolId={schoolId} people={people} parentOptions={parentOptions} staffQrEnabled={Boolean(settings.staff_qr_enabled)} parentQrEnabled={Boolean(settings.parent_qr_enabled)} />
       <nav className="flex flex-wrap gap-2">{([["requests","Parent requests"],["pickup","Child pickup approvals"],["people","People records"],["releases","Collection register"],["events","School events"]] as const).map(([key,label])=><button key={key} onClick={()=>setTab(key)} className={`rounded-xl px-4 py-2.5 text-sm font-bold ${tab===key?"bg-emerald-900 text-white":"border bg-white text-slate-700"}`}>{label}</button>)}</nav>
       {error&&<p role="alert" className="break-words rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
       {notice&&<p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">{notice}</p>}
