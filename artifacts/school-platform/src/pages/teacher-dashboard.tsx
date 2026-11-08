@@ -114,7 +114,7 @@ type StudentRecord = {
   admission_number: string;
 };
 
-type StaffPrintPermission = { document_type: 'id_card' | 'admission_letter'; can_print: boolean };
+type StaffPrintPermission = { document_type: 'id_card' | 'appointment_letter'; can_print: boolean };
 
 type TeacherDashboardProps = {
   schoolId: string;
@@ -213,8 +213,8 @@ export default function TeacherDashboard({
   const [staff, setStaff] = useState<TeacherStaff | null>(null);
   const [myAttendance, setMyAttendance] = useState<MyStaffAttendance | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
-  const [printPermissions, setPrintPermissions] = useState({ id_card: false, admission_letter: false });
-  const [printDocument, setPrintDocument] = useState<'id_card' | 'admission_letter' | null>(null);
+  const [printPermissions, setPrintPermissions] = useState({ id_card: false, appointment_letter: false });
+  const [printDocument, setPrintDocument] = useState<'id_card' | 'appointment_letter' | null>(null);
   const [teacherName, setTeacherName] = useState<string | null>(null);
   const [teachingAssignments, setTeachingAssignments] = useState<
     TeachingAssignment[]
@@ -402,7 +402,7 @@ export default function TeacherDashboard({
         .eq('school_id', schoolId)
         .eq('staff_id', staffRecord.id);
       if (permissionError) throw permissionError;
-      const granted = { id_card: false, admission_letter: false };
+      const granted = { id_card: false, appointment_letter: false };
       for (const permission of (permissionRows ?? []) as StaffPrintPermission[]) {
         granted[permission.document_type] = permission.can_print;
       }
@@ -1065,8 +1065,8 @@ export default function TeacherDashboard({
           <div style={{ marginTop: 8, borderTop: '1px solid #d6b75a', paddingTop: 5, textAlign: 'center', fontSize: 8 }}>School identification · If found, return to RESA administration</div>
         </section>
       )}
-      {printDocument === 'admission_letter' && staff && (
-        <section className="resa-print-document" data-kind="admission_letter">
+      {printDocument === 'appointment_letter' && staff && (
+        <section className="resa-print-document" data-kind="appointment_letter">
           <header style={{ borderBottom: '3px solid #166534', paddingBottom: 14, marginBottom: 26 }}>
             <h1 style={{ margin: 0, color: '#14532d', fontSize: 22 }}>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</h1>
             <p style={{ margin: '6px 0 0', fontSize: 11 }}>PASSION • SKILLS • EXCELLENT SPIRIT</p>
@@ -1246,10 +1246,10 @@ export default function TeacherDashboard({
                   ) : (
                     <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>ID card printing awaits HR/admin approval</span>
                   )}
-                  {printPermissions.admission_letter ? (
-                    <button type="button" style={buttonStyle} onClick={() => setPrintDocument('admission_letter')}>Print admission letter</button>
+                  {printPermissions.appointment_letter ? (
+                    <button type="button" style={buttonStyle} onClick={() => setPrintDocument('appointment_letter')}>Print appointment letter</button>
                   ) : (
-                    <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>Admission letter awaits HR/admin approval</span>
+                    <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>Appointment letter awaits HR/admin approval</span>
                   )}
                 </div>
               )}
