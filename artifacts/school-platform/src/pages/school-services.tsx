@@ -19,6 +19,16 @@ type RowRecord = Record<string, unknown>;
 const MAX_FILE_BYTES = 100 * 1024 * 1024;
 const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 const safeFileName = (name: string) => name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(-160) || "file";
+const describeUploadError = (error: unknown) => {
+  if (error && typeof error === "object") {
+    const value = error as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown };
+    const parts = [value.message, value.code, value.details, value.hint]
+      .filter((part) => typeof part === "string" && part.trim())
+      .map((part) => String(part).trim());
+    if (parts.length) return [...new Set(parts)].join(" · ");
+  }
+  return error instanceof Error ? error.message : "Unknown upload error";
+};
 
 // Android may suspend/remount the page while the system file picker is open.
 // Keep the selected File in IndexedDB so returning from the picker does not
@@ -94,6 +104,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [folderName, setFolderName] = useState("General");
   const [driveVisibility, setDriveVisibility] = useState<"school" | "private">("school");
   const [uploading, setUploading] = useState(false);
+  const [uploadStage, setUploadStage] = useState("");
   const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const active = MODULES.find(m => m.key === activeKey) ?? MODULES[0];
@@ -152,14 +163,16 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       return;
     }
     if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 100 MB limit. Compress it or choose a smaller file."); return; }
-    setUploading(true); setError(""); setNotice("");
+    setUploading(true); setError(""); setNotice(""); setUploadStage("Checking your school account");
     const db = getSupabaseClient() as any;
     let uploadedPath = "";
+    let stage = "checking your school account";
     try {
       const { data: authData, error: authError } = await db.auth.getUser();
       if (authError) throw authError;
       if (!authData?.user?.id) throw new Error("Your session has expired. Sign in again and retry.");
       const cleanedName = safeFileName(fileToUpload.name);
+      stage = "uploading the file to secure storage"; setUploadStage("Uploading file to secure storage");
       uploadedPath = `${schoolId}/${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID()}-${cleanedName}`;
       const storageResult = await db.storage.from("resa-drive").upload(uploadedPath, fileToUpload, {
         contentType: fileToUpload.type || "application/octet-stream",
@@ -180,9 +193,10 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         published_to_website: false,
         is_active: true,
       });
+      stage = "saving the file register"; setUploadStage("Saving file details");
       if (metadataResult.error) {
         const cleanup = await db.storage.from("resa-drive").remove([uploadedPath]);
-        if (cleanup.error) console.error("RESA Drive orphan cleanup failed:", cleanup.error);
+        if (cleanup.error) throw new Error(`File details were rejected (${describeUploadError(metadataResult.error)}). Storage cleanup also failed (${describeUploadError(cleanup.error)}); contact the administrator before retrying.`);
         throw metadataResult.error;
       }
       setSelectedFile(null);
@@ -190,10 +204,12 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setDriveVisibility("school");
       const picker = document.getElementById("resa-drive-file-picker") as HTMLInputElement | null;
       if (picker) picker.value = "";
+      setUploadStage("");
       setNotice(`Uploaded “${fileToUpload.name}” successfully.`);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed. Check your connection and try again.");
+      setError(`RESA Drive failed while ${stage}: ${describeUploadError(e)}. Check your connection and school administrator access, then retry.`);
+      setUploadStage("");
     } finally { setUploading(false); }
   };
   const downloadFile = async (row: RowRecord) => {
