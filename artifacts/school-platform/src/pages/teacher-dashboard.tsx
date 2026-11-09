@@ -1089,11 +1089,6 @@ export default function TeacherDashboard({
             </div>
             {staffQrPayload ? <div style={{ flexShrink: 0, textAlign: 'center' }}><QrCodeDisplay value={staffQrPayload} size={76}/><div style={{ fontSize: 7, fontWeight: 800 }}>SCAN TO VERIFY</div></div> : <div style={{ width: 76, height: 76, border: '1px dashed #94a3b8', display: 'grid', placeItems: 'center', textAlign: 'center', fontSize: 7, flexShrink: 0 }}>QR PENDING<br/>APPROVAL</div>}
           </div>
-            <div><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}</div>
-            <div><strong>Designation:</strong> {staff.job_title || 'Staff'}</div>
-            <div><strong>Department:</strong> {staff.department || 'Not specified'}</div>
-            <div><strong>Status:</strong> {staff.status || 'Not specified'}</div>
-          </div>
           <div style={{ marginTop: 8, borderTop: '1px solid #d6b75a', paddingTop: 5, textAlign: 'center', fontSize: 8 }}>School identification · If found, return to RESA administration</div>
         </section>
       )}
