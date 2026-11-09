@@ -2024,12 +2024,17 @@ function FoundationPage() {
     }
 
     let active = true;
+    // Auth events can arrive while getSession() is still resolving. Never let
+    // that older snapshot overwrite a newer sign-in/sign-out event; doing so
+    // can leave a freshly signed-in user on the sign-in screen until reload.
+    let authEventVersion = 0;
     const client = getSupabaseClient();
 
     const {
       data: { subscription },
     } = client.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      authEventVersion += 1;
 
       setSession(nextSession);
       setAuthState(nextSession ? 'signed-in' : 'signed-out');
@@ -2044,10 +2049,11 @@ function FoundationPage() {
       }
     });
 
+    const versionAtSessionReadStart = authEventVersion;
     void client.auth
       .getSession()
       .then(({ data, error }) => {
-        if (!active) return;
+        if (!active || authEventVersion !== versionAtSessionReadStart) return;
 
         if (error) {
           setErrorText(error.message);
@@ -2061,7 +2067,7 @@ function FoundationPage() {
         if (data.session?.user.app_metadata?.must_change_password === true) setLocation('/reset-password');
       })
       .catch((error: unknown) => {
-        if (!active) return;
+        if (!active || authEventVersion !== versionAtSessionReadStart) return;
 
         setErrorText(
           error instanceof Error
