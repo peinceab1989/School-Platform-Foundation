@@ -78,23 +78,3 @@ grant execute on function public.resa_issue_attendance_qr(uuid,text,uuid,text) t
 revoke all on function public.resa_replace_attendance_qr(uuid,text,uuid,text) from public,anon;
 grant execute on function public.resa_replace_attendance_qr(uuid,text,uuid,text) to authenticated;
 
-create or replace function public.resa_get_attendance_qr_status(
-  p_school_id uuid, p_person_type text, p_person_id uuid
-) returns jsonb
-language plpgsql security definer set search_path=''
-as $function$
-declare v_row public.attendance_qr_credentials%rowtype;
-begin
-  if auth.uid() is null or not public.has_school_role(p_school_id,array['admin']::public.school_role[]) then raise exception 'Admin access required'; end if;
-  if p_person_type not in ('student','staff') then raise exception 'Invalid person type'; end if;
-  if p_person_type='student' then
-    select * into v_row from public.attendance_qr_credentials where school_id=p_school_id and student_id=p_person_id order by created_at desc limit 1;
-  else
-    select * into v_row from public.attendance_qr_credentials where school_id=p_school_id and staff_id=p_person_id order by created_at desc limit 1;
-  end if;
-  if v_row.id is null then return null; end if;
-  return jsonb_build_object('credential_id',v_row.id,'approval_status',v_row.approval_status,'is_active',v_row.is_active,'created_at',v_row.created_at);
-end;
-$function$;
-revoke all on function public.resa_get_attendance_qr_status(uuid,text,uuid) from public,anon;
-grant execute on function public.resa_get_attendance_qr_status(uuid,text,uuid) to authenticated;
