@@ -30,7 +30,7 @@ function playResaChime() {
 export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
   const [count, setCount] = useState(0);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
-    typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported",
+    typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window ? Notification.permission : "unsupported",
   );
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState("");
@@ -63,25 +63,13 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       const { data } = await db.auth.getUser();
       userId = data?.user?.id ?? "";
       if (!userId || !active) return;
-      const [direct, chat] = await Promise.all([
+      const [direct, chatCount] = await Promise.all([
         db.from("school_messages")
           .select("id", { count: "exact", head: true })
           .eq("school_id", schoolId).eq("recipient_id", userId).eq("is_read", false),
-        db.from("resa_chat_messages")
-          .select("id,sender_id")
-          .eq("school_id", schoolId).neq("sender_id", userId)
-          .order("created_at", { ascending: false }).limit(500),
+        db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
       ]);
-      let unreadChat = 0;
-      if (!chat.error && (chat.data ?? []).length) {
-        const ids = chat.data.map((message: any) => message.id);
-        const reads = await db.from("resa_chat_message_reads")
-          .select("message_id").eq("school_id", schoolId).eq("user_id", userId).in("message_id", ids);
-        if (!reads.error) {
-          const readIds = new Set((reads.data ?? []).map((item: any) => item.message_id));
-          unreadChat = chat.data.filter((message: any) => !readIds.has(message.id)).length;
-        }
-      }
+      const unreadChat = chatCount.error ? 0 : Number(chatCount.data || 0);
       if (active) setCount((direct.error ? 0 : direct.count ?? 0) + unreadChat);
     };
 
