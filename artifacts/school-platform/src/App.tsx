@@ -3050,6 +3050,8 @@ function AppRoutes() {
       <Switch>
         {/* Public school website */}
         <Route path="/" component={PublicHome} />
+        {/* Some mobile browsers may retain the explicit document path. */}
+        <Route path="/index.html" component={PublicHome} />
         <Route path="/about" component={() => <AboutPage />} />
         <Route path="/academics" component={() => <AcademicsPage />} />
         <Route
