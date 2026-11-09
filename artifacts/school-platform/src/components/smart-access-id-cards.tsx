@@ -179,9 +179,11 @@ export default function SmartAccessIdCards({
       @media print {
         body * { visibility: hidden !important; }
         .resa-smart-id-card, .resa-smart-id-card * { visibility: visible !important; }
-        .resa-smart-id-card { display: block !important; position: fixed !important; left: 12mm !important; top: 12mm !important; width: 85.6mm !important; height: 54mm !important; min-height: 54mm !important; max-height: 54mm !important; overflow: hidden !important; margin: 0 !important; padding: 2.5mm !important; box-sizing: border-box !important; border: 0.35mm solid #164e36 !important; border-radius: 2mm !important; background: #fff !important; color: #111 !important; box-shadow: none !important; }
-        @page { size: A4; margin: 0; }
+        .resa-smart-id-card { display: block !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 85.6mm !important; height: 54mm !important; min-height: 54mm !important; max-height: 54mm !important; overflow: hidden !important; margin: 0 !important; padding: 2.5mm !important; box-sizing: border-box !important; border: 0.35mm solid #164e36 !important; border-radius: 2mm !important; background: linear-gradient(135deg,#fff 0%,#f3f8f4 100%) !important; color: #111 !important; box-shadow: none !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
+        @page { size: 85.6mm 54mm; margin: 0; }
       }
+      .resa-smart-id-card { background: linear-gradient(135deg,#fff 0%,#f4f8f5 100%); border: 1.2px solid #14532d; box-shadow: 0 8px 24px rgba(15,45,30,.12); }
+      .resa-smart-id-card:before { content: \"\"; position: absolute; inset: 0; pointer-events: none; opacity: .045; background: radial-gradient(circle at 85% 15%,#d4a72c 0 18%,transparent 18.5%), repeating-linear-gradient(135deg,transparent 0 12px,#14532d 12px 13px); }
     `}</style>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 className="text-lg font-extrabold">Staff and parent QR ID cards</h2><p className="mt-1 text-sm text-slate-600">Issue a revocable credential, include the account photograph and print a school ID card. Only the credential hash is stored.</p></div>
