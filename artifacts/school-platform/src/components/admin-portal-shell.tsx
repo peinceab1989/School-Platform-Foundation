@@ -143,7 +143,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
           <div className="resa-breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{title}</strong></div>
         </div>
         <div className="resa-topbar-actions">
-          <Link href="/notifications" className="resa-notification-link" aria-label="Open notifications"><Bell size={19}/><span className="resa-notification-dot"/></Link>
+          <Link href="/school-communication" className="resa-notification-link" aria-label="Open Communication Centre"><Bell size={19}/><span className="resa-notification-dot"/></Link>
           <div className="resa-user-profile"><span className="resa-avatar">{initials}</span><span className="resa-user-meta"><strong>{visibleName}</strong><small>School Administrator</small></span></div>
           <button type="button" className="resa-icon-button resa-top-signout" onClick={onSignOut} aria-label="Sign out"><LogOut size={18}/></button>
         </div>
