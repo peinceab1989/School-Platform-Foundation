@@ -122,6 +122,9 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           void refresh();
         }
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_message_reads", filter: "school_id=eq." + schoolId }, (payload: any) => {
+        if (payload.new?.user_id === userId) void refresh();
+      })
       .subscribe();
 
     return () => {
