@@ -24,9 +24,40 @@ export default function QrAttendancePanel({schoolId,stationId,onRecorded}:{schoo
   catch(e){stopCamera();throw e;}finally{busyRef.current=false;setBusy(false);}
  }
  async function issueCredential(){setBusy(true);setError("");setNotice("");setPayload("");try{if(!personId)throw new Error("Select a student or staff member.");const bytes=crypto.getRandomValues(new Uint8Array(16)),token=btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,""),tokenHash=await sha256(token),db=getSupabaseClient() as any;const {data,error:e}=await db.rpc("resa_issue_attendance_qr",{p_school_id:schoolId,p_person_type:personType,p_person_id:personId,p_token_hash:tokenHash});if(e)throw e;if(!data?.credential_id)throw new Error("The ID-card QR reference was not issued.");setPayload("RESA-ID:"+data.credential_id);setNotice(`A stable ${personType} ID-card QR was issued. It remains the same when the card is reopened; it changes only when an administrator explicitly rotates the credential.`);}catch(e){setError(e instanceof Error?e.message:"Could not issue the QR credential.");}finally{setBusy(false);}}
- async function startCamera(){setError("");setNotice("");try{const Detector=(window as any).BarcodeDetector;if(!Detector)throw new Error("QR camera decoding is not supported by this browser. Update Chrome on the attendance device or use the manual credential fallback.");if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera access is unavailable. Open the secure HTTPS portal and allow camera permission.");const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});streamRef.current=stream;if(!videoRef.current)throw new Error("Camera preview is unavailable.");videoRef.current.srcObject=stream;await videoRef.current.play();const detector=new Detector({formats:["qr_code"]});activeRef.current=true;setScanning(true);
-  const loop=async()=>{if(!activeRef.current||!videoRef.current)return;if(videoRef.current.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA&&videoRef.current.videoWidth>0){try{const codes=await detector.detect(videoRef.current),value=codes?.find((c:any)=>typeof c.rawValue==="string"&&c.rawValue.trim())?.rawValue;if(value&&activeRef.current){activeRef.current=false;try{await recordPayload(value);}catch(e){stopCamera();setError(e instanceof Error?e.message:"The QR was detected but attendance could not be recorded.");}return;}}catch{if(!activeRef.current)return;}}if(activeRef.current)window.setTimeout(()=>{if(activeRef.current)void loop();},90);};void loop();
- }catch(e){stopCamera();setError(e instanceof Error?e.message:"Could not start the camera.");}}
+ async function loadJsQr():Promise<any>{
+  const w=window as any;if(typeof w.jsQR==="function")return w.jsQR;
+  const existing=document.querySelector<HTMLScriptElement>('script[data-resa-jsqr="true"]');
+  await new Promise<void>((resolve,reject)=>{const script=existing||document.createElement("script");const timeout=window.setTimeout(()=>reject(new Error("QR decoder download timed out. Check your internet connection and try again.")),15000);const done=()=>{window.clearTimeout(timeout);if(typeof (window as any).jsQR==="function")resolve();else reject(new Error("QR decoder could not be loaded. Please reload the page and try again."));};script.addEventListener("load",done,{once:true});script.addEventListener("error",()=>{window.clearTimeout(timeout);reject(new Error("QR decoder could not be downloaded. Check your internet connection."));},{once:true});if(!existing){script.src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";script.async=true;script.dataset.resaJsqr="true";document.head.appendChild(script);}else if(typeof w.jsQR==="function"){window.clearTimeout(timeout);resolve();}});
+  return (window as any).jsQR;
+ }
+ async function startCamera(){
+  setError("");setNotice("");
+  try{
+   if(!navigator.mediaDevices?.getUserMedia)throw new Error("Camera access is unavailable. Open RESA in Chrome using its HTTPS address.");
+   if(!videoRef.current)throw new Error("Camera preview element is unavailable. Reload the page and try again.");
+   const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
+   streamRef.current=stream;videoRef.current.srcObject=stream;await videoRef.current.play();
+   let detector:any=null;const Detector=(window as any).BarcodeDetector;
+   if(typeof Detector==="function"){try{detector=new Detector({formats:["qr_code"]});}catch{detector=null;}}
+   let jsQR:any=null,canvas:HTMLCanvasElement|null=null,context:CanvasRenderingContext2D|null=null;
+   try{jsQR=await loadJsQr();canvas=document.createElement("canvas");context=canvas.getContext("2d",{willReadFrequently:true});if(!context)throw new Error("This browser could not initialise the QR image decoder.");}catch(e){if(!detector)throw e;}
+   activeRef.current=true;setScanning(true);
+   const loop=async()=>{
+    if(!activeRef.current||!videoRef.current)return;
+    const video=videoRef.current;
+    if(video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA&&video.videoWidth>0){
+     let value="";
+     try{
+      if(detector){const codes=await detector.detect(video);value=codes?.find((c:any)=>typeof c.rawValue==="string"&&c.rawValue.trim())?.rawValue||"";}
+      if(!value&&jsQR&&canvas&&context){const width=video.videoWidth,height=video.videoHeight;canvas.width=width;canvas.height=height;context.drawImage(video,0,0,width,height);const frame=context.getImageData(0,0,width,height);const decoded=jsQR(frame.data,width,height,{inversionAttempts:"attemptBoth"});if(decoded?.data)value=decoded.data;}
+     }catch{/* A blurred frame is normal while the camera is moving; retry the next frame. */}
+     if(value&&activeRef.current){activeRef.current=false;try{await recordPayload(value);}catch(e){stopCamera();setError(e instanceof Error?e.message:"QR detected, but attendance could not be recorded.");}return;}
+    }
+    if(activeRef.current)window.setTimeout(()=>{if(activeRef.current)void loop();},180);
+   };
+   void loop();
+  }catch(e){stopCamera();const err=e as any;const message=err?.name==="NotAllowedError"?"Camera permission was denied or blocked. Allow camera access for this website in Chrome site settings, then try again.":err?.name==="NotFoundError"?"No camera was found on this device.":err?.name==="NotReadableError"?"The camera is busy in another app. Close other camera apps and try again.":e instanceof Error?e.message:"Could not start the camera.";setError(message);}
+ }
  const filtered=people.filter(p=>p.type===personType);
  return <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><span className="rounded-xl bg-emerald-50 p-2 text-emerald-800"><QrCode size={22}/></span><div><h2 className="text-lg font-extrabold">QR attendance & credential control</h2><p className="text-sm text-slate-600">Issue unique ID-card QR references and scan them at the selected station.</p></div></div><ShieldCheck className="text-emerald-800" size={22}/></div>
  {error&&<p role="alert" className="mt-3 break-words rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}{notice&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
