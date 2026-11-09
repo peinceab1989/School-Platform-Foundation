@@ -18,6 +18,7 @@ begin
     select 1 from public.smart_access_settings s where s.school_id=p_school_id
       and ((p_person_type='student' and s.student_qr_enabled) or (p_person_type='staff' and s.staff_qr_enabled))
   ) then raise exception 'QR attendance is not enabled'; end if;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_school_id::text || ':' || p_person_type || ':' || p_person_id::text, 0));
   if p_person_type='student' then
     if not exists(select 1 from public.students where id=p_person_id and school_id=p_school_id and status='active') then raise exception 'Active student not found'; end if;
     select id,approval_status into v_id,v_status from public.attendance_qr_credentials
@@ -54,6 +55,7 @@ begin
     select 1 from public.smart_access_settings s where s.school_id=p_school_id
       and ((p_person_type='student' and s.student_qr_enabled) or (p_person_type='staff' and s.staff_qr_enabled))
   ) then raise exception 'QR attendance is not enabled'; end if;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_school_id::text || ':' || p_person_type || ':' || p_person_id::text, 0));
   if p_person_type='student' then
     if not exists(select 1 from public.students where id=p_person_id and school_id=p_school_id and status='active') then raise exception 'Active student not found'; end if;
     update public.attendance_qr_credentials set is_active=false,revoked_at=now(),approval_status='revoked'
