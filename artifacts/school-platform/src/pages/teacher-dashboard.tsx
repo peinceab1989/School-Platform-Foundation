@@ -1035,6 +1035,23 @@ export default function TeacherDashboard({
   };
 
   useEffect(() => {
+    if (!staff?.id || staffQrPayload) return;
+    let cancelled = false;
+    const checkApprovedQr = async () => {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client.rpc('resa_get_active_attendance_qr', {
+          p_school_id: schoolId, p_person_type: 'staff', p_person_id: staff.id,
+        });
+        if (!cancelled && !error && data) setStaffQrPayload('RESA-ID:' + data);
+      } catch { /* Keep the dashboard usable while approval is pending. */ }
+    };
+    const timer = window.setInterval(() => void checkApprovedQr(), 15000);
+    void checkApprovedQr();
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [schoolId, staff?.id, staffQrPayload]);
+
+  useEffect(() => {
     if (!printDocument) return;
     const timer = window.setTimeout(() => window.print(), 120);
     const clearAfterPrint = () => setPrintDocument(null);
