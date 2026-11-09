@@ -12,12 +12,10 @@ if (!Number.isInteger(port) || port <= 0 || port > 65535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Use the root path by default for standard Replit and Netlify hosting.
-// Set BASE_PATH explicitly only when deploying under a URL subdirectory.
-const rawBasePath = process.env.BASE_PATH?.trim() || '/';
-const basePath = rawBasePath.endsWith('/')
-  ? rawBasePath
-  : `${rawBasePath}/`;
+// RESA is deployed at the domain root on Cloudflare Pages and Netlify.
+// Keep Vite assets and the client router on the same root path so an
+// inherited BASE_PATH environment variable cannot break the public homepage.
+const basePath = '/';
 
 export default defineConfig({
   base: basePath,
