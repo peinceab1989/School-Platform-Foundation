@@ -142,7 +142,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         <div className="flex flex-wrap gap-2">
           <button onClick={() => void enableBrowserAlerts()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><Bell size={16}/>{pushEnabled ? "Browser alerts enabled" : "Enable browser alerts"}</button>
           <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><RefreshCw size={15} className={loading?"animate-spin":""}/>Refresh</button>
-          <Link href="/school-communication" className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><MessageSquare size={15}/>Open messages</Link><Link href="/resa-chat" className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-3 py-2 text-sm font-semibold text-white"><MessageSquare size={15}/>Open RESA Chat</Link>
+          <Link href="/school-communication" className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><MessageSquare size={15}/>Open Communication Centre</Link>
         </div>
       </section>
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
