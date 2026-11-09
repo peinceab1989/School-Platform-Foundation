@@ -868,11 +868,10 @@ function StudentDashboard({
               <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>{studentDisplayName ? `Welcome, ${studentDisplayName}.` : 'Welcome to your learning portal.'}</p>
               <p style={{ margin: '0 0 18px', color: '#e8eee8', overflowWrap: 'anywhere' }}>{schoolName}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
             <Link href="/portal-navigation-guide" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Portal Guide</Link>
             <Link href="/my-results" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>My Report Cards</Link>
             <Link href="/student-id-card" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>My ID Card</Link>
-            <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>School messages</Link>
+            <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Communication Centre <UnreadMessageBadge schoolId={schoolId} /></Link>
               <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
               </div>
             </div>
@@ -910,7 +909,6 @@ function StudentDashboard({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
             <Link href="/practice-drills" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>Practice Drills</Link>
             <Link href="/teaching-materials" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Learning Resources</Link>
-            <Link href="/resa-chat" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#d9efe2', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>School Chat</Link>
             <Link href="/student-assignments" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#17623d', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Assignments</Link>
             <Link href="/student-cbt" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Student CBT</Link>
           </div>
