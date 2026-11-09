@@ -83,7 +83,6 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           icon: "/media/logo/resa-logo.jpg",
           badge: "/favicon.ico",
           tag,
-          renotify: true,
           vibrate: [180, 90, 180],
           data: { url },
         });
