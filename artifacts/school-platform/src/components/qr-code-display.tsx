@@ -21,18 +21,18 @@ function reedSolomon(data:number[],degree:number):number[] {
 }
 function encodeVersion2L(value:string):boolean[][] {
   const bytes=Array.from(new TextEncoder().encode(value));
-  if(bytes.length>32)throw new Error("RESA QR payload is too long.");
+  if(bytes.length>53)throw new Error("RESA QR payload is too long.");
   const bits:number[]=[];
   const append=(v:number,n:number)=>{for(let i=n-1;i>=0;i--)bits.push((v>>>i)&1);};
   append(4,4);append(bytes.length,8);bytes.forEach(b=>append(b,8));
-  const capacity=34*8;
+  const capacity=55*8;
   for(let i=0;i<Math.min(4,capacity-bits.length);i++)bits.push(0);
   while(bits.length%8)bits.push(0);
   const data:number[]=[];
   for(let i=0;i<bits.length;i+=8)data.push(bits.slice(i,i+8).reduce((a,b)=>(a<<1)|b,0));
-  for(let pad=0;data.length<34;pad++)data.push(pad%2===0?0xec:0x11);
-  const codewords=[...data,...reedSolomon(data,10)];
-  const size=25;
+  for(let pad=0;data.length<55;pad++)data.push(pad%2===0?0xec:0x11);
+  const codewords=[...data,...reedSolomon(data,15)];
+  const size=29;
   const matrix:(boolean|null)[][]=Array.from({length:size},()=>Array(size).fill(null));
   const set=(x:number,y:number,dark:boolean)=>{if(x>=0&&x<size&&y>=0&&y<size)matrix[y][x]=dark;};
   const finder=(cx:number,cy:number)=>{
@@ -44,7 +44,7 @@ function encodeVersion2L(value:string):boolean[][] {
   };
   finder(0,0);finder(size-7,0);finder(0,size-7);
   for(let i=8;i<size-8;i++){set(i,6,i%2===0);set(6,i,i%2===0);}
-  for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)set(18+dx,18+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);
+  for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)set(22+dx,22+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);
   for(let i=0;i<6;i++)set(8,i,false);
   set(8,7,false);set(8,8,false);set(7,8,false);
   for(let i=9;i<15;i++)set(14-i,8,false);
