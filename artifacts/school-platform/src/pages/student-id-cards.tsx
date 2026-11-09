@@ -111,7 +111,7 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
       const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(token));
       const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
       const db=getSupabaseClient() as any;
-      const {data,error:e}=await db.rpc(replaceExisting?"resa_replace_attendance_qr":"resa_issue_attendance_qr",{p_school_id:schoolId,p_person_type:"student",p_person_id:row.id,p_token_hash:hash});
+      const {data,error:e}=await db.rpc("resa_issue_attendance_qr",{p_school_id:schoolId,p_person_type:"student",p_person_id:row.id,p_token_hash:hash,p_replace:replaceExisting});
       if(e)throw e;
       if(!data?.credential_id)throw new Error("The ID-card QR reference was not issued.");
       setSelected(row);
