@@ -114,8 +114,8 @@ export default function SmartAccessIdCards({
         .eq("school_id", schoolId).eq("id", person.id).maybeSingle();
       if (staffError) throw staffError;
       if (!staff) throw new Error("The selected staff record could not be found.");
-      const { data, error: rpcError } = await client.rpc(replaceExisting ? "resa_replace_attendance_qr" : "resa_issue_attendance_qr", {
-        p_school_id: schoolId, p_person_type: "staff", p_person_id: person.id, p_token_hash: hash,
+      const { data, error: rpcError } = await client.rpc("resa_issue_attendance_qr", {
+        p_school_id: schoolId, p_person_type: "staff", p_person_id: person.id, p_token_hash: hash, p_replace: replaceExisting,
       });
       if (rpcError) throw rpcError;
       if (!data?.credential_id) throw new Error("The staff QR credential was not issued.");
