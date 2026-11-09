@@ -561,7 +561,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         <nav aria-label="Parent quick links" className="mt-6 flex flex-wrap gap-2">
           <Link href="/my-results" className="rounded-xl bg-amber-200 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-100">My learners’ results</Link>
           <Link href="/parent-authorizations" className="rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">Parent Authorizations</Link>
-          <Link href="/school-communication" className="rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">Communication Centre</Link>
+          <Link href="/school-communication" className="inline-flex items-center rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">Communication Centre <UnreadMessageBadge schoolId={schoolId} /></Link>
           <a href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care.%20I%20need%20assistance%20with%20the%20parent%20portal." target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Customer Care</a>
         </nav>
       </header>
