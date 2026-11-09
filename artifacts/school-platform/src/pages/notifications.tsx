@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bell, BellRing, CheckCheck, MessageSquare, Megaphone, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { enableResaPushNotifications } from "@/lib/notifications/push";
 
 type Notice = {
   id: string;
@@ -115,10 +116,14 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   }
 
   async function enableBrowserAlerts() {
-    if (!("Notification" in window)) { setError("This browser does not support browser notifications. You can still use the in-app notification centre."); return; }
-    const permission = await Notification.requestPermission();
-    setPushEnabled(permission === "granted");
-    setNotice(permission === "granted" ? "Browser notifications enabled on this device while RESA is open." : "Browser notifications were not enabled. In-app notifications remain available.");
+    setError("");
+    try {
+      await enableResaPushNotifications(schoolId, true);
+      setPushEnabled(true);
+      setNotice("RESA phone notifications are enabled on this device. New messages and school updates can now arrive when the portal is closed, subject to Android and browser notification settings.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Phone notifications could not be enabled.");
+    }
   }
 
   const unreadCount = items.filter(item => (item.kind === "message" || item.kind === "chat") && item.unread).length;
@@ -140,7 +145,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white p-4 shadow-sm">
         <div><p className="font-bold">Stay up to date</p><p className="text-sm text-slate-600">Messages and published school announcements appear here.</p></div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => void enableBrowserAlerts()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><Bell size={16}/>{pushEnabled ? "Browser alerts enabled" : "Enable browser alerts"}</button>
+          <button onClick={() => void enableBrowserAlerts()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><Bell size={16}/>{pushEnabled ? "Phone alerts enabled" : "Enable phone alerts"}</button>
           <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><RefreshCw size={15} className={loading?"animate-spin":""}/>Refresh</button>
           <Link href="/school-communication" className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><MessageSquare size={15}/>Open Communication Centre</Link>
         </div>
