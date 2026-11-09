@@ -45,8 +45,8 @@ export default function QrAttendancePanel({schoolId,stationId,onRecorded}:{schoo
    const loop=async()=>{
     if(!activeRef.current||!videoRef.current)return;
     const video=videoRef.current;
+    let value="";
     if(video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA&&video.videoWidth>0){
-     let value="";
      try{
       if(detector){const codes=await detector.detect(video);value=codes?.find((c:any)=>typeof c.rawValue==="string"&&c.rawValue.trim())?.rawValue||"";}
       if(!value&&jsQR&&canvas&&context){const width=video.videoWidth,height=video.videoHeight;canvas.width=width;canvas.height=height;context.drawImage(video,0,0,width,height);const frame=context.getImageData(0,0,width,height);const decoded=jsQR(frame.data,width,height,{inversionAttempts:"attemptBoth"});if(decoded?.data)value=decoded.data;}
@@ -56,9 +56,8 @@ export default function QrAttendancePanel({schoolId,stationId,onRecorded}:{schoo
       try{await recordPayload(value);setError("");}
       catch(e){setError(e instanceof Error?e.message:"QR detected, but attendance could not be recorded.");}
      }
-    } else if(!value) {
-      lastDecodedRef.current="";
     }
+    if(!value) lastDecodedRef.current="";
     if(activeRef.current)window.setTimeout(()=>{if(activeRef.current)void loop();},220);
    };
    void loop();
