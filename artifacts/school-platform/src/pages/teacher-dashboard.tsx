@@ -11,6 +11,7 @@ import UnreadMessageBadge from '@/components/unread-message-badge';
 import ProfilePhotoCard from '@/components/profile-photo-card';
 import PeopleStatusNotices from '@/components/people-status-notices';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import QrCodeDisplay from '@/components/qr-code-display';
 
 type TeacherStaff = {
   id: string;
@@ -215,6 +216,7 @@ export default function TeacherDashboard({
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [printPermissions, setPrintPermissions] = useState({ id_card: false, appointment_letter: false });
   const [printDocument, setPrintDocument] = useState<'id_card' | 'appointment_letter' | null>(null);
+  const [staffQrPayload, setStaffQrPayload] = useState('');
   const [teacherName, setTeacherName] = useState<string | null>(null);
   const [teachingAssignments, setTeachingAssignments] = useState<
     TeachingAssignment[]
@@ -394,6 +396,11 @@ export default function TeacherDashboard({
       }
 
       setStaff(staffRecord);
+      const { data: activeQrId, error: activeQrError } = await client.rpc('resa_get_active_attendance_qr', {
+        p_school_id: schoolId, p_person_type: 'staff', p_person_id: staffRecord.id,
+      });
+      if (activeQrError) throw activeQrError;
+      setStaffQrPayload(activeQrId ? 'RESA-ID:' + activeQrId : '');
       await loadMyAttendance(staffRecord.id);
 
       const { data: permissionRows, error: permissionError } = await client
@@ -1055,8 +1062,16 @@ export default function TeacherDashboard({
         <section className="resa-print-document" data-kind="id_card">
           <div style={{ borderBottom: '2px solid #d6b75a', paddingBottom: 5, marginBottom: 8, color: '#164e36', fontWeight: 800, fontSize: 11 }}>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</div>
           <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 14, marginBottom: 8 }}>STAFF IDENTIFICATION CARD</div>
-          <div style={{ fontSize: 11, lineHeight: 1.7 }}>
-            <div><strong>Name:</strong> {teacherName || 'Staff member'}</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div style={{ fontSize: 10, lineHeight: 1.6, minWidth: 0 }}>
+              <div><strong>Name:</strong> {teacherName || 'Staff member'}</div>
+              <div><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}</div>
+              <div><strong>Designation:</strong> {staff.job_title || 'Staff'}</div>
+              <div><strong>Department:</strong> {staff.department || 'Not specified'}</div>
+              <div><strong>Status:</strong> {staff.status || 'Not specified'}</div>
+            </div>
+            {staffQrPayload ? <div style={{ flexShrink: 0, textAlign: 'center' }}><QrCodeDisplay value={staffQrPayload} size={76}/><div style={{ fontSize: 7, fontWeight: 800 }}>SCAN TO VERIFY</div></div> : <div style={{ width: 76, height: 76, border: '1px dashed #94a3b8', display: 'grid', placeItems: 'center', textAlign: 'center', fontSize: 7, flexShrink: 0 }}>QR PENDING<br/>APPROVAL</div>}
+          </div>
             <div><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}</div>
             <div><strong>Designation:</strong> {staff.job_title || 'Staff'}</div>
             <div><strong>Department:</strong> {staff.department || 'Not specified'}</div>
@@ -1241,7 +1256,7 @@ export default function TeacherDashboard({
               {staff && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 14px' }}>
                   {printPermissions.id_card ? (
-                    <button type="button" style={buttonStyle} onClick={() => setPrintDocument('id_card')}>Print staff ID card</button>
+                    <button type="button" style={buttonStyle} disabled={!staffQrPayload} onClick={() => setPrintDocument('id_card')}>Print staff ID card</button>
                   ) : (
                     <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>ID card printing awaits HR/admin approval</span>
                   )}
