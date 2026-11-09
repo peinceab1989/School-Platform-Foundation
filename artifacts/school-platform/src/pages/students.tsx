@@ -31,7 +31,7 @@ type Student = {
   id: string;
   school_id: string;
   person_id: string;
-  admission_number: string;
+  admission_number: string | null;
   admission_date: string | null;
   status: string;
   created_at: string;
@@ -264,7 +264,7 @@ export default function StudentsPage({
       const matchesSearch =
         !term ||
         fullName(student).toLowerCase().includes(term) ||
-        student.admission_number.toLowerCase().includes(term) ||
+        (student.admission_number ?? "").toLowerCase().includes(term) ||
         (student.email ?? "").toLowerCase().includes(term) ||
         (student.phone ?? "").toLowerCase().includes(term);
 
@@ -430,7 +430,7 @@ export default function StudentsPage({
 
     const suggestedEmail = student.email?.trim() ?? "";
     const enteredEmail = window.prompt(
-      `Enter the student's personal email address for the portal invitation.\n\nStudent: ${fullName(student)}\nAdmission number: ${student.admission_number}`,
+      `Enter the student's personal email address for the portal invitation.\n\nStudent: ${fullName(student)}\nAdmission number: ${student.admission_number || "—"}`,
       suggestedEmail,
     );
 
@@ -545,7 +545,7 @@ export default function StudentsPage({
       return;
     }
     const confirmed = window.confirm(
-      `Send a password-reset email for ${fullName(student)} (admission no. ${student.admission_number}) to the email linked to their portal account?`,
+      `Send a password-reset email for ${fullName(student)} (admission no. ${student.admission_number || "—"}) to the email linked to their portal account?`,
     );
     if (!confirmed) return;
     setResettingPasswordId(student.id);
@@ -1025,7 +1025,7 @@ export default function StudentsPage({
                           </p>
                         </td>
                         <td className="px-5 py-4">
-                          {student.admission_number}
+                          {student.admission_number || "—"}
                         </td>
                         <td className="px-5 py-4">
                           <p>{student.phone || "—"}</p>
@@ -1074,7 +1074,7 @@ export default function StudentsPage({
                           {fullName(student) || "Name unavailable"}
                         </h4>
                         <p className="mt-1 text-sm text-slate-500">
-                          Admission No: {student.admission_number}
+                          Admission No: {student.admission_number || "—"}
                         </p>
                         <p className="mt-1 break-all text-xs font-semibold text-indigo-700">
                           RESA Login ID: {(() => {
