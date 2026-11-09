@@ -22,7 +22,7 @@ function encodeVersion2L(value:string):boolean[][] {
   const codewords=[...data,...reedSolomon(data,15)],size=29;
   const matrix:(boolean|null)[][]=Array.from({length:size},()=>Array(size).fill(null));
   const set=(x:number,y:number,dark:boolean)=>{if(x>=0&&x<size&&y>=0&&y<size)matrix[y][x]=dark;};
-  const finder=(cx:number,cy:number)=>{for(let dy=-1;dy<=7;dy++)for(let dx=-1;dx<=7;dx++){const inside=dx>=0&&dx<=6&&dy>=0&&dy<=6;set(cx+dx,cy+dy,inside&&(dx===0||dx===6||dy===0||dy===6||(dx>=2&&dx<=4&&dy>=2&&dy<=4));}};
+  const finder=(cx:number,cy:number)=>{for(let dy=-1;dy<=7;dy++)for(let dx=-1;dx<=7;dx++){const inside=dx>=0&&dx<=6&&dy>=0&&dy<=6;set(cx+dx,cy+dy,inside&&(dx===0||dx===6||dy===0||dy===6||(dx>=2&&dx<=4&&dy>=2&&dy<=4)));}};
   finder(0,0);finder(size-7,0);finder(0,size-7);
   for(let i=8;i<size-8;i++){set(i,6,i%2===0);set(6,i,i%2===0);}
   for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)set(22+dx,22+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);
