@@ -39,14 +39,12 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 p-6">
       <div className="max-w-lg w-full text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
-          <span aria-hidden="true" className="text-2xl font-bold">!</span>
-        </div>
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-emerald-800">RESA School Portal</p>
-        <h1 className="mt-2 text-xl font-semibold text-gray-900">This page could not be loaded</h1>
-        <p className="mt-2 text-sm leading-6 text-gray-600">
-          An unexpected page error occurred. Other portal sections may still be available.
-          Please try again or return to the dashboard. If the problem continues, contact the school administrator.
+        <h1 className="text-xl font-semibold text-gray-900">
+          Something went wrong
+        </h1>
+        <p className="mt-2 text-sm text-gray-600">
+          This part of the app hit an error. The rest of the app is still
+          running.
         </p>
         {/* Dev only: messages can carry API responses and other internals. */}
         {import.meta.env.DEV ? (
@@ -54,10 +52,13 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
             {error.message || String(error)}
           </pre>
         ) : null}
-        <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-          <button type="button" onClick={resetError} className="rounded-xl bg-emerald-800 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-emerald-900">Try again</button>
-          <a href="/dashboard" className="rounded-xl border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">Return to dashboard</a>
-        </div>
+        <button
+          type="button"
+          onClick={resetError}
+          className="mt-4 rounded bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-700"
+        >
+          Try again
+        </button>
       </div>
     </div>
   );
