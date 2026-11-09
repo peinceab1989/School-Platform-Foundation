@@ -71,19 +71,19 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
 
   useEffect(()=>{void load();},[load]);
   useEffect(()=>{
-    if(role!=="student"||!selected?.id||qrPayloads[selected.id])return;
+    if(role!=="student"||!selected?.id)return;
     let cancelled=false;
     const checkApprovedQr=async()=>{
       try{
         const db=getSupabaseClient() as any;
         const {data,error}=await db.rpc("resa_get_active_attendance_qr",{p_school_id:schoolId,p_person_type:"student",p_person_id:selected.id});
-        if(!cancelled&&!error&&data)setQrPayloads(previous=>({...previous,[selected.id]:"RESA-ID:"+data}));
+        if(!cancelled&&!error)setQrPayloads(previous=>{const next={...previous};if(data)next[selected.id]="RESA-ID:"+data;else delete next[selected.id];return next;});
       }catch{/* Keep the dashboard available while approval is pending. */}
     };
     const timer=window.setInterval(()=>void checkApprovedQr(),15000);
     void checkApprovedQr();
     return()=>{cancelled=true;window.clearInterval(timer);};
-  },[role,schoolId,selected?.id,qrPayloads]);
+  },[role,schoolId,selected?.id]);
 
   async function uploadPhoto(row:StudentRow,file:File){
     if(!file.type.startsWith("image/")||file.size>5*1024*1024){setError("Choose a JPG, PNG or WEBP passport photo up to 5 MB.");return;}
