@@ -55,8 +55,8 @@ export default function AttendanceQrApprovals({ schoolId }: { schoolId: string }
         : { data: [], error: null };
       if (peopleResult.error) throw peopleResult.error;
       const names = new Map((peopleResult.data ?? []).map((row: any) => [row.id, [row.first_name,row.middle_name,row.last_name].filter(Boolean).join(" ")]));
-      const studentMap = new Map((studentsResult.data ?? []).map((row: any) => [row.id,row]));
-      const staffMap = new Map((staffResult.data ?? []).map((row: any) => [row.id,row]));
+      const studentMap = new Map<string, any>((studentsResult.data ?? []).map((row: any) => [row.id,row]));
+      const staffMap = new Map<string, any>((staffResult.data ?? []).map((row: any) => [row.id,row]));
       setRows(pending.map((credential: any) => {
         const person = credential.person_type === "student" ? studentMap.get(credential.student_id) : staffMap.get(credential.staff_id);
         const fallback = credential.person_type === "student" ? person?.admission_number : person?.staff_number || person?.job_title;
