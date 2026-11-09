@@ -20,7 +20,37 @@ export default function QrAttendancePanel({schoolId,stationId,onRecorded}:{schoo
   if(isCardId?!/^RESA-ID:[0-9a-fA-F-]{36}$/.test(raw):!/^[A-Za-z0-9_-]{22}$/.test(token))throw new Error("This is not a valid RESA QR credential.");
   if(!stationId)throw new Error("Select an active attendance station first.");
   busyRef.current=true;setBusy(true);setError("");setNotice("");
-  try{const tokenHash=isCardId?raw:await sha256(token),db=getSupabaseClient() as any;const {data,error:e}=await db.rpc("resa_record_qr_attendance",{p_token_hash:tokenHash,p_station_id:stationId,p_event_type:action});if(e)throw e;if(!data?.success)throw new Error("Attendance was not recorded.");const capturedAt=new Date(data.event_time||Date.now()).toLocaleString("en-NG",{timeZone:"Africa/Lagos",dateStyle:"medium",timeStyle:"short"});const captured={name:String(data.person_name||"School member"),type:String(data.person_type||"member"),action,time:capturedAt};setCurrentCaptured(captured);setCaptureHistory(previous=>[{...captured,id:`${data.person_id||raw}-${data.event_time||Date.now()}`},...previous].slice(0,100));setNotice(`${captured.name} (${captured.type}) ${action==="check_in"?"checked in":"checked out"} successfully at ${capturedAt}. Scanner remains ready for the next card.`);setManualCode("");onRecordedRef.current?.();}
+  const db=getSupabaseClient() as any;const tokenHash=isCardId?raw:await sha256(token);
+  try{const {data,error:e}=await db.rpc("resa_record_qr_attendance",{p_token_hash:tokenHash,p_station_id:stationId,p_event_type:action});if(e)throw e;if(!data?.success)throw new Error("Attendance was not recorded.");const capturedAt=new Date(data.event_time||Date.now()).toLocaleString("en-NG",{timeZone:"Africa/Lagos",dateStyle:"medium",timeStyle:"short"});const captured={name:String(data.person_name||"School member"),type:String(data.person_type||"member"),action,time:capturedAt};setCurrentCaptured(captured);setCaptureHistory(previous=>[{...captured,id:`${data.person_id||raw}-${data.event_time||Date.now()}`},...previous].slice(0,100));setNotice(`${captured.name} (${captured.type}) ${action==="check_in"?"checked in":"checked out"} successfully at ${capturedAt}. Scanner remains ready for the next card.`);setManualCode("");onRecordedRef.current?.();}
+  catch(e){
+   const message=e instanceof Error?e.message:String((e as any)?.message||"");
+   if(/already checked in today/i.test(message)||/already checked out today/i.test(message)||/no valid check-in is available/i.test(message)){
+    try{
+     const credentialQuery=await db.from("attendance_qr_credentials").select("school_id,person_type,student_id,staff_id").eq(isCardId?"id":"token_hash",isCardId?raw.slice(8):tokenHash).eq("is_active",true).maybeSingle();
+     if(credentialQuery.error)throw credentialQuery.error;
+     const credential=credentialQuery.data;
+     if(credential?.person_type==="student"&&credential.student_id){
+      const [studentResult,attendanceResult]=await Promise.all([
+       db.from("students").select("id,person_id,admission_number").eq("id",credential.student_id).eq("school_id",credential.school_id).maybeSingle(),
+       db.from("student_attendance").select("check_in_at,check_out_at").eq("school_id",credential.school_id).eq("student_id",credential.student_id).eq("attendance_date",new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Lagos",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())).maybeSingle()
+      ]);
+      if(studentResult.error)throw studentResult.error;if(attendanceResult.error)throw attendanceResult.error;
+      const student=studentResult.data,attendance=attendanceResult.data;
+      let name=student?.admission_number||"This learner";
+      if(student?.person_id){const personResult=await db.from("people").select("first_name,middle_name,last_name").eq("id",student.person_id).eq("school_id",credential.school_id).maybeSingle();if(personResult.error)throw personResult.error;if(personResult.data)name=[personResult.data.first_name,personResult.data.middle_name,personResult.data.last_name].filter(Boolean).join(" ")||name;}
+      const checkedInAt=attendance?.check_in_at?new Date(attendance.check_in_at).toLocaleTimeString("en-NG",{timeZone:"Africa/Lagos",hour:"2-digit",minute:"2-digit"}):"";
+      const checkedOutAt=attendance?.check_out_at?new Date(attendance.check_out_at).toLocaleTimeString("en-NG",{timeZone:"Africa/Lagos",hour:"2-digit",minute:"2-digit"}):"";
+      const status=attendance?.check_out_at?"already checked out":attendance?.check_in_at?"already checked in":"has no completed attendance action";
+      const statusLine=attendance?.check_out_at?`Checked in at ${checkedInAt} and checked out at ${checkedOutAt}.`:attendance?.check_in_at?`Checked in at ${checkedInAt}; still on the school premises according to today's attendance record.`:"Please check the attendance record.";
+      const now=new Date().toLocaleString("en-NG",{timeZone:"Africa/Lagos",dateStyle:"medium",timeStyle:"short"});
+      setCurrentCaptured({name,type:"student",action:attendance?.check_out_at?"check_out":"check_in",time:now});
+      setNotice(`${name} has ${status} today. ${statusLine} No duplicate attendance entry was created.`);
+      setManualCode("");return;
+     }
+    }catch(statusError){console.warn("Could not retrieve the existing attendance state after a duplicate scan.",statusError);}
+   }
+   throw e;
+  }
   catch(e){throw e;}finally{busyRef.current=false;setBusy(false);}
  }
  async function issueCredential(){setBusy(true);setError("");setNotice("");setPayload("");try{if(!personId)throw new Error("Select a student or staff member.");const bytes=crypto.getRandomValues(new Uint8Array(16)),token=btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,""),tokenHash=await sha256(token),db=getSupabaseClient() as any;const {data,error:e}=await db.rpc("resa_issue_attendance_qr",{p_school_id:schoolId,p_person_type:personType,p_person_id:personId,p_token_hash:tokenHash});if(e)throw e;if(!data?.credential_id)throw new Error("The ID-card QR reference was not issued.");setPayload("RESA-ID:"+data.credential_id);setNotice(`A stable ${personType} ID-card QR was issued. It remains the same when the card is reopened; it changes only when an administrator explicitly rotates the credential.`);}catch(e){setError(e instanceof Error?e.message:"Could not issue the QR credential.");}finally{setBusy(false);}}
