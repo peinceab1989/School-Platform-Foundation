@@ -165,7 +165,7 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
         </article>
         <article className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><Bell size={20} className="text-emerald-800"/><h2 className="text-lg font-extrabold">Parent alerts</h2></div><p className="mt-2 text-sm leading-6 text-slate-600">When a student is checked in, RESA creates an in-portal attendance alert for each linked guardian whose parent portal is enabled. Parents can view it on their dashboard. WhatsApp delivery can be added later when a verified WhatsApp Business provider is configured.</p><div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-900"><UserCheck size={18}/> {devices.length} active station{devices.length===1?"":"s"} · {students.length} active enrolled learners</div></article>
       </section>
-      <QrAttendancePanel schoolId={schoolId} stationId={selectedDevice}/>
+      <QrAttendancePanel schoolId={schoolId} stationId={selectedDevice} onRecorded={() => void load()}/>
       {error&&<p role="alert" className="break-words rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</p>}
       {notice&&<p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">{notice}</p>}
       <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
