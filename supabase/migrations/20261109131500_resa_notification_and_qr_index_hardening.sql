@@ -1,5 +1,4 @@
--- Keep the pg_net extension outside the exposed public schema and cover new foreign keys.
-alter extension pg_net set schema extensions;
+-- pg_net is not relocatable; keep the active extension in place to preserve its request queue.
 
 create index if not exists attendance_qr_credentials_approved_by_idx
   on public.attendance_qr_credentials(approved_by) where approved_by is not null;
