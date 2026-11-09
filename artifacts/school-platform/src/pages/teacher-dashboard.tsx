@@ -1269,6 +1269,9 @@ export default function TeacherDashboard({
           <>
             <section style={panelStyle}>
               <h2 style={sectionTitleStyle}>My staff profile</h2>
+              {staff && <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: 12, marginBottom: 14, border: '1px solid #dce8df', borderRadius: 12, background: '#f8fbf8' }}>
+                {staffQrPayload ? <><QrCodeDisplay value={staffQrPayload} size={104}/><div><strong>Approved RESA identity QR</strong><p style={{ margin: '4px 0', fontSize: 12 }}>This is the same approved QR printed on your staff ID card.</p><span style={{ fontSize: 11, color: '#17613d' }}>Available for authorised school identification and attendance verification.</span></div></> : <div><strong>Staff QR awaiting administrator approval</strong><p style={{ margin: '4px 0', fontSize: 12 }}>Once approved, your QR will appear here automatically and be included on your printable ID card.</p></div>}
+              </div>}
 
               {staff && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 14px' }}>
