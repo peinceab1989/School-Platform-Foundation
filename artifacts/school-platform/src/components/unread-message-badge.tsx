@@ -1,28 +1,57 @@
 import { useCallback, useEffect, useState } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { enableResaPushNotifications } from "@/lib/notifications/push";
 
-/** Live unread count plus opt-in browser notifications for new inbox messages. */
+function playResaChime() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.42);
+    gain.connect(context.destination);
+    const oscillator = context.createOscillator();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, context.currentTime);
+    oscillator.frequency.setValueAtTime(1174.66, context.currentTime + 0.14);
+    oscillator.connect(gain);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.44);
+    oscillator.onended = () => { void context.close(); };
+  } catch {
+    // Browser autoplay or device sound settings may prevent foreground audio.
+  }
+}
+
+/** Unified unread direct/group-chat count and per-device RESA Web Push enrolment. */
 export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
   const [count, setCount] = useState(0);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
-    typeof window !== "undefined" && "Notification" in window
-      ? Notification.permission
-      : "unsupported",
+    typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window ? Notification.permission : "unsupported",
   );
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState("");
+
+  const registerPush = useCallback(async () => {
+    await enableResaPushNotifications(schoolId, false);
+    setPermission("granted");
+  }, [schoolId]);
 
   const enableNotifications = useCallback(async () => {
-    if (!("Notification" in window)) {
-      setPermission("unsupported");
-      return;
-    }
+    setSetupBusy(true);
+    setSetupError("");
     try {
-      const result = await Notification.requestPermission();
-      setPermission(result);
-    } catch {
-      setPermission("denied");
+      await enableResaPushNotifications(schoolId, true);
+      setPermission("granted");
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : "Phone notifications could not be enabled.");
+    } finally {
+      setSetupBusy(false);
     }
-  }, []);
+  }, [schoolId]);
 
   useEffect(() => {
     let active = true;
@@ -34,51 +63,73 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       const { data } = await db.auth.getUser();
       userId = data?.user?.id ?? "";
       if (!userId || !active) return;
-      const result = await db.from("school_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("school_id", schoolId).eq("recipient_id", userId).eq("is_read", false);
-      if (active && !result.error) setCount(result.count ?? 0);
+      const [direct, chatCount] = await Promise.all([
+        db.from("school_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", schoolId).eq("recipient_id", userId).eq("is_read", false),
+        db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
+      ]);
+      const unreadChat = chatCount.error ? 0 : Number(chatCount.data || 0);
+      if (active) setCount((direct.error ? 0 : direct.count ?? 0) + unreadChat);
+    };
+
+    const notify = async (title: string, body: string, tag: string, url: string) => {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      playResaChime();
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification(title, {
+          body,
+          icon: "/media/logo/resa-logo.jpg",
+          badge: "/favicon.ico",
+          tag,
+          data: { url },
+        });
+      } catch (error) {
+        console.warn("RESA foreground notification could not be displayed:", error);
+      }
     };
 
     void refresh();
-    channel = db.channel("resa-unread-badge-" + schoolId + "-" + Math.random().toString(36).slice(2))
+    if ("Notification" in window && Notification.permission === "granted") {
+      void registerPush().catch(error => console.warn("RESA push re-enrolment:", error));
+    }
+    channel = db.channel("resa-unread-badge-" + schoolId)
       .on("postgres_changes", { event: "*", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, async (payload: any) => {
         const message = payload.new;
         if (message?.recipient_id === userId || payload.old?.recipient_id === userId) {
-          if (payload.eventType === "INSERT" && message?.recipient_id === userId &&
-              "Notification" in window && Notification.permission === "granted") {
-            const title = typeof message.subject === "string" && message.subject.trim()
-              ? message.subject.trim()
-              : "New RESA message";
-            const body = typeof message.message === "string"
-              ? message.message.trim().slice(0, 160)
-              : "You have received a new message in your school portal.";
-            try {
-              if ("serviceWorker" in navigator) {
-                const registration = await navigator.serviceWorker.ready;
-                await registration.showNotification(title, {
-                  body,
-                  icon: "/media/logo/resa-logo.jpg",
-                  badge: "/media/logo/resa-logo.jpg",
-                  tag: "resa-message-" + String(message.id ?? Date.now()),
-                  data: { url: "/notifications" },
-                });
-              } else {
-                new Notification(title, { body, icon: "/media/logo/resa-logo.jpg" });
-              }
-            } catch (error) {
-              console.error("RESA browser notification failed:", error);
-            }
+          if (payload.eventType === "INSERT" && message?.recipient_id === userId) {
+            await notify(
+              String(message.subject || "New RESA message"),
+              String(message.message || "You have received a new school message.").slice(0, 160),
+              "resa-message-" + String(message.id),
+              "/notifications",
+            );
           }
           void refresh();
         }
-      }).subscribe();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_messages", filter: "school_id=eq." + schoolId }, async (payload: any) => {
+        if (payload.new?.sender_id && payload.new.sender_id !== userId) {
+          await notify(
+            "New RESA chat message",
+            String(payload.new.body || "You have received a new chat message.").slice(0, 160),
+            "resa-chat-" + String(payload.new.id),
+            "/resa-chat",
+          );
+          void refresh();
+        }
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_message_reads", filter: "school_id=eq." + schoolId }, (payload: any) => {
+        if (payload.new?.user_id === userId) void refresh();
+      })
+      .subscribe();
 
     return () => {
       active = false;
       if (channel) void db.removeChannel(channel);
     };
-  }, [schoolId]);
+  }, [schoolId, registerPush]);
 
   return (
     <span className="ml-2 inline-flex items-center gap-1">
@@ -90,14 +141,16 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       {permission !== "unsupported" && (
         <button
           type="button"
+          disabled={setupBusy}
           onClick={() => void enableNotifications()}
-          title={permission === "granted" ? "Browser notifications enabled" : permission === "denied" ? "Notifications blocked in browser settings" : "Enable RESA message notifications"}
-          aria-label={permission === "granted" ? "Browser notifications enabled" : "Enable RESA message notifications"}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          title={setupError || (permission === "granted" ? "RESA phone notifications enabled" : permission === "denied" ? "Notifications blocked in browser settings" : "Enable RESA phone notifications")}
+          aria-label={permission === "granted" ? "RESA phone notifications enabled" : "Enable RESA phone notifications"}
+          className="inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
-          {permission === "granted" ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          {permission === "granted" ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}<span className="text-[10px] font-semibold">{permission === "granted" ? "Alerts on" : permission === "denied" ? "Alerts blocked" : "Enable phone alerts"}</span>
         </button>
       )}
+      {setupError && <span role="status" className="max-w-36 text-[10px] leading-tight text-amber-700">{setupError}</span>}
     </span>
   );
 }

@@ -101,6 +101,7 @@ import {
   getSupabaseClient,
   hasSupabaseConfig,
 } from '@/lib/supabase/client';
+import { enableResaPushNotifications } from '@/lib/notifications/push';
 
 const queryClient = new QueryClient();
 
@@ -499,16 +500,10 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   }
 
   async function enableParentPhoneNotifications() {
-    if(!("Notification" in window)) { setOverviewError("This browser does not support phone notifications. Try installing/opening RESA in Chrome on Android."); return; }
     setNotificationBusy(true);
     try {
-      const permission=Notification.permission==="granted"?"granted":await Notification.requestPermission();
-      if(permission!=="granted") throw new Error("Phone notification permission was not granted. Enable notifications for Chrome/RESA in Android settings.");
-      if("serviceWorker" in navigator) {
-        await navigator.serviceWorker.register("/sw.js");
-      }
-      // Do not send a misleading setup-test banner. The next phone alert must
-      // correspond to an actual linked learner check-in or check-out event.
+      await enableResaPushNotifications(schoolId, true);
+      // Keep the parent's attendance alert choices in sync with device enrolment.
       await saveParentNotificationPreferences(soundAlertsEnabled,soundChoice,true);
     } catch(error) { setOverviewError(error instanceof Error?error.message:"Phone notifications could not be enabled."); }
     finally { setNotificationBusy(false); }

@@ -100,9 +100,9 @@ export default function StudentIdCardsPage({ schoolId, userId, role }: Props) {
       if(e)throw e;
       if(!data?.credential_id)throw new Error("The ID-card QR reference was not issued.");
       const payload="RESA-ID:"+data.credential_id;
-      setQrPayloads(previous=>({...previous,[row.id]:payload}));
+      setQrPayloads(previous=>{const next={...previous};delete next[row.id];return next;});
       setSelected(row);
-      setNotice("A stable ID-card QR was issued for "+row.name+". It remains the same when the card is reopened and changes only if an administrator explicitly rotates it.");
+      setNotice("An ID-card QR was created for "+row.name+" and is awaiting administrator approval. It will appear on the card after approval.");
     }catch(e){setError(e instanceof Error?e.message:"Student QR could not be issued.");}
     finally{setBusy(null);}
   }
