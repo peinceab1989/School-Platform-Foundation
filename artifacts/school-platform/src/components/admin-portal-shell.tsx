@@ -44,10 +44,7 @@ const groups = [
     ["Practice & Revision", "/practice-drills", Sparkles],
   ]},
   { label: "COMMUNICATION", items: [
-    ["School Messages", "/school-communication", MessageSquare],
-    ["Notifications", "/notifications", Bell],
-    ["Announcements", "/announcements", Megaphone],
-    ["School Chat", "/resa-chat", MessageSquare],
+    ["Communication Centre", "/school-communication", MessageSquare],
   ]},
   { label: "ADMINISTRATION", items: [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
@@ -117,7 +114,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
                 const ItemIcon = Icon as typeof LayoutDashboard;
                 return <Link key={href as string} href={href as string} aria-current={active ? "page" : undefined} className={`resa-nav-link ${active ? "active" : ""}`}>
                   <ItemIcon size={18} strokeWidth={1.8}/><span>{label as string}</span>
-                  {href === "/notifications" && <UnreadMessageBadge schoolId={schoolId}/>}
+                  {href === "/school-communication" && <UnreadMessageBadge schoolId={schoolId}/>}
                 </Link>;
               })}
             </div>}
