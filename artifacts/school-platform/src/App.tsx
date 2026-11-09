@@ -101,6 +101,7 @@ import {
   getSupabaseClient,
   hasSupabaseConfig,
 } from '@/lib/supabase/client';
+import { enableResaPushNotifications } from '@/lib/notifications/push';
 
 const queryClient = new QueryClient();
 
