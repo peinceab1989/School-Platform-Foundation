@@ -1,5 +1,5 @@
 -- pg_net is not relocatable; keep the active extension in place to preserve its request queue.
--- Cover foreign keys added for QR approvals and push subscriptions.
+
 create index if not exists attendance_qr_credentials_approved_by_idx
   on public.attendance_qr_credentials(approved_by) where approved_by is not null;
 create index if not exists attendance_qr_credentials_created_by_idx
