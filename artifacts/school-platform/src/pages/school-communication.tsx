@@ -139,9 +139,9 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
       <Link href={role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "parent" ? "/school-cctv" : "/student-dashboard"} className="mb-4 inline-flex items-center gap-2 text-sm text-emerald-100"><ArrowLeft size={16}/> Back to portal</Link>
-      <div className="flex items-center gap-3"><span className="rounded-xl bg-white/10 p-3"><MessageSquare size={25}/></span><div><p className="text-xs uppercase tracking-widest text-emerald-200">RESA School Portal</p><h1 className="text-2xl font-extrabold">School Messages</h1></div></div>
-      <p className="mt-2 text-sm text-emerald-100">Private school messages and Customer Care conversations in one secure inbox.</p>
-      <div className="mt-3 flex flex-wrap gap-2"><Link href="/resa-chat" className="inline-flex items-center gap-2 rounded-lg bg-amber-300 px-3 py-2 text-sm font-bold text-emerald-950">Open RESA Chat</Link><Link href="/notifications" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">Open notifications</Link></div>
+      <div className="flex items-center gap-3"><span className="rounded-xl bg-white/10 p-3"><MessageSquare size={25}/></span><div><p className="text-xs uppercase tracking-widest text-emerald-200">RESA School Portal</p><h1 className="text-2xl font-extrabold">Communication Centre</h1></div></div>
+      <p className="mt-2 text-sm text-emerald-100">One place for private messages, Customer Care, school chat, announcements and account notifications.</p>
+      <div className="mt-3 flex flex-wrap gap-2"><Link href="/resa-chat" className="inline-flex items-center gap-2 rounded-lg bg-amber-300 px-3 py-2 text-sm font-bold text-emerald-950">Group & live chat</Link><Link href="/notifications" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">Notification inbox</Link>{role === "admin" && <Link href="/announcements" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">Manage announcements</Link>}</div>
     </div></header>
     <div className="mx-auto grid max-w-6xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
       <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
