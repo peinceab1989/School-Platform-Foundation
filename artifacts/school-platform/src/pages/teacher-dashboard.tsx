@@ -1122,10 +1122,9 @@ export default function TeacherDashboard({
               {loading ? 'Refreshing…' : 'Refresh dashboard'}
             </button>
 
-            <Link href="/notifications" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
             <Link href="/portal-navigation-guide" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', background: '#e9f0eb' }}>Portal Guide</Link>
             <Link href="/form-teacher-attendance" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Form Teacher Attendance</Link>
-            <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Communication Centre</Link>
+            <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Communication Centre <UnreadMessageBadge schoolId={schoolId} /></Link>
               <button
                 type="button"
                 onClick={onSignOut}
