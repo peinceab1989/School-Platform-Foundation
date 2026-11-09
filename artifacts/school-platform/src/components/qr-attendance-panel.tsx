@@ -40,7 +40,7 @@ export default function QrAttendancePanel({schoolId,stationId,onRecorded}:{schoo
    let detector:any=null;const Detector=(window as any).BarcodeDetector;
    if(typeof Detector==="function"){try{detector=new Detector({formats:["qr_code"]});}catch{detector=null;}}
    let jsQR:any=null,canvas:HTMLCanvasElement|null=null,context:CanvasRenderingContext2D|null=null;
-   if(!detector){jsQR=await loadJsQr();canvas=document.createElement("canvas");context=canvas.getContext("2d",{willReadFrequently:true});if(!context)throw new Error("This browser could not initialise the QR image decoder.");}
+   try{jsQR=await loadJsQr();canvas=document.createElement("canvas");context=canvas.getContext("2d",{willReadFrequently:true});if(!context)throw new Error("This browser could not initialise the QR image decoder.");}catch(e){if(!detector)throw e;}
    activeRef.current=true;setScanning(true);
    const loop=async()=>{
     if(!activeRef.current||!videoRef.current)return;
