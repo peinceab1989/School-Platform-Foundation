@@ -156,9 +156,9 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           onClick={() => void enableNotifications()}
           title={setupError || (permission === "granted" ? "RESA phone notifications enabled" : permission === "denied" ? "Notifications blocked in browser settings" : "Enable RESA phone notifications")}
           aria-label={permission === "granted" ? "RESA phone notifications enabled" : "Enable RESA phone notifications"}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
-          {permission === "granted" ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          {permission === "granted" ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}<span className="text-[10px] font-semibold">{permission === "granted" ? "Alerts on" : permission === "denied" ? "Alerts blocked" : "Enable phone alerts"}</span>
         </button>
       )}
       {setupError && <span role="status" className="max-w-36 text-[10px] leading-tight text-amber-700">{setupError}</span>}
