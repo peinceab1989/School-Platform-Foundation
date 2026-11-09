@@ -20,8 +20,8 @@ export default function QrAttendancePanel({schoolId,stationId,onRecorded}:{schoo
   if(isCardId?!/^RESA-ID:[0-9a-fA-F-]{36}$/.test(raw):!/^[A-Za-z0-9_-]{22}$/.test(token))throw new Error("This is not a valid RESA QR credential.");
   if(!stationId)throw new Error("Select an active attendance station first.");
   busyRef.current=true;setBusy(true);setError("");setNotice("");
-  const db=getSupabaseClient() as any;const tokenHash=isCardId?raw:await sha256(token);
-  try{const {data,error:e}=await db.rpc("resa_record_qr_attendance",{p_token_hash:tokenHash,p_station_id:stationId,p_event_type:action});if(e)throw e;if(!data?.success)throw new Error("Attendance was not recorded.");const capturedAt=new Date(data.event_time||Date.now()).toLocaleString("en-NG",{timeZone:"Africa/Lagos",dateStyle:"medium",timeStyle:"short"});const captured={name:String(data.person_name||"School member"),type:String(data.person_type||"member"),action,time:capturedAt};setCurrentCaptured(captured);setCaptureHistory(previous=>[{...captured,id:`${data.person_id||raw}-${data.event_time||Date.now()}`},...previous].slice(0,100));setNotice(`${captured.name} (${captured.type}) ${action==="check_in"?"checked in":"checked out"} successfully at ${capturedAt}. Scanner remains ready for the next card.`);setManualCode("");onRecordedRef.current?.();}
+  const db=getSupabaseClient() as any;
+  try{const tokenHash=isCardId?raw:await sha256(token);const {data,error:e}=await db.rpc("resa_record_qr_attendance",{p_token_hash:tokenHash,p_station_id:stationId,p_event_type:action});if(e)throw e;if(!data?.success)throw new Error("Attendance was not recorded.");const capturedAt=new Date(data.event_time||Date.now()).toLocaleString("en-NG",{timeZone:"Africa/Lagos",dateStyle:"medium",timeStyle:"short"});const captured={name:String(data.person_name||"School member"),type:String(data.person_type||"member"),action,time:capturedAt};setCurrentCaptured(captured);setCaptureHistory(previous=>[{...captured,id:`${data.person_id||raw}-${data.event_time||Date.now()}`},...previous].slice(0,100));setNotice(`${captured.name} (${captured.type}) ${action==="check_in"?"checked in":"checked out"} successfully at ${capturedAt}. Scanner remains ready for the next card.`);setManualCode("");onRecordedRef.current?.();}
   catch(e){
    const message=e instanceof Error?e.message:String((e as any)?.message||"");
    if(/already checked in today/i.test(message)||/already checked out today/i.test(message)||/no valid check-in is available/i.test(message)){
@@ -43,7 +43,6 @@ export default function QrAttendancePanel({schoolId,stationId,onRecorded}:{schoo
       const status=attendance?.check_out_at?"already checked out":attendance?.check_in_at?"already checked in":"has no completed attendance action";
       const statusLine=attendance?.check_out_at?`Checked in at ${checkedInAt} and checked out at ${checkedOutAt}.`:attendance?.check_in_at?`Checked in at ${checkedInAt}; still on the school premises according to today's attendance record.`:"Please check the attendance record.";
       const now=new Date().toLocaleString("en-NG",{timeZone:"Africa/Lagos",dateStyle:"medium",timeStyle:"short"});
-      setCurrentCaptured({name,type:"student",action:attendance?.check_out_at?"check_out":"check_in",time:now});
       setNotice(`${name} has ${status} today. ${statusLine} No duplicate attendance entry was created.`);
       setManualCode("");return;
      }
