@@ -553,7 +553,6 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
             <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Your family's school connection. Follow your linked learners’ fees, attendance, results and school updates from one place.</p>
             <p className="mt-3 max-w-full break-words text-xs text-emerald-100">{schoolName}</p>
             <Link href="/portal-navigation-guide" className="mt-4 mr-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-white/40 px-4 py-2 text-sm font-bold text-white">Portal Navigation Guide</Link>
-            <Link href="/parent-authorizations" className="mt-4 mr-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950">Parent Authorizations &amp; Visits</Link>
             <button type="button" onClick={onSignOut} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100">↪ Sign out</button>
           </div>
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3">
