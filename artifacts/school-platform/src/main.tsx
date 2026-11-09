@@ -118,6 +118,43 @@ function ResaInstallPrompt() {
   );
 }
 
+
+// Recover once from Vite dynamic-import/preload failures. This commonly occurs
+// when a phone keeps an older HTML/app shell after a new deployment while the
+// referenced hashed JavaScript chunks have already changed. The retry is
+// session-scoped and time-limited so a genuinely broken module cannot cause
+// an endless reload loop.
+const PRELOAD_RETRY_KEY = 'resa-vite-preload-retry-at';
+const PRELOAD_RETRY_WINDOW_MS = 30_000;
+
+window.addEventListener('vite:preloadError', (event: Event) => {
+  event.preventDefault();
+
+  let lastRetryAt = 0;
+  try {
+    lastRetryAt = Number(window.sessionStorage.getItem(PRELOAD_RETRY_KEY) || 0);
+  } catch {
+    // Storage can be unavailable in private browsing; fall through to the
+    // normal React error boundary rather than risking repeated reloads.
+  }
+
+  if (Date.now() - lastRetryAt > PRELOAD_RETRY_WINDOW_MS) {
+    try {
+      window.sessionStorage.setItem(PRELOAD_RETRY_KEY, String(Date.now()));
+      window.location.reload();
+      return;
+    } catch {
+      // If storage or navigation is blocked, the error boundary remains the
+      // recovery path and the page stays usable.
+    }
+  }
+
+  console.error(
+    'RESA could not load a page module after its one automatic recovery attempt.',
+    event,
+  );
+});
+
 const rootElement = document.getElementById('root');
 
 if (!rootElement) {
