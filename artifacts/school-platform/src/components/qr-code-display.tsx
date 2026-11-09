@@ -38,6 +38,6 @@ function encodeVersion2L(value:string):boolean[][] {
 export default function QrCodeDisplay({value,size=220}:{value:string;size?:number}){
   const matrix=useMemo(()=>encodeVersion2L(value),[value]);
   const path=matrix.flatMap((row,y)=>row.flatMap((dark,x)=>dark?['M'+x+' '+y+'h1v1h-1z']:[])).join("");
-  // Version 3 QR symbols are 29 x 29 modules. A 25 x 25 viewport clipped two edges.
-  return <svg role="img" aria-label="RESA secure QR credential" viewBox="0 0 29 29" width={size} height={size} shapeRendering="crispEdges" className="rounded-lg border bg-white p-2"><rect width="29" height="29" fill="#fff"/><path d={path} fill="#000"/></svg>;
+  // Version 3 QR symbols are 29 x 29 modules. Add the required four-module quiet zone so phone cameras can locate the symbol reliably.
+  return <svg role="img" aria-label="RESA secure QR credential" viewBox="0 0 37 37" width={size} height={size} shapeRendering="crispEdges" className="rounded-lg border bg-white p-2"><rect width="37" height="37" fill="#fff"/><path d={path} fill="#000" transform="translate(4 4)"/></svg>;
 }
