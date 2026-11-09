@@ -1125,7 +1125,7 @@ export default function TeacherDashboard({
             <Link href="/notifications" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
             <Link href="/portal-navigation-guide" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', background: '#e9f0eb' }}>Portal Guide</Link>
             <Link href="/form-teacher-attendance" style={{ ...buttonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Form Teacher Attendance</Link>
-            <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>School messages</Link>
+            <Link href="/school-communication" style={{ ...secondaryButtonStyle, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Communication Centre</Link>
               <button
                 type="button"
                 onClick={onSignOut}
@@ -1290,7 +1290,7 @@ export default function TeacherDashboard({
             <section style={panelStyle}>
               <h2 style={sectionTitleStyle}>My teaching overview</h2>
               <p style={{ color: "#536456", lineHeight: 1.6, margin: "0 0 12px" }}>Enter marks for your assigned subjects and submit results to the administrator for approval.</p>
-              <Link href="/results-management" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#123d2b", color: "#fff", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>Open Results & Broadsheet</Link> <Link href="/teaching-materials" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#e6c66b", color: "#17251b", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>Teaching Materials & AI Drills</Link> <Link href="/resa-chat" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#d9efe2", color: "#123d2b", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>School Chat</Link>
+              <Link href="/results-management" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#123d2b", color: "#fff", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>Open Results & Broadsheet</Link> <Link href="/teaching-materials" style={{ display: "inline-flex", alignItems: "center", borderRadius: 8, padding: "11px 15px", background: "#e6c66b", color: "#17251b", fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>Teaching Materials & AI Drills</Link> 
 
               <div
                 style={{
