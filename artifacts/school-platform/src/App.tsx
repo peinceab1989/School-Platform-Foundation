@@ -566,9 +566,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         <nav aria-label="Parent quick links" className="mt-6 flex flex-wrap gap-2">
           <Link href="/my-results" className="rounded-xl bg-amber-200 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-100">My learners’ results</Link>
           <Link href="/parent-authorizations" className="rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">Parent Authorizations</Link>
-          <Link href="/school-communication" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">School messages</Link>
-          <Link href="/resa-chat" className="rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">RESA Chat</Link>
-          <Link href="/notifications" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Notifications</Link>
+          <Link href="/school-communication" className="rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">Communication Centre</Link>
           <a href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care.%20I%20need%20assistance%20with%20the%20parent%20portal." target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Customer Care</a>
         </nav>
       </header>
@@ -667,15 +665,13 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
       </details>
 
       <details className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-        <summary className="cursor-pointer list-none px-2 py-2 text-sm font-extrabold text-emerald-950">Parent services · results, messages, chat, notifications and authorised monitoring</summary>
+        <summary className="cursor-pointer list-none px-2 py-2 text-sm font-extrabold text-emerald-950">Parent services · results, communication and authorised monitoring</summary>
         <div className="mt-3">
       <section>
         <div className="mb-3"><h2 className="text-lg font-extrabold text-emerald-950">Parent services</h2><p className="mt-1 text-sm text-slate-600">Quick access to your family’s school services.</p></div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Link href="/my-results" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700"><span className="text-xs font-bold uppercase tracking-wide text-amber-700">Academics</span><h3 className="mt-2 font-extrabold text-emerald-950">Published results</h3><p className="mt-2 text-sm leading-6 text-slate-600">View and print report cards for your linked learners.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View results →</span></Link>
-          <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700"><span className="text-xs font-bold uppercase tracking-wide text-amber-700">Communication</span><h3 className="mt-2 font-extrabold text-emerald-950">School messages</h3><p className="mt-2 text-sm leading-6 text-slate-600">Contact authorised school staff about fees and learner progress.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open messages →</span></Link>
-          <Link href="/resa-chat" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700"><span className="text-xs font-bold uppercase tracking-wide text-amber-700">Communication</span><h3 className="mt-2 font-extrabold text-emerald-950">RESA Chat</h3><p className="mt-2 text-sm leading-6 text-slate-600">Join school groups and chat directly with authorised school administrators.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open RESA Chat →</span></Link>
-          <Link href="/notifications" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700"><span className="text-xs font-bold uppercase tracking-wide text-amber-700">Updates</span><h3 className="mt-2 font-extrabold text-emerald-950">Notifications</h3><p className="mt-2 text-sm leading-6 text-slate-600">See important notices and account updates.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">View notifications →</span></Link>
+          <Link href="/school-communication" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700"><span className="text-xs font-bold uppercase tracking-wide text-amber-700">Communication</span><h3 className="mt-2 font-extrabold text-emerald-950">Communication Centre</h3><p className="mt-2 text-sm leading-6 text-slate-600">Contact school staff, join authorised chats and view school notices and account updates in one place.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open Communication Centre →</span></Link>
           <Link href="/school-cctv" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-700"><span className="text-xs font-bold uppercase tracking-wide text-amber-700">If authorised</span><h3 className="mt-2 font-extrabold text-emerald-950">School monitoring</h3><p className="mt-2 text-sm leading-6 text-slate-600">Open monitoring services only when enabled for your account.</p><span className="mt-4 inline-block text-sm font-bold text-emerald-800">Open service →</span></Link>
         </div>
       </section>
@@ -872,11 +868,10 @@ function StudentDashboard({
               <p style={{ margin: '0 0 8px', lineHeight: 1.6 }}>{studentDisplayName ? `Welcome, ${studentDisplayName}.` : 'Welcome to your learning portal.'}</p>
               <p style={{ margin: '0 0 18px', color: '#e8eee8', overflowWrap: 'anywhere' }}>{schoolName}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications <UnreadMessageBadge schoolId={schoolId} /></Link>
             <Link href="/portal-navigation-guide" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Portal Guide</Link>
             <Link href="/my-results" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>My Report Cards</Link>
             <Link href="/student-id-card" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>My ID Card</Link>
-            <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>School messages</Link>
+            <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Communication Centre <UnreadMessageBadge schoolId={schoolId} /></Link>
               <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
               </div>
             </div>
@@ -914,7 +909,6 @@ function StudentDashboard({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
             <Link href="/practice-drills" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>Practice Drills</Link>
             <Link href="/teaching-materials" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Learning Resources</Link>
-            <Link href="/resa-chat" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#d9efe2', color: '#123d2b', border: '1px solid #cdd8cd', fontWeight: 700, textDecoration: 'none' }}>School Chat</Link>
             <Link href="/student-assignments" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#17623d', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Assignments</Link>
             <Link href="/student-cbt" style={{ display: 'inline-block', borderRadius: 8, padding: '11px 15px', background: '#123d2b', color: '#fff', fontWeight: 700, textDecoration: 'none' }}>Open Student CBT</Link>
           </div>
