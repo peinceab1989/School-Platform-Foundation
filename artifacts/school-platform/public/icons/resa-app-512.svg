@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="36" fill="#14532d"/>
+  <path d="M96 18 157 40v48c0 42-25 68-61 88C60 156 35 130 35 88V40z" fill="#f5d76e" stroke="#fff4c2" stroke-width="5"/>
+  <path d="M96 29 146 47v40c0 34-19 56-50 75-31-19-50-41-50-75V47z" fill="#166534"/>
+  <path d="M62 68h68v8H62zm0 16h68v8H62z" fill="#f5d76e"/>
+  <text x="96" y="125" text-anchor="middle" font-family="Arial,sans-serif" font-size="38" font-weight="800" fill="#fff">RESA</text>
+  <text x="96" y="146" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" letter-spacing="2" fill="#f5d76e">SCHOOL APP</text>
+</svg>

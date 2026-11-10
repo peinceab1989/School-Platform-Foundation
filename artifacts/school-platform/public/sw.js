@@ -1,6 +1,10 @@
-const CACHE_NAME = 'resa-app-v1';
+const CACHE_NAME = 'resa-offline-v2';
+const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.add(OFFLINE_URL)),
+  );
   self.skipWaiting();
 });
 
@@ -8,41 +12,37 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       const cacheNames = await caches.keys();
-
       await Promise.all(
         cacheNames
-          .filter((name) => name.startsWith('resa-app-') && name !== CACHE_NAME)
+          .filter((name) => name.startsWith('resa-') && name !== CACHE_NAME)
           .map((name) => caches.delete(name)),
       );
-
       await self.clients.claim();
     })(),
   );
 });
 
-// Do not cache Supabase requests, sign-in pages, or personal school records.
+// Only the static offline notice is cached. Authentication, Supabase requests,
+// portal pages, student records, and other personal data are never cached.
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-
-  if (
-    request.method !== 'GET' ||
-    new URL(request.url).origin !== self.location.origin
-  ) {
-    return;
-  }
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
 
   const url = new URL(request.url);
-
   if (
     url.pathname.includes('/auth/') ||
     url.pathname.includes('/rest/v1/') ||
     url.pathname.includes('/functions/v1/')
-  ) {
-    return;
-  }
+  ) return;
 
-  // Do not cache pages or data. Let the app load normally online.
-  // This service worker enables registration but does not promise offline access.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const cache = await caches.open(CACHE_NAME);
+        return (await cache.match(OFFLINE_URL)) || Response.error();
+      }),
+    );
+  }
 });
 
 // Display server-sent Web Push messages when a push sender is configured.
@@ -67,7 +67,6 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Open the relevant RESA portal area when a user taps a notification.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const target = new URL(
@@ -79,10 +78,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
-      const windows = await self.clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true,
-      });
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const client of windows) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
           await client.focus();

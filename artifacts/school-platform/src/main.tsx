@@ -17,16 +17,24 @@ function ResaInstallPrompt() {
   const [visible, setVisible] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    const dismissed = window.localStorage.getItem('resa-install-prompt-dismissed') === '1';
+    let dismissed = false;
+    try {
+      dismissed = window.localStorage.getItem('resa-install-prompt-dismissed') === '1';
+    } catch {
+      // Installation guidance remains available when browser storage is restricted.
+    }
     if (standalone || dismissed) return;
 
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const mac = /Macintosh|MacIntel|MacPPC|Mac68K/.test(navigator.platform) && !ios;
     setIsIOS(ios);
+    setIsMac(mac);
     setVisible(true);
 
     const onBeforeInstall = (event: Event) => {
@@ -36,7 +44,11 @@ function ResaInstallPrompt() {
     };
     const onInstalled = () => {
       setVisible(false);
-      window.localStorage.setItem('resa-install-prompt-dismissed', '1');
+      try {
+        window.localStorage.setItem('resa-install-prompt-dismissed', '1');
+      } catch {
+        // The app is installed even if storage is unavailable.
+      }
     };
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
@@ -49,7 +61,11 @@ function ResaInstallPrompt() {
 
   const dismiss = () => {
     setVisible(false);
-    window.localStorage.setItem('resa-install-prompt-dismissed', '1');
+    try {
+      window.localStorage.setItem('resa-install-prompt-dismissed', '1');
+    } catch {
+      // Dismissing the prompt should not fail in private browsing.
+    }
   };
 
   const install = async () => {
@@ -57,12 +73,23 @@ function ResaInstallPrompt() {
       setShowInstructions((current) => !current);
       return;
     }
-    await installEvent.prompt();
-    const choice = await installEvent.userChoice;
-    setInstallEvent(null);
-    if (choice.outcome === 'accepted') setVisible(false);
-    else setShowInstructions(true);
+    try {
+      await installEvent.prompt();
+      const choice = await installEvent.userChoice;
+      setInstallEvent(null);
+      if (choice.outcome === 'accepted') setVisible(false);
+      else setShowInstructions(true);
+    } catch (error) {
+      console.error('RESA installation prompt could not be opened:', error);
+      setShowInstructions(true);
+    }
   };
+
+  const installInstructions = isIOS
+    ? 'On iPhone or iPad: open RESA in Safari, tap the Share button, choose “Add to Home Screen”, turn on “Open as Web App” if shown, then tap “Add”.'
+    : isMac
+      ? 'On a Mac: in Safari on supported macOS versions, choose File > Add to Dock. In Chrome or Edge, open the browser menu and choose Install RESA.'
+      : 'On Android: use Chrome and tap Install when prompted, or open the browser menu and choose “Install app” or “Add to Home screen”. On Windows: use Chrome or Edge and choose “Install RESA” from the address bar or browser menu.';
 
   if (!visible) return null;
 
@@ -73,13 +100,15 @@ function ResaInstallPrompt() {
       role="region"
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-900 text-lg font-black text-white">
-          RESA
-        </div>
+        <img
+          src="/icons/resa-app-192.svg"
+          alt=""
+          className="h-12 w-12 shrink-0 rounded-xl"
+        />
         <div className="min-w-0 flex-1">
           <p className="font-bold text-slate-900">Install the RESA School App</p>
           <p className="mt-1 text-sm leading-5 text-slate-600">
-            Add RESA to your home screen for quick, app-like access to the school portal.
+            Add RESA to your device for quick, app-like access to the school portal.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -99,9 +128,7 @@ function ResaInstallPrompt() {
           </div>
           {showInstructions && (
             <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-xs leading-5 text-emerald-950">
-              {isIOS
-                ? 'On iPhone or iPad: open this page in Safari, tap the Share button, choose “Add to Home Screen”, then tap “Add”.'
-                : 'In Chrome or Edge: open the browser menu (⋮), choose “Install app” or “Add to Home screen”, and confirm. If the option is unavailable, keep using RESA in your browser.'}
+              {installInstructions}
             </p>
           )}
         </div>
@@ -118,51 +145,33 @@ function ResaInstallPrompt() {
   );
 }
 
-
-// Recover once from Vite dynamic-import/preload failures. This commonly occurs
-// when a phone keeps an older HTML/app shell after a new deployment while the
-// referenced hashed JavaScript chunks have already changed. The retry is
-// session-scoped and time-limited so a genuinely broken module cannot cause
-// an endless reload loop.
 const PRELOAD_RETRY_KEY = 'resa-vite-preload-retry-at';
 const PRELOAD_RETRY_WINDOW_MS = 30_000;
 
 window.addEventListener('vite:preloadError', (event: Event) => {
   event.preventDefault();
-
   let lastRetryAt = 0;
   try {
     lastRetryAt = Number(window.sessionStorage.getItem(PRELOAD_RETRY_KEY) || 0);
   } catch {
-    // Storage can be unavailable in private browsing; fall through to the
-    // normal React error boundary rather than risking repeated reloads.
+    // Storage can be unavailable in private browsing.
   }
-
   if (Date.now() - lastRetryAt > PRELOAD_RETRY_WINDOW_MS) {
     try {
       window.sessionStorage.setItem(PRELOAD_RETRY_KEY, String(Date.now()));
       window.location.reload();
       return;
     } catch {
-      // If storage or navigation is blocked, the error boundary remains the
-      // recovery path and the page stays usable.
+      // Fall through to the React error boundary.
     }
   }
-
-  console.error(
-    'RESA could not load a page module after its one automatic recovery attempt.',
-    event,
-  );
+  console.error('RESA could not load a page module after its one automatic recovery attempt.', event);
 });
 
 const rootElement = document.getElementById('root');
-
-if (!rootElement) {
-  throw new Error('RESA app root element was not found.');
-}
+if (!rootElement) throw new Error('RESA app root element was not found.');
 
 createRoot(rootElement, {
-  // Keeps caught errors off reportError(), which would raise the dev overlay.
   onCaughtError: (error, errorInfo) => {
     console.error(error, errorInfo.componentStack);
   },
@@ -175,19 +184,12 @@ createRoot(rootElement, {
   </ErrorBoundary>,
 );
 
-// Register the RESA service worker in production only.
-if (
-  import.meta.env.PROD &&
-  'serviceWorker' in navigator
-) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const baseUrl = import.meta.env.BASE_URL;
     const serviceWorkerUrl = `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}sw.js`;
-
-    navigator.serviceWorker
-      .register(serviceWorkerUrl)
-      .catch((error) => {
-        console.error('RESA service worker registration failed:', error);
-      });
+    navigator.serviceWorker.register(serviceWorkerUrl).catch((error) => {
+      console.error('RESA service worker registration failed:', error);
+    });
   });
 }
