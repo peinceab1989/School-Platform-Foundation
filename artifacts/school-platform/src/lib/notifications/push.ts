@@ -9,6 +9,55 @@ function applicationServerKey(value: string) {
   return Uint8Array.from(raw, character => character.charCodeAt(0));
 }
 
+export type ResaPushRegistrationStatus = {
+  supported: boolean;
+  permission: NotificationPermission | "unsupported";
+  registered: boolean;
+  detail: string;
+};
+
+export async function getResaPushRegistrationStatus(schoolId: string): Promise<ResaPushRegistrationStatus> {
+  if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return { supported: false, permission: "unsupported", registered: false, detail: "Use Chrome on Android to register this phone." };
+  }
+  const permission = Notification.permission;
+  if (permission !== "granted") {
+    return { supported: true, permission, registered: false, detail: permission === "denied" ? "Notifications are blocked in browser or Android settings." : "Notification permission has not been granted." };
+  }
+
+  const db = getSupabaseClient() as any;
+  const { data: auth, error: authError } = await db.auth.getUser();
+  if (authError || !auth.user) {
+    return { supported: true, permission, registered: false, detail: "Sign in to check this device's registration." };
+  }
+  const registration = await navigator.serviceWorker.getRegistration("/");
+  const subscription = registration ? await registration.pushManager.getSubscription() : null;
+  if (!subscription?.endpoint) {
+    return { supported: true, permission, registered: false, detail: "This browser has permission, but no push subscription is registered." };
+  }
+  const { data, error } = await db.from("resa_push_subscriptions")
+    .select("id,last_seen_at")
+    .eq("school_id", schoolId)
+    .eq("user_id", auth.user.id)
+    .eq("endpoint", subscription.endpoint)
+    .maybeSingle();
+  if (error) throw error;
+  return data
+    ? { supported: true, permission, registered: true, detail: "This phone is registered for RESA push notifications." }
+    : { supported: true, permission, registered: false, detail: "The browser subscription exists but is not registered to this RESA account." };
+}
+
+export async function sendResaPushTestNotification(schoolId: string) {
+  const db = getSupabaseClient() as any;
+  const { data, error } = await db.functions.invoke("resa-push-dispatch", {
+    body: { event_type: "test", school_id: schoolId },
+  });
+  if (error) throw new Error(error.message || "The RESA push test could not be sent.");
+  if (data?.error) throw new Error(String(data.error));
+  if (!data?.sent) throw new Error("The push service did not confirm delivery to a registered device.");
+  return data as { accepted: boolean; sent: number; devices: number };
+}
+
 export async function enableResaPushNotifications(schoolId: string, requestPermission = true) {
   if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
     throw new Error("This browser does not support RESA phone push notifications. Use Chrome on Android.");
