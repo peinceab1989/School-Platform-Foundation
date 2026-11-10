@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { enableResaPushNotifications } from "@/lib/notifications/push";
+import { enableResaPushNotifications, getResaPushRegistrationStatus } from "@/lib/notifications/push";
 
 function playResaChime() {
   try {
@@ -32,12 +32,14 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
     typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window ? Notification.permission : "unsupported",
   );
+  const [registered, setRegistered] = useState(false);
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState("");
 
   const registerPush = useCallback(async () => {
     await enableResaPushNotifications(schoolId, false);
     setPermission("granted");
+    setRegistered(true);
   }, [schoolId]);
 
   const enableNotifications = useCallback(async () => {
@@ -46,6 +48,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
     try {
       await enableResaPushNotifications(schoolId, true);
       setPermission("granted");
+      setRegistered(true);
     } catch (error) {
       setSetupError(error instanceof Error ? error.message : "Phone notifications could not be enabled.");
     } finally {
@@ -92,7 +95,14 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
 
     void refresh();
     if ("Notification" in window && Notification.permission === "granted") {
-      void registerPush().catch(error => console.warn("RESA push re-enrolment:", error));
+      void registerPush().catch(error => {
+        setRegistered(false);
+        console.warn("RESA push re-enrolment:", error);
+      });
+    } else {
+      void getResaPushRegistrationStatus(schoolId)
+        .then(status => { if (active) setRegistered(status.registered); })
+        .catch(() => { if (active) setRegistered(false); });
     }
     channel = db.channel("resa-unread-badge-" + schoolId)
       .on("postgres_changes", { event: "*", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, async (payload: any) => {
@@ -143,11 +153,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           type="button"
           disabled={setupBusy}
           onClick={() => void enableNotifications()}
-          title={setupError || (permission === "granted" ? "RESA phone notifications enabled" : permission === "denied" ? "Notifications blocked in browser settings" : "Enable RESA phone notifications")}
-          aria-label={permission === "granted" ? "RESA phone notifications enabled" : "Enable RESA phone notifications"}
+          title={setupError || (registered ? "This phone is registered for RESA push notifications" : permission === "denied" ? "Notifications blocked in browser settings" : "Register this phone for RESA push notifications")}
+          aria-label={registered ? "RESA phone device registered" : "Register RESA phone notifications"}
           className="inline-flex items-center justify-center gap-1 rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
-          {permission === "granted" ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}<span className="text-[10px] font-semibold">{permission === "granted" ? "Alerts on" : permission === "denied" ? "Alerts blocked" : "Enable phone alerts"}</span>
+          {registered ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}<span className="text-[10px] font-semibold">{registered ? "Device registered" : permission === "denied" ? "Alerts blocked" : "Set up phone alerts"}</span>
         </button>
       )}
       {setupError && <span role="status" className="max-w-36 text-[10px] leading-tight text-amber-700">{setupError}</span>}
