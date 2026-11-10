@@ -203,10 +203,10 @@ begin
             select 1 from public.staff_work_schedules ws
             where ws.school_id = sf.school_id and ws.staff_id = sf.id
           ) then not (
-            extract(isodow from v_today)::smallint = any (
+            extract(isodow from v_today)::smallint = any ((
               select ws.work_days from public.staff_work_schedules ws
               where ws.school_id = sf.school_id and ws.staff_id = sf.id
-            )
+            ))
           )
           else extract(isodow from v_today) not between 1 and 6
         end
@@ -239,10 +239,10 @@ begin
         when exists (
           select 1 from public.staff_work_schedules ws
           where ws.school_id = sf.school_id and ws.staff_id = sf.id
-        ) then extract(isodow from v_today)::smallint = any (
+        ) then extract(isodow from v_today)::smallint = any ((
           select ws.work_days from public.staff_work_schedules ws
           where ws.school_id = sf.school_id and ws.staff_id = sf.id
-        )
+        ))
         else extract(isodow from v_today) between 1 and 6
       end
       and (sa.id is null or (sa.check_in_time is null and sa.status not in ('present', 'checked_out')))
