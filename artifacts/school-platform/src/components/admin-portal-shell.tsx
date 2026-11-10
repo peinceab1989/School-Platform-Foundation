@@ -35,6 +35,7 @@ const groups = [
     ["Attendance", "/attendance", CalendarDays],
     ["Class Teacher Attendance", "/form-teacher-attendance", ClipboardCheck],
     ["Staff Attendance", "/staff-attendance", CalendarDays],
+    ["Staff Work Schedules", "/staff-schedules", CalendarDays],
     ["Smart Access & People Records", "/smart-access-management", ShieldCheck],
     ["Enter & Publish Results", "/results-management", FileText],
     ["Academic Results", "/results", ChartNoAxesCombined],
