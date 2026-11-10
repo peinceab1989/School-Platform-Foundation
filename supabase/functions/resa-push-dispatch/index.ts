@@ -75,31 +75,6 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
   if (!schoolId) return [];
 
 
-  if (eventType === "result_published") {
-    return { title: "RESA · Term results published", body: "A term result is now available in the RESA portal.", url: "/student-results", tag: "resa-result-" + id };
-  }
-  if (eventType === "assignment_published") {
-    return { title: "RESA · New assignment", body: String(row.title || "A new class assignment is available.").slice(0, 180), url: "/assignments", tag: "resa-assignment-" + id };
-  }
-  if (eventType === "assignment_graded") {
-    return { title: "RESA · Assignment graded", body: "An assignment has been marked. Check your feedback and score in the portal.", url: "/assignments", tag: "resa-graded-" + id };
-  }
-  if (eventType === "exam_published") {
-    return { title: "RESA · Exam published", body: String(row.title || "A new online exam is available.").slice(0, 180), url: "/cbt", tag: "resa-exam-" + id };
-  }
-  if (eventType === "fee_update") {
-    return { title: "RESA · School fee update", body: "Your learner's school-fee record has been updated. Sign in to review the details.", url: "/fees", tag: "resa-fee-" + id };
-  }
-  if (eventType === "fee_payment") {
-    return { title: "RESA · Payment record received", body: "A payment record has been added. Check the portal for its current verification status.", url: "/fees", tag: "resa-payment-" + id };
-  }
-  if (eventType === "timetable_update") {
-    return { title: "RESA · Timetable updated", body: "A class timetable has been changed. Review the latest schedule in the portal.", url: "/timetable", tag: "resa-timetable-" + id };
-  }
-  if (eventType === "admission_admin") {
-    return { title: "RESA · Admissions update", body: "An admission application has been submitted or its status changed.", url: "/admissions", tag: "resa-admission-" + id };
-  }
-
   if (eventType === "school_message") {
     return uniqueIds([row.recipient_id]);
   }
@@ -185,6 +160,31 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
 
 function makeNotification(eventType: string, row: PushRecord) {
   const id = String(row.id || crypto.randomUUID());
+  if (eventType === "result_published") {
+    return { title: "RESA · Term results published", body: "A term result is now available in the RESA portal.", url: "/student-results", tag: "resa-result-" + id };
+  }
+  if (eventType === "assignment_published") {
+    return { title: "RESA · New assignment", body: String(row.title || "A new class assignment is available.").slice(0, 180), url: "/assignments", tag: "resa-assignment-" + id };
+  }
+  if (eventType === "assignment_graded") {
+    return { title: "RESA · Assignment graded", body: "An assignment has been marked. Check your feedback and score in the portal.", url: "/assignments", tag: "resa-graded-" + id };
+  }
+  if (eventType === "exam_published") {
+    return { title: "RESA · Exam published", body: String(row.title || "A new online exam is available.").slice(0, 180), url: "/cbt", tag: "resa-exam-" + id };
+  }
+  if (eventType === "fee_update") {
+    return { title: "RESA · School fee update", body: "Your learner's school-fee record has been updated. Sign in to review the details.", url: "/fees", tag: "resa-fee-" + id };
+  }
+  if (eventType === "fee_payment") {
+    return { title: "RESA · Payment record received", body: "A payment record has been added. Check the portal for its current verification status.", url: "/fees", tag: "resa-payment-" + id };
+  }
+  if (eventType === "timetable_update") {
+    return { title: "RESA · Timetable updated", body: "A class timetable has been changed. Review the latest schedule in the portal.", url: "/timetable", tag: "resa-timetable-" + id };
+  }
+  if (eventType === "admission_admin") {
+    return { title: "RESA · Admissions update", body: "An admission application has been submitted or its status changed.", url: "/admissions", tag: "resa-admission-" + id };
+  }
+
   if (eventType === "school_message") {
     return {
       title: String(row.subject || "").trim() || "New RESA message",
