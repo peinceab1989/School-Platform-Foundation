@@ -118,6 +118,85 @@ Deno.serve(async (request) => {
     const event = await request.json();
     const eventType = String(event?.event_type || "");
     const row = (event?.record || {}) as PushRecord;
+
+    // A test request is authenticated as the signed-in user and can only target
+    // that user's own registered device(s) in an active school membership.
+    if (eventType === "test") {
+      const authorization = request.headers.get("authorization") || "";
+      const accessToken = authorization.match(/^Bearer\\s+(.+)$/i)?.[1] || "";
+      if (!accessToken) return json({ error: "Sign in before testing phone notifications." }, 401);
+      const { data: authData, error: authError } = await admin.auth.getUser(accessToken);
+      if (authError || !authData.user) return json({ error: "Your session is invalid. Sign in again." }, 401);
+      const schoolId = String(event?.school_id || "");
+      if (!schoolId) return json({ error: "School ID is required." }, 400);
+
+      const { data: membership, error: membershipError } = await admin
+        .from("school_memberships")
+        .select("user_id")
+        .eq("school_id", schoolId)
+        .eq("user_id", authData.user.id)
+        .eq("status", "active")
+        .maybeSingle();
+      if (membershipError) throw membershipError;
+      if (!membership) return json({ error: "Active school membership is required." }, 403);
+
+      const { data: preference, error: preferenceError } = await admin
+        .from("resa_notification_preferences")
+        .select("enabled,phone_notifications_enabled")
+        .eq("school_id", schoolId)
+        .eq("user_id", authData.user.id)
+        .maybeSingle();
+      if (preferenceError) throw preferenceError;
+      if (!preference?.enabled || !preference?.phone_notifications_enabled) {
+        return json({ error: "Enable phone notifications for this account before running the test." }, 409);
+      }
+
+      const { data: subscriptions, error: subscriptionError } = await admin
+        .from("resa_push_subscriptions")
+        .select("id,endpoint,p256dh,auth_key")
+        .eq("school_id", schoolId)
+        .eq("user_id", authData.user.id);
+      if (subscriptionError) throw subscriptionError;
+      if (!subscriptions?.length) return json({ error: "No phone is registered to this account yet. Register this device first." }, 409);
+
+      const { data: testSecrets, error: testSecretError } = await admin.rpc("resa_get_push_secrets");
+      if (testSecretError) throw testSecretError;
+      const testPublicKey = String(testSecrets?.resa_push_vapid_public_key || "");
+      const testPrivateKey = String(testSecrets?.resa_push_vapid_private_key || "");
+      if (!testPublicKey || !testPrivateKey) return json({ error: "VAPID keys are not configured." }, 503);
+      webpush.setVapidDetails("mailto:rhemaexploitsacademy@gmail.com", testPublicKey, testPrivateKey);
+      const testPayload = JSON.stringify({
+        title: "RESA · Phone notification test",
+        body: "Your phone is registered. RESA push notifications are reaching this device.",
+        url: "/notifications",
+        tag: "resa-push-test-" + crypto.randomUUID(),
+        icon: "/media/logo/resa-logo.jpg",
+        badge: "/favicon.ico",
+        vibrate: [180, 90, 180],
+      });
+      let sent = 0;
+      let expired = 0;
+      const testResults = await Promise.allSettled(subscriptions.map(async (subscription) => {
+        try {
+          await webpush.sendNotification({
+            endpoint: subscription.endpoint,
+            keys: { p256dh: subscription.p256dh, auth: subscription.auth_key },
+          }, testPayload, { TTL: 300, urgency: "high" });
+          sent += 1;
+        } catch (error) {
+          const statusCode = Number((error as { statusCode?: number })?.statusCode || 0);
+          if (statusCode === 404 || statusCode === 410) {
+            await admin.from("resa_push_subscriptions").delete().eq("id", subscription.id);
+            expired += 1;
+            return;
+          }
+          throw error;
+        }
+      }));
+      const failures = testResults.filter((result) => result.status === "rejected").length;
+      return json({ accepted: true, sent, devices: subscriptions.length, expired, failures });
+    }
+
     if (!["school_message", "chat_message", "attendance", "announcement"].includes(eventType)) {
       return json({ error: "Unsupported notification event" }, 400);
     }
