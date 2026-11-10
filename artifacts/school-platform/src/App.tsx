@@ -24,6 +24,7 @@ import {
 } from '@/components/foundation/foundation-app-view';
 
 import AdminPortalShell from '@/components/admin-portal-shell';
+import ResaAssistantWidget from '@/components/resa-assistant-widget';
 const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
 import PeopleStatusNotices from '@/components/people-status-notices';
@@ -3144,6 +3145,7 @@ function App() {
           </main>
         }>
           <AppRoutes />
+          <ResaAssistantWidget />
         </Suspense>
       </WouterRouter>
     </QueryClientProvider>
