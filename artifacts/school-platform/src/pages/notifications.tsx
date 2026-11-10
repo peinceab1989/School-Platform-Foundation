@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bell, BellRing, CheckCheck, MessageSquare, Megaphone, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { enableResaPushNotifications } from "@/lib/notifications/push";
+import { enableResaPushNotifications, getResaPushRegistrationStatus, sendResaPushTestNotification } from "@/lib/notifications/push";
 
 type Notice = {
   id: string;
@@ -24,7 +24,8 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const [pushEnabled, setPushEnabled] = useState(typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted");
+  const [pushStatus, setPushStatus] = useState({ registered: false, supported: typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, detail: "Checking this device…" });
+  const [testBusy, setTestBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -34,6 +35,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       if (authError || !auth.user) throw new Error("Please sign in again.");
       const uid = auth.user.id;
       setUserId(uid);
+      void getResaPushRegistrationStatus(schoolId)
+        .then(status => setPushStatus({ registered: status.registered, supported: status.supported, detail: status.detail }))
+        .catch(() => setPushStatus({ registered: false, supported: true, detail: "Could not verify this phone's registration." }));
       const [messageResult, announcementResult, chatResult] = await Promise.all([
         db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at,channel").eq("school_id", schoolId).eq("recipient_id", uid).order("sent_at", { ascending: false }).limit(100),
         db.from("announcements").select("id,title,content,announcement_type,is_published,published_at,created_at,expires_at").eq("school_id", schoolId).eq("is_published", true).order("published_at", { ascending: false }).limit(50),
@@ -119,10 +123,26 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     setError("");
     try {
       await enableResaPushNotifications(schoolId, true);
-      setPushEnabled(true);
-      setNotice("RESA phone notifications are enabled on this device. New messages and school updates can now arrive when the portal is closed, subject to Android and browser notification settings.");
+      const status = await getResaPushRegistrationStatus(schoolId);
+      setPushStatus({ registered: status.registered, supported: status.supported, detail: status.detail });
+      if (!status.registered) throw new Error(status.detail);
+      setNotice("This phone is registered with RESA's push service. Run the delivery test below to confirm that the phone can receive a background notification.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Phone notifications could not be enabled.");
+    }
+  }
+
+  async function testPhoneDelivery() {
+    setError("");
+    setNotice("");
+    setTestBusy(true);
+    try {
+      const result = await sendResaPushTestNotification(schoolId);
+      setNotice(`RESA's push service accepted the test notification for ${result.sent} device(s). Check your phone's notification shade; delivery can take a few seconds depending on Android and network settings.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The phone notification test failed.");
+    } finally {
+      setTestBusy(false);
     }
   }
 
@@ -143,9 +163,10 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     </div></header>
     <div className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white p-4 shadow-sm">
-        <div><p className="font-bold">Stay up to date</p><p className="text-sm text-slate-600">Messages and published school announcements appear here.</p></div>
+        <div className="min-w-0"><p className="font-bold">Stay up to date</p><p className="text-sm text-slate-600">Messages and published school announcements appear here.</p><p className={`mt-1 text-xs font-semibold ${pushStatus.registered ? "text-emerald-700" : "text-amber-700"}`}>{pushStatus.registered ? "✓ Phone registered for background push" : pushStatus.detail}</p></div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => void enableBrowserAlerts()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><Bell size={16}/>{pushEnabled ? "Phone alerts enabled" : "Enable phone alerts"}</button>
+          <button onClick={() => void enableBrowserAlerts()} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><Bell size={16}/>{pushStatus.registered ? "Re-register this phone" : "Register this phone"}</button>
+          <button onClick={() => void testPhoneDelivery()} disabled={!pushStatus.registered || testBusy} className="inline-flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"><BellRing size={16}/>{testBusy ? "Sending test…" : "Test delivery"}</button>
           <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><RefreshCw size={15} className={loading?"animate-spin":""}/>Refresh</button>
           <Link href="/school-communication" className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><MessageSquare size={15}/>Open Communication Centre</Link>
         </div>
@@ -173,7 +194,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       <div className="max-h-[68vh] space-y-2 overflow-y-auto pr-1">{filteredItems.map(item => <article key={item.kind + item.id} className={`rounded-xl border bg-white p-3 shadow-sm ${item.unread ? "border-emerald-400 ring-1 ring-emerald-100" : "border-slate-200"}`}>
         <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="announcement"?<Megaphone size={20}/>:<MessageSquare size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{item.kind==="announcement"?"School announcement":item.kind==="chat"?"Group chat":item.channel==="announcement"?"School notification":item.channel==="customer_care"?"Customer Care":"Private message"}</span></div><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-slate-700">{item.body}</p><p className="mt-2 text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
       </article>)}</div>
-      <p className="text-xs leading-5 text-slate-500">Browser alerts require your permission and work while the portal is open. Reliable background push, email, and WhatsApp delivery require a configured notification service; this page does not claim those external channels are connected.</p>
+      <p className="text-xs leading-5 text-slate-500">Background phone alerts use RESA Web Push. Each person must register each phone/browser separately. Delivery depends on Android notification permission, battery/background restrictions and network availability; this page verifies registration and provides a real push-service test. Email and WhatsApp delivery are not claimed as connected.</p>
     </div>
   </main>;
 }
