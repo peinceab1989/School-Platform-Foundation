@@ -101,7 +101,7 @@ import {
   getSupabaseClient,
   hasSupabaseConfig,
 } from '@/lib/supabase/client';
-import { enableResaPushNotifications } from '@/lib/notifications/push';
+import { enableResaPushNotifications, getResaPushRegistrationStatus } from '@/lib/notifications/push';
 
 const queryClient = new QueryClient();
 
@@ -267,6 +267,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
   const [soundChoice, setSoundChoice] = useState<"chime" | "bell" | "soft" | "none">("chime");
   const [phoneNotificationsEnabled, setPhoneNotificationsEnabled] = useState(false);
+  const [phoneDeviceRegistered, setPhoneDeviceRegistered] = useState(false);
   const phoneNotificationsRef = useRef(false);
   const [notificationPreferencesLoading, setNotificationPreferencesLoading] = useState(true);
   const [notificationBusy, setNotificationBusy] = useState(false);
@@ -320,6 +321,9 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         if ("serviceWorker" in navigator) {
           void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
         }
+        void getResaPushRegistrationStatus(schoolId)
+          .then(status => { if (active) setPhoneDeviceRegistered(status.registered); })
+          .catch(() => { if (active) setPhoneDeviceRegistered(false); });
 
         const { data: initialAttendanceAlerts, error: attendanceAlertsError } = await db
           .from("biometric_parent_notifications")
@@ -503,6 +507,9 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
     setNotificationBusy(true);
     try {
       await enableResaPushNotifications(schoolId, true);
+      const pushStatus = await getResaPushRegistrationStatus(schoolId);
+      setPhoneDeviceRegistered(pushStatus.registered);
+      if (!pushStatus.registered) throw new Error(pushStatus.detail);
       // Keep the parent's attendance alert choices in sync with device enrolment.
       await saveParentNotificationPreferences(soundAlertsEnabled,soundChoice,true);
     } catch(error) { setOverviewError(error instanceof Error?error.message:"Phone notifications could not be enabled."); }
@@ -583,7 +590,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-900">{attendanceAlerts.filter((a:any)=>!a.read_at).length} unread</span>
         </div>
         <details className="mt-3 rounded-xl bg-slate-50 px-3 py-2">
-          <summary className="cursor-pointer list-none text-xs font-bold text-slate-700">Notification preferences · {soundAlertsEnabled ? "Alerts on" : "Alerts off"} · {phoneNotificationsEnabled ? "Phone permission allowed" : "Phone permission not enabled"}</summary>
+          <summary className="cursor-pointer list-none text-xs font-bold text-slate-700">Notification preferences · {soundAlertsEnabled ? "Attendance alerts on" : "Attendance alerts off"} · {phoneDeviceRegistered ? "This phone is registered" : "This phone is not registered"}</summary>
           <div className="mt-3 grid gap-3 border-t border-slate-200 pt-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
           <label className="block text-xs font-bold text-slate-700">Attendance notifications
             <select disabled={notificationPreferencesLoading||notificationBusy} value={soundAlertsEnabled?"on":"off"} onChange={e=>void saveParentNotificationPreferences(e.target.value==="on",soundChoice,phoneNotificationsEnabled)} className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm">
@@ -595,9 +602,9 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
               <option value="chime">RESA Chime</option><option value="bell">Bell</option><option value="soft">Soft tone</option><option value="none">Silent</option>
             </select>
           </label>
-          <button type="button" disabled={notificationBusy||notificationPreferencesLoading} onClick={()=>void enableParentPhoneNotifications()} className="rounded-xl bg-emerald-900 px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{phoneNotificationsEnabled?"Phone alerts allowed":"Allow phone notification banners"}</button>
+          <button type="button" disabled={notificationBusy||notificationPreferencesLoading} onClick={()=>void enableParentPhoneNotifications()} className="rounded-xl bg-emerald-900 px-4 py-3 text-xs font-extrabold text-white disabled:opacity-50">{phoneDeviceRegistered?"Re-register this phone":"Register this phone for alerts"}</button>
         </div>
-          <p className="mt-2 text-xs leading-5 text-slate-500">Your choices are saved to your parent account. Background phone alerts require the RESA push sender and VAPID configuration; permission alone does not guarantee delivery while the browser is closed.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Your attendance preferences are saved to your parent account. The registration status above checks both the browser's push subscription and its matching RESA account record. Each phone must be registered separately; Android battery restrictions and notification settings can still affect delivery.</p>
         </details>
         <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
           <label className="text-xs font-bold text-slate-600">Search messages
