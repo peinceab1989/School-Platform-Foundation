@@ -212,6 +212,55 @@ begin
         end
       );
 
+    -- If an administrator changes an auto-excluded day into a working day,
+    -- reopen only alerts that were automatically resolved for scheduling reasons.
+    -- Never reopen an alert that was acknowledged or resolved by a recorded check-in.
+    update public.attendance_checkpoint_alerts a
+    set alert_status = 'pending',
+        first_detected_at = now(),
+        last_reminded_at = null,
+        reminder_count = 0,
+        acknowledged_by = null,
+        acknowledged_at = null,
+        acknowledgement_note = null
+    from public.staff sf
+    left join public.staff_attendance sa
+      on sa.school_id = sf.school_id and sa.staff_id = sf.id and sa.attendance_date = v_today
+    where a.school_id = v_school.id
+      and a.attendance_date = v_today
+      and a.person_type = 'staff'
+      and a.staff_id = sf.id
+      and a.alert_status = 'resolved'
+      and a.acknowledgement_note like 'Automatically resolved:%'
+      and sf.status = 'active'
+      and (sa.id is null or (sa.check_in_time is null and sa.status not in ('present', 'checked_out')))
+      and not exists (
+        select 1 from public.staff_leave_requests lr
+        where lr.school_id = sf.school_id and lr.staff_id = sf.id
+          and lr.status = 'approved'
+          and lr.start_date <= v_today and lr.end_date >= v_today
+      )
+      and case
+        when exists (
+          select 1 from public.staff_work_schedule_exceptions ex
+          where ex.school_id = sf.school_id and ex.staff_id = sf.id
+            and ex.exception_date = v_today and ex.exception_type = 'working_day'
+        ) then true
+        when exists (
+          select 1 from public.staff_work_schedule_exceptions ex
+          where ex.school_id = sf.school_id and ex.staff_id = sf.id
+            and ex.exception_date = v_today and ex.exception_type = 'off'
+        ) then false
+        when exists (
+          select 1 from public.staff_work_schedules ws
+          where ws.school_id = sf.school_id and ws.staff_id = sf.id
+        ) then extract(isodow from v_today)::smallint = any ((
+          select ws.work_days from public.staff_work_schedules ws
+          where ws.school_id = sf.school_id and ws.staff_id = sf.id
+        ))
+        else extract(isodow from v_today) between 1 and 6
+      end;
+
     -- No schedule row means the legacy Monday-Saturday expectation.
     insert into public.attendance_checkpoint_alerts(school_id, attendance_date, person_type, staff_id, alert_status)
     select v_school.id, v_today, 'staff', sf.id, 'pending'
