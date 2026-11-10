@@ -58,6 +58,23 @@ const sections = [
 ];
 
 export default function PortalNavigationGuidePage() {
+  const [question, setQuestion] = useState("");
+  const [asked, setAsked] = useState(false);
+  const guidance = useMemo(() => {
+    const q = question.trim().toLowerCase();
+    if (!q) return [];
+    return sections.flatMap(section =>
+      section.items
+        .filter(([label, , description]) => `${label} ${description} ${section.title}`.toLowerCase().includes(q))
+        .map(([label, href, description]) => ({
+          role: section.title,
+          label,
+          href,
+          description,
+        })),
+    );
+  }, [question]);
+
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6">
     <div className="mx-auto max-w-6xl space-y-5">
       <header className="rounded-2xl bg-emerald-950 p-5 text-white sm:p-7">
