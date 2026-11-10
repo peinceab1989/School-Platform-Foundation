@@ -42,7 +42,9 @@ begin
     v_event_type := 'result_published';
   elsif tg_table_name = 'assignments' then
     if coalesce(v_row->>'status','') <> 'published' then return null; end if;
-    if tg_op = 'UPDATE' and old.status is not distinct from new.status then return null; end if;
+    if tg_op = 'UPDATE' then
+      if old.status is not distinct from new.status then return null; end if;
+    end if;
     v_event_type := 'assignment_published';
   elsif tg_table_name = 'assignment_submissions' then
     if coalesce(v_row->>'status','') <> 'graded' then return null; end if;
@@ -52,25 +54,32 @@ begin
     v_event_type := 'assignment_graded';
   elsif tg_table_name = 'online_exams' then
     if coalesce(v_row->>'status','') <> 'published' then return null; end if;
-    if tg_op = 'UPDATE' and old.status is not distinct from new.status then return null; end if;
+    if tg_op = 'UPDATE' then
+      if old.status is not distinct from new.status then return null; end if;
+    end if;
     v_event_type := 'exam_published';
   elsif tg_table_name = 'student_fee_assignments' then
-    if tg_op = 'UPDATE' and old.status is not distinct from new.status then return null; end if;
+    if tg_op = 'UPDATE' then
+      if old.status is not distinct from new.status then return null; end if;
+    end if;
     v_event_type := 'fee_update';
   elsif tg_table_name = 'student_fee_payments' then
     v_event_type := 'fee_payment';
   elsif tg_table_name = 'class_timetables' then
-    if tg_op = 'UPDATE'
-      and old.class_id is not distinct from new.class_id
-      and old.subject_id is not distinct from new.subject_id
-      and old.staff_id is not distinct from new.staff_id
-      and old.day_of_week is not distinct from new.day_of_week
-      and old.start_time is not distinct from new.start_time
-      and old.end_time is not distinct from new.end_time
-      and old.room is not distinct from new.room then return null; end if;
+    if tg_op = 'UPDATE' then
+      if old.class_id is not distinct from new.class_id
+        and old.subject_id is not distinct from new.subject_id
+        and old.staff_id is not distinct from new.staff_id
+        and old.day_of_week is not distinct from new.day_of_week
+        and old.start_time is not distinct from new.start_time
+        and old.end_time is not distinct from new.end_time
+        and old.room is not distinct from new.room then return null; end if;
+    end if;
     v_event_type := 'timetable_update';
   elsif tg_table_name = 'admission_applications' then
-    if tg_op = 'UPDATE' and old.status is not distinct from new.status then return null; end if;
+    if tg_op = 'UPDATE' then
+      if old.status is not distinct from new.status then return null; end if;
+    end if;
     v_event_type := 'admission_admin';
   else
     return null;
