@@ -28,7 +28,7 @@ export default function ResaAssistantWidget() {
   }
 
   return <div className="fixed bottom-4 right-4 z-[1200]">
-    {open && <section role="dialog" aria-label="RESA help assistant" className="mb-3 flex w-[min( calc(100vw-2rem), 380px)] flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl">
+    {open && <section role="dialog" aria-label="RESA help assistant" className="mb-3 flex w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl">
       <header className="flex items-center justify-between bg-[#103b2d] p-4 text-white">
         <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">Quick help • Page: {activePage}</p></div></div>
         <button onClick={()=>setOpen(false)} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
