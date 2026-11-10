@@ -40,6 +40,7 @@ const ExternalCbtPage = lazy(() => import('@/pages/external-cbt'));
 const ExternalCbtManagementPage = lazy(() => import('@/pages/external-cbt-management'));
 const SchoolCommunicationPage = lazy(() => import('@/pages/school-communication'));
 const StaffAttendancePage = lazy(() => import('@/pages/staff-attendance'));
+const StaffSchedulesPage = lazy(() => import('@/pages/staff-schedules'));
 const StudentsPage = lazy(() => import('@/pages/students'));
 const StudentEnrolmentsPage = lazy(() => import('@/pages/student-enrolments'));
 const StudentIdCardsPage = lazy(() => import('@/pages/student-id-cards'));
@@ -174,6 +175,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/resa-drive',
   '/publication-centre',
   '/staff-attendance',
+  '/staff-schedules',
   '/biometric-attendance',
   '/smart-access-management',
   '/school-cctv',
@@ -2583,6 +2585,10 @@ function FoundationPage() {
 
     if (currentPath === '/staff-attendance') {
       return withAdminShell(<StaffAttendancePage schoolId={adminMembership.schoolId} />);
+    }
+
+    if (currentPath === '/staff-schedules') {
+      return withAdminShell(<StaffSchedulesPage schoolId={adminMembership.schoolId} />);
     }
 
     if (currentPath === '/biometric-attendance') {
