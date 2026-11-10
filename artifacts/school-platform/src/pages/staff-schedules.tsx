@@ -77,7 +77,7 @@ export default function StaffSchedulesPage({ schoolId }: { schoolId: string }) {
       const { error: saveError } = await db.from("staff_work_schedules").upsert({
         school_id: schoolId, staff_id: selectedStaffId,
         work_days: [...workDays].sort((a, b) => a - b),
-        notes: notes.trim() || null, updated_by: auth.user.id,
+        notes: notes.trim() || null, updated_by: auth.user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "school_id,staff_id" });
       if (saveError) throw saveError;
       setNotice("Weekly staff work schedule saved. Absence checks will now use these days.");
@@ -95,7 +95,7 @@ export default function StaffSchedulesPage({ schoolId }: { schoolId: string }) {
       if (authError || !auth.user) throw new Error("Please sign in again.");
       const { error: saveError } = await db.from("staff_work_schedule_exceptions").upsert({
         school_id: schoolId, staff_id: selectedStaffId, exception_date: exceptionDate,
-        exception_type: exceptionType, reason: exceptionReason.trim(), updated_by: auth.user.id,
+        exception_type: exceptionType, reason: exceptionReason.trim(), updated_by: auth.user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "school_id,staff_id,exception_date" });
       if (saveError) throw saveError;
       setNotice(exceptionType === "off" ? "Approved off-day saved. No absence alert will be sent for this staff member on that date." : "Additional working day saved. The normal workday schedule is overridden for that date.");
@@ -148,7 +148,7 @@ export default function StaffSchedulesPage({ schoolId }: { schoolId: string }) {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2"><CalendarDays className="text-emerald-800"/><h2 className="text-lg font-extrabold">Upcoming date changes</h2><button type="button" onClick={() => void load()} className="ml-auto rounded-lg border border-slate-200 p-2 text-slate-600" aria-label="Refresh schedules"><RefreshCw size={16}/></button></div>
-        {!selectedExceptions.length ? <p className="mt-3 text-sm text-slate-500">No upcoming one-date changes for this staff member.</p> : <div className="mt-3 divide-y divide-slate-100">{selectedExceptions.map(row => <div key={row.id} className="flex flex-wrap items-center gap-3 py-3"><div className="min-w-0 flex-1"><p className="text-sm font-bold">{new Date(row.exception_date + "T12:00:00+01:00").toLocaleDateString("en-NG",{dateStyle:"full"})}</p><p className="text-xs text-slate-500">{row.exception_type === "off" ? "Approved off-day" : "Additional working day"} · {row.reason}</p></div><button type="button" disabled={saving} onClick={() => void removeException(row.id)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700"><Trash2 size={14}/>Remove</button></div>)}</div>}
+        {!selectedExceptions.length ? <p className="mt-3 text-sm text-slate-500">No upcoming one-date changes for this staff member.</p> : <div className="mt-3 divide-y divide-slate-100">{selectedExceptions.map(row => <div key={row.id} className="flex flex-wrap items-center gap-3 py-3"><div className="min-w-0 flex-1"><p className="text-sm font-bold">{new Intl.DateTimeFormat("en-NG",{dateStyle:"full",timeZone:"Africa/Lagos"}).format(new Date(row.exception_date + "T12:00:00+01:00"))}</p><p className="text-xs text-slate-500">{row.exception_type === "off" ? "Approved off-day" : "Additional working day"} · {row.reason}</p></div><button type="button" disabled={saving} onClick={() => void removeException(row.id)} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700"><Trash2 size={14}/>Remove</button></div>)}</div>}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
