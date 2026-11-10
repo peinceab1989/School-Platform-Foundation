@@ -56,8 +56,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'RESA · School update';
   const options = {
     body: payload.body || payload.message || 'There is a new update in your parent portal.',
-    icon: payload.icon || '/icons/resa-app-192.svg',
-    badge: payload.badge || '/icons/resa-app-192.svg',
+    icon: payload.icon || '/favicon.ico',
+    badge: payload.badge || '/favicon.ico',
     tag: payload.tag || 'resa-school-update',
     data: { url: payload.url || '/parent-dashboard' },
     renotify: true,
