@@ -16,8 +16,7 @@ const SCHOOL_EMAIL = "rhemaexploitsacademy@gmail.com";
 const SCHOOL_PHONE = "+2348058422691";
 const SCHOOL_WHATSAPP = "https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance.";
 const PORTAL_PATH = "/portal-options";
-const JETAB_WHATSAPP =
-  "https://wa.me/2347054078988?text=Hello%20JETAB%20TECH%2C%20I%20would%20like%20to%20request%20a%20service%20or%20training.";
+const JETAB_WEBSITE = "https://jetab-tech.pages.dev";
 
 const primaryPages = [
   { href: "/about", label: "About" },
@@ -254,12 +253,13 @@ export function PublicFooter() {
         <p className="mt-2 flex flex-wrap items-center justify-center gap-2 text-xs text-[#c3d0c5]">
           <span>Designed &amp; Powered by</span>
           <a
-            href={JETAB_WHATSAPP}
+            href={JETAB_WEBSITE}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Visit JETAB TECH digital solutions website (opens in a new tab)"
             className="inline-flex items-center gap-1.5 font-black tracking-[.12em] text-[#e4c879] underline decoration-[#e4c879]/40 underline-offset-4 transition hover:text-white"
           >
-            JETAB TECH <MessageCircle size={13} aria-hidden="true" />
+            JETAB TECH <ArrowRight size={13} aria-hidden="true" />
           </a>
         </p>
       </div>
