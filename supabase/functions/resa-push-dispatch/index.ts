@@ -123,7 +123,7 @@ Deno.serve(async (request) => {
     // that user's own registered device(s) in an active school membership.
     if (eventType === "test") {
       const authorization = request.headers.get("authorization") || "";
-      const accessToken = authorization.match(/^Bearer\\s+(.+)$/i)?.[1] || "";
+      const accessToken = authorization.match(/^Bearer\s+(.+)$/i)?.[1] || "";
       if (!accessToken) return json({ error: "Sign in before testing phone notifications." }, 401);
       const { data: authData, error: authError } = await admin.auth.getUser(accessToken);
       if (authError || !authData.user) return json({ error: "Your session is invalid. Sign in again." }, 401);
