@@ -1851,6 +1851,7 @@ const privateCancelStyle: CSSProperties = {
 function FoundationPage() {
   const [location, setLocation] = useLocation();
   const currentPath = normalizePath(location);
+  const lastRecordedRouteVisit = useRef<string>('');
 
   const [session, setSession] = useState<Session | null>(null);
   const isExternalCandidate = session?.user.app_metadata?.account_type === 'external_candidate';
@@ -1907,6 +1908,10 @@ function FoundationPage() {
         (!privateEngineRoom && accessCheckState !== 'success') ||
         (membershipsLoading && !privateEngineRoom) ||
         !session?.user?.id || !currentPath || currentPath === '/portal') return;
+
+    const visitKey = `${session.user.id}:${currentPath}`;
+    if (lastRecordedRouteVisit.current === visitKey) return;
+    lastRecordedRouteVisit.current = visitKey;
 
     const actorRole = teacherMembership ? 'teacher'
       : adminMembership ? 'admin'
