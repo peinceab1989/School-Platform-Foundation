@@ -1995,6 +1995,20 @@ function FoundationPage() {
           '/notifications',
         );
       })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'nexus_compliance_cases',
+        filter: `subject_user_id=eq.${uid}`,
+      }, (payload: any) => {
+        const item = payload.new as Record<string, any>;
+        if (item.status !== 'issued') return;
+        const label = item.case_type === 'warning' ? 'Written warning' : 'Formal query';
+        void showResaNotification(
+          `RESA · ${label}`,
+          `${String(item.title || label)}. Reference: ${String(item.case_number || '')}. Open My Queries and Warnings to respond.`,
+          String(item.id || `compliance-${Date.now()}`),
+          '/my-compliance',
+        );
+      })
       .subscribe();
 
     // Parent attendance alerts follow the parent across portal pages, not just
