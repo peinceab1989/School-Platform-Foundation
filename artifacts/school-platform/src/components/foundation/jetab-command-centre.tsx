@@ -113,6 +113,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [cases, setCases] = useState<CaseRow[]>([]);
+  const [responses, setResponses] = useState<Array<{ id: string; case_id: string; responder_user_id: string; response_text: string; created_at: string }>>([]);
 
   const [day, setDay] = useState(lagosDate());
   const [search, setSearch] = useState('');
@@ -205,7 +206,18 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
         if (directory.error) throw directory.error;
         setPeople((directory.data ?? []) as PersonRow[]);
       }
-      setCases((caseResult.data ?? []) as CaseRow[]);
+      const caseRows = (caseResult.data ?? []) as CaseRow[];
+      setCases(caseRows);
+      const caseIds = caseRows.map((item) => item.id);
+      if (caseIds.length) {
+        const responseResult = await client.from('nexus_compliance_responses')
+          .select('id,case_id,responder_user_id,response_text,created_at')
+          .in('case_id', caseIds).order('created_at', { ascending: true });
+        if (responseResult.error) throw responseResult.error;
+        setResponses(responseResult.data ?? []);
+      } else {
+        setResponses([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Compliance cases could not be loaded.');
     } finally {
@@ -484,6 +496,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
           {item.policy_reference && <div style={{ fontSize: 12 }}>Policy: {item.policy_reference}</div>}
           {item.response_due_at && <div style={{ fontSize: 12 }}>Response due: {new Date(item.response_due_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</div>}
           <label style={{ display: 'block', marginTop: 8 }}>Update case status<select style={field} value={item.status} disabled={busyId === item.id} onChange={(e) => void updateCase(item, e.target.value)}>{['issued','response_received','under_review','warning_issued','escalated','resolved','closed','withdrawn'].map((s) => <option key={s}>{s}</option>)}</select></label>
+          {responses.filter((response) => response.case_id === item.id).map((response) => <div key={response.id} style={{ marginTop: 10, padding: 10, borderRadius: 8, background: '#f3f6f3' }}><strong>Recipient response · {new Date(response.created_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</strong><p style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{response.response_text}</p></div>)}
           {item.decision && <p><strong>Decision:</strong> {item.decision}</p>}
         </article>)}
         <p style={{ fontSize: 12, color: '#68766b', marginTop: 12 }}>The case record is created in the database. Recipient-facing delivery, response inbox and appeal workflow must be tested before this centre is used for formal disciplinary notices.</p>
