@@ -298,7 +298,7 @@ begin
     raise exception 'The recipient does not belong to the selected school';
   end if;
 
-  insert into public.nexus_compliance_cases (
+  insert into public.nexus_compliance_cases as inserted_case (
     subject_user_id, issuer_user_id, school_id, case_type, severity,
     title, allegation, policy_reference, response_due_at, status
   ) values (
@@ -306,7 +306,7 @@ begin
     trim(p_title), trim(p_allegation), nullif(trim(coalesce(p_policy_reference,'')), ''),
     p_response_due_at, 'issued'
   )
-  returning id, case_number
+  returning inserted_case.id, inserted_case.case_number
   into v_case_id, v_case_number;
 
   insert into public.nexus_audit_logs (
