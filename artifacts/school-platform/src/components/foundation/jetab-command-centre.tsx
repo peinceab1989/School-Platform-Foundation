@@ -127,6 +127,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
   const [newRole, setNewRole] = useState<MembershipRow['role']>('admin');
   const [caseSearch, setCaseSearch] = useState('');
   const [caseStatus, setCaseStatus] = useState('all');
+  const [decisionDrafts, setDecisionDrafts] = useState<Record<string, string>>({});
 
   const [caseTarget, setCaseTarget] = useState('');
   const [caseType, setCaseType] = useState<'query' | 'warning'>('query');
@@ -377,13 +378,27 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
   };
 
   const updateCase = async (item: CaseRow, status: string) => {
-    if (!window.confirm(`Move ${item.case_number} to "${status.replaceAll('_', ' ')}"?`)) return;
+    const isFinalDecision = ['warning_issued', 'resolved', 'closed', 'withdrawn'].includes(status);
+    const decision = (decisionDrafts[item.id] ?? '').trim();
+    if (isFinalDecision && !decision) {
+      setError('Record the human review decision before finalising this case.');
+      return;
+    }
+    if (!window.confirm(`Move ${item.case_number} to "${status.replaceAll('_', ' ')}"${isFinalDecision ? ' and save the recorded decision' : ''}?`)) return;
     setBusyId(item.id); setError(''); setMessage('');
     try {
+      const now = new Date().toISOString();
+      const patch: Record<string, unknown> = { status, updated_at: now };
+      if (isFinalDecision) {
+        patch.decision = decision;
+        patch.decided_by = ownerUserId;
+        patch.decided_at = now;
+      }
       const result = await client.from('nexus_compliance_cases')
-        .update({ status, updated_at: new Date().toISOString() }).eq('id', item.id);
+        .update(patch).eq('id', item.id);
       if (result.error) throw result.error;
-      setMessage(`${item.case_number} updated.`);
+      setDecisionDrafts((current) => ({ ...current, [item.id]: '' }));
+      setMessage(`${item.case_number} updated${isFinalDecision ? ' and the human review decision was recorded' : ''}.`);
       await loadCases();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Case status could not be updated.');
@@ -508,7 +523,9 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
           <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{item.allegation}</p>
           {item.policy_reference && <div style={{ fontSize: 12 }}>Policy: {item.policy_reference}</div>}
           {item.response_due_at && <div style={{ fontSize: 12 }}>Response due: {new Date(item.response_due_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</div>}
+          <label style={{ display: 'block', marginTop: 8 }}>Management review decision<textarea style={{ ...field, minHeight: 85, marginTop: 6 }} value={decisionDrafts[item.id] ?? ''} onChange={(e) => setDecisionDrafts((current) => ({ ...current, [item.id]: e.target.value }))} maxLength={4000} placeholder="Record the evidence reviewed, conclusion, and any proportionate action…" /></label>
           <label style={{ display: 'block', marginTop: 8 }}>Update case status<select style={field} value={item.status} disabled={busyId === item.id} onChange={(e) => void updateCase(item, e.target.value)}>{['issued','response_received','under_review','warning_issued','escalated','resolved','closed','withdrawn'].map((s) => <option key={s}>{s}</option>)}</select></label>
+          <p style={{ fontSize: 12, color: '#68766b' }}>Final statuses (warning issued, resolved, closed or withdrawn) require a recorded human decision. The decision, reviewer and timestamp are saved together.</p>
           {responses.filter((response) => response.case_id === item.id).map((response) => <div key={response.id} style={{ marginTop: 10, padding: 10, borderRadius: 8, background: '#f3f6f3' }}><strong>Recipient response · {new Date(response.created_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</strong><p style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{response.response_text}</p></div>)}
           {item.decision && <p><strong>Decision:</strong> {item.decision}</p>}
         </article>)}
