@@ -102,6 +102,7 @@ import {
   hasSupabaseConfig,
 } from '@/lib/supabase/client';
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from '@/lib/notifications/push';
+import JetabCommandCentre from '@/components/foundation/jetab-command-centre';
 
 const queryClient = new QueryClient();
 
@@ -996,9 +997,11 @@ function StudentDashboard({
 
 function NexusDashboard({
   email,
+  ownerUserId,
   onSignOut,
 }: {
   email?: string;
+  ownerUserId: string;
   onSignOut: () => void;
 }) {
   const [ownerCheck, setOwnerCheck] = useState<
@@ -1772,6 +1775,8 @@ function NexusDashboard({
                 ))}
               </div>
             </section>
+
+            <JetabCommandCentre ownerUserId={ownerUserId} />
           </>
         )}
       </div>
@@ -1881,6 +1886,42 @@ function FoundationPage() {
   // Account-wide live notifications: works on every authenticated RESA page,
   // not only when the user happens to keep the Notifications page open.
   const notificationMembership = teacherMembership ?? adminMembership ?? studentMembership ?? parentMembership;
+
+  // Route visits are recorded centrally. This is not proof of a data-changing
+  // action; sensitive record changes need database-side audit coverage.
+  useEffect(() => {
+    if (authState !== 'signed-in' || accessCheckState !== 'success' ||
+        membershipsLoading || !session?.user?.id || !currentPath ||
+        currentPath === '/portal') return;
+
+    const actorRole = teacherMembership ? 'teacher'
+      : adminMembership ? 'admin'
+      : studentMembership ? 'student'
+      : parentMembership ? 'parent'
+      : 'unknown';
+    const dashboard = currentPath.includes('teacher') ? 'teacher'
+      : currentPath.includes('student') || currentPath.includes('cbt') ? 'student'
+      : currentPath.includes('parent') ? 'parent'
+      : currentPath === '/jetab-engine-room' || currentPath === '/nexus' ? 'jetab'
+      : adminMembership ? 'admin'
+      : 'unknown';
+
+    const db = getSupabaseClient() as any;
+    void db.from('nexus_activity_events').insert({
+      actor_user_id: session.user.id,
+      school_id: notificationMembership?.schoolId ?? null,
+      actor_role: actorRole,
+      dashboard,
+      route: currentPath,
+      action: 'dashboard_visit',
+      outcome: 'success',
+      metadata: { source: 'client_route_tracker' },
+    });
+  }, [
+    authState, accessCheckState, membershipsLoading, session?.user?.id,
+    currentPath, teacherMembership, adminMembership, studentMembership,
+    parentMembership, notificationMembership?.schoolId,
+  ]);
   useEffect(() => {
     if (
       authState !== 'signed-in' ||
