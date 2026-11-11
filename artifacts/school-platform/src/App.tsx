@@ -102,6 +102,7 @@ import {
   hasSupabaseConfig,
 } from '@/lib/supabase/client';
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from '@/lib/notifications/push';
+import JetabCommandCentre, { MyComplianceInbox } from '@/components/foundation/jetab-command-centre';
 
 const queryClient = new QueryClient();
 
@@ -110,6 +111,7 @@ type NexusModule = {
   module_key: string;
   display_name: string;
   is_enabled: boolean;
+  settings?: Record<string, unknown> | null;
   updated_at: string;
 };
 
@@ -197,6 +199,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/assignments',
   '/school-communication',
   '/notifications',
+  '/my-compliance',
   '/external-cbt',
   '/school-cctv',
 ];
@@ -996,9 +999,11 @@ function StudentDashboard({
 
 function NexusDashboard({
   email,
+  ownerUserId,
   onSignOut,
 }: {
   email?: string;
+  ownerUserId: string;
   onSignOut: () => void;
 }) {
   const [ownerCheck, setOwnerCheck] = useState<
@@ -1010,6 +1015,7 @@ function NexusDashboard({
   const [readiness, setReadiness] = useState<NexusReadinessMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyModule, setBusyModule] = useState<string | null>(null);
+  const [moduleSearch, setModuleSearch] = useState('');
   const [errorText, setErrorText] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
 
@@ -1173,7 +1179,7 @@ function NexusDashboard({
       ] = await Promise.all([
         client
           .from('nexus_module_controls')
-          .select('id, module_key, display_name, is_enabled, updated_at')
+          .select('id, module_key, display_name, is_enabled, settings, updated_at')
           .order('display_name', { ascending: true }),
 
         client
@@ -1648,6 +1654,16 @@ function NexusDashboard({
                 Changes are recorded in the database audit log. Before relying on a switch to restrict a feature, confirm that the feature checks the corresponding module key on the server or through a protected database policy. UI-only hiding is not sufficient security.
               </p>
 
+              <label style={{ display: 'block', margin: '12px 0' }}>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Search all registered features</span>
+                <input
+                  type="search"
+                  value={moduleSearch}
+                  onChange={(event) => setModuleSearch(event.target.value)}
+                  placeholder="Search attendance, fees, CBT, notifications…"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: 12, border: '1px solid #cbd5cc', borderRadius: 8 }}
+                />
+              </label>
               {loading && modules.length === 0 && <p>Loading modules…</p>}
 
               {!loading && modules.length === 0 && !errorText && (
@@ -1655,7 +1671,7 @@ function NexusDashboard({
               )}
 
               <div style={{ display: 'grid', gap: 12 }}>
-                {modules.map((module) => (
+                {modules.filter((module) => `${module.display_name} ${module.module_key}`.toLowerCase().includes(moduleSearch.trim().toLowerCase())).map((module) => (
                   <article
                     key={module.id}
                     style={{
@@ -1682,40 +1698,46 @@ function NexusDashboard({
                         {module.module_key}
                       </div>
 
-                      <div style={{ marginTop: 7 }}>
+                      <div style={{ marginTop: 7, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <span
                           style={{
                             display: 'inline-block',
                             borderRadius: 20,
                             padding: '4px 9px',
                             fontSize: 12,
-                            background: module.is_enabled
-                              ? '#d9f1df'
-                              : '#f8dddd',
+                            background: module.is_enabled ? '#d9f1df' : '#f8dddd',
                             color: module.is_enabled ? '#155b30' : '#8b1e1e',
                           }}
                         >
                           {module.is_enabled ? 'Enabled' : 'Disabled'}
                         </span>
+                        {module.settings?.enforcement_state === 'registry_only' && (
+                          <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#fff1d6', color: '#76520b' }}>
+                            Registry only · enforcement pending
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => void changeModuleStatus(module)}
-                      disabled={busyModule !== null || loading}
+                      disabled={busyModule !== null || loading || module.settings?.enforcement_state === 'registry_only'}
+                      title={module.settings?.enforcement_state === 'registry_only' ? 'This feature is registered but its access enforcement is not yet implemented.' : undefined}
                       style={{
                         ...buttonStyle,
                         background: module.is_enabled ? '#8b2c2c' : '#17683b',
                         color: '#fff',
-                        opacity: busyModule !== null || loading ? 0.65 : 1,
+                        opacity: busyModule !== null || loading || module.settings?.enforcement_state === 'registry_only' ? 0.45 : 1,
                       }}
                     >
-                      {busyModule === module.module_key
-                        ? 'Saving…'
-                        : module.is_enabled
-                          ? 'Disable'
-                          : 'Enable'}
+                      {module.settings?.enforcement_state === 'registry_only'
+                        ? 'Pending enforcement'
+                        : busyModule === module.module_key
+                          ? 'Saving…'
+                          : module.is_enabled
+                            ? 'Disable'
+                            : 'Enable'}
                     </button>
                   </article>
                 ))}
@@ -1772,6 +1794,8 @@ function NexusDashboard({
                 ))}
               </div>
             </section>
+
+            <JetabCommandCentre ownerUserId={ownerUserId} />
           </>
         )}
       </div>
@@ -1834,6 +1858,7 @@ const privateCancelStyle: CSSProperties = {
 function FoundationPage() {
   const [location, setLocation] = useLocation();
   const currentPath = normalizePath(location);
+  const lastRecordedRouteVisit = useRef<string>('');
 
   const [session, setSession] = useState<Session | null>(null);
   const isExternalCandidate = session?.user.app_metadata?.account_type === 'external_candidate';
@@ -1881,6 +1906,56 @@ function FoundationPage() {
   // Account-wide live notifications: works on every authenticated RESA page,
   // not only when the user happens to keep the Notifications page open.
   const notificationMembership = teacherMembership ?? adminMembership ?? studentMembership ?? parentMembership;
+
+  // Route visits are recorded centrally. This is not proof of a data-changing
+  // action; sensitive record changes need database-side audit coverage.
+  useEffect(() => {
+    const privateEngineRoom = currentPath === '/jetab-engine-room' || currentPath === '/nexus';
+    if (authState !== 'signed-in' ||
+        (!privateEngineRoom && accessCheckState !== 'success') ||
+        (membershipsLoading && !privateEngineRoom) ||
+        !session?.user?.id || !currentPath || currentPath === '/portal') return;
+
+    const visitKey = `${session.user.id}:${currentPath}`;
+    if (lastRecordedRouteVisit.current === visitKey) return;
+    lastRecordedRouteVisit.current = visitKey;
+
+    void (async () => {
+      let actorRole = teacherMembership ? 'teacher'
+        : adminMembership ? 'admin'
+        : studentMembership ? 'student'
+        : parentMembership ? 'parent'
+        : 'unknown';
+      const db = getSupabaseClient() as any;
+      if (actorRole === 'unknown') {
+        const staffRecord = await db.from('staff').select('id')
+          .eq('user_id', session.user.id).limit(1).maybeSingle();
+        if (staffRecord.data) actorRole = 'staff';
+      }
+      const dashboard = currentPath.includes('teacher') ? 'teacher'
+        : currentPath.includes('student') || currentPath.includes('cbt') ? 'student'
+        : currentPath.includes('parent') ? 'parent'
+        : currentPath.includes('staff') ? 'staff'
+        : currentPath === '/jetab-engine-room' || currentPath === '/nexus' ? 'jetab'
+        : adminMembership ? 'admin'
+        : 'unknown';
+
+      await db.from('nexus_activity_events').insert({
+        actor_user_id: session.user.id,
+        school_id: notificationMembership?.schoolId ?? null,
+        actor_role: actorRole,
+        dashboard,
+        route: currentPath,
+        action: 'dashboard_visit',
+        outcome: 'success',
+        metadata: { source: 'client_route_tracker' },
+      });
+    })();
+  }, [
+    authState, accessCheckState, membershipsLoading, session?.user?.id,
+    currentPath, teacherMembership, adminMembership, studentMembership,
+    parentMembership, notificationMembership?.schoolId,
+  ]);
   useEffect(() => {
     if (
       authState !== 'signed-in' ||
@@ -1940,6 +2015,20 @@ function FoundationPage() {
           String(item.content || 'A new school announcement is available.'),
           String(item.id || `announcement-${Date.now()}`),
           '/notifications',
+        );
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'nexus_compliance_cases',
+        filter: `subject_user_id=eq.${uid}`,
+      }, (payload: any) => {
+        const item = payload.new as Record<string, any>;
+        if (item.status !== 'issued') return;
+        const label = item.case_type === 'warning' ? 'Written warning' : 'Formal query';
+        void showResaNotification(
+          `RESA · ${label}`,
+          `${String(item.title || label)}. Reference: ${String(item.case_number || '')}. Open My Queries and Warnings to respond.`,
+          String(item.id || `compliance-${Date.now()}`),
+          '/my-compliance',
         );
       })
       .subscribe();
@@ -2155,14 +2244,14 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance') {
         setLocation('/student-dashboard');
       }
       return;
     }
 
     if (parentMembership) {
-      if (!['/parent-dashboard', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password'].includes(currentPath)) {
+      if (!['/parent-dashboard', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance'].includes(currentPath)) {
         setLocation('/parent-dashboard');
       }
       return;
@@ -2485,6 +2574,14 @@ function FoundationPage() {
   };
 
   if (
+    currentPath === '/my-compliance' &&
+    authState === 'signed-in' &&
+    session
+  ) {
+    return <MyComplianceInbox userId={session.user.id} />;
+  }
+
+  if (
     currentPath === '/portal-navigation-guide' &&
     authState === 'signed-in' &&
     accessCheckState === 'success' &&
@@ -2506,6 +2603,7 @@ function FoundationPage() {
     return (
       <NexusDashboard
         email={session.user.email}
+        ownerUserId={session.user.id}
         onSignOut={() => void signOut()}
       />
     );
@@ -3115,6 +3213,7 @@ function AppRoutes() {
         <Route path="/resa-drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
+        <Route path="/my-compliance" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
         <Route path="/biometric-attendance" component={FoundationPage} />
