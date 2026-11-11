@@ -20,9 +20,60 @@ function uniqueIds(values: unknown[]) {
   return [...new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0))];
 }
 
+
+async function resolveStudentAudience(schoolId: string, studentId: string): Promise<string[]> {
+  if (!studentId) return [];
+  const ids: string[] = [];
+  const { data: student, error: studentError } = await admin
+    .from("students").select("user_id").eq("school_id", schoolId).eq("id", studentId).maybeSingle();
+  if (studentError) throw studentError;
+  if (student?.user_id) ids.push(student.user_id);
+
+  const { data: studentAccounts, error: studentAccountError } = await admin
+    .from("student_portal_accounts").select("user_id")
+    .eq("school_id", schoolId).eq("student_id", studentId).eq("is_active", true);
+  if (studentAccountError) throw studentAccountError;
+  ids.push(...(studentAccounts || []).map((item) => item.user_id));
+
+  const { data: links, error: linkError } = await admin
+    .from("student_parent_guardians").select("parent_guardian_id")
+    .eq("school_id", schoolId).eq("student_id", studentId);
+  if (linkError) throw linkError;
+  const guardianIds = uniqueIds((links || []).map((item) => item.parent_guardian_id));
+  if (guardianIds.length) {
+    const { data: parentAccounts, error: parentError } = await admin
+      .from("parent_portal_accounts").select("user_id")
+      .eq("school_id", schoolId).eq("is_active", true).in("parent_guardian_id", guardianIds);
+    if (parentError) throw parentError;
+    ids.push(...(parentAccounts || []).map((item) => item.user_id));
+  }
+  return uniqueIds(ids);
+}
+
+async function resolveClassAudience(schoolId: string, classId: string): Promise<string[]> {
+  if (!classId) return [];
+  const { data: enrolments, error } = await admin
+    .from("student_enrollments").select("student_id")
+    .eq("school_id", schoolId).eq("class_id", classId).eq("status", "active");
+  if (error) throw error;
+  const audiences = await Promise.all((enrolments || []).map((item) =>
+    resolveStudentAudience(schoolId, item.student_id)
+  ));
+  return uniqueIds(audiences.flat());
+}
+
+async function resolveStaffUser(schoolId: string, staffId: string): Promise<string[]> {
+  if (!staffId) return [];
+  const { data, error } = await admin.from("staff").select("user_id")
+    .eq("school_id", schoolId).eq("id", staffId).maybeSingle();
+  if (error) throw error;
+  return uniqueIds([data?.user_id]);
+}
+
 async function resolveRecipients(eventType: string, row: PushRecord): Promise<string[]> {
   const schoolId = String(row.school_id || "");
   if (!schoolId) return [];
+
 
   if (eventType === "school_message") {
     return uniqueIds([row.recipient_id]);
@@ -73,11 +124,67 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
     return ids.filter((id) => id !== String(row.sender_id || ""));
   }
 
+
+  if (eventType === "result_published" || eventType === "fee_update" || eventType === "fee_payment") {
+    return resolveStudentAudience(schoolId, String(row.student_id || ""));
+  }
+
+  if (eventType === "assignment_published" || eventType === "exam_published" || eventType === "timetable_update") {
+    const recipients = await resolveClassAudience(schoolId, String(row.class_id || ""));
+    if (eventType === "timetable_update" && row.staff_id) {
+      recipients.push(...await resolveStaffUser(schoolId, String(row.staff_id)));
+    }
+    return uniqueIds(recipients);
+  }
+
+  if (eventType === "assignment_graded") {
+    const recipients = await resolveStudentAudience(schoolId, String(row.student_id || ""));
+    const { data: assignment, error } = await admin.from("assignments")
+      .select("staff_id").eq("school_id", schoolId)
+      .eq("id", String(row.assignment_id || "")).maybeSingle();
+    if (error) throw error;
+    recipients.push(...await resolveStaffUser(schoolId, String(assignment?.staff_id || "")));
+    return uniqueIds(recipients);
+  }
+
+  if (eventType === "admission_admin") {
+    const { data, error } = await admin.from("school_memberships")
+      .select("user_id").eq("school_id", schoolId)
+      .eq("status", "active").eq("role", "admin");
+    if (error) throw error;
+    return uniqueIds((data || []).map((item) => item.user_id));
+  }
+
   return [];
 }
 
 function makeNotification(eventType: string, row: PushRecord) {
   const id = String(row.id || crypto.randomUUID());
+  if (eventType === "result_published") {
+    return { title: "RESA · Term results published", body: "A term result is now available in the RESA portal.", url: "/student-results", tag: "resa-result-" + id };
+  }
+  if (eventType === "assignment_published") {
+    return { title: "RESA · New assignment", body: String(row.title || "A new class assignment is available.").slice(0, 180), url: "/assignments", tag: "resa-assignment-" + id };
+  }
+  if (eventType === "assignment_graded") {
+    return { title: "RESA · Assignment graded", body: "An assignment has been marked. Check your feedback and score in the portal.", url: "/assignments", tag: "resa-graded-" + id };
+  }
+  if (eventType === "exam_published") {
+    return { title: "RESA · Exam published", body: String(row.title || "A new online exam is available.").slice(0, 180), url: "/cbt", tag: "resa-exam-" + id };
+  }
+  if (eventType === "fee_update") {
+    return { title: "RESA · School fee update", body: "Your learner's school-fee record has been updated. Sign in to review the details.", url: "/fees", tag: "resa-fee-" + id };
+  }
+  if (eventType === "fee_payment") {
+    return { title: "RESA · Payment record received", body: "A payment record has been added. Check the portal for its current verification status.", url: "/fees", tag: "resa-payment-" + id };
+  }
+  if (eventType === "timetable_update") {
+    return { title: "RESA · Timetable updated", body: "A class timetable has been changed. Review the latest schedule in the portal.", url: "/timetable", tag: "resa-timetable-" + id };
+  }
+  if (eventType === "admission_admin") {
+    return { title: "RESA · Admissions update", body: "An admission application has been submitted or its status changed.", url: "/admissions", tag: "resa-admission-" + id };
+  }
+
   if (eventType === "school_message") {
     return {
       title: String(row.subject || "").trim() || "New RESA message",
@@ -197,7 +304,7 @@ Deno.serve(async (request) => {
       return json({ accepted: true, sent, devices: subscriptions.length, expired, failures });
     }
 
-    if (!["school_message", "chat_message", "attendance", "announcement"].includes(eventType)) {
+    if (!["school_message", "chat_message", "attendance", "announcement", "result_published", "assignment_published", "assignment_graded", "exam_published", "fee_update", "fee_payment", "timetable_update", "admission_admin"].includes(eventType)) {
       return json({ error: "Unsupported notification event" }, 400);
     }
 
