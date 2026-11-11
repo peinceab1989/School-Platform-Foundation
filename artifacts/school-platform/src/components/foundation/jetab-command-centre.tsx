@@ -153,10 +153,14 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
       setActivity(eventRows);
       const actorIds = [...new Set(eventRows.map((row) => row.actor_user_id).filter((id): id is string => Boolean(id)))];
       if (actorIds.length) {
-        const directory = await client.from('people')
-          .select('user_id,first_name,last_name,email').in('user_id', actorIds);
+        const [directory, memberDirectory] = await Promise.all([
+          client.from('people').select('user_id,first_name,last_name,email').in('user_id', actorIds),
+          client.from('school_memberships').select('user_id,school_id,role,status').in('user_id', actorIds),
+        ]);
         if (directory.error) throw directory.error;
+        if (memberDirectory.error) throw memberDirectory.error;
         setPeople((directory.data ?? []) as PersonRow[]);
+        setMemberships((memberDirectory.data ?? []) as MembershipRow[]);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Daily activity records could not be loaded.');
@@ -239,6 +243,14 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
     if (tab === 'compliance') void loadCases();
   }, [tab, loadActivity, loadPeople, loadCases]);
 
+  const activityRole = (row: ActivityRow) => {
+    if (row.actor_role !== 'unknown') return row.actor_role;
+    return memberships.find((member) =>
+      member.user_id === row.actor_user_id &&
+      (!row.school_id || member.school_id === row.school_id)
+    )?.role ?? 'unknown';
+  };
+
   const personName = useCallback((userId: string | null) => {
     if (!userId) return 'Account unavailable';
     const p = people.find((item) => item.user_id === userId);
@@ -253,7 +265,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
       JSON.stringify(row.metadata ?? {}),
     ].join(' ').toLowerCase();
     return (!q || haystack.includes(q))
-      && (roleFilter === 'all' || row.actor_role === roleFilter)
+      && (roleFilter === 'all' || activityRole(row) === roleFilter)
       && (dashboardFilter === 'all' || row.dashboard === dashboardFilter)
       && (outcomeFilter === 'all' || row.outcome === outcomeFilter);
   });
@@ -429,7 +441,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
                 <strong>{row.action.replaceAll('_', ' ')}</strong>
                 <span style={{ fontSize: 12, color: '#536456' }}>{new Date(row.created_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</span>
               </div>
-              <div style={{ marginTop: 5 }}>{personName(row.actor_user_id)} · {row.actor_role} · {row.dashboard} dashboard</div>
+              <div style={{ marginTop: 5 }}>{personName(row.actor_user_id)} · {activityRole(row)} · {row.dashboard} dashboard</div>
               <div style={{ fontSize: 13, color: '#536456', overflowWrap: 'anywhere' }}>{row.route || 'Route not supplied'} · {row.outcome}</div>
               {(row.target_type || row.target_id) && <div style={{ fontSize: 12, marginTop: 4 }}>Target: {row.target_type || 'record'} {row.target_id || ''}</div>}
               {row.metadata && Object.keys(row.metadata).length > 0 && <details style={{ marginTop: 6 }}><summary>Event details</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 12 }}>{JSON.stringify(row.metadata, null, 2)}</pre></details>}
