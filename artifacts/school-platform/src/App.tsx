@@ -2547,6 +2547,7 @@ function FoundationPage() {
     return (
       <NexusDashboard
         email={session.user.email}
+        ownerUserId={session.user.id}
         onSignOut={() => void signOut()}
       />
     );
