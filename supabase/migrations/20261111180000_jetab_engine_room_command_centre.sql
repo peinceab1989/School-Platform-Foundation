@@ -484,3 +484,20 @@ begin
   end loop;
 end;
 $$;
+
+
+-- Publish case inserts so an authenticated recipient's active portal session
+-- can receive a real-time notice; row visibility remains governed by RLS.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'nexus_compliance_cases'
+     ) then
+    alter publication supabase_realtime add table public.nexus_compliance_cases;
+  end if;
+end;
+$$;
