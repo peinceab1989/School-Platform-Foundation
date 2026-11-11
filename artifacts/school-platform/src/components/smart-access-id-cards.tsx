@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import QrCodeDisplay from "@/components/qr-code-display";
+import ResaTwoSidedIdCard from "@/components/resa-two-sided-id-card";
 
 type PersonOption = { id: string; user_id: string | null; label: string; type: "student" | "staff"; is_active: boolean };
 type ParentOption = { id: string; label: string; userId: string | null };
@@ -215,30 +216,16 @@ export default function SmartAccessIdCards({
     {notice && <p role="status" className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
     {card && <div className="mt-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold">New {card.kind} ID card preview</p><button type="button" onClick={() => window.print()} className="rounded-lg border px-3 py-2 text-sm font-bold">Print ID card</button></div>
-      <article className="resa-smart-id-card relative mx-auto flex aspect-[1.586/1] w-full max-w-[420px] flex-col overflow-hidden rounded-xl border-2 border-emerald-900 bg-white p-3 text-slate-900 shadow-sm">
-        <header className="flex items-center justify-between gap-2 border-b-2 border-amber-400 pb-1.5">
-          <img src="/media/logo/resa-logo.jpg" alt="RESA crest" className="h-8 w-8 shrink-0 rounded-full object-contain" />
-          <div className="min-w-0 flex-1 text-center"><p className="text-[10px] font-black leading-tight tracking-wide text-emerald-950">RHEMA EXPLOITS SCIENCE ACADEMY INT’L</p><p className="text-[8px] font-bold tracking-[0.16em] text-emerald-800">OFFICIAL SCHOOL IDENTIFICATION</p></div>
-          <span className="text-[8px] font-black text-amber-700">RESA</span>
-        </header>
-        <div className="flex min-h-0 flex-1 items-center gap-2.5 py-2">
-          <div className="h-[76px] w-[60px] shrink-0 overflow-hidden rounded-md border border-slate-300 bg-slate-100">
-            {card.photoUrl ? <img src={card.photoUrl} alt={card.name + " passport photograph"} className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-[8px] font-bold text-slate-500">PHOTO</span>}
-          </div>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="line-clamp-2 break-words text-[11px] font-black text-slate-950">{card.name}</p>
-            <p className="mt-1 text-[8px] font-extrabold uppercase tracking-wide text-emerald-800">{card.kind === "staff" ? "STAFF IDENTIFICATION" : "PARENT / GUARDIAN ID"}</p>
-            <p className="mt-1 truncate text-[9px] font-bold text-slate-800">{card.reference}</p>
-            {card.kind === "staff" && <><p className="truncate text-[8px] text-slate-700">{card.role}</p><p className="truncate text-[8px] text-slate-700">{card.department}</p></>}
-            {card.kind === "parent" && <div className="mt-1"><p className="text-[7px] font-bold text-slate-700">LINKED CHILDREN</p>{card.children.slice(0, 2).map((name) => <p key={name} className="truncate text-[7px] text-slate-700">{name}</p>)}</div>}
-          </div>
-          <div className="flex shrink-0 flex-col items-center gap-0.5">
-            <QrCodeDisplay value={card.payload} size={76}/>
-            <span className="text-[7px] font-black tracking-wide text-slate-700">SCAN TO VERIFY</span>
-          </div>
-        </div>
-        <footer className="border-t border-amber-300 pt-1 text-center text-[7px] font-semibold text-emerald-950">PASSION • SKILLS • EXCELLENT SPIRIT</footer>
-      </article>
+      <ResaTwoSidedIdCard
+        kind={card.kind === "staff" ? "STAFF" : "PARENT / GUARDIAN"}
+        name={card.name}
+        reference={card.reference}
+        photoUrl={card.photoUrl}
+        qrPayload={card.payload}
+        roleOrClass={card.role}
+        department={card.department}
+        linkedChildren={card.children}
+      />
       <div className="mt-2 flex justify-center print:hidden"><button type="button" onClick={() => setZoomQr(true)} className="rounded-lg border border-emerald-800 px-3 py-2 text-xs font-bold text-emerald-900">Enlarge QR code</button></div>
       {zoomQr && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 print:hidden" role="dialog" aria-modal="true" aria-label="Enlarged QR code" onClick={() => setZoomQr(false)}>
         <div className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow-2xl" onClick={(event) => event.stopPropagation()}>
