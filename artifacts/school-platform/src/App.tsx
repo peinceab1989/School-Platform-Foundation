@@ -1014,6 +1014,7 @@ function NexusDashboard({
   const [readiness, setReadiness] = useState<NexusReadinessMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyModule, setBusyModule] = useState<string | null>(null);
+  const [moduleSearch, setModuleSearch] = useState('');
   const [errorText, setErrorText] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
 
@@ -1652,6 +1653,16 @@ function NexusDashboard({
                 Changes are recorded in the database audit log. Before relying on a switch to restrict a feature, confirm that the feature checks the corresponding module key on the server or through a protected database policy. UI-only hiding is not sufficient security.
               </p>
 
+              <label style={{ display: 'block', margin: '12px 0' }}>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Search all registered features</span>
+                <input
+                  type="search"
+                  value={moduleSearch}
+                  onChange={(event) => setModuleSearch(event.target.value)}
+                  placeholder="Search attendance, fees, CBT, notifications…"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: 12, border: '1px solid #cbd5cc', borderRadius: 8 }}
+                />
+              </label>
               {loading && modules.length === 0 && <p>Loading modules…</p>}
 
               {!loading && modules.length === 0 && !errorText && (
@@ -1659,7 +1670,7 @@ function NexusDashboard({
               )}
 
               <div style={{ display: 'grid', gap: 12 }}>
-                {modules.map((module) => (
+                {modules.filter((module) => `${module.display_name} ${module.module_key}`.toLowerCase().includes(moduleSearch.trim().toLowerCase())).map((module) => (
                   <article
                     key={module.id}
                     style={{
