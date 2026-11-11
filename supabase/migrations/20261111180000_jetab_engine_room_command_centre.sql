@@ -181,7 +181,7 @@ begin
   if tg_op = 'DELETE' then return old; end if;
   return new;
 end;
-$;
+$$;
 
 revoke all on function public.nexus_audit_membership_change() from public, anon, authenticated;
 
