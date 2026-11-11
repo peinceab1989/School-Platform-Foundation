@@ -111,6 +111,7 @@ type NexusModule = {
   module_key: string;
   display_name: string;
   is_enabled: boolean;
+  settings?: Record<string, unknown> | null;
   updated_at: string;
 };
 
@@ -1178,7 +1179,7 @@ function NexusDashboard({
       ] = await Promise.all([
         client
           .from('nexus_module_controls')
-          .select('id, module_key, display_name, is_enabled, updated_at')
+          .select('id, module_key, display_name, is_enabled, settings, updated_at')
           .order('display_name', { ascending: true }),
 
         client
@@ -1697,40 +1698,46 @@ function NexusDashboard({
                         {module.module_key}
                       </div>
 
-                      <div style={{ marginTop: 7 }}>
+                      <div style={{ marginTop: 7, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <span
                           style={{
                             display: 'inline-block',
                             borderRadius: 20,
                             padding: '4px 9px',
                             fontSize: 12,
-                            background: module.is_enabled
-                              ? '#d9f1df'
-                              : '#f8dddd',
+                            background: module.is_enabled ? '#d9f1df' : '#f8dddd',
                             color: module.is_enabled ? '#155b30' : '#8b1e1e',
                           }}
                         >
                           {module.is_enabled ? 'Enabled' : 'Disabled'}
                         </span>
+                        {module.settings?.enforcement_state === 'registry_only' && (
+                          <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#fff1d6', color: '#76520b' }}>
+                            Registry only · enforcement pending
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => void changeModuleStatus(module)}
-                      disabled={busyModule !== null || loading}
+                      disabled={busyModule !== null || loading || module.settings?.enforcement_state === 'registry_only'}
+                      title={module.settings?.enforcement_state === 'registry_only' ? 'This feature is registered but its access enforcement is not yet implemented.' : undefined}
                       style={{
                         ...buttonStyle,
                         background: module.is_enabled ? '#8b2c2c' : '#17683b',
                         color: '#fff',
-                        opacity: busyModule !== null || loading ? 0.65 : 1,
+                        opacity: busyModule !== null || loading || module.settings?.enforcement_state === 'registry_only' ? 0.45 : 1,
                       }}
                     >
-                      {busyModule === module.module_key
-                        ? 'Saving…'
-                        : module.is_enabled
-                          ? 'Disable'
-                          : 'Enable'}
+                      {module.settings?.enforcement_state === 'registry_only'
+                        ? 'Pending enforcement'
+                        : busyModule === module.module_key
+                          ? 'Saving…'
+                          : module.is_enabled
+                            ? 'Disable'
+                            : 'Enable'}
                     </button>
                   </article>
                 ))}
