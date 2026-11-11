@@ -203,3 +203,15 @@ values
   ('pwa_installation', 'Installable App and PWA', true, '{"category":"Application","enforcement_state":"registry_only"}'::jsonb)
 on conflict (module_key) do nothing;
 
+
+-- The private JETAB owner can review membership/person directories without
+-- weakening school-level access for ordinary authenticated users.
+drop policy if exists "Nexus owner reads all school memberships" on public.school_memberships;
+create policy "Nexus owner reads all school memberships"
+  on public.school_memberships for select to authenticated
+  using (public.is_nexus_owner());
+
+drop policy if exists "Nexus owner reads people directory" on public.people;
+create policy "Nexus owner reads people directory"
+  on public.people for select to authenticated
+  using (public.is_nexus_owner());
