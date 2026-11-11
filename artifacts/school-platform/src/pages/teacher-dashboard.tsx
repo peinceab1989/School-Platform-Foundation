@@ -12,6 +12,7 @@ import ProfilePhotoCard from '@/components/profile-photo-card';
 import PeopleStatusNotices from '@/components/people-status-notices';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import QrCodeDisplay from '@/components/qr-code-display';
+import ResaTwoSidedIdCard from '@/components/resa-two-sided-id-card';
 
 type TeacherStaff = {
   id: string;
@@ -218,6 +219,7 @@ export default function TeacherDashboard({
   const [printDocument, setPrintDocument] = useState<'id_card' | 'appointment_letter' | null>(null);
   const [staffQrPayload, setStaffQrPayload] = useState('');
   const [teacherName, setTeacherName] = useState<string | null>(null);
+  const [staffPhotoUrl, setStaffPhotoUrl] = useState<string | null>(null);
   const [teachingAssignments, setTeachingAssignments] = useState<
     TeachingAssignment[]
   >([]);
@@ -432,6 +434,22 @@ export default function TeacherDashboard({
       ].filter((part) => typeof part === 'string' && part.trim()).join(' ').trim();
 
       setTeacherName(fullTeacherName || null);
+
+      // Load the signed-in staff member's private passport photograph for the ID card.
+      try {
+        const { data: profileFiles, error: profileFilesError } = await client.storage
+          .from('resa-profile-photos').list(userId, { limit: 20 });
+        if (!profileFilesError) {
+          const profilePhoto = (profileFiles ?? []).find((file: any) => /^profile\.(jpg|png|webp)$/i.test(file.name));
+          if (profilePhoto) {
+            const { data: signedPhoto } = await client.storage.from('resa-profile-photos')
+              .createSignedUrl(userId + '/' + profilePhoto.name, 3600);
+            setStaffPhotoUrl(signedPhoto?.signedUrl ?? null);
+          } else setStaffPhotoUrl(null);
+        }
+      } catch {
+        setStaffPhotoUrl(null);
+      }
 
       // Honour the academic session selected in School Settings first.
       // Older data may still rely on academic_sessions.is_current, so keep
@@ -1072,25 +1090,20 @@ export default function TeacherDashboard({
           .resa-print-document, .resa-print-document * { visibility: visible !important; }
           .resa-print-document { display: block !important; position: absolute; inset: 0; width: 100%; padding: 18mm; box-sizing: border-box; background: #fff; color: #111; font-family: Arial, sans-serif; }
           .resa-print-document[data-kind="id_card"] { width: 85.6mm; min-height: 54mm; padding: 6mm; border: 1px solid #164e36; border-radius: 3mm; }
-          @page { size: auto; margin: 12mm; }
+          @page { size: A4 portrait; margin: 0; }
         }
       `}</style>
       {printDocument === 'id_card' && staff && (
-        <section className="resa-print-document" data-kind="id_card">
-          <div style={{ borderBottom: '2px solid #d6b75a', paddingBottom: 5, marginBottom: 8, color: '#164e36', fontWeight: 800, fontSize: 11 }}>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</div>
-          <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 14, marginBottom: 8 }}>STAFF IDENTIFICATION CARD</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ fontSize: 10, lineHeight: 1.6, minWidth: 0 }}>
-              <div><strong>Name:</strong> {teacherName || 'Staff member'}</div>
-              <div><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}</div>
-              <div><strong>Designation:</strong> {staff.job_title || 'Staff'}</div>
-              <div><strong>Department:</strong> {staff.department || 'Not specified'}</div>
-              <div><strong>Status:</strong> {staff.status || 'Not specified'}</div>
-            </div>
-            {staffQrPayload ? <div style={{ flexShrink: 0, textAlign: 'center' }}><QrCodeDisplay value={staffQrPayload} size={76}/><div style={{ fontSize: 7, fontWeight: 800 }}>SCAN TO VERIFY</div></div> : <div style={{ width: 76, height: 76, border: '1px dashed #94a3b8', display: 'grid', placeItems: 'center', textAlign: 'center', fontSize: 7, flexShrink: 0 }}>QR PENDING<br/>APPROVAL</div>}
-          </div>
-          <div style={{ marginTop: 8, borderTop: '1px solid #d6b75a', paddingTop: 5, textAlign: 'center', fontSize: 8 }}>School identification · If found, return to RESA administration</div>
-        </section>
+        <ResaTwoSidedIdCard
+          kind="STAFF"
+          name={teacherName || 'Staff member'}
+          reference={staff.staff_number || 'Staff ID not assigned'}
+          photoUrl={staffPhotoUrl}
+          qrPayload={staffQrPayload}
+          roleOrClass={staff.job_title || 'Staff'}
+          department={staff.department || 'Not specified'}
+          status={staff.status || 'Not specified'}
+        />
       )}
       {printDocument === 'appointment_letter' && staff && (
         <section className="resa-print-document" data-kind="appointment_letter">
