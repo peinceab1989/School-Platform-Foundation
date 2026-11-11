@@ -476,3 +476,89 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
     </section>
   );
 }
+
+
+export function MyComplianceInbox({ userId }: { userId: string }) {
+  const client = useMemo(() => getSupabaseClient() as any, []);
+  const [items, setItems] = useState<CaseRow[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await client.from('nexus_compliance_cases')
+        .select('id,case_number,subject_user_id,issuer_user_id,school_id,case_type,severity,title,allegation,policy_reference,status,response_due_at,decision,created_at')
+        .eq('subject_user_id', userId)
+        .neq('status', 'draft')
+        .order('created_at', { ascending: false });
+      if (result.error) throw result.error;
+      setItems((result.data ?? []) as CaseRow[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Your compliance notices could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
+  }, [client, userId]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const submitResponse = async (item: CaseRow) => {
+    const response = (drafts[item.id] ?? '').trim();
+    if (!response) {
+      setError('Write your explanation before submitting.');
+      return;
+    }
+    setBusyId(item.id); setError(''); setNotice('');
+    try {
+      const result = await client.from('nexus_compliance_responses').insert({
+        case_id: item.id,
+        responder_user_id: userId,
+        response_text: response,
+      });
+      if (result.error) throw result.error;
+      setDrafts((current) => ({ ...current, [item.id]: '' }));
+      setNotice(`Your response to ${item.case_number} has been submitted and time-stamped.`);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Your response could not be submitted.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <main style={{ minHeight: '100vh', padding: 18, background: '#f4f7f4', color: '#17251b', fontFamily: 'Arial, sans-serif' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        <section style={panel}>
+          <h1 style={{ marginTop: 0, color: '#123d2b' }}>My Queries and Warnings</h1>
+          <p style={{ color: '#58675b', lineHeight: 1.55 }}>Review notices addressed to your account. You may submit an explanation and supporting details. A notice is not, by itself, a finding of guilt.</p>
+          {error && <p role="alert" style={{ color: '#8b1e1e' }}>{error}</p>}
+          {notice && <p role="status" style={{ color: '#155b30' }}>{notice}</p>}
+          <button type="button" style={mutedButton} onClick={() => void refresh()} disabled={loading}>Refresh notices</button>
+          {loading ? <p>Loading your notices…</p> : items.length === 0 ? <p>No formal queries or warnings are currently recorded for this account.</p> : items.map((item) => (
+            <article key={item.id} style={{ border: '1px solid #dfe6df', borderRadius: 10, padding: 14, marginTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <strong>{item.case_number} · {item.title}</strong>
+                <span style={{ fontSize: 12 }}>{item.status.replaceAll('_', ' ')}</span>
+              </div>
+              <p style={{ fontSize: 13, color: '#58675b' }}>{item.case_type} · {item.severity} · Issued {new Date(item.created_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</p>
+              <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{item.allegation}</p>
+              {item.policy_reference && <p><strong>Policy reference:</strong> {item.policy_reference}</p>}
+              {item.response_due_at && <p><strong>Response deadline:</strong> {new Date(item.response_due_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</p>}
+              {['issued','under_review'].includes(item.status) && <>
+                <label style={{ display: 'block', fontWeight: 700, marginTop: 12 }}>Your explanation<textarea style={{ ...field, minHeight: 110, marginTop: 6 }} value={drafts[item.id] ?? ''} onChange={(e) => setDrafts((current) => ({ ...current, [item.id]: e.target.value }))} maxLength={8000} placeholder="Provide your explanation and any relevant context…" /></label>
+                <button type="button" style={{ ...actionButton, marginTop: 8 }} disabled={busyId === item.id} onClick={() => void submitResponse(item)}>{busyId === item.id ? 'Submitting…' : 'Submit response'}</button>
+              </>}
+              {item.decision && <p><strong>Management decision:</strong> {item.decision}</p>}
+            </article>
+          ))}
+        </section>
+      </div>
+    </main>
+  );
+}
