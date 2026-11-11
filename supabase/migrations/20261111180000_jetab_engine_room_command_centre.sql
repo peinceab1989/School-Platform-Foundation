@@ -215,3 +215,37 @@ drop policy if exists "Nexus owner reads people directory" on public.people;
 create policy "Nexus owner reads people directory"
   on public.people for select to authenticated
   using (public.is_nexus_owner());
+
+
+-- A submitted explanation automatically advances the case and creates an
+-- immutable audit event. The response itself remains visible only to its
+-- author and the verified JETAB owner.
+create or replace function public.nexus_mark_compliance_response()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.nexus_compliance_cases
+    set status = 'response_received', updated_at = now()
+    where id = new.case_id
+      and status in ('issued','under_review');
+
+  insert into public.nexus_audit_logs (actor_user_id, action, target_type, target_id, details)
+  values (
+    new.responder_user_id,
+    'compliance_response_submitted',
+    'compliance_case',
+    new.case_id::text,
+    jsonb_build_object('response_id', new.id, 'submitted_at', new.created_at)
+  );
+  return new;
+end;
+$$;
+
+revoke all on function public.nexus_mark_compliance_response() from public, anon, authenticated;
+drop trigger if exists nexus_mark_compliance_response_trigger on public.nexus_compliance_responses;
+create trigger nexus_mark_compliance_response_trigger
+after insert on public.nexus_compliance_responses
+for each row execute function public.nexus_mark_compliance_response();
