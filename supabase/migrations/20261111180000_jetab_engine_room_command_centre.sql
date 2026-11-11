@@ -173,9 +173,10 @@ begin
       'school_id', coalesce(v_new->>'school_id', v_old->>'school_id')
     )
   );
-  return case when tg_op = 'DELETE' then old else new end;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
 end;
-$$;
+$;
 
 revoke all on function public.nexus_audit_membership_change() from public, anon, authenticated;
 
