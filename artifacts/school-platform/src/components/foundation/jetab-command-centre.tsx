@@ -325,11 +325,26 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
         policy_reference: casePolicy.trim() || null,
         response_due_at: caseDue ? new Date(`${caseDue}T23:59:00+01:00`).toISOString() : null,
         status: 'issued',
-      });
+      }).select('id,case_number').single();
       if (result.error) throw result.error;
+
+      let deliveryNote = 'The recipient can review and answer it at /my-compliance.';
+      if (target?.school_id) {
+        const notice = await client.from('school_messages').insert({
+          school_id: target.school_id,
+          sender_id: ownerUserId,
+          recipient_id: caseTarget,
+          subject: `${caseType === 'query' ? 'Formal query' : 'Written warning'} · ${result.data.case_number}`,
+          message: `A formal ${caseType} has been issued. Sign in to RESA and open My Queries and Warnings (/my-compliance). Reference: ${result.data.case_number}.`,
+          channel: 'private',
+        });
+        if (notice.error) deliveryNote = 'The case was saved, but the in-app message could not be delivered from this account. Please notify the recipient through an approved channel.';
+      } else {
+        deliveryNote = 'The case was saved, but no school membership was available for in-app delivery. Please notify the recipient through an approved channel.';
+      }
       setCaseTitle(''); setCaseAllegation(''); setCasePolicy(''); setCaseDue('');
       setWarningReviewed(false);
-      setMessage('Formal case issued. The recipient can see the case after their response inbox is connected; keep a separate delivery record until then.');
+      setMessage(`Case ${result.data.case_number} issued. ${deliveryNote}`);
       await loadCases();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The query or warning could not be issued.');
