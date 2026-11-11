@@ -377,7 +377,7 @@ begin
     v_action := 'data_insert';
     select coalesce(v_new->>'id', v_new->>'student_id', v_new->>'staff_id', v_new->>'person_id')
       into v_target_id;
-    select coalesce(array_agg(k order by k), array[]::text[])::jsonb
+    select to_jsonb(coalesce(array_agg(k order by k), array[]::text[]))
       into v_changed_fields from jsonb_object_keys(v_new) as keys(k);
   elsif tg_op = 'UPDATE' then
     v_old := to_jsonb(old);
