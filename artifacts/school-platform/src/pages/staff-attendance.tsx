@@ -3,7 +3,7 @@ import { ArrowLeft, Clock3, RefreshCw, UserCheck, UserRound, LogIn, LogOut, MapP
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
-type Staff = { id: string; person_id: string; staff_number: string | null; job_title: string | null; status: string; user_id: string | null; name: string };
+type Staff = { id: string; person_id: string; staff_number: string | null; job_title: string | null; staff_category: "academic" | "non_academic" | "unclassified"; status: string; user_id: string | null; name: string };
 type RecordRow = { id: string; staff_id: string; attendance_date: string; status: string; check_in_time: string | null; check_out_time: string | null; remarks: string | null };
 type Movement = { id: string; staff_id: string; movement_type: string; purpose: string; destination: string; departure_at: string; expected_return_at: string | null; actual_return_at: string | null; status: string; remarks: string | null };
 const lagosDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -48,7 +48,7 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
     setLoading(true); setError("");
     try {
       const db = getSupabaseClient() as any;
-      const { data: s, error: se } = await db.from("staff").select("id,person_id,staff_number,job_title,status,user_id").eq("school_id", schoolId).eq("status", "active").order("staff_number");
+      const { data: s, error: se } = await db.from("staff").select("id,person_id,staff_number,job_title,staff_category,status,user_id").eq("school_id", schoolId).eq("status", "active").order("staff_number");
       if (se) throw se;
       const ids = (s ?? []).map((x: any) => x.person_id).filter(Boolean);
       const { data: p, error: pe } = ids.length ? await db.from("people").select("id,first_name,middle_name,last_name").eq("school_id", schoolId).in("id", ids) : { data: [], error: null };
@@ -179,8 +179,8 @@ export default function StaffAttendancePage({ schoolId }: { schoolId: string }) 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3"><span className="rounded-xl bg-sky-50 p-2.5 text-sky-800"><UserCheck size={21}/></span><div><h2 className="text-lg font-extrabold">Staff clock-in / clock-out</h2><p className="text-xs text-slate-500">Admin-assisted attendance station</p></div></div>
             <label className="mt-4 block text-sm font-semibold">Find staff member<input className={field} type="search" placeholder="Search by name, staff number or role" value={staffSearch} onChange={e=>setStaffSearch(e.target.value)}/></label>
-            <label className="mt-3 block text-sm font-semibold">Staff member<select className={field} value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Choose staff</option>{filteredStaff.map(s=><option key={s.id} value={s.id}>{s.name}{s.staff_number ? ` · ${s.staff_number}` : ""}</option>)}</select></label>
-            {selected && <p className="mt-2 text-xs text-slate-500">{staffById.get(selected)?.job_title || "Staff"} {staffById.get(selected)?.staff_number ? `· ${staffById.get(selected)?.staff_number}` : ""}</p>}
+            <label className="mt-3 block text-sm font-semibold">Staff member<select className={field} value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Choose staff</option>{filteredStaff.map(s=><option key={s.id} value={s.id}>{s.name}{s.staff_number ? ` · ${s.staff_number}` : ""} · {s.staff_category === "academic" ? "Academic" : s.staff_category === "non_academic" ? "Non-academic" : "Unclassified"}</option>)}</select></label>
+            {selected && <p className="mt-2 text-xs text-slate-500">{staffById.get(selected)?.job_title || "Staff"} · {staffById.get(selected)?.staff_category === "academic" ? "Academic staff" : staffById.get(selected)?.staff_category === "non_academic" ? "Non-academic staff" : "Classification pending"} {staffById.get(selected)?.staff_number ? `· ${staffById.get(selected)?.staff_number}` : ""}</p>}
             <label className="mt-3 block text-sm font-semibold">Attendance date<input type="date" className={field} value={date} onChange={e=>setDate(e.target.value)}/></label>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <button type="button" onClick={()=>void saveAttendance("check_in")} disabled={saving||!selected||!!rows.find(r=>r.staff_id===selected)?.check_in_time} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-3 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"><LogIn size={17}/> Clock in</button>
