@@ -334,37 +334,27 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
     setBusyId('new-case'); setError(''); setMessage('');
     try {
       const target = memberships.find((row) => row.user_id === caseTarget);
-      const result = await client.from('nexus_compliance_cases').insert({
-        subject_user_id: caseTarget,
-        issuer_user_id: ownerUserId,
-        school_id: target?.school_id ?? null,
-        case_type: caseType,
-        severity: caseSeverity,
-        title: caseTitle.trim(),
-        allegation: caseAllegation.trim(),
-        policy_reference: casePolicy.trim() || null,
-        response_due_at: caseDue ? new Date(`${caseDue}T23:59:00+01:00`).toISOString() : null,
-        status: 'issued',
-      }).select('id,case_number').single();
+      const dueAt = caseDue ? new Date(`${caseDue}T23:59:00+01:00`).toISOString() : null;
+      const result = await client.rpc('nexus_issue_compliance_case', {
+        p_subject_user_id: caseTarget,
+        p_school_id: target?.school_id ?? null,
+        p_case_type: caseType,
+        p_severity: caseSeverity,
+        p_title: caseTitle.trim(),
+        p_allegation: caseAllegation.trim(),
+        p_policy_reference: casePolicy.trim() || null,
+        p_response_due_at: dueAt,
+        p_warning_reviewed: warningReviewed,
+      });
       if (result.error) throw result.error;
-
-      let deliveryNote = 'The recipient can review and answer it at /my-compliance.';
-      if (target?.school_id) {
-        const notice = await client.from('school_messages').insert({
-          school_id: target.school_id,
-          sender_id: ownerUserId,
-          recipient_id: caseTarget,
-          subject: `${caseType === 'query' ? 'Formal query' : 'Written warning'} · ${result.data.case_number}`,
-          message: `A formal ${caseType} has been issued. Sign in to RESA and open My Queries and Warnings (/my-compliance). Reference: ${result.data.case_number}.`,
-          channel: 'private',
-        });
-        if (notice.error) deliveryNote = 'The case was saved, but the in-app message could not be delivered from this account. Please notify the recipient through an approved channel.';
-      } else {
-        deliveryNote = 'The case was saved, but no school membership was available for in-app delivery. Please notify the recipient through an approved channel.';
-      }
+      const issued = Array.isArray(result.data) ? result.data[0] : result.data;
+      if (!issued?.case_number) throw new Error('The database did not confirm the issued case reference.');
+      const deliveryNote = issued.notification_sent
+        ? 'An in-app message was sent to the recipient.'
+        : 'The case was saved, but in-app message delivery was not confirmed. Notify the recipient through an approved channel.';
       setCaseTitle(''); setCaseAllegation(''); setCasePolicy(''); setCaseDue('');
       setWarningReviewed(false);
-      setMessage(`Case ${result.data.case_number} issued. ${deliveryNote}`);
+      setMessage(`Case ${issued.case_number} issued. The recipient can respond at /my-compliance. ${deliveryNote}`);
       await loadCases();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The query or warning could not be issued.');
