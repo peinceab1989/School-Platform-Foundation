@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { getSupabaseClient } from '@/lib/supabase/client';
 
 type ActivityRow = {
@@ -51,14 +51,14 @@ type CaseRow = {
 
 type Tab = 'activity' | 'people' | 'compliance';
 
-const panel: React.CSSProperties = {
+const panel: CSSProperties = {
   background: '#fff',
   border: '1px solid #dfe6df',
   borderRadius: 12,
   padding: 18,
   marginTop: 16,
 };
-const field: React.CSSProperties = {
+const field: CSSProperties = {
   width: '100%',
   boxSizing: 'border-box',
   border: '1px solid #cbd5cc',
@@ -68,7 +68,7 @@ const field: React.CSSProperties = {
   color: '#17251b',
   fontSize: 14,
 };
-const actionButton: React.CSSProperties = {
+const actionButton: CSSProperties = {
   border: '1px solid #cbd5cc',
   borderRadius: 8,
   padding: '9px 12px',
@@ -77,12 +77,12 @@ const actionButton: React.CSSProperties = {
   fontWeight: 700,
   cursor: 'pointer',
 };
-const mutedButton: React.CSSProperties = {
+const mutedButton: CSSProperties = {
   ...actionButton,
   background: '#f3f6f3',
   color: '#263a2b',
 };
-const grid: React.CSSProperties = {
+const grid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
   gap: 10,
@@ -261,7 +261,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
     } finally { setBusyId(null); }
   };
 
-  const issueCase = async (event: React.FormEvent<HTMLFormElement>) => {
+  const issueCase = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!caseTarget || !caseTitle.trim() || !caseAllegation.trim()) {
       setError('Choose a person and complete the title and incident details.');
