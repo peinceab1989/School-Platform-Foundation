@@ -5,7 +5,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import QrAttendancePanel from "@/components/qr-attendance-panel";
 import AttendanceQrApprovals from "@/components/attendance-qr-approvals";
 
-type Student = { id: string; person_id: string; admission_number: string; name: string; class_id: string; session_id: string };
+type Student = { id: string; person_id: string; admission_number: string; name: string; class_id: string; session_id: string; has_current_enrolment: boolean };
 type Device = { id: string; device_name: string; device_type: string; location: string | null; is_active: boolean };
 type EventRow = { id: string; student_id: string; event_type: "check_in" | "check_out"; event_time: string; verification_method: string };
 const lagosDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -55,10 +55,19 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
       const currentSession = (sessionResult.data ?? []).find((s: any) => s.is_current)?.id ?? sessionResult.data?.[0]?.id;
       const enrollments = new Map<string, any>();
       for (const row of enrollmentResult.data ?? []) if (!enrollments.has(String(row.student_id)) && (!currentSession || row.academic_session_id === currentSession)) enrollments.set(String(row.student_id), row);
-      const roster: Student[] = studentRows.flatMap((s: any) => {
+      // Attendance eligibility comes from the active student record, not enrolment.
+      // A newly registered learner must remain visible while class/session assignment is pending.
+      const roster: Student[] = studentRows.map((s: any) => {
         const enrollment = enrollments.get(String(s.id));
-        if (!enrollment) return [];
-        return [{ id: String(s.id), person_id: String(s.person_id), admission_number: String(s.admission_number), name: people.get(String(s.person_id)) || String(s.admission_number), class_id: String(enrollment.class_id), session_id: String(enrollment.academic_session_id) }];
+        return {
+          id: String(s.id),
+          person_id: String(s.person_id),
+          admission_number: String(s.admission_number),
+          name: people.get(String(s.person_id)) || String(s.admission_number),
+          class_id: enrollment ? String(enrollment.class_id) : "",
+          session_id: enrollment ? String(enrollment.academic_session_id) : "",
+          has_current_enrolment: Boolean(enrollment),
+        };
       });
       setStudents(roster);
       setDevices((deviceResult.data ?? []) as Device[]);
@@ -173,7 +182,7 @@ export default function BiometricAttendancePage({ schoolId }: { schoolId: string
       <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4 sm:p-5"><div><h2 className="text-lg font-extrabold">Student check-in / check-out</h2><p className="mt-1 text-sm text-slate-600">Search by student name or admission number. All actions are timestamped in Lagos time.</p></div><button type="button" onClick={()=>void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><RefreshCw size={15} className={loading?"animate-spin":""}/> Refresh</button></div>
         <label className="relative mx-4 mt-4 block"><Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/><input className="w-full rounded-xl border px-3 py-3 pl-10 text-sm" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search student name or admission number…"/></label>
-        {loading?<p className="p-8 text-center text-sm text-slate-500">Loading student roster…</p>:filteredStudents.length===0?<p className="p-8 text-center text-sm text-slate-500">No enrolled students match this search.</p>:<div className="mt-3 divide-y">{filteredStudents.map(student=>{const studentEvents=events.filter(e=>e.student_id===student.id);const checkedIn=studentEvents.some(e=>e.event_type==="check_in");const checkedOut=studentEvents.some(e=>e.event_type==="check_out");return <article key={student.id} className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-slate-50"><div className="min-w-0"><p className="font-bold">{student.name}</p><p className="mt-1 text-xs text-slate-500">{student.admission_number} · {studentEvents[0]?studentEvents[0].event_type.replace("_"," ")+ " "+timeLabel(studentEvents[0].event_time):"No check-in recorded today"}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={()=>void recordEvent(student,"check_in")} disabled={!selectedDevice||!!saving||checkedIn} className="inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"><LogIn size={16}/>{saving===student.id+"check_in"?"Saving…":"Clock in"}</button><button type="button" onClick={()=>void recordEvent(student,"check_out")} disabled={!selectedDevice||!!saving||!checkedIn||checkedOut} className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-bold text-amber-900 disabled:opacity-40"><LogOut size={16}/>{saving===student.id+"check_out"?"Saving…":"Clock out"}</button></div></article>})}</div>}
+        {loading?<p className="p-8 text-center text-sm text-slate-500">Loading student roster…</p>:filteredStudents.length===0?<p className="p-8 text-center text-sm text-slate-500">No enrolled students match this search.</p>:<div className="mt-3 divide-y">{filteredStudents.map(student=>{const studentEvents=events.filter(e=>e.student_id===student.id);const checkedIn=studentEvents.some(e=>e.event_type==="check_in");const checkedOut=studentEvents.some(e=>e.event_type==="check_out");return <article key={student.id} className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-slate-50"><div className="min-w-0"><p className="font-bold">{student.name}</p><p className="mt-1 text-xs text-slate-500">{student.admission_number} · {student.has_current_enrolment ? "Current class assigned" : "Class/session assignment pending"} · {studentEvents[0]?studentEvents[0].event_type.replace("_"," ")+ " "+timeLabel(studentEvents[0].event_time):"No check-in recorded today"}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={()=>void recordEvent(student,"check_in")} disabled={!selectedDevice||!!saving||checkedIn} className="inline-flex items-center gap-2 rounded-xl bg-emerald-800 px-3 py-2.5 text-sm font-bold text-white disabled:opacity-40"><LogIn size={16}/>{saving===student.id+"check_in"?"Saving…":"Clock in"}</button><button type="button" onClick={()=>void recordEvent(student,"check_out")} disabled={!selectedDevice||!!saving||!checkedIn||checkedOut} className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-bold text-amber-900 disabled:opacity-40"><LogOut size={16}/>{saving===student.id+"check_out"?"Saving…":"Clock out"}</button></div></article>})}</div>}
       </section>
       <section className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-extrabold">10:00 AM attendance checkpoint alerts</h2><p className="mt-1 text-sm text-slate-600">Repeated admin/HR reminders stop when the alert is acknowledged or the person checks in.</p></div><span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900">{checkpointAlerts.filter(a=>a.alert_status==="pending").length} pending</span></div>
