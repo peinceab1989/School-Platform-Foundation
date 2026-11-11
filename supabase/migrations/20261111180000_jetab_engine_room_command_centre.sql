@@ -217,6 +217,17 @@ create policy "Nexus owner reads all school memberships"
   on public.school_memberships for select to authenticated
   using (public.is_nexus_owner());
 
+-- The Engine Room owner-only membership manager performs direct membership
+-- insert/update/delete operations. Keep these privileges isolated to the
+-- verified Nexus owner; ordinary school users retain existing policies.
+drop policy if exists "Nexus owner manages all school memberships" on public.school_memberships;
+create policy "Nexus owner manages all school memberships"
+  on public.school_memberships for all to authenticated
+  using (public.is_nexus_owner())
+  with check (public.is_nexus_owner());
+
+grant select, insert, update, delete on public.school_memberships to authenticated;
+
 drop policy if exists "Nexus owner reads people directory" on public.people;
 create policy "Nexus owner reads people directory"
   on public.people for select to authenticated
