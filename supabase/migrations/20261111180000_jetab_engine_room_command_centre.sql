@@ -291,6 +291,13 @@ begin
     raise exception 'A title and incident explanation are required';
   end if;
 
+  if p_school_id is not null and not exists (
+    select 1 from public.school_memberships m
+    where m.user_id = p_subject_user_id and m.school_id = p_school_id
+  ) then
+    raise exception 'The recipient does not belong to the selected school';
+  end if;
+
   insert into public.nexus_compliance_cases (
     subject_user_id, issuer_user_id, school_id, case_type, severity,
     title, allegation, policy_reference, response_due_at, status
@@ -299,7 +306,7 @@ begin
     trim(p_title), trim(p_allegation), nullif(trim(coalesce(p_policy_reference,'')), ''),
     p_response_due_at, 'issued'
   )
-  returning id, public.nexus_compliance_cases.case_number
+  returning id, case_number
   into v_case_id, v_case_number;
 
   insert into public.nexus_audit_logs (
