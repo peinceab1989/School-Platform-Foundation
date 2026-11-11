@@ -37,7 +37,12 @@ create policy "Nexus owner reads activity events"
 drop policy if exists "Users record their own dashboard activity" on public.nexus_activity_events;
 create policy "Users record their own dashboard activity"
   on public.nexus_activity_events for insert to authenticated
-  with check (actor_user_id = (select auth.uid()));
+  with check (
+    actor_user_id = (select auth.uid())
+    and action = 'dashboard_visit'
+    and route is not null
+    and metadata->>'source' = 'client_route_tracker'
+  );
 
 revoke update, delete on public.nexus_activity_events from anon, authenticated;
 grant select, insert on public.nexus_activity_events to authenticated;
