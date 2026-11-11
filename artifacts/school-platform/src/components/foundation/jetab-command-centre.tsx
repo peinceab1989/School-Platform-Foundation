@@ -161,6 +161,9 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
         if (memberDirectory.error) throw memberDirectory.error;
         setPeople((directory.data ?? []) as PersonRow[]);
         setMemberships((memberDirectory.data ?? []) as MembershipRow[]);
+      } else {
+        setPeople([]);
+        setMemberships([]);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Daily activity records could not be loaded.');
@@ -260,7 +263,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
   const filteredActivity = activity.filter((row) => {
     const q = search.trim().toLowerCase();
     const haystack = [
-      row.actor_user_id, personName(row.actor_user_id), row.dashboard,
+      row.actor_user_id, personName(row.actor_user_id), people.find((item) => item.user_id === row.actor_user_id)?.email, row.dashboard,
       row.route, row.action, row.target_type, row.target_id, row.outcome,
       JSON.stringify(row.metadata ?? {}),
     ].join(' ').toLowerCase();
@@ -391,7 +394,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
     const header = ['time_lagos','actor_user_id','actor_name','role','dashboard','route','action','outcome','target_type','target_id','metadata'];
     const rows = filteredActivity.map((row) => [
       new Date(row.created_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' }),
-      row.actor_user_id ?? '', personName(row.actor_user_id), row.actor_role,
+      row.actor_user_id ?? '', personName(row.actor_user_id), activityRole(row),
       row.dashboard, row.route ?? '', row.action, row.outcome,
       row.target_type ?? '', row.target_id ?? '', JSON.stringify(row.metadata ?? {}),
     ]);
@@ -427,7 +430,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
           <label>Daily record date (Nigeria)<input style={field} type="date" value={day} onChange={(e) => setDay(e.target.value)} /></label>
           <label>Search user, action or page<input style={field} value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name, email, action, route…" /></label>
           <label>Role<select style={field} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}><option value="all">All roles</option>{['admin','teacher','student','parent','staff','unknown'].map((r) => <option key={r}>{r}</option>)}</select></label>
-          <label>Dashboard<select style={field} value={dashboardFilter} onChange={(e) => setDashboardFilter(e.target.value)}><option value="all">All dashboards</option>{['admin','teacher','student','parent','staff','public','unknown'].map((r) => <option key={r}>{r}</option>)}</select></label>
+          <label>Dashboard<select style={field} value={dashboardFilter} onChange={(e) => setDashboardFilter(e.target.value)}><option value="all">All dashboards</option>{['admin','teacher','student','parent','staff','jetab','public','unknown'].map((r) => <option key={r}>{r}</option>)}</select></label>
           <label>Outcome<select style={field} value={outcomeFilter} onChange={(e) => setOutcomeFilter(e.target.value)}><option value="all">All outcomes</option>{['success','failure','attempt','unknown'].map((r) => <option key={r}>{r}</option>)}</select></label>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '14px 0' }}>
