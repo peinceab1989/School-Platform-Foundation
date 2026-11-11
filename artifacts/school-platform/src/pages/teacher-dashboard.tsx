@@ -440,7 +440,7 @@ export default function TeacherDashboard({
         const { data: profileFiles, error: profileFilesError } = await client.storage
           .from('resa-profile-photos').list(userId, { limit: 20 });
         if (!profileFilesError) {
-          const profilePhoto = (profileFiles ?? []).find((file: any) => /^profile\\.(jpg|png|webp)$/i.test(file.name));
+          const profilePhoto = (profileFiles ?? []).find((file: any) => /^profile\.(jpg|png|webp)$/i.test(file.name));
           if (profilePhoto) {
             const { data: signedPhoto } = await client.storage.from('resa-profile-photos')
               .createSignedUrl(userId + '/' + profilePhoto.name, 3600);
