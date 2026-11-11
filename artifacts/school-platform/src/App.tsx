@@ -102,7 +102,7 @@ import {
   hasSupabaseConfig,
 } from '@/lib/supabase/client';
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from '@/lib/notifications/push';
-import JetabCommandCentre from '@/components/foundation/jetab-command-centre';
+import JetabCommandCentre, { MyComplianceInbox } from '@/components/foundation/jetab-command-centre';
 
 const queryClient = new QueryClient();
 
@@ -198,6 +198,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/assignments',
   '/school-communication',
   '/notifications',
+  '/my-compliance',
   '/external-cbt',
   '/school-cctv',
 ];
@@ -2196,14 +2197,14 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance') {
         setLocation('/student-dashboard');
       }
       return;
     }
 
     if (parentMembership) {
-      if (!['/parent-dashboard', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password'].includes(currentPath)) {
+      if (!['/parent-dashboard', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance'].includes(currentPath)) {
         setLocation('/parent-dashboard');
       }
       return;
@@ -2524,6 +2525,14 @@ function FoundationPage() {
       setLocation('/jetab-engine-room');
     }
   };
+
+  if (
+    currentPath === '/my-compliance' &&
+    authState === 'signed-in' &&
+    session
+  ) {
+    return <MyComplianceInbox userId={session.user.id} />;
+  }
 
   if (
     currentPath === '/portal-navigation-guide' &&
@@ -3157,6 +3166,7 @@ function AppRoutes() {
         <Route path="/resa-drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
+        <Route path="/my-compliance" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
         <Route path="/biometric-attendance" component={FoundationPage} />
