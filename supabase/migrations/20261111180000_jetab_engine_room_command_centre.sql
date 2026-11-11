@@ -249,3 +249,92 @@ drop trigger if exists nexus_mark_compliance_response_trigger on public.nexus_co
 create trigger nexus_mark_compliance_response_trigger
 after insert on public.nexus_compliance_responses
 for each row execute function public.nexus_mark_compliance_response();
+
+
+-- Secure owner-only issuance creates the case and attempts an in-app notice
+-- in one transaction. The notice is best-effort so an unrelated messaging
+-- permission/configuration issue cannot silently discard the formal case.
+create or replace function public.nexus_issue_compliance_case(
+  p_subject_user_id uuid,
+  p_school_id uuid,
+  p_case_type text,
+  p_severity text,
+  p_title text,
+  p_allegation text,
+  p_policy_reference text default null,
+  p_response_due_at timestamptz default null,
+  p_warning_reviewed boolean default false
+)
+returns table (case_id uuid, case_number text, notification_sent boolean)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_case_id uuid;
+  v_case_number text;
+  v_notice_sent boolean := false;
+begin
+  if not public.is_nexus_owner() then
+    raise exception 'Access denied: Nexus owner only';
+  end if;
+  if p_subject_user_id is null then
+    raise exception 'A recipient account is required';
+  end if;
+  if p_case_type not in ('query','warning') then
+    raise exception 'Unsupported compliance document type';
+  end if;
+  if p_case_type = 'warning' and p_warning_reviewed is not true then
+    raise exception 'A warning requires documented human review';
+  end if;
+  if length(trim(coalesce(p_title,''))) = 0 or length(trim(coalesce(p_allegation,''))) = 0 then
+    raise exception 'A title and incident explanation are required';
+  end if;
+
+  insert into public.nexus_compliance_cases (
+    subject_user_id, issuer_user_id, school_id, case_type, severity,
+    title, allegation, policy_reference, response_due_at, status
+  ) values (
+    p_subject_user_id, (select auth.uid()), p_school_id, p_case_type, p_severity,
+    trim(p_title), trim(p_allegation), nullif(trim(coalesce(p_policy_reference,'')), ''),
+    p_response_due_at, 'issued'
+  )
+  returning id, public.nexus_compliance_cases.case_number
+  into v_case_id, v_case_number;
+
+  insert into public.nexus_audit_logs (
+    actor_user_id, action, target_type, target_id, details
+  ) values (
+    (select auth.uid()), 'compliance_case_issued', 'compliance_case', v_case_id::text,
+    jsonb_build_object(
+      'case_number', v_case_number,
+      'subject_user_id', p_subject_user_id,
+      'case_type', p_case_type,
+      'severity', p_severity
+    )
+  );
+
+  if p_school_id is not null then
+    begin
+      insert into public.school_messages (
+        school_id, sender_id, recipient_id, subject, message, channel
+      ) values (
+        p_school_id,
+        (select auth.uid()),
+        p_subject_user_id,
+        case when p_case_type = 'query' then 'Formal query · ' else 'Written warning · ' end || v_case_number,
+        'A formal ' || p_case_type || ' has been issued. Sign in to RESA and open My Queries and Warnings (/my-compliance). Reference: ' || v_case_number || '.',
+        'private'
+      );
+      v_notice_sent := true;
+    exception when others then
+      v_notice_sent := false;
+    end;
+  end if;
+
+  return query select v_case_id, v_case_number, v_notice_sent;
+end;
+$$;
+
+revoke all on function public.nexus_issue_compliance_case(uuid,uuid,text,text,text,text,text,timestamptz,boolean) from public, anon;
+grant execute on function public.nexus_issue_compliance_case(uuid,uuid,text,text,text,text,text,timestamptz,boolean) to authenticated;
