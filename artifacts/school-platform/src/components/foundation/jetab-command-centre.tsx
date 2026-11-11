@@ -149,7 +149,15 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
         .gte('created_at', start).lt('created_at', end)
         .order('created_at', { ascending: false }).limit(1000);
       if (result.error) throw result.error;
-      setActivity((result.data ?? []) as ActivityRow[]);
+      const eventRows = (result.data ?? []) as ActivityRow[];
+      setActivity(eventRows);
+      const actorIds = [...new Set(eventRows.map((row) => row.actor_user_id).filter((id): id is string => Boolean(id)))];
+      if (actorIds.length) {
+        const directory = await client.from('people')
+          .select('user_id,first_name,last_name,email').in('user_id', actorIds);
+        if (directory.error) throw directory.error;
+        setPeople((directory.data ?? []) as PersonRow[]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Daily activity records could not be loaded.');
     } finally {
