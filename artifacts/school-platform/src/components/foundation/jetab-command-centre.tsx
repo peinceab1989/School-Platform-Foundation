@@ -509,7 +509,7 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
           {responses.filter((response) => response.case_id === item.id).map((response) => <div key={response.id} style={{ marginTop: 10, padding: 10, borderRadius: 8, background: '#f3f6f3' }}><strong>Recipient response · {new Date(response.created_at).toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })}</strong><p style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{response.response_text}</p></div>)}
           {item.decision && <p><strong>Decision:</strong> {item.decision}</p>}
         </article>)}
-        <p style={{ fontSize: 12, color: '#68766b', marginTop: 12 }}>The case record is created in the database. Recipient-facing delivery, response inbox and appeal workflow must be tested before this centre is used for formal disciplinary notices.</p>
+        <p style={{ fontSize: 12, color: '#68766b', marginTop: 12 }}>Formal notices are delivered through the RESA in-app messaging channel when available. Recipients can review the case and submit a time-stamped response in My Queries and Warnings. Management must review the evidence and response before recording a decision; an issued query is not a finding of guilt. An independent appeal workflow is not yet included.</p>
       </>}
     </section>
   );
