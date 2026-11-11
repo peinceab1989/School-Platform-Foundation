@@ -113,7 +113,6 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [cases, setCases] = useState<CaseRow[]>([]);
-  const [responses, setResponses] = useState<Record<string, string>>({});
 
   const [day, setDay] = useState(lagosDate());
   const [search, setSearch] = useState('');
@@ -122,6 +121,9 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
   const [outcomeFilter, setOutcomeFilter] = useState('all');
   const [peopleSearch, setPeopleSearch] = useState('');
   const [peopleRole, setPeopleRole] = useState('all');
+  const [newUserId, setNewUserId] = useState('');
+  const [newSchoolId, setNewSchoolId] = useState('');
+  const [newRole, setNewRole] = useState<MembershipRow['role']>('admin');
   const [caseSearch, setCaseSearch] = useState('');
   const [caseStatus, setCaseStatus] = useState('all');
 
@@ -184,11 +186,26 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
     setLoading(true);
     setError('');
     try {
-      const result = await client.from('nexus_compliance_cases')
-        .select('id,case_number,subject_user_id,issuer_user_id,school_id,case_type,severity,title,allegation,policy_reference,status,response_due_at,decision,created_at')
-        .order('created_at', { ascending: false }).limit(500);
-      if (result.error) throw result.error;
-      setCases((result.data ?? []) as CaseRow[]);
+      const [caseResult, membershipResult] = await Promise.all([
+        client.from('nexus_compliance_cases')
+          .select('id,case_number,subject_user_id,issuer_user_id,school_id,case_type,severity,title,allegation,policy_reference,status,response_due_at,decision,created_at')
+          .order('created_at', { ascending: false }).limit(500),
+        client.from('school_memberships')
+          .select('id,user_id,school_id,role,status,created_at')
+          .order('created_at', { ascending: false }).limit(1000),
+      ]);
+      if (caseResult.error) throw caseResult.error;
+      if (membershipResult.error) throw membershipResult.error;
+      const memberRows = (membershipResult.data ?? []) as MembershipRow[];
+      setMemberships(memberRows);
+      const ids = [...new Set(memberRows.map((row) => row.user_id).filter(Boolean))];
+      if (ids.length) {
+        const directory = await client.from('people')
+          .select('user_id,first_name,last_name,email').in('user_id', ids);
+        if (directory.error) throw directory.error;
+        setPeople((directory.data ?? []) as PersonRow[]);
+      }
+      setCases((caseResult.data ?? []) as CaseRow[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Compliance cases could not be loaded.');
     } finally {
@@ -245,6 +262,29 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
       await loadPeople();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Membership could not be updated.');
+    } finally { setBusyId(null); }
+  };
+
+  const addMembership = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newUserId.trim() || !newSchoolId.trim()) {
+      setError('Enter the existing Auth user ID and school ID.');
+      return;
+    }
+    setBusyId('new-membership'); setError(''); setMessage('');
+    try {
+      const result = await client.from('school_memberships').insert({
+        user_id: newUserId.trim(),
+        school_id: newSchoolId.trim(),
+        role: newRole,
+        status: 'active',
+      });
+      if (result.error) throw result.error;
+      setNewUserId(''); setNewSchoolId('');
+      setMessage('Membership added to the selected school. The user must already have a valid Auth account.');
+      await loadPeople();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The school membership could not be added.');
     } finally { setBusyId(null); }
   };
 
@@ -375,6 +415,16 @@ export default function JetabCommandCentre({ ownerUserId }: { ownerUserId: strin
 
       {tab === 'people' && <>
         <p style={{ color: '#58675b', lineHeight: 1.55 }}>Manage a person's school membership without deleting their authentication account or permanent school records. Removing a membership revokes that school access only.</p>
+        <form onSubmit={(e) => void addMembership(e)} style={{ border: '1px solid #dfe6df', borderRadius: 10, padding: 14, margin: '12px 0' }}>
+          <strong>Add an existing account to a school</strong>
+          <p style={{ fontSize: 12, color: '#68766b' }}>This assigns an existing Auth account to a school role; it does not create an account or password.</p>
+          <div style={grid}>
+            <label>Auth user ID<input required style={field} value={newUserId} onChange={(e) => setNewUserId(e.target.value)} placeholder="Existing UUID" /></label>
+            <label>School ID<input required style={field} value={newSchoolId} onChange={(e) => setNewSchoolId(e.target.value)} placeholder="School UUID" /></label>
+            <label>Role<select style={field} value={newRole} onChange={(e) => setNewRole(e.target.value as MembershipRow['role'])}>{['admin','teacher','student','parent'].map((r) => <option key={r}>{r}</option>)}</select></label>
+          </div>
+          <button type="submit" style={{ ...actionButton, marginTop: 10 }} disabled={busyId === 'new-membership'}>{busyId === 'new-membership' ? 'Adding…' : 'Add school membership'}</button>
+        </form>
         <div style={grid}>
           <label>Search people<input style={field} value={peopleSearch} onChange={(e) => setPeopleSearch(e.target.value)} placeholder="Name, user ID, role…" /></label>
           <label>Role<select style={field} value={peopleRole} onChange={(e) => setPeopleRole(e.target.value)}><option value="all">All roles</option>{['admin','teacher','student','parent'].map((r) => <option key={r}>{r}</option>)}</select></label>
