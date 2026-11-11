@@ -24,6 +24,7 @@ import {
 } from '@/components/foundation/foundation-app-view';
 
 import AdminPortalShell from '@/components/admin-portal-shell';
+import ResaAssistantWidget from '@/components/resa-assistant-widget';
 const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
 import PeopleStatusNotices from '@/components/people-status-notices';
@@ -64,6 +65,7 @@ const StudentCbtPage = lazy(() => import('@/pages/student-cbt'));
 const PortalNavigationGuidePage = lazy(() => import('@/pages/portal-navigation-guide'));
 const StudentAssignmentsPanel = lazy(() => import('@/pages/student-assignments-panel'));
 const Home = lazy(() => import('@/pages/home'));
+const ResaMapsExplorerPage = lazy(() => import('@/pages/resa-maps-explorer'));
 const PortalOptionsPage = lazy(() => import('@/pages/portal-options'));
 const StudentPracticeDrillsPage = lazy(() => import('@/pages/student-practice-drills'));
 const TeachingMaterialsPage = lazy(() => import('@/pages/teaching-materials'));
@@ -3158,6 +3160,7 @@ function AppRoutes() {
         <Route path="/admissions-apply" component={AdmissionsApplicationPage} />
         <Route path="/external-cbt-registration" component={ExternalCbtRegistrationPage} />
         <Route path="/contact" component={() => <ContactPage />} />
+        <Route path="/maps" component={ResaMapsExplorerPage} />
         <Route path="/portal-options" component={() => <PortalOptionsPage />} />
         <Route path="/practice-drills" component={() => <StudentPracticeDrillsPage />} />
         <Route path="/teaching-materials" component={FoundationPage} />
@@ -3248,6 +3251,7 @@ function App() {
           </main>
         }>
           <AppRoutes />
+          <ResaAssistantWidget />
         </Suspense>
       </WouterRouter>
     </QueryClientProvider>

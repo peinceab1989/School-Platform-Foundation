@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, BookOpen, GraduationCap, Users, ShieldCheck } from "lucide-react";
 
@@ -57,6 +58,23 @@ const sections = [
 ];
 
 export default function PortalNavigationGuidePage() {
+  const [question, setQuestion] = useState("");
+  const [asked, setAsked] = useState(false);
+  const guidance = useMemo(() => {
+    const q = question.trim().toLowerCase();
+    if (!q) return [];
+    return sections.flatMap(section =>
+      section.items
+        .filter(([label, , description]) => `${label} ${description} ${section.title}`.toLowerCase().includes(q))
+        .map(([label, href, description]) => ({
+          role: section.title,
+          label,
+          href,
+          description,
+        })),
+    );
+  }, [question]);
+
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 sm:px-6">
     <div className="mx-auto max-w-6xl space-y-5">
       <header className="rounded-2xl bg-emerald-950 p-5 text-white sm:p-7">
@@ -65,6 +83,22 @@ export default function PortalNavigationGuidePage() {
         <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Portal Navigation Guide</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-100">A practical guide to the main tasks available to administrators, teachers, students and parents. Menu visibility depends on your active role and permissions.</p>
       </header>
+      <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex items-center gap-2 text-emerald-900"><BookOpen size={20}/><h2 className="text-lg font-extrabold">Ask the RESA Portal Guide</h2></div>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Search the approved navigation guide using everyday words, such as “take attendance”, “publish results”, “pay fees” or “assign a teacher”. Results link to the relevant portal area.</p>
+        <form onSubmit={event => { event.preventDefault(); setAsked(true); }} className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <input value={question} onChange={event => { setQuestion(event.target.value); setAsked(false); }} placeholder="What would you like to do in RESA?" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"/>
+          <button className="rounded-xl bg-emerald-900 px-5 py-3 text-sm font-bold text-white">Find instructions</button>
+        </form>
+        {asked && <div className="mt-4 space-y-3" aria-live="polite">
+          {guidance.length ? guidance.map(item => <article key={item.label} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">{item.role}</p>
+            <h3 className="mt-1 font-extrabold text-slate-900">{item.label}</h3>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{item.description}</p>
+            <Link href={item.href} className="mt-2 inline-flex text-sm font-bold text-emerald-800 underline underline-offset-4">Open this section →</Link>
+          </article>) : <p className="rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900">I could not find an exact match in the current approved guide. Try a shorter keyword or contact RESA Customer Care. This guide does not guess at procedures it has not been taught.</p>}
+        </div>}
+      </section>
       <div className="grid gap-4 md:grid-cols-2">
         {sections.map(section => {
           const Icon = section.icon;

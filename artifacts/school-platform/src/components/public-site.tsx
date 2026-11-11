@@ -23,6 +23,7 @@ const primaryPages = [
   { href: "/academics", label: "Academics" },
   { href: "/admissions", label: "Admissions" },
   { href: "/contact", label: "Contact" },
+  { href: "/maps", label: "Maps & Directions" },
 ];
 
 const explorePages = [
