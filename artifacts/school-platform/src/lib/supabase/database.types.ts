@@ -181,6 +181,7 @@ export interface Database {
           staff_number?: string | null;
           job_title?: string | null;
           department?: string | null;
+          staff_category?: string;
           status?: string;
           created_at?: string;
           user_id?: string | null;
