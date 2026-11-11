@@ -1913,29 +1913,37 @@ function FoundationPage() {
     if (lastRecordedRouteVisit.current === visitKey) return;
     lastRecordedRouteVisit.current = visitKey;
 
-    const actorRole = teacherMembership ? 'teacher'
-      : adminMembership ? 'admin'
-      : studentMembership ? 'student'
-      : parentMembership ? 'parent'
-      : 'unknown';
-    const dashboard = currentPath.includes('teacher') ? 'teacher'
-      : currentPath.includes('student') || currentPath.includes('cbt') ? 'student'
-      : currentPath.includes('parent') ? 'parent'
-      : currentPath === '/jetab-engine-room' || currentPath === '/nexus' ? 'jetab'
-      : adminMembership ? 'admin'
-      : 'unknown';
+    void (async () => {
+      let actorRole = teacherMembership ? 'teacher'
+        : adminMembership ? 'admin'
+        : studentMembership ? 'student'
+        : parentMembership ? 'parent'
+        : 'unknown';
+      const db = getSupabaseClient() as any;
+      if (actorRole === 'unknown') {
+        const staffRecord = await db.from('staff').select('id')
+          .eq('user_id', session.user.id).limit(1).maybeSingle();
+        if (staffRecord.data) actorRole = 'staff';
+      }
+      const dashboard = currentPath.includes('teacher') ? 'teacher'
+        : currentPath.includes('student') || currentPath.includes('cbt') ? 'student'
+        : currentPath.includes('parent') ? 'parent'
+        : currentPath.includes('staff') ? 'staff'
+        : currentPath === '/jetab-engine-room' || currentPath === '/nexus' ? 'jetab'
+        : adminMembership ? 'admin'
+        : 'unknown';
 
-    const db = getSupabaseClient() as any;
-    void db.from('nexus_activity_events').insert({
-      actor_user_id: session.user.id,
-      school_id: notificationMembership?.schoolId ?? null,
-      actor_role: actorRole,
-      dashboard,
-      route: currentPath,
-      action: 'dashboard_visit',
-      outcome: 'success',
-      metadata: { source: 'client_route_tracker' },
-    });
+      await db.from('nexus_activity_events').insert({
+        actor_user_id: session.user.id,
+        school_id: notificationMembership?.schoolId ?? null,
+        actor_role: actorRole,
+        dashboard,
+        route: currentPath,
+        action: 'dashboard_visit',
+        outcome: 'success',
+        metadata: { source: 'client_route_tracker' },
+      });
+    })();
   }, [
     authState, accessCheckState, membershipsLoading, session?.user?.id,
     currentPath, teacherMembership, adminMembership, studentMembership,
