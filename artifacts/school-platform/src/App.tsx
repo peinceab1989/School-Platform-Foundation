@@ -1902,9 +1902,11 @@ function FoundationPage() {
   // Route visits are recorded centrally. This is not proof of a data-changing
   // action; sensitive record changes need database-side audit coverage.
   useEffect(() => {
-    if (authState !== 'signed-in' || accessCheckState !== 'success' ||
-        membershipsLoading || !session?.user?.id || !currentPath ||
-        currentPath === '/portal') return;
+    const privateEngineRoom = currentPath === '/jetab-engine-room' || currentPath === '/nexus';
+    if (authState !== 'signed-in' ||
+        (!privateEngineRoom && accessCheckState !== 'success') ||
+        (membershipsLoading && !privateEngineRoom) ||
+        !session?.user?.id || !currentPath || currentPath === '/portal') return;
 
     const actorRole = teacherMembership ? 'teacher'
       : adminMembership ? 'admin'
