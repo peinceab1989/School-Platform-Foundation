@@ -101,7 +101,8 @@ export default function SmartAccessIdCards({
     } finally { setBusy(""); }
   }
 
-  async function issueStaffCard() {
+  async function issueStaffCard(replaceExisting = false) {
+    if (replaceExisting && !window.confirm('Create a replacement QR for this staff member? The current QR will be revoked and the replacement will require approval.')) return;
     const person = people.find((item) => item.id === staffId && item.type === "staff" && item.is_active);
     if (!person) { setError("Select a staff member."); return; }
     setBusy("staff"); setError(""); setNotice(""); setCard(null);
@@ -114,11 +115,11 @@ export default function SmartAccessIdCards({
       if (staffError) throw staffError;
       if (!staff) throw new Error("The selected staff record could not be found.");
       const { data, error: rpcError } = await client.rpc("resa_issue_attendance_qr", {
-        p_school_id: schoolId, p_person_type: "staff", p_person_id: person.id, p_token_hash: hash,
+        p_school_id: schoolId, p_person_type: "staff", p_person_id: person.id, p_token_hash: hash, p_replace: replaceExisting,
       });
       if (rpcError) throw rpcError;
       if (!data?.credential_id) throw new Error("The staff QR credential was not issued.");
-      setNotice("A staff QR was created for " + person.label + " and is awaiting administrator approval. Load the existing staff card after approval to display and print the QR.");
+      setNotice(data.already_exists ? "The existing staff QR for " + person.label + " was retained. Status: " + data.approval_status + ". No duplicate was created." : "A staff QR was " + (replaceExisting ? "replaced" : "created") + " for " + person.label + " and is awaiting administrator approval. After approval it will appear automatically on the staff dashboard ID card.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Staff QR card could not be issued.");
     } finally { setBusy(""); }
@@ -195,7 +196,7 @@ export default function SmartAccessIdCards({
             {people.filter((item) => item.type === "staff" && item.is_active).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label>
-        <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void loadExistingStaffCard()} disabled={busy !== "" || !staffId || !staffQrEnabled} className="rounded-xl border border-emerald-800 px-4 py-3 text-sm font-bold text-emerald-900 disabled:opacity-50">{busy === "staff" ? "Loading…" : "Load existing staff card"}</button><button type="button" onClick={() => void issueStaffCard()} disabled={busy !== "" || !staffId || !staffQrEnabled} className="rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy === "staff" ? "Working…" : "Issue / rotate QR (admin)"}</button></div>
+        <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void loadExistingStaffCard()} disabled={busy !== "" || !staffId || !staffQrEnabled} className="rounded-xl border border-emerald-800 px-4 py-3 text-sm font-bold text-emerald-900 disabled:opacity-50">{busy === "staff" ? "Loading…" : "Load existing staff card"}</button><button type="button" onClick={() => void issueStaffCard(false)} disabled={busy !== "" || !staffId || !staffQrEnabled} className="rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busy === "staff" ? "Working…" : "Create QR if missing"}</button><button type="button" onClick={() => void issueStaffCard(true)} disabled={busy !== "" || !staffId || !staffQrEnabled} className="rounded-xl border border-amber-400 px-4 py-3 text-sm font-bold text-amber-900 disabled:opacity-50">Replace existing QR</button></div>
         {!staffQrEnabled && <p className="mt-2 text-xs text-amber-800">Enable Staff QR attendance in School feature controls first.</p>}
       </div>
       <div className="rounded-xl border p-4">

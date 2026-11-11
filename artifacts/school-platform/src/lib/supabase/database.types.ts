@@ -426,6 +426,15 @@ export interface Database {
         };
         Returns: boolean;
       };
+
+      resa_get_active_attendance_qr: {
+        Args: {
+          p_school_id: string;
+          p_person_type: string;
+          p_person_id: string;
+        };
+        Returns: string | null;
+      };
     };
 
     Enums: {
