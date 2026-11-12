@@ -76,7 +76,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return employees.filter((e) => {
-      const matchesStatus = statusFilter === "all" || e.status.toLowerCase() === statusFilter;
+      const matchesStatus = statusFilter === "all" || String(e.status ?? "active").toLowerCase() === statusFilter;
       const text = [e.first_name, e.middle_name, e.last_name, e.staff_number, e.job_title, e.department, e.email, e.phone].filter(Boolean).join(" ").toLowerCase();
       return matchesStatus && (!q || text.includes(q));
     });
@@ -143,9 +143,9 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
     await loadEmployees();
   }
 
-  const active = employees.filter((e) => e.status.toLowerCase() === "active").length;
-  const suspended = employees.filter((e) => e.status.toLowerCase() === "suspended").length;
-  const left = employees.filter((e) => ["left", "inactive", "terminated"].includes(e.status.toLowerCase())).length;
+  const active = employees.filter((e) => String(e.status ?? "active").toLowerCase() === "active").length;
+  const suspended = employees.filter((e) => String(e.status ?? "active").toLowerCase() === "suspended").length;
+  const left = employees.filter((e) => ["left", "inactive", "terminated"].includes(String(e.status ?? "active").toLowerCase())).length;
 
   return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 sm:p-6">
     <div className="mx-auto max-w-7xl space-y-6">
@@ -192,7 +192,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
         <div className="mt-5 flex items-center gap-2"><Users size={19} className="text-green-800"/><h2 className="font-bold">Employee directory</h2><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold">{filtered.length}</span></div>
         {loading ? <p className="py-12 text-center text-sm text-slate-500">Loading employee records…</p> : filtered.length === 0 ? <div className="py-12 text-center"><BriefcaseBusiness className="mx-auto text-slate-300" size={36}/><p className="mt-3 font-semibold">No employee records found</p><p className="mt-1 text-sm text-slate-500">Add an employee or change your search filters.</p></div> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {filtered.map(e=><article key={e.id} className="rounded-xl border border-slate-200 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{e.first_name} {e.middle_name ? e.middle_name+" " : ""}{e.last_name}</h3><p className="mt-1 text-xs font-semibold text-green-800">{e.staff_number || "No staff ID assigned"}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${e.status.toLowerCase()==="active"?"bg-green-100 text-green-800":e.status.toLowerCase()==="suspended"?"bg-red-100 text-red-800":"bg-amber-100 text-amber-800"}`}>{e.status}</span></div>
+            <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{e.first_name} {e.middle_name ? e.middle_name+" " : ""}{e.last_name}</h3><p className="mt-1 text-xs font-semibold text-green-800">{e.staff_number || "No staff ID assigned"}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${String(e.status ?? "active").toLowerCase()==="active"?"bg-green-100 text-green-800":String(e.status ?? "active").toLowerCase()==="suspended"?"bg-red-100 text-red-800":"bg-amber-100 text-amber-800"}`}>{e.status || "Active"}</span></div>
             <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-slate-600 sm:grid-cols-2"><p><span className="font-semibold text-slate-800">Job:</span> {e.job_title || "Not set"}</p><p><span className="font-semibold text-slate-800">Department:</span> {e.department || "Not set"}</p><p className="break-all"><span className="font-semibold text-slate-800">Email:</span> {e.email || "Not provided"}</p><p><span className="font-semibold text-slate-800">Phone:</span> {e.phone || "Not provided"}</p><p className="sm:col-span-2"><span className="font-semibold text-slate-800">Record created:</span> {new Date(e.created_at).toLocaleDateString()}</p></div>
             <div className="mt-4 rounded-xl bg-slate-50 p-3">
               <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-600">Staff document permissions</p>
@@ -202,7 +202,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
               </div>
               <p className="mt-2 text-xs text-slate-500">Staff can print only documents explicitly enabled here.</p>
             </div>
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">{e.status.toLowerCase()!=="active" && <button onClick={()=>void changeStatus(e,"active")} className="rounded-lg border border-green-200 px-3 py-2 text-xs font-bold text-green-800 hover:bg-green-50">Set active</button>}{e.status.toLowerCase()!=="suspended" && <button onClick={()=>void changeStatus(e,"suspended")} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50">Suspend</button>}{!["left","inactive","terminated"].includes(e.status.toLowerCase()) && <button onClick={()=>void changeStatus(e,"left")} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-50">Mark as left</button>}</div>
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">{String(e.status ?? "active").toLowerCase()!=="active" && <button onClick={()=>void changeStatus(e,"active")} className="rounded-lg border border-green-200 px-3 py-2 text-xs font-bold text-green-800 hover:bg-green-50">Set active</button>}{String(e.status ?? "active").toLowerCase()!=="suspended" && <button onClick={()=>void changeStatus(e,"suspended")} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-800 hover:bg-amber-50">Suspend</button>}{!["left","inactive","terminated"].includes(String(e.status ?? "active").toLowerCase()) && <button onClick={()=>void changeStatus(e,"left")} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-50">Mark as left</button>}</div>
           </article>)}
         </div>}
       </section>
