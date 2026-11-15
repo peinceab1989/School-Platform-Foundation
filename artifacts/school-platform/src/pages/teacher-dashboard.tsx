@@ -369,7 +369,7 @@ export default function TeacherDashboard({
           const { data: linkedStaff, error: linkedStaffError } =
             await client
               .from('staff')
-              .select('id, staff_number, job_title, department, status')
+              .select('id, person_id, staff_number, job_title, department, status')
               .eq('school_id', schoolId)
               .eq('person_id', person.id)
               .limit(1)
