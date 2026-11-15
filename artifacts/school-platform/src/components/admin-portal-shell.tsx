@@ -149,7 +149,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
         </div>
       </header>
       <main className="resa-page-content"><div style={{ marginBottom: 10, borderRadius: 14, background: "#123d2b", padding: 8, maxWidth: 250 }}><ProfilePhotoCard userId={userId} displayName={visibleName} roleLabel="School Administrator" compact /></div>{children}</main>
-      <footer className="resa-app-footer"><span>© {new Date().getFullYear()} {schoolName}</span><span>Designed &amp; Powered by <strong>JETAB TECH</strong></span><span>RESA Portal · v1.0</span></footer>
+      <footer className="resa-app-footer"><span>© {new Date().getFullYear()} {schoolName}</span><span>Designed &amp; Powered by <a href="https://jetab-tech.pages.dev" target="_blank" rel="noopener noreferrer" aria-label="Visit JETAB TECH Marketplace (opens in a new tab)" className="font-semibold underline underline-offset-2">JETAB TECH</a></span><span>RESA Portal · v1.0</span></footer>
     </div>
   </div>;
 }
