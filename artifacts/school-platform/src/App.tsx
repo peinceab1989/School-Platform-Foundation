@@ -2214,7 +2214,7 @@ function FoundationPage() {
     if (teacherMembership) {
       if (
         currentPath === '/dashboard' ||
-        (currentPath === '/student-dashboard' || currentPath === '/dashboard') ||
+        currentPath === '/student-dashboard' ||
         currentPath === '/student-cbt' ||
         currentPath === '/student-assignments' ||
         currentPath === '/assignments' ||
