@@ -220,3 +220,58 @@ Do not publish service-level claims until sufficient production measurements exi
 5. Convert confirmed defects into small, isolated pull requests with tests and acceptance evidence.
 
 **Definition of done:** RESA is ready for operational launch only when the critical role-based workflows pass, security findings have documented dispositions, backups have a proven recovery path, and the deployed production SHA is traceable to an approved, tested repository commit.
+
+## 9. Release-candidate readiness snapshot — 15 November 2026
+
+**Current disposition: NOT APPROVED FOR PRODUCTION RELEASE.** The repository is suitable for continued review of the isolated changes below, but production release remains blocked until the outstanding deployment, security and operational acceptance gates are closed.
+
+### 9.1 Verified change candidates
+
+| Pull request | Scope | Evidence | Release disposition |
+|---|---|---|---|
+| [#85](https://github.com/peinceab1989/School-Platform-Foundation/pull/85) | Correct administrator name initials when names contain whitespace | TypeScript and production build passed; `resa-digital-campus` preview passed | Ready for code review; not merged |
+| [#87](https://github.com/peinceab1989/School-Platform-Foundation/pull/87) | Include `person_id` in teacher fallback staff lookup | TypeScript and production build passed; `resa-digital-campus` preview passed | Ready for code review; not merged |
+| [#88](https://github.com/peinceab1989/School-Platform-Foundation/pull/88) | Correct three notification destination paths | TypeScript, production build and RESA Edge Function typecheck passed; `resa-digital-campus` preview passed at commit `e5abbfcb760f0934c459f360380c441b21e1c56d` | Ready for code review; not merged; push Edge Function not deployed |
+| [#86](https://github.com/peinceab1989/School-Platform-Foundation/pull/86) | Document SECURITY DEFINER exposure and review boundaries | Documentation-only inventory | Review document; it does not remediate database findings |
+| [#84](https://github.com/peinceab1989/School-Platform-Foundation/pull/84) | This release-quality and acceptance standard | Documentation-only baseline | Review and approve the standard |
+
+All changes above remain unmerged. No production deployment, database permission change, migration, or destructive data operation was performed.
+
+### 9.2 Deployment gate status
+
+| Target | Latest evidence | Status |
+|---|---|---|
+| `resa-digital-campus` Cloudflare Pages preview | Successful preview for PR #88 at commit `e5abbfc` | Preview passed; not proof of production release |
+| `jetab-tech` Cloudflare Pages project | Build failure on PR #88 | Unresolved; determine whether this integration is an intended RESA target or a stale/incorrect project association |
+| Legacy Netlify checks | Redirect/header/pages checks fail for the two connected Netlify projects | Unresolved; the school previously reported exhausted Netlify build minutes. Confirm logs/quota and decide whether these checks should be retired after Cloudflare is formally designated as the release host |
+| RESA production URL | Exact currently deployed SHA not independently confirmed | Release blocker |
+
+The release owner must designate one canonical production host and verify its production deployment SHA against the approved repository commit. A preview success is not production approval.
+
+### 9.3 Remaining production blockers
+
+1. **Security sign-off:** complete function-by-function review of SECURITY DEFINER functions, validate cross-school and record-level authorisation, review overlapping RLS policies, confirm the two no-policy tables are server-only by design, and enable leaked-password protection after controlled authentication tests.
+2. **Role acceptance:** execute recorded admin, teacher, student and parent tests using dedicated test accounts, including denial tests for unrelated schools and records.
+3. **Critical workflows:** test admissions, enrolment, attendance, parent alerts, assignments/grading, CBT timing/submission/publication, fees/payment verification/receipts, results, messaging and Drive upload/download.
+4. **Notifications:** verify event-triggered delivery and preference handling on real Android devices; deploy the corrected Edge Function only after approval and a controlled test.
+5. **Data recovery:** verify backup coverage and complete a restore rehearsal in an isolated environment without modifying production.
+6. **Release host:** resolve the duplicate Cloudflare/Netlify integrations, document the canonical host, confirm environment bindings without exposing secret values, and test SPA routing, authentication redirects and storage access.
+7. **Operational acceptance:** obtain school-side sign-off for workflows that affect attendance, grades, money, student identity and child collection.
+8. **External dependencies:** document provider accounts, credentials, pricing and data-protection obligations before enabling WhatsApp, online payments, conferencing or biometric hardware. These are not currently verified as live integrations.
+
+### 9.4 Approval checklist
+
+A reviewer may approve individual code changes when their own checks pass. The overall RESA production release must remain **NO-GO** until every P0 item below is evidenced:
+
+- [ ] Security review signed off; no unresolved critical/high exposure.
+- [ ] Four-role end-to-end acceptance results recorded.
+- [ ] Critical school workflows pass in a controlled test environment.
+- [ ] Backup restore rehearsal passes.
+- [ ] Canonical production host and exact release SHA confirmed.
+- [ ] Production environment configuration checked without revealing secrets.
+- [ ] Approved changes merged in a controlled sequence.
+- [ ] Production deployment explicitly authorised.
+- [ ] Post-deployment smoke tests pass and rollback target is available.
+- [ ] School owner accepts the release.
+
+**Release rule:** approval of a pull request is not approval to deploy. Production release requires a separate explicit authorisation after the evidence above is complete.
