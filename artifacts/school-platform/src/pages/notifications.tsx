@@ -17,6 +17,7 @@ type Notice = {
 
 export default function NotificationsPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
   const [items, setItems] = useState<Notice[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,11 +39,18 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       void getResaPushRegistrationStatus(schoolId)
         .then(status => setPushStatus({ registered: status.registered, supported: status.supported, detail: status.detail }))
         .catch(() => setPushStatus({ registered: false, supported: true, detail: "Could not verify this phone's registration." }));
-      const [messageResult, announcementResult, chatResult] = await Promise.all([
+      const [messageResult, announcementResult, chatResult, directUnreadResult, chatUnreadResult] = await Promise.all([
         db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at,channel").eq("school_id", schoolId).eq("recipient_id", uid).order("sent_at", { ascending: false }).limit(100),
         db.from("announcements").select("id,title,content,announcement_type,is_published,published_at,created_at,expires_at").eq("school_id", schoolId).eq("is_published", true).order("published_at", { ascending: false }).limit(50),
         db.from("resa_chat_messages").select("id,conversation_id,sender_id,body,created_at").eq("school_id", schoolId).order("created_at", { ascending: false }).limit(100),
+        db.from("school_messages").select("id", { count: "exact", head: true }).eq("school_id", schoolId).eq("recipient_id", uid).eq("is_read", false),
+        db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
       ]);
+      if (!directUnreadResult.error && !chatUnreadResult.error) {
+        setUnreadCount((directUnreadResult.count ?? 0) + Number(chatUnreadResult.data || 0));
+      } else {
+        setNotice("The inbox is loaded, but the full unread count could not be verified. Refresh or reconnect to retry.");
+      }
       if (messageResult.error && announcementResult.error) {
         throw new Error("Messages and announcements could not be loaded. " + messageResult.error.message + " / " + announcementResult.error.message);
       }
@@ -86,13 +94,16 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     try {
       db = getSupabaseClient();
       channel = db.channel("resa-notifications-" + schoolId)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
-          if (payload.new?.recipient_id === userId) {
+        .on("postgres_changes", { event: "*", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
+          if (payload.new?.recipient_id === userId || payload.old?.recipient_id === userId) {
             void load();
           }
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
           if (payload.new?.sender_id !== userId) void load();
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "resa_chat_message_reads", filter: "school_id=eq." + schoolId }, (payload: any) => {
+          if (payload.new?.user_id === userId || payload.old?.user_id === userId) void load();
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
           // The authenticated app-level listener handles the phone alert once;
@@ -116,6 +127,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         if (updateError) throw updateError;
       } else return;
       setItems(previous => previous.map(n => n.id === item.id ? { ...n, unread: false } : n));
+      setUnreadCount(previous => Math.max(0, previous - 1));
     } catch (e) { setError(e instanceof Error ? e.message : "Could not mark this notification as read."); }
   }
 
@@ -146,7 +158,6 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     }
   }
 
-  const unreadCount = items.filter(item => (item.kind === "message" || item.kind === "chat") && item.unread).length;
   const filteredItems = useMemo(() => items.filter(item => {
     const itemDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.createdAt));
     const matchesDate = itemDate === selectedDate;
