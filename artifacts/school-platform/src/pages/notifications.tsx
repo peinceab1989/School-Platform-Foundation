@@ -28,8 +28,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   const [pushStatus, setPushStatus] = useState({ registered: false, supported: typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, detail: "Checking this device…" });
   const [testBusy, setTestBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    setError("");
     try {
       const db = getSupabaseClient() as any;
       const { data: auth, error: authError } = await db.auth.getUser();
@@ -83,7 +84,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, channel: "chat" }));
       setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); }
-    finally { setLoading(false); }
+    finally { if (!quiet) setLoading(false); }
   }, [schoolId]);
 
   useEffect(() => { void load(); }, [load]);
@@ -96,23 +97,39 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       channel = db.channel("resa-notifications-" + schoolId)
         .on("postgres_changes", { event: "*", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
           if (payload.new?.recipient_id === userId || payload.old?.recipient_id === userId) {
-            void load();
+            void load(true);
           }
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
-          if (payload.new?.sender_id !== userId) void load();
+          if (payload.new?.sender_id !== userId) void load(true);
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "resa_chat_message_reads", filter: "school_id=eq." + schoolId }, (payload: any) => {
-          if (payload.new?.user_id === userId || payload.old?.user_id === userId) void load();
+          if (payload.new?.user_id === userId || payload.old?.user_id === userId) void load(true);
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
           // The authenticated app-level listener handles the phone alert once;
           // this page only refreshes the inbox to avoid duplicate notifications.
-          void load();
+          void load(true);
         }).subscribe();
     } catch { /* Refresh remains available if Realtime is not configured. */ }
     return () => { if (db && channel) void db.removeChannel(channel); };
   }, [schoolId, userId, load]);
+
+  useEffect(() => {
+    const refreshQuietly = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) void load(true);
+    };
+    const timer = window.setInterval(refreshQuietly, 20000);
+    window.addEventListener("focus", refreshQuietly);
+    window.addEventListener("online", refreshQuietly);
+    document.addEventListener("visibilitychange", refreshQuietly);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshQuietly);
+      window.removeEventListener("online", refreshQuietly);
+      document.removeEventListener("visibilitychange", refreshQuietly);
+    };
+  }, [load]);
 
   async function markRead(item: Notice) {
     if (!item.unread) return;
