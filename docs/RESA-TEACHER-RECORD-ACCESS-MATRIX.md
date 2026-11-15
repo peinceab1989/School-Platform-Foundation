@@ -118,3 +118,21 @@ For each test, record role, school, assignment/session, target student, table, e
 This file is a design artifact only. No live SQL, RLS policies, grants, data, Auth settings, Edge Functions or hosting settings were changed. Do not merge or deploy a future migration solely because it compiles; the isolated role tests and owner review are mandatory.
 
 **Release disposition: NO-GO until the above controls are implemented and evidenced.**
+
+## 9. Live assignment readiness snapshot — 15 November 2026
+
+A read-only aggregate query against the live project found:
+
+| Metric | Snapshot |
+|---|---:|
+| Current academic sessions | 1 |
+| Active teacher memberships | 7 |
+| Current-session subject/class assignment rows with active staff and membership | 42 |
+| Distinct teachers with current subject/class assignments | 3 |
+| Current-session form-teacher assignment rows with active staff and membership | 0 |
+| Distinct teachers with current form-teacher assignments | 0 |
+| Current-session subject/class assignments with missing or inactive staff | 0 |
+
+This is a readiness observation, not a reason to change records. It means the strict target policy cannot assume that form-teacher assignments are already configured. Before any policy rollout, the school must review and enter its real current-session form-teacher assignments through the approved admin workflow. Until then, the target form-teacher-only record categories should remain administrator-only rather than silently falling back to school-wide teacher access.
+
+The 42 assignment rows are not proof that all seven active teacher accounts have the correct class/subject allocations. Verify the actual assignment roster with school leadership before enabling assignment-based access. Do not create or guess assignments from aggregate counts.
