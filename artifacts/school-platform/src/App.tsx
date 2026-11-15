@@ -643,7 +643,35 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-extrabold text-emerald-950">School fees & payments</h2><p className="mt-1 text-sm text-slate-600">Charges, due dates and balances for your linked learners.</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">Parent view</span></div>
           {overviewLoading ? <p className="mt-4 text-sm text-slate-500">Loading fee information…</p> : feeRows.length === 0 ? <p className="mt-4 rounded-xl border border-dashed p-4 text-sm leading-6 text-slate-600">No fee charges have been published to your parent account yet. For payment instructions, contact the school through <Link href="/school-communication" className="font-bold text-emerald-800 underline">School Messages</Link>.</p> : <div className="mt-4 overflow-x-auto rounded-xl border"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50"><tr><th className="px-3 py-3">Learner</th><th className="px-3 py-3">Amount due</th><th className="px-3 py-3">Paid</th><th className="px-3 py-3">Balance</th><th className="px-3 py-3">Due date</th><th className="px-3 py-3">Status</th></tr></thead><tbody>{feeRows.map((row) => { const paid = paidByAssignment[String(row.id)] || 0; const due = Number(row.amount_due || 0); const balance = Math.max(0, due - paid); return <tr key={String(row.id)} className="border-t"><td className="px-3 py-3"><p className="font-semibold">{childName(String(row.student_id))}</p><p className="mt-1 text-xs text-slate-500">{feeTypeNames[String(row.fee_type_id)] || "School fee"}</p></td><td className="px-3 py-3">{money(due)}</td><td className="px-3 py-3">{money(paid)}</td><td className="px-3 py-3 font-bold">{money(balance)}</td><td className="px-3 py-3">{row.due_date ? new Date(String(row.due_date) + "T00:00:00").toLocaleDateString("en-NG") : "—"}</td><td className="px-3 py-3">{balance <= 0 ? "Paid" : paid > 0 ? "Part-paid" : String(row.status || "Outstanding")}</td></tr>; })}</tbody></table></div>}
-          <p className="mt-3 text-xs leading-5 text-slate-500">Online card/bank checkout is not enabled. Confirm payment instructions directly with RESA Finance before making any payment.</p>
+          <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold uppercase tracking-[.14em] text-emerald-800">Choose how to pay</p>
+                <h3 className="mt-1 text-base font-extrabold text-emerald-950">You are in control of your payment method</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">RESA will keep your fee balance updated after the Finance Office confirms that payment has been received.</p>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">Optional methods</span>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">₦</span>
+                  <div><p className="font-extrabold text-slate-900">Pay online with Paystack</p><p className="text-xs font-semibold text-amber-700">Not yet activated</p></div>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">A convenient online option will be provided when RESA completes its secure Paystack setup. Any applicable transaction fee will be shown before you confirm payment.</p>
+                <p className="mt-2 text-xs text-slate-500">You will never be required to use online checkout.</p>
+              </div>
+              <div className="rounded-xl border border-emerald-200 bg-white p-4">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">↗</span>
+                  <div><p className="font-extrabold text-emerald-950">Contact RESA Customer Care</p><p className="text-xs font-semibold text-emerald-700">Alternative payment instructions</p></div>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Prefer not to use Paystack? Contact the school to ask about approved alternatives such as direct bank transfer or payment at the school office.</p>
+                <a href={`https://wa.me/2348058422691?text=${encodeURIComponent(`Hello RESA Customer Care. Please share the approved alternative payment instructions for ${children.map(child => child.name).join(", ") || "my linked learner(s)"}. My parent portal shows an outstanding balance of ${money(totalBalance)}.`) }`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-2.5 text-center text-sm font-extrabold text-white transition hover:bg-emerald-800">Ask for alternative payment options</a>
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500">Safety notice: Please use only payment instructions confirmed by RESA. Do not send cash or transfer money to a personal account supplied by an unverified person. Keep your payment evidence until Finance confirms it.</p>
+          </div>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-extrabold text-emerald-950">Payment history & receipts</h2>
