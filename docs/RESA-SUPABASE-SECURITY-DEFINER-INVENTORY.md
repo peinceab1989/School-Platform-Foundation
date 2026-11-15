@@ -147,3 +147,80 @@ Remediation references:
 The health advisor returned no lints in this snapshot. This does not replace functional testing, security review or production monitoring.
 
 **Change control:** No advisor finding was automatically remediated. In particular, no RLS policy, extension, index, function grant or Auth setting was changed during this update. Each proposed fix must have a reviewed migration or documented dashboard change, a rollback plan, and positive plus negative role-based tests.
+
+
+## 8. Deeper read-only review — 15 November 2026, approximately 07:50 UTC
+
+This section records direct inspection of selected live function bodies, grants, RLS policies, parent access state and public RPC behaviour. It remains a read-only review. No production SQL, grants, records, Auth settings or functions were changed.
+
+### 8.1 Confirmed positive controls
+
+- All 50 SECURITY DEFINER function definitions inspected have `SET search_path = ''`. This reduces search-path hijacking risk; explicit schema qualification is still required and was present in the selected definitions reviewed.
+- The two rate/event tables flagged as RLS-enabled with no policies have RLS enabled, no policies, and no SELECT/INSERT/UPDATE privileges for either `anon` or `authenticated`. Their present state is deny-by-default. Do not add client policies merely to clear the informational lint.
+- `get_public_customer_care_status` was tested read-only: the configured RESA school UUID returned `true`; an unrelated all-zero UUID returned `false`. The function remains intentionally public for the website widget, but is tenant-scoped.
+- `get_resa_public_announcements()` returned two currently published public announcements in this snapshot. Its function body filters by the fixed RESA school UUID, `is_published = true`, publication time not in the future and expiry not elapsed.
+- `get_resa_website_content(null)` returned zero rows in this snapshot. Its body is restricted to published, current content for the fixed RESA school UUID. Keep this endpoint public only for fields/content that are approved for public display.
+- `has_school_role` derives identity from `auth.uid()` and checks an active membership for the supplied school and requested roles.
+- `is_nexus_owner` derives owner status from the server-side `nexus_owners` table keyed to `auth.uid()`; it does not rely on editable user metadata.
+- The selected staff approval/suspension RPCs require an authenticated caller with an active admin role for the supplied school and validate the target teacher membership and staff row.
+- `nexus_set_module_enabled` calls `is_nexus_owner()`, locks the target module row, updates only an existing module and records an audit entry.
+- `resa_submit_parent_access_request` checks that the signed-in user owns an active parent portal account and that any selected child is linked to that guardian before inserting a pending request.
+- `resa_grade_assignment_submission` checks active teacher membership, the assigned staff/class/subject/session relationship, submission state and score bounds before grading.
+- `resa_mark_cbt_answer` and `resa_transfer_cbt_attempt` enforce admin-only marking/transfer, submitted attempt state, question/mark bounds, completeness and protection against overwriting transferred or published results.
+- The live parent portal records currently have zero mismatches between `parent_portal_accounts.is_active` and `parents_guardians.portal_enabled`; zero inactive accounts currently retain an active child link.
+
+### 8.2 Items requiring an explicit security/owner decision
+
+**A. Teacher scope in `can_access_student_record` — HIGH PRIORITY TO CONFIRM**
+
+The live helper returns true for any active teacher membership in the supplied school once the student belongs to that school. It does not itself check whether the teacher is assigned to that student's class, subject or form group. This helper is referenced by 19 public RLS policies, including student awards, certificates, character assessments, enrollment history, hobbies/interests, transfer/withdrawal records, library fines and house points.
+
+This may reflect an intentional school-wide teacher visibility policy, but it is broader than an assigned-class-only model. The school owner must explicitly confirm whether every active teacher should read all these student-linked records. If not, replace the broad teacher branch with a tested class/form/subject assignment scope in an isolated environment first. Do not alter the live helper or policies until positive and negative tests prove that teachers retain exactly the required access.
+
+**B. Parent access revocation — HARDENING CANDIDATE**
+
+`parent_can_access_guardian` and `parent_can_access_student` derive identity from the guardian's linked `people.user_id`, `portal_enabled` and active parent-child link. They do not independently require an active row in `parent_portal_accounts` or an active parent `school_memberships` row.
+
+The current Parent Management UI suspends access by updating the parent membership, `parent_portal_accounts.is_active` and `parents_guardians.portal_enabled` sequentially. There are no triggers on those three tables to make this a single database transaction. The current production records are consistent (zero mismatches), and the UI attempts all three changes; however, a partial failure or another admin workflow that changes only one flag could leave helper-based RLS access active.
+
+Before release, test a parent account suspension where each update fails in turn, and verify that the user immediately loses access to all 22 policies using `parent_can_access_student` and all 9 policies using `parent_can_access_guardian`. Preferred hardening is to make the helpers also require the active parent account/membership, or to replace the sequential UI updates with a single transactional admin RPC. This must be migration-reviewed and tested in isolation before production.
+
+**C. Verified school-fee payment — FINANCIAL INTEGRITY TEST REQUIRED**
+
+The live `record_verified_school_fee_payment` RPC requires an authenticated school admin, finite positive amount, an allowed payment method, a same-school fee assignment locked `FOR UPDATE`, and a balance check. It creates the payment and receipt in the same database transaction and updates the assignment balance. This is a useful atomicity control.
+
+The inspected function does not implement an explicit idempotency key or duplicate-reference rejection. A repeated administrator submission after a timeout could create a second payment/receipt if sufficient balance remains. This is not proof of an existing duplicate, but it is a release test and hardening requirement: use a unique, validated payment reference/idempotency token where available, and test retries/concurrent submissions in a disposable environment. Do not treat a browser redirect or unverified Paystack callback as proof of payment.
+
+**D. Child collection manual fallback — SAFEGUARDING POLICY CONFIRMATION**
+
+`resa_record_child_collection_release` requires an authenticated admin or teacher, the school's pickup feature enabled, an active student in the same school, and a documented collector name and verification note. It supports three paths: approved unused authorization with matching collector, valid linked parent QR, or `manual_verified` fallback. The manual fallback does not require a parent QR or pre-approved authorization; its evidence is the staff identity and required verification note.
+
+Confirm that RESA's safeguarding policy permits this fallback and define who may use it, what identity checks are mandatory, and whether supervisor approval is required. Test wrong-school student IDs, expired/consumed authorization, wrong collector, invalid/revoked QR, inactive station and duplicate release. Do not disable the fallback without a school-approved operational alternative.
+
+### 8.3 Automated test coverage gap
+
+The current `.github/workflows/resa-portal-checks.yml` performs dependency installation, workspace TypeScript checks, production builds and Deno typechecks for four Edge Functions. It does not run unit tests, SQL policy tests, browser tests or role-based end-to-end tests. The repository tree inspected for this review did not expose a Playwright, Cypress, Vitest or Jest test suite.
+
+The historical RESA demo/navigation guide records database workflow checks using DEMO data, but explicitly states that live authenticated browser sessions were not available for every teacher, student and parent account. Therefore those checks are not equivalent to a current four-role acceptance test.
+
+Required pre-release test matrix:
+
+| Role | Required positive tests | Required negative tests |
+|---|---|---|
+| Administrator | Student/staff management, approvals, attendance, publishing, finance verification, safeguarding, reports and audit history | Cannot access another school's records; only authorised admin/Nexus owner actions succeed |
+| Teacher | Assigned class/subject attendance, materials, assignments, submissions and grading | Cannot grade another teacher's unassigned work or change finance/admin/Nexus settings |
+| Student | Own dashboard, assigned materials/assignments, eligible published CBT, own results and attendance | Cannot view another learner, unpublished exams/answers, staff/admin screens or another student's records |
+| Parent | Own linked children, published results, authorised fees/receipts, attendance, messages and access requests | Cannot access unrelated children, other parents, unpublished results, private staff data or school administration |
+
+Each test must be executed with real test identities on a staging copy or a controlled DEMO dataset. Record the account role, school, expected outcome, actual outcome, timestamp and screenshot/log evidence. Include wrong-school, wrong-parent, wrong-student, unassigned-teacher, suspended-account, expired-token and duplicate-request cases.
+
+### 8.4 Release disposition after deeper review
+
+- No confirmed anonymous data leak was identified in the three public RPCs inspected; the customer-care RPC is now scoped to RESA, announcements are publication/expiry filtered, and the public website-content query returned no current rows.
+- The two no-policy event tables are currently protected by absent API grants and RLS.
+- No bulk permission change is justified by the advisor warnings alone.
+- **The teacher-wide student-record helper and parent revocation consistency require explicit acceptance or hardening before a release decision.**
+- Payment retry/idempotency and manual child-collection fallback need dedicated tests/policy confirmation.
+- Current CI is build/typecheck-only; role-based acceptance has not been automated or fully executed.
+
+**Updated disposition: NO-GO pending the four items above, a real four-role acceptance run, Auth leaked-password protection review, backup/restore rehearsal and hosting verification.** This review has not changed production state.
