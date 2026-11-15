@@ -129,7 +129,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
   );
 
   const visibleName = administratorName || (email ? email.split("@")[0].replace(/[._-]+/g, " ") : "Administrator");
-  const initials = visibleName.split(/\\s+/).filter(Boolean).slice(0,2).map(part => part[0]).join("").toUpperCase() || "AD";
+  const initials = visibleName.split(/\s+/).filter(Boolean).slice(0,2).map(part => part[0]).join("").toUpperCase() || "AD";
 
   return <div className="resa-portal">
     <aside className="resa-sidebar-desktop">{navigation()}</aside>
