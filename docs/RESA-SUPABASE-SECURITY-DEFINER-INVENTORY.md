@@ -224,3 +224,33 @@ Each test must be executed with real test identities on a staging copy or a cont
 - Current CI is build/typecheck-only; role-based acceptance has not been automated or fully executed.
 
 **Updated disposition: NO-GO pending the four items above, a real four-role acceptance run, Auth leaked-password protection review, backup/restore rehearsal and hosting verification.** This review has not changed production state.
+
+## 9. Owner decision — teacher access scope, 15 November 2026
+
+The school owner accepted the recommended professional access model: **least-privilege, assignment-based teacher access**, rather than unrestricted school-wide access for every teacher.
+
+### Approved target policy
+
+- **Subject/class teachers:** Access student records and operational data only for classes, subjects and students covered by their active assignments, and only for the functions required to perform those duties.
+- **Form teachers:** Receive the additional academic, attendance and welfare visibility needed for their assigned form/class. This is not blanket access to unrelated classes.
+- **Administrators:** Retain school-wide access according to their active administrative role and permissions.
+- **Parents and students:** Remain limited to their own linked child/learner records and the information explicitly published or shared with them.
+- **Temporary/special duties:** Any wider access must be granted explicitly, be time-bounded where practical, and be auditable; it must not be inferred merely from having a teacher membership.
+
+### Implementation and release requirements
+
+The live `can_access_student_record` helper currently grants a broader school-wide teacher path and is referenced by 19 RLS policies. That live helper and its dependent policies have **not** been changed. Before implementation, map each dependent table to the minimum relevant assignment rule; some records may require form-teacher scope, some subject/class scope, and some administrator-only access. Do not apply one generic assignment predicate to every table without reviewing its purpose.
+
+Implement the revised rules in a reviewed migration and test suite on an isolated database/staging copy first. Required cases include:
+- assigned subject/class teacher can access only the permitted students and record categories;
+- unassigned teacher is denied, including when the student is in the same school;
+- form teacher receives only the approved additional class-level visibility;
+- administrator retains intended school-wide access;
+- parent/student access remains limited to linked/own records;
+- suspended or inactive teacher loses access;
+- cross-school identifiers and stale assignments are denied;
+- assignment changes/revocation take effect as intended, including existing sessions/tokens.
+
+The migration must preserve existing administrator workflows and avoid accidental denial of necessary attendance, safeguarding or academic operations. Any special-duty exception must be explicit and tested.
+
+**Decision status:** Owner-approved target policy. **Implementation status:** Not implemented in production. The live database remains unchanged. Release remains NO-GO until the policy is implemented, independently reviewed and the positive/negative role tests pass.
