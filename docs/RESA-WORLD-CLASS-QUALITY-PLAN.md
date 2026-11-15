@@ -71,7 +71,7 @@ The three functions currently executable by `anon` are:
 - `get_resa_public_announcements()`
 - `get_resa_website_content(p_content_type text)`
 
-Their inspected definitions use an empty/restricted `search_path` and return public-facing content or a boolean status. Their public exposure appears intentional, but must remain limited to published content and non-sensitive status. The customer-care status function accepts a caller-supplied school UUID, so confirm that exposing this boolean across school identifiers is acceptable.
+Their inspected definitions use an empty/restricted `search_path` and return public-facing content or a boolean status. Their public exposure appears intentional, but must remain limited to published content and non-sensitive status. The customer-care status function was corrected on 15 November 2026 to return the setting only for RESA's fixed school UUID and `false` for any other UUID. A direct SQL verification returned `true` for RESA and `false` for an unrelated UUID. The matching migration `20261115060828_scope_public_customer_care_status_to_resa` is present in the live Supabase migration registry and in PR #90. The advisor may still report the function because public execution is required by the website widget; the cross-school probe has been constrained.
 
 The 30 authenticated-executable `SECURITY DEFINER` functions were also inspected at a metadata/pattern level. The sampled business RPCs contain `auth.uid()`, and the inspected administrative actions check school roles or the JETAB owner identity. This is a positive sign, not a complete authorisation proof: each function still needs a full branch-by-branch review, especially helpers that are intended to be called by RLS policies and parent-scoped workflows. A text search for `auth.uid()` or `has_school_role()` is not a substitute for testing whether the caller may act on the specific record and school passed as parameters.
 
@@ -275,3 +275,47 @@ A reviewer may approve individual code changes when their own checks pass. The o
 - [ ] School owner accepts the release.
 
 **Release rule:** approval of a pull request is not approval to deploy. Production release requires a separate explicit authorisation after the evidence above is complete.
+
+
+## 10. Follow-up verification update — 15 November 2026
+
+This addendum supersedes any earlier release snapshot where the facts below differ.
+
+### 10.1 Customer-care public RPC correction
+
+- PR [#90](https://github.com/peinceab1989/School-Platform-Foundation/pull/90) records the migration that scopes `get_public_customer_care_status(uuid)` to RESA's fixed school UUID.
+- The live database migration registry includes version `20261115060828`.
+- Read-only verification confirmed RESA returns `true` at the time of test and an unrelated UUID returns `false`.
+- PR #90's TypeScript and production build check passed; the Cloudflare Pages preview check for `resa-digital-campus` succeeded.
+- The legacy Netlify checks and the separate `jetab-tech` Cloudflare check failed. The preview result is not production deployment evidence.
+- PR #90 remains unmerged; the SQL correction was already applied directly to the live database. Do not blindly reapply it. Before merging, reconcile the repository migration with the live migration registry to avoid a duplicate or out-of-order migration.
+
+### 10.2 External CBT rate-limit decision
+
+PR [#89](https://github.com/peinceab1989/School-Platform-Foundation/pull/89) was closed without merging or deploying. Its proposed global rate-limit keyed only by form number could allow an attacker to exhaust the shared budget and deny service to a legitimate candidate. A replacement must combine abuse resistance with fair per-client/network controls, bounded storage, expiry, observability and tests for shared-NAT false positives. The live `resa-external-candidate-register` Edge Function remained at version 1 during this review.
+
+### 10.3 Current check matrix
+
+| Check | Result | Meaning |
+|---|---|---|
+| PR #90 TypeScript and production build | Passed | Code compiles and builds; does not prove full runtime correctness |
+| PR #90 `resa-digital-campus` Cloudflare preview | Passed | Preview deployment only |
+| PR #90 `jetab-tech` Cloudflare check | Failed | Separate project integration; establish whether it belongs in RESA's required release path |
+| PR #90 legacy Netlify redirect/header/pages checks | Failed | Existing connected Netlify integrations; previously reported build-minute exhaustion must be reconciled with the current logs |
+| Live RESA production SHA | Not independently confirmed | Still blocks production release |
+| Authenticated four-role browser acceptance | Not completed | Requires controlled test accounts and live browser/device access |
+| Backup restore rehearsal | Not completed | Requires an isolated restore target and verified backup artifacts |
+
+### 10.4 Remaining work must be evidenced, not assumed
+
+1. Inspect the current Cloudflare Pages production deployment for the canonical RESA project and compare its deployed commit SHA to the approved main-branch SHA.
+2. Inspect authenticated Netlify/Cloudflare build logs and either repair the intended integration or formally remove obsolete checks only after the canonical host is approved.
+3. Complete a branch-by-branch authorization review of all exposed SECURITY DEFINER RPCs, including negative tests for anonymous, unrelated authenticated, wrong-school, wrong-parent, wrong-student and wrong-role callers.
+4. Review the public functions `get_resa_public_announcements()` and `get_resa_website_content(text)` for unintended unpublished or private fields; their current definitions are pinned to RESA and published rows.
+5. Verify that `admission_application_rate_events` and `external_candidate_registration_events` remain inaccessible to `anon` and `authenticated`, with writes restricted to trusted server-side code.
+6. Do not move `pg_net` or remove unused indexes as bulk cleanup; first map dependencies and inspect query plans.
+7. Perform the four-role acceptance matrix, Android notification tests, financial reconciliation tests, CBT timing and publication tests, file-storage access tests, and child-collection safeguarding tests.
+8. Perform a backup restore rehearsal and document RPO/RTO, restore owner and rollback target.
+9. Obtain school-owner approval for the final candidate, then merge and deploy in a controlled sequence.
+
+**Current release disposition remains NO-GO.** The completed SQL correction and passing preview are useful verified improvements, but the live deployment SHA, role acceptance, security sign-off and recovery rehearsal remain open gates.
