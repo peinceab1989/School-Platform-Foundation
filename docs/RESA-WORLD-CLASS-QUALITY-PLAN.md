@@ -343,3 +343,69 @@ The deployed SHA exactly matches the main-branch baseline previously identified 
 This evidence supersedes the earlier statement that the canonical production SHA was unverified. It does **not** supersede the outstanding security, role-based acceptance, backup restore, and live workflow gates. Production remains **NO-GO for final release approval** until those gates are evidenced.
 
 The later PR #90 Cloudflare preview at commit `dabff15376ecaa753d7dec2f712597389ee88567` is a preview deployment, not the current production deployment. PR #90 remains unmerged, and its already-applied live SQL correction requires migration reconciliation before any merge. No production deployment or data reset is authorised by this evidence update.
+
+
+## 12. Current verification update — 15 November 2026, 07:40 UTC
+
+This addendum records a fresh read-only check of GitHub, the live Supabase project and its current advisors. It does not authorise a merge, migration, permission change, function deployment or production release.
+
+### 12.1 Source and hosting
+
+- The Cloudflare production baseline remains commit `dcf4759495372db5829666ce729a23dc86688993` (`dcf4759`), as recorded in section 11.
+- The latest GitHub comparison performed during this update found the recorded production SHA and `main` identical at that comparison point.
+- The GitHub Actions workflow `RESA portal checks` completed successfully for the current heads of PR #93 (`1d1ee6e`), PR #94 (`704396f`) and PR #95 (`517d93a`). Each run completed dependency installation, workspace typechecking, production application build and RESA Edge Function typechecking.
+- GitHub status contexts for the Netlify deploy previews remain failed on all three PR heads. These failures are separate from the passing GitHub Actions workflow and do not establish whether the cause is build-minute exhaustion, a Netlify configuration issue or another deploy-preview failure. The current Netlify project configuration and latest failure logs were not accessible in this verification.
+- No Cloudflare preview result was available for PRs #93–#95 in the checks inspected. Do not describe these PRs as preview-tested or live.
+- No Netlify or Cloudflare production deployment was initiated.
+
+### 12.2 Open UI change candidates
+
+| Pull request | Scope | Current evidence | Release treatment |
+|---|---|---|---|
+| [#93](https://github.com/peinceab1989/School-Platform-Foundation/pull/93) | Optional parent payment-choice panel | GitHub Actions passed; Netlify deploy-preview contexts failed | Draft; UI only; Paystack remains explicitly not activated; Finance verification remains authoritative |
+| [#94](https://github.com/peinceab1989/School-Platform-Foundation/pull/94) | Movable Ask RESA assistant | GitHub Actions passed; Netlify deploy-preview contexts failed | Draft; needs browser/mobile drag interaction test |
+| [#95](https://github.com/peinceab1989/School-Platform-Foundation/pull/95) | JETAB TECH Marketplace links | GitHub Actions passed; Netlify deploy-preview contexts failed | Draft; destination is `https://jetab-tech.pages.dev`; needs visual/link verification in preview |
+
+These changes remain on separate branches and are not part of the Cloudflare production baseline. They have not been merged or deployed.
+
+### 12.3 Current Supabase verification
+
+The linked project `mhwwzzxwpsqwhxrsuwaa` is reported as `ACTIVE_HEALTHY` on PostgreSQL 17.11. The live migration registry includes `20261115060828_scope_public_customer_care_status_to_resa`. The active Edge Function listing contains 17 functions, including `resa-push-dispatch` version 3 and `resa-external-candidate-register` version 1.
+
+The fresh Supabase advisor run at approximately 07:39 UTC returned:
+
+| Advisor finding | Count / level | Treatment |
+|---|---:|---|
+| RLS enabled with no policies | 2 / Info | The two rate-limit/event tables remain deny-by-default for API roles; confirm trusted server-side writes and intended design |
+| Extension in public schema | 1 / Warning | `pg_net`; inspect dependencies before any move |
+| Anon-executable SECURITY DEFINER functions | 3 / Warning | Public API exposure still exists by design; verify returned fields and publication filters |
+| Authenticated-executable SECURITY DEFINER functions | 30 / Warning | Continue function-by-function authorisation review; no bulk revocation |
+| Leaked-password protection disabled | 1 / Warning | Remains an Auth configuration hardening task requiring controlled sign-in/reset testing |
+| Unindexed foreign keys | 58 / Info | Prioritise high-traffic relationships and inspect query plans |
+| Unused indexes | 419 / Info | Do not delete based on advisor output alone |
+| Multiple permissive policies | 133 / Warning | Review OR semantics and role/school scope before any consolidation |
+| Health lints | 0 | No health lints returned; not a substitute for functional acceptance |
+
+No database object, migration, RLS policy, grant, index, extension, Auth setting, record or Edge Function was changed during this update.
+
+### 12.4 Migration and function deployment caution
+
+- PR #90 remains unmerged, while its migration version `20261115060828` is already present in the live migration registry. Before any merge, reconcile the repository migration history with the live database; do not reapply the SQL or create a duplicate migration blindly.
+- PR #88's corrected push-notification destinations remain an unmerged code change. The live Edge Function listing reports `resa-push-dispatch` version 3; this listing alone does not prove that PR #88's proposed source is deployed. Verify the deployed source/version before any function update.
+- The external candidate registration function remains at version 1 in the current function listing. The previously rejected global form-number-only rate-limit design in PR #89 must not be revived; a replacement needs fair abuse controls and shared-network false-positive tests.
+
+### 12.5 Release disposition
+
+**Overall release status remains NO-GO.** Passing CI for isolated UI branches is useful evidence, but it does not close the following blockers:
+
+1. Complete the SECURITY DEFINER function-by-function review and negative tests for wrong-school, wrong-parent, wrong-student and wrong-role access.
+2. Resolve the leaked-password protection warning after controlled authentication testing.
+3. Confirm the two no-policy event tables are only written through trusted server-side paths.
+4. Review overlapping permissive policies and prioritise foreign-key indexes without broad or speculative changes.
+5. Complete role-based acceptance for administrator, teacher, student and parent, including Android device tests.
+6. Verify live parent attendance push delivery, chat, assignment submission/grading, Drive upload/read, CBT eligibility/timing/submission/publication, finance verification/receipts, results, ID cards and safeguarding/collection flows.
+7. Verify backup coverage and complete an isolated restore rehearsal.
+8. Confirm Netlify's current quota/configuration and decide whether it remains a supported secondary host; keep Cloudflare as the currently verified production baseline unless the owner approves a host change.
+9. Obtain the required code review, school-side acceptance and explicit production deployment approval.
+
+**Release rule unchanged:** no merge or production deployment is implied by this update. The production dataset and existing authentication remain protected.
