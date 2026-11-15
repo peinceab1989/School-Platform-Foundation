@@ -2272,7 +2272,7 @@ export default function TeacherDashboard({
             padding: 12,
           }}
         >
-          RESA Teacher Workspace · JETAB TECH
+          RESA Teacher Workspace · <a href="https://jetab-tech.pages.dev" target="_blank" rel="noopener noreferrer" aria-label="Visit JETAB TECH Marketplace (opens in a new tab)" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 3 }}>JETAB TECH</a>
         </footer>
       </div>
     </main>
