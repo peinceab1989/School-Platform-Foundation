@@ -106,3 +106,44 @@ Do not grant client execution to trigger helpers. Do not remove or replace trigg
 This inventory is not a penetration test and does not certify the application as secure. It does not prove that the frontend or every Edge Function calls the intended RPC. No database grants, functions, RLS policies, Edge Functions, user accounts, records or production settings were changed while preparing this document.
 
 **Disposition:** Three public functions have an explicit review decision path. The 27 authenticated-only functions have named security boundaries for deeper verification. The 20 trigger/service-only functions remain subject to trigger-path review. No automatic permission revocation is recommended.
+
+
+## 7. Live Supabase advisor snapshot
+
+**Observed:** 15 November 2026 at approximately 05:38 UTC. These are live advisor findings from the linked project, not a static inference from the repository. Re-run advisors before each release because findings can change.
+
+### Security findings
+
+| Advisor | Count | Severity | Disposition |
+|---|---:|---|---|
+| RLS enabled with no policies | 2 tables | INFO | admission_application_rate_events and external_candidate_registration_events. Confirm these are intentionally server-only event tables; do not add broad client policies merely to silence the lint. |
+| Extension installed in public | 1 (pg_net) | WARN | Review extension dependencies and supported relocation before moving it. Do not move it as an untested cleanup. |
+| Anon can execute SECURITY DEFINER | 3 functions | WARN | Matches the public function review in section 2. Keep only if their public API behaviour is intentional and their returned data is safe. |
+| Authenticated can execute SECURITY DEFINER | 30 functions | WARN | Matches section 3. Review function-by-function; do not revoke grants in bulk. |
+| Leaked password protection disabled | 1 Auth setting | WARN | Enable in Supabase Auth settings after confirming the user-facing password policy and signup/reset flows. This is an account configuration change, not a SQL migration. |
+
+Remediation references:
+- [RLS enabled without policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+- [Extension in public schema](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public)
+- [Anon-executable SECURITY DEFINER functions](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable)
+- [Authenticated-executable SECURITY DEFINER functions](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+- [Leaked password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+
+### Performance findings
+
+| Advisor | Count | Disposition |
+|---|---:|---|
+| Unindexed foreign keys | 58 | Prioritise high-traffic attendance, messaging, enrolment, finance and safeguarding relationships. Confirm existing composite indexes before adding anything. |
+| Unused indexes | 419 | Treat as observations only. Index usage can reset and low-frequency indexes may still be essential. Do not delete indexes based on this lint alone. |
+| Multiple permissive policies | 133 | Review policy overlap and OR semantics on sensitive tables. Multiple permissive policies are not automatically a vulnerability; consolidate only after proving equivalent access for every role. |
+
+Remediation references:
+- [Unindexed foreign keys](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys)
+- [Unused indexes](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index)
+- [Multiple permissive policies](https://supabase.com/docs/guides/database/database-linter?lint=0006_multiple_permissive_policies)
+
+### Health
+
+The health advisor returned no lints in this snapshot. This does not replace functional testing, security review or production monitoring.
+
+**Change control:** No advisor finding was automatically remediated. In particular, no RLS policy, extension, index, function grant or Auth setting was changed during this update. Each proposed fix must have a reviewed migration or documented dashboard change, a rollback plan, and positive plus negative role-based tests.
