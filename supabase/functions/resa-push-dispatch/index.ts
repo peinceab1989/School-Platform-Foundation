@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { resolveEligibleParentUserIds } from "./parent-audience.ts";
 
 type PushRecord = Record<string, unknown>;
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -20,6 +21,91 @@ function uniqueIds(values: unknown[]) {
   return [...new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0))];
 }
 
+/**
+ * Resolve only currently authorised parent accounts for one exact learner.
+ * Both relationship records must be active, the guardian portal must be
+ * enabled, the account must be active, and the same user must hold an active
+ * parent membership for this school. This is notification audience filtering,
+ * not a substitute for the database RLS checks protecting portal data.
+ */
+async function resolveActiveParentAudience(
+  schoolId: string,
+  studentId: string,
+  requestedGuardianIds?: string[],
+): Promise<string[]> {
+  if (!schoolId || !studentId) return [];
+
+  const { data: studentLinks, error: studentLinkError } = await admin
+    .from("student_parent_guardians")
+    .select("parent_guardian_id,is_active")
+    .eq("school_id", schoolId)
+    .eq("student_id", studentId)
+    .eq("is_active", true);
+  if (studentLinkError) throw studentLinkError;
+
+  const linkedGuardianIds = uniqueIds((studentLinks || []).map((item) => item.parent_guardian_id));
+  const permittedGuardianIds = requestedGuardianIds?.length
+    ? linkedGuardianIds.filter((id) => requestedGuardianIds.includes(id))
+    : linkedGuardianIds;
+  if (!permittedGuardianIds.length) return [];
+
+  const { data: activeAccess, error: accessError } = await admin
+    .from("parent_student_portal_access")
+    .select("parent_guardian_id,is_active")
+    .eq("school_id", schoolId)
+    .eq("student_id", studentId)
+    .eq("is_active", true)
+    .in("parent_guardian_id", permittedGuardianIds);
+  if (accessError) throw accessError;
+  const accessGuardianIds = uniqueIds((activeAccess || []).map((item) => item.parent_guardian_id));
+  if (!accessGuardianIds.length) return [];
+
+  const { data: guardians, error: guardianError } = await admin
+    .from("parents_guardians")
+    .select("id,person_id,portal_enabled")
+    .eq("school_id", schoolId)
+    .eq("portal_enabled", true)
+    .in("id", accessGuardianIds);
+  if (guardianError) throw guardianError;
+  const personIds = uniqueIds((guardians || []).map((item) => item.person_id));
+  if (!personIds.length) return [];
+
+  const { data: people, error: peopleError } = await admin
+    .from("people")
+    .select("id,user_id")
+    .eq("school_id", schoolId)
+    .in("id", personIds);
+  if (peopleError) throw peopleError;
+
+  const { data: accounts, error: accountError } = await admin
+    .from("parent_portal_accounts")
+    .select("user_id,parent_guardian_id,is_active")
+    .eq("school_id", schoolId)
+    .eq("is_active", true)
+    .in("parent_guardian_id", accessGuardianIds);
+  if (accountError) throw accountError;
+  const accountUserIds = uniqueIds((accounts || []).map((item) => item.user_id));
+  if (!accountUserIds.length) return [];
+
+  const { data: memberships, error: membershipError } = await admin
+    .from("school_memberships")
+    .select("user_id,role,status")
+    .eq("school_id", schoolId)
+    .eq("role", "parent")
+    .eq("status", "active")
+    .in("user_id", accountUserIds);
+  if (membershipError) throw membershipError;
+
+  return resolveEligibleParentUserIds({
+    studentLinks: studentLinks || [],
+    activeAccess: activeAccess || [],
+    guardians: guardians || [],
+    people: people || [],
+    accounts: accounts || [],
+    memberships: memberships || [],
+    requestedGuardianIds,
+  });
+}
 
 async function resolveStudentAudience(schoolId: string, studentId: string): Promise<string[]> {
   if (!studentId) return [];
@@ -35,18 +121,7 @@ async function resolveStudentAudience(schoolId: string, studentId: string): Prom
   if (studentAccountError) throw studentAccountError;
   ids.push(...(studentAccounts || []).map((item) => item.user_id));
 
-  const { data: links, error: linkError } = await admin
-    .from("student_parent_guardians").select("parent_guardian_id")
-    .eq("school_id", schoolId).eq("student_id", studentId);
-  if (linkError) throw linkError;
-  const guardianIds = uniqueIds((links || []).map((item) => item.parent_guardian_id));
-  if (guardianIds.length) {
-    const { data: parentAccounts, error: parentError } = await admin
-      .from("parent_portal_accounts").select("user_id")
-      .eq("school_id", schoolId).eq("is_active", true).in("parent_guardian_id", guardianIds);
-    if (parentError) throw parentError;
-    ids.push(...(parentAccounts || []).map((item) => item.user_id));
-  }
+  ids.push(...await resolveActiveParentAudience(schoolId, studentId));
   return uniqueIds(ids);
 }
 
@@ -80,14 +155,10 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
   }
 
   if (eventType === "attendance") {
-    const { data, error } = await admin
-      .from("parent_portal_accounts")
-      .select("user_id")
-      .eq("school_id", schoolId)
-      .eq("parent_guardian_id", String(row.parent_guardian_id || ""))
-      .eq("is_active", true);
-    if (error) throw error;
-    return uniqueIds((data || []).map((item) => item.user_id));
+    const studentId = String(row.student_id || "");
+    const guardianId = String(row.parent_guardian_id || "");
+    if (!studentId || !guardianId) return [];
+    return resolveActiveParentAudience(schoolId, studentId, [guardianId]);
   }
 
   if (eventType === "announcement") {
@@ -161,7 +232,7 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
 function makeNotification(eventType: string, row: PushRecord) {
   const id = String(row.id || crypto.randomUUID());
   if (eventType === "result_published") {
-    return { title: "RESA · Term results published", body: "A term result is now available in the RESA portal.", url: "/student-results", tag: "resa-result-" + id };
+    return { title: "RESA · Term results published", body: "A term result is now available in the RESA portal.", url: "/my-results", tag: "resa-result-" + id };
   }
   if (eventType === "assignment_published") {
     return { title: "RESA · New assignment", body: String(row.title || "A new class assignment is available.").slice(0, 180), url: "/assignments", tag: "resa-assignment-" + id };
@@ -170,7 +241,7 @@ function makeNotification(eventType: string, row: PushRecord) {
     return { title: "RESA · Assignment graded", body: "An assignment has been marked. Check your feedback and score in the portal.", url: "/assignments", tag: "resa-graded-" + id };
   }
   if (eventType === "exam_published") {
-    return { title: "RESA · Exam published", body: String(row.title || "A new online exam is available.").slice(0, 180), url: "/cbt", tag: "resa-exam-" + id };
+    return { title: "RESA · Exam published", body: String(row.title || "A new online exam is available.").slice(0, 180), url: "/student-cbt", tag: "resa-exam-" + id };
   }
   if (eventType === "fee_update") {
     return { title: "RESA · School fee update", body: "Your learner's school-fee record has been updated. Sign in to review the details.", url: "/fees", tag: "resa-fee-" + id };
@@ -179,7 +250,7 @@ function makeNotification(eventType: string, row: PushRecord) {
     return { title: "RESA · Payment record received", body: "A payment record has been added. Check the portal for its current verification status.", url: "/fees", tag: "resa-payment-" + id };
   }
   if (eventType === "timetable_update") {
-    return { title: "RESA · Timetable updated", body: "A class timetable has been changed. Review the latest schedule in the portal.", url: "/timetable", tag: "resa-timetable-" + id };
+    return { title: "RESA · Timetable updated", body: "A class timetable has been changed. Review the latest schedule in the portal.", url: "/dashboard", tag: "resa-timetable-" + id };
   }
   if (eventType === "admission_admin") {
     return { title: "RESA · Admissions update", body: "An admission application has been submitted or its status changed.", url: "/admissions", tag: "resa-admission-" + id };
