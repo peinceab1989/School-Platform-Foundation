@@ -119,3 +119,43 @@ Release handling:
 - If repository migration tooling expects `supabase/migrations/`, reconcile file placement/history in a separate reviewed change without changing the live function.
 
 This reconciliation was read-only. No migration was applied, moved, merged or deployed during this follow-up.
+
+
+## 6. Reconfirmed live policy exposure (15 Nov 2026 follow-up)
+
+A fresh read-only inspection of the connected production project reconfirmed that `public.can_access_student_record(uuid,uuid)` still returns true for any active teacher membership in the supplied school after confirming that the student belongs to that school. It does not check the teacher's staff profile, current-session assignment, class, or subject.
+
+The helper is used by SELECT policies on:
+- `house_points`
+- `library_fines`
+- `school_form_submissions`
+- `student_awards`
+- `student_career_aspirations`
+- `student_certificates`
+- `student_character_assessments`
+- `student_class_transitions`
+- `student_club_memberships`
+- `student_enrollment_history`
+- `student_enrollments`
+- `student_hobbies_interests`
+- `student_house_memberships`
+- `student_previous_schools`
+- `student_readmissions`
+- `student_skills_talents`
+- `student_status_history`
+- `student_transfer_records`
+- `student_withdrawals`
+
+A separate fresh policy query also found school-wide teacher branches on `students`, `people`, and `school_form_submissions`; these do not become safe merely by changing the helper. The form-submission SELECT policy currently includes a direct admin-or-teacher branch in addition to submitter and helper checks. Other school-wide staff policies exist for inventory, visitors and child-collection release; these need explicit school policy decisions rather than blanket changes.
+
+Current-session form-teacher assignments remain zero. The earlier current-session subject/class assignment snapshot was 42 rows across 3 teachers. Therefore a migration that removes blanket teacher access must not silently grant form-teacher access to anyone until the school configures those assignments. Subject teachers should be scoped to assigned class/subject/session where the table's data purpose permits; form-teacher-only records must use a distinct predicate; financial/history/admin-only records must remain admin-only.
+
+## 7. Reconfirmed parent revocation and fee payment safeguards
+
+The live `parent_can_access_student` helper checks linked person, enabled guardian and active child access, but does not independently require an active `parent_portal_accounts` row or active same-school parent membership, and does not verify an active `student_parent_guardians` relationship row. The live `parent_can_access_guardian` helper likewise does not require the portal account or active parent membership. This is separate from the source-only push audience fix in PR #88.
+
+The live fee RPC `record_verified_school_fee_payment(uuid,uuid,numeric,text,text,text)` still accepts a nullable reference and has no request idempotency key. The table has a unique receipt-number index, but no unique school/reference constraint. A read-only production snapshot found one payment with a reference and zero without; this tiny sample is not proof of retry safety. The UI currently passes no idempotency key. Any fix must atomically persist a stable client request key, return the original receipt for a true retry, reject key/reference reuse with a different assignment or amount, and protect concurrent duplicate calls with a database uniqueness constraint.
+
+## 8. Safe-release boundary
+
+No production database changes were made during this follow-up. No Supabase development branch was created because the user requires zero additional cost. A production migration is not safe to apply until it has been generated in the repository's actual local Supabase CLI workflow and tested against a disposable local database with role-specific pgTAP cases. The local Supabase CLI is not available in the connected execution environment, and the repository could not be cloned into that environment because network DNS was unavailable. Do not substitute unverified SQL execution against production for isolated testing.
