@@ -37,9 +37,10 @@ async function resolveActiveParentAudience(
 
   const { data: studentLinks, error: studentLinkError } = await admin
     .from("student_parent_guardians")
-    .select("parent_guardian_id")
+    .select("parent_guardian_id,is_active")
     .eq("school_id", schoolId)
-    .eq("student_id", studentId);
+    .eq("student_id", studentId)
+    .eq("is_active", true);
   if (studentLinkError) throw studentLinkError;
 
   const linkedGuardianIds = uniqueIds((studentLinks || []).map((item) => item.parent_guardian_id));
