@@ -122,7 +122,7 @@ export default function PortalOptionsPage() {
 
       </section>
 
-      <footer className="border-t border-emerald-950/10 bg-white px-4 py-5 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3 text-[10px]">Designed &amp; Powered by <a href="https://wa.me/2347054078988" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 underline underline-offset-2">JETAB TECH</a></p></footer>
+      <footer className="border-t border-emerald-950/10 bg-white px-4 py-5 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3 text-[10px]">Designed &amp; Powered by <a href="https://jetab-tech.pages.dev" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 underline underline-offset-2">JETAB TECH</a></p></footer>
     </main>
   );
 }
