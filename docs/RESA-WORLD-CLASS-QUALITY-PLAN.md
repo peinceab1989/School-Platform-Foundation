@@ -319,3 +319,27 @@ PR [#89](https://github.com/peinceab1989/School-Platform-Foundation/pull/89) was
 9. Obtain school-owner approval for the final candidate, then merge and deploy in a controlled sequence.
 
 **Current release disposition remains NO-GO.** The completed SQL correction and passing preview are useful verified improvements, but the live deployment SHA, role acceptance, security sign-off and recovery rehearsal remain open gates.
+
+
+## 11. Canonical production deployment evidence — 15 November 2026
+
+The school owner supplied the Cloudflare Pages production deployment details and build log for the RESA project. This resolves the earlier uncertainty about the live production SHA.
+
+| Field | Verified evidence |
+|---|---|
+| Cloudflare Pages project label | `resa-digital-campus` |
+| Environment | Production |
+| Deployment ID | `0c6fb2cb-aac7-4e6d-b760-9a2fee885267` |
+| Immutable deployment URL | `https://0c6fb2cb.school-platform-foundation.pages.dev` |
+| Repository / branch | `peinceab1989/School-Platform-Foundation` / `main` |
+| Deployed commit | `dcf4759495372db5829666ce729a23dc86688993` (`dcf4759`) |
+| Deployment result | Success |
+| Build | `pnpm run build`; completed, assets uploaded |
+| Build checks in supplied log | Workspace TypeScript checks and RESA Vite production build completed successfully |
+| Deployment timestamp shown | 11 November 2026, 2:35 PM (dashboard local display) |
+
+The deployed SHA exactly matches the main-branch baseline previously identified in this review. The deployed commit standardises two-sided RESA identity cards. The production build log also shows the portal navigation guide, attendance, admissions, external CBT, student CBT, results, fees, messaging, notifications, teacher dashboard and biometric-attendance frontend bundles were included in the build. Presence of a bundle proves it was built, not that its end-to-end workflow or any external hardware/provider integration is operational.
+
+This evidence supersedes the earlier statement that the canonical production SHA was unverified. It does **not** supersede the outstanding security, role-based acceptance, backup restore, and live workflow gates. Production remains **NO-GO for final release approval** until those gates are evidenced.
+
+The later PR #90 Cloudflare preview at commit `dabff15376ecaa753d7dec2f712597389ee88567` is a preview deployment, not the current production deployment. PR #90 remains unmerged, and its already-applied live SQL correction requires migration reconciliation before any merge. No production deployment or data reset is authorised by this evidence update.
