@@ -159,3 +159,15 @@ The live fee RPC `record_verified_school_fee_payment(uuid,uuid,numeric,text,text
 ## 8. Safe-release boundary
 
 No production database changes were made during this follow-up. No Supabase development branch was created because the user requires zero additional cost. A production migration is not safe to apply until it has been generated in the repository's actual local Supabase CLI workflow and tested against a disposable local database with role-specific pgTAP cases. The local Supabase CLI is not available in the connected execution environment, and the repository could not be cloned into that environment because network DNS was unavailable. Do not substitute unverified SQL execution against production for isolated testing.
+
+
+## 9. Latest Supabase advisor snapshot (15 Nov 2026, 08:10 UTC)
+
+- Health advisor: zero findings.
+- Security advisor:
+  - 2 RLS-enabled tables have no policies: `admission_application_rate_events` and `external_candidate_registration_events`. Their current lack of anon/authenticated table grants is deny-by-default; do not add permissive policies or grants merely to silence the lint.
+  - `pg_net` is installed in `public`; plan a reviewed extension-schema relocation only after checking dependent functions and extension support.
+  - 3 anon-executable SECURITY DEFINER functions: public customer-care status, public announcements and public website content. These are intentional public website endpoints; verify their input scoping and output minimisation rather than blindly revoking access.
+  - 30 authenticated-executable SECURITY DEFINER functions remain. Review each function's caller authorisation and grants individually; advisor warnings alone do not prove exploitability.
+  - Auth leaked-password protection remains disabled. Enable only after a controlled signup/password-reset compatibility test and approval of the Auth setting change.
+- No advisor remediation was applied to production.
