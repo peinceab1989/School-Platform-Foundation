@@ -409,3 +409,39 @@ No database object, migration, RLS policy, grant, index, extension, Auth setting
 9. Obtain the required code review, school-side acceptance and explicit production deployment approval.
 
 **Release rule unchanged:** no merge or production deployment is implied by this update. The production dataset and existing authentication remain protected.
+
+
+## 13. Follow-up security and role-access review — 15 November 2026, 07:50 UTC
+
+A read-only deeper review was completed against the linked live Supabase project. Detailed function and policy findings are recorded in PR #86, `docs/RESA-SUPABASE-SECURITY-DEFINER-INVENTORY.md`.
+
+### Verified controls
+- All 50 inspected SECURITY DEFINER functions have an empty search path.
+- The two event/rate-limit tables with RLS enabled and no policies also have no anon/authenticated SELECT, INSERT or UPDATE grants. They are currently deny-by-default.
+- The public customer-care RPC returns the configured RESA status and returns false for an unrelated school UUID.
+- Public announcements are restricted to RESA, published, current records; two were returned in the read-only test.
+- The public website-content RPC returned zero current rows.
+- The Nexus owner helper checks the server-side `nexus_owners` table against `auth.uid()`.
+- Current parent account, guardian portal-enabled and active-child-link status counts are consistent (zero mismatches).
+
+### Release-critical review decisions
+1. `can_access_student_record` grants school-wide student-record visibility to any active teacher membership and is used by 19 RLS policies. The school owner must confirm this broad scope or approve a narrower assigned-class/form/subject model after isolated testing.
+2. Parent access helpers do not independently require an active `parent_portal_accounts` row or active parent membership. The UI suspends access by updating membership, portal account and guardian flags sequentially; test partial failures and harden to a transactional revocation or helper-level active-account check.
+3. The verified fee-payment RPC has useful row locking, balance checks and atomic receipt creation, but no explicit idempotency key/duplicate-reference rejection. Test retries and concurrent submissions before live online payment integration.
+4. Child collection permits a documented `manual_verified` staff fallback without a pre-approved parent authorization or QR. Confirm this against the school's safeguarding policy and test every invalid/expired/revoked path.
+
+### Test automation gap
+The current GitHub workflow runs typechecking, production builds and Deno typechecks only. It does not run SQL/RLS policy tests, browser tests or role-based end-to-end tests. A repository tree inspection did not find a Playwright, Cypress, Vitest or Jest suite. The historical demo guide records database workflow checks but states that authenticated browser sessions were not available for every teacher, student and parent account.
+
+### Current release decision
+
+**NO-GO remains in force.** Do not change production RLS/grants or deploy pending PRs as a shortcut. Before release, complete:
+- School-owner approval of teacher visibility scope and manual child-collection fallback.
+- Parent revocation negative tests and, if approved, isolated hardening.
+- Payment idempotency/retry tests.
+- Auth leaked-password protection review with controlled signup/reset testing.
+- Real authenticated administrator, teacher, student and parent acceptance runs, including wrong-school, wrong-parent, wrong-student, unassigned-teacher, suspended-account, expired-token and duplicate-request tests.
+- Full backup, checksum and isolated restore rehearsal.
+- Netlify quota/configuration diagnosis and hosting smoke test.
+
+No live database, authentication, records, Storage, function deployment, or hosting configuration was changed during this review.
