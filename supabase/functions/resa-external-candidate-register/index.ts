@@ -85,7 +85,9 @@ Deno.serve(async (req: Request) => {
       return reply(400, { success: false, error: "Enter the date of birth in a valid date format." }, requestOrigin);
     }
 
-    // Rate-limit by the purchased form itself, not the email/form pair. Otherwise\n    // an attacker could rotate email addresses to probe the same form number.\n    const rateKey = await hashKey(`external-cbt-form:${formNumber}`);
+    // Rate-limit by the purchased form itself, not the email/form pair. Otherwise
+    // an attacker could rotate email addresses to probe the same form number.
+    const rateKey = await hashKey(`external-cbt-form:${formNumber}`);
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const { count, error: rateError } = await admin.from("external_candidate_registration_events")
       .select("id", { count: "exact", head: true })
