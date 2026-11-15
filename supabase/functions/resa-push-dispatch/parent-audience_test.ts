@@ -64,3 +64,17 @@ Deno.test("denies a guardian without an active parent membership", () => {
     memberships: [{ user_id: "user-a", role: "teacher", status: "active" }],
   }), []);
 });
+
+Deno.test("denies an inactive parent portal account", () => {
+  assertEquals(resolveEligibleParentUserIds({
+    ...base,
+    accounts: [{ ...base.accounts[0], is_active: false }, base.accounts[1]],
+  }), ["user-b"]);
+});
+
+Deno.test("does not notify a guardian who is not linked to the learner", () => {
+  assertEquals(resolveEligibleParentUserIds({
+    ...base,
+    requestedGuardianIds: ["unrelated-guardian"],
+  }), []);
+});
