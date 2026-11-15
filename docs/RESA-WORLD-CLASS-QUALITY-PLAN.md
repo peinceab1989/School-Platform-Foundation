@@ -63,6 +63,22 @@ The advisor snapshot returned the following findings:
 
 Advisor findings are leads for engineering review, not proof that each item is exploitable or should be changed automatically.
 
+#### Function and schema triage from read-only inspection
+
+The three functions currently executable by `anon` are:
+
+- `get_public_customer_care_status(p_school_id uuid)`
+- `get_resa_public_announcements()`
+- `get_resa_website_content(p_content_type text)`
+
+Their inspected definitions use an empty/restricted `search_path` and return public-facing content or a boolean status. Their public exposure appears intentional, but must remain limited to published content and non-sensitive status. The customer-care status function accepts a caller-supplied school UUID, so confirm that exposing this boolean across school identifiers is acceptable.
+
+The 30 authenticated-executable `SECURITY DEFINER` functions were also inspected at a metadata/pattern level. The sampled business RPCs contain `auth.uid()`, and the inspected administrative actions check school roles or the JETAB owner identity. This is a positive sign, not a complete authorisation proof: each function still needs a full branch-by-branch review, especially helpers that are intended to be called by RLS policies and parent-scoped workflows. A text search for `auth.uid()` or `has_school_role()` is not a substitute for testing whether the caller may act on the specific record and school passed as parameters.
+
+The extension warning is specifically `pg_net 0.20.4` installed in the `public` schema. Before moving it, check all dependent functions and scheduled jobs; do not move or drop it during a routine cleanup.
+
+The two RLS-enabled tables without policies are `admission_application_rate_events` and `external_candidate_registration_events`. With RLS enabled and no policies, normal API roles are denied by default. Confirm that this is intentional for internal rate-limit/audit event storage and that inserts occur only through the trusted server-side path.
+
 ### 3.3 Deployment verification still required
 
 The GitHub main branch and Cloudflare Pages production deployment must be compared by exact commit SHA. A successful repository build or a newer GitHub commit does not prove that the public site is serving that commit. Record the deployed SHA, build status, deployment URL and smoke-test outcome for every release.
