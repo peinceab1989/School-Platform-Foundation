@@ -20,6 +20,96 @@ function uniqueIds(values: unknown[]) {
   return [...new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0))];
 }
 
+/**
+ * Resolve only currently authorised parent accounts for one exact learner.
+ * Both relationship records must be active, the guardian portal must be
+ * enabled, the account must be active, and the same user must hold an active
+ * parent membership for this school. This is notification audience filtering,
+ * not a substitute for the database RLS checks protecting portal data.
+ */
+async function resolveActiveParentAudience(
+  schoolId: string,
+  studentId: string,
+  requestedGuardianIds?: string[],
+): Promise<string[]> {
+  if (!schoolId || !studentId) return [];
+
+  const { data: studentLinks, error: studentLinkError } = await admin
+    .from("student_parent_guardians")
+    .select("parent_guardian_id")
+    .eq("school_id", schoolId)
+    .eq("student_id", studentId);
+  if (studentLinkError) throw studentLinkError;
+
+  const linkedGuardianIds = uniqueIds((studentLinks || []).map((item) => item.parent_guardian_id));
+  const permittedGuardianIds = requestedGuardianIds?.length
+    ? linkedGuardianIds.filter((id) => requestedGuardianIds.includes(id))
+    : linkedGuardianIds;
+  if (!permittedGuardianIds.length) return [];
+
+  const { data: activeAccess, error: accessError } = await admin
+    .from("parent_student_portal_access")
+    .select("parent_guardian_id")
+    .eq("school_id", schoolId)
+    .eq("student_id", studentId)
+    .eq("is_active", true)
+    .in("parent_guardian_id", permittedGuardianIds);
+  if (accessError) throw accessError;
+
+  const accessGuardianIds = uniqueIds((activeAccess || []).map((item) => item.parent_guardian_id));
+  if (!accessGuardianIds.length) return [];
+
+  const { data: guardians, error: guardianError } = await admin
+    .from("parents_guardians")
+    .select("id,person_id")
+    .eq("school_id", schoolId)
+    .eq("portal_enabled", true)
+    .in("id", accessGuardianIds);
+  if (guardianError) throw guardianError;
+
+  const guardianPersonPairs = (guardians || []).filter((item) => item.id && item.person_id);
+  if (!guardianPersonPairs.length) return [];
+
+  const personIds = uniqueIds(guardianPersonPairs.map((item) => item.person_id));
+  const { data: people, error: peopleError } = await admin
+    .from("people")
+    .select("id,user_id")
+    .eq("school_id", schoolId)
+    .in("id", personIds);
+  if (peopleError) throw peopleError;
+
+  const userByPersonId = new Map((people || [])
+    .filter((item) => item.id && item.user_id)
+    .map((item) => [item.id, item.user_id]));
+  const userByGuardianId = new Map(guardianPersonPairs
+    .map((item) => [item.id, userByPersonId.get(item.person_id)])
+    .filter((pair): pair is [string, string] => typeof pair[1] === "string"));
+
+  const { data: accounts, error: accountError } = await admin
+    .from("parent_portal_accounts")
+    .select("user_id,parent_guardian_id")
+    .eq("school_id", schoolId)
+    .eq("is_active", true)
+    .in("parent_guardian_id", accessGuardianIds);
+  if (accountError) throw accountError;
+
+  const validAccountUsers = uniqueIds((accounts || []).filter((account) =>
+    account.user_id && userByGuardianId.get(account.parent_guardian_id) === account.user_id
+  ).map((account) => account.user_id));
+  if (!validAccountUsers.length) return [];
+
+  const { data: memberships, error: membershipError } = await admin
+    .from("school_memberships")
+    .select("user_id")
+    .eq("school_id", schoolId)
+    .eq("role", "parent")
+    .eq("status", "active")
+    .in("user_id", validAccountUsers);
+  if (membershipError) throw membershipError;
+
+  const activeMembershipUsers = uniqueIds((memberships || []).map((item) => item.user_id));
+  return validAccountUsers.filter((id) => activeMembershipUsers.includes(id));
+}
 
 async function resolveStudentAudience(schoolId: string, studentId: string): Promise<string[]> {
   if (!studentId) return [];
@@ -35,18 +125,7 @@ async function resolveStudentAudience(schoolId: string, studentId: string): Prom
   if (studentAccountError) throw studentAccountError;
   ids.push(...(studentAccounts || []).map((item) => item.user_id));
 
-  const { data: links, error: linkError } = await admin
-    .from("student_parent_guardians").select("parent_guardian_id")
-    .eq("school_id", schoolId).eq("student_id", studentId);
-  if (linkError) throw linkError;
-  const guardianIds = uniqueIds((links || []).map((item) => item.parent_guardian_id));
-  if (guardianIds.length) {
-    const { data: parentAccounts, error: parentError } = await admin
-      .from("parent_portal_accounts").select("user_id")
-      .eq("school_id", schoolId).eq("is_active", true).in("parent_guardian_id", guardianIds);
-    if (parentError) throw parentError;
-    ids.push(...(parentAccounts || []).map((item) => item.user_id));
-  }
+  ids.push(...await resolveActiveParentAudience(schoolId, studentId));
   return uniqueIds(ids);
 }
 
@@ -80,14 +159,10 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
   }
 
   if (eventType === "attendance") {
-    const { data, error } = await admin
-      .from("parent_portal_accounts")
-      .select("user_id")
-      .eq("school_id", schoolId)
-      .eq("parent_guardian_id", String(row.parent_guardian_id || ""))
-      .eq("is_active", true);
-    if (error) throw error;
-    return uniqueIds((data || []).map((item) => item.user_id));
+    const studentId = String(row.student_id || "");
+    const guardianId = String(row.parent_guardian_id || "");
+    if (!studentId || !guardianId) return [];
+    return resolveActiveParentAudience(schoolId, studentId, [guardianId]);
   }
 
   if (eventType === "announcement") {
