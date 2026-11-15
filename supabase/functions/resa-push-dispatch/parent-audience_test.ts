@@ -2,7 +2,10 @@ import { assertEquals } from "jsr:@std/assert@1";
 import { resolveEligibleParentUserIds } from "./parent-audience.ts";
 
 const base = {
-  studentLinks: [\n    { parent_guardian_id: "guardian-a", is_active: true },\n    { parent_guardian_id: "guardian-b", is_active: true },\n  ],
+  studentLinks: [
+    { parent_guardian_id: "guardian-a", is_active: true },
+    { parent_guardian_id: "guardian-b", is_active: true },
+  ],
   activeAccess: [
     { parent_guardian_id: "guardian-a", is_active: true },
     { parent_guardian_id: "guardian-b", is_active: true },
