@@ -103,3 +103,19 @@ Required isolated negative tests: wrong-school student, inactive student, expire
 - Capture before/after advisor results, migration checksum, test evidence, rollback plan and restore rehearsal.
 
 **Release disposition: NO-GO** until parent revocation is fail-closed, payment idempotency is implemented and tested, the child-collection fallback is formally approved and all role-based acceptance tests pass.
+
+
+## 5. Migration history reconciliation: public customer-care status
+
+A separate open PR (#90) records migration `20261115060828_scope_public_customer_care_status_to_resa`. The connected live Supabase migration registry already contains this migration, and the PR description states that the matching change was applied and verified in the live project. The SQL file is stored in the repository under `artifacts/school-platform/supabase/migrations/`, not the conventional root `supabase/migrations/` path.
+
+The migration replaces `public.get_public_customer_care_status(uuid)` with a narrowly scoped public lookup: only RESA's configured public website school UUID is queried; other UUIDs return false. It retains `SECURITY DEFINER`, an empty search path, and execute grants for `anon` and `authenticated` because the public website widget requires anonymous execution.
+
+Release handling:
+- Do not reapply this migration to the live project.
+- Before merging PR #90, verify the repository's migration discovery/configuration convention and confirm the artifact-path migration is included in the authoritative migration history/build process.
+- Confirm the deployed function body matches the reviewed SQL and retain the two read-only test cases (RESA UUID returns configured state; unrelated UUID returns false).
+- Keep the intentional anonymous-execution advisor finding documented; do not revoke the public widget's required access.
+- If repository migration tooling expects `supabase/migrations/`, reconcile file placement/history in a separate reviewed change without changing the live function.
+
+This reconciliation was read-only. No migration was applied, moved, merged or deployed during this follow-up.
