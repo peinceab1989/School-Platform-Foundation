@@ -2,7 +2,7 @@ import { assertEquals } from "jsr:@std/assert@1";
 import { resolveEligibleParentUserIds } from "./parent-audience.ts";
 
 const base = {
-  studentLinks: [{ parent_guardian_id: "guardian-a" }, { parent_guardian_id: "guardian-b" }],
+  studentLinks: [\n    { parent_guardian_id: "guardian-a", is_active: true },\n    { parent_guardian_id: "guardian-b", is_active: true },\n  ],
   activeAccess: [
     { parent_guardian_id: "guardian-a", is_active: true },
     { parent_guardian_id: "guardian-b", is_active: true },
@@ -77,4 +77,14 @@ Deno.test("does not notify a guardian who is not linked to the learner", () => {
     ...base,
     requestedGuardianIds: ["unrelated-guardian"],
   }), []);
+});
+
+Deno.test("denies inactive student-to-guardian relationship", () => {
+  assertEquals(resolveEligibleParentUserIds({
+    ...base,
+    studentLinks: [
+      { parent_guardian_id: "guardian-a", is_active: false },
+      { parent_guardian_id: "guardian-b", is_active: true },
+    ],
+  }), ["user-b"]);
 });
