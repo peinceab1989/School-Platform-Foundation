@@ -111,3 +111,87 @@ with check (
   public.has_school_role(school_id, array['admin']::public.school_role[])
   and (changed_by is null or changed_by = (select auth.uid()))
 );
+alter table public.student_subject_results
+  drop constraint if exists student_subject_results_coursework_split_consistency;
+alter table public.student_subject_results
+  add constraint student_subject_results_coursework_split_consistency
+  check (
+    (notes_score is null and assignments_score is null and projects_score is null)
+    or (
+      notes_score is not null and assignments_score is not null and projects_score is not null
+      and coursework_score is not null
+      and abs(notes_score + assignments_score + projects_score - coursework_score) < 0.001
+    )
+  );
+
+create or replace function public.validate_resa_student_subject_result_grading()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $$
+declare
+  cfg public.school_grading_configurations%rowtype;
+begin
+  if new.cat1_score is null and new.cat2_score is null and new.coursework_score is null then
+    -- Preserve legacy combined-CA rows without inventing component marks.
+    return new;
+  end if;
+
+  if new.grading_configuration_id is null then
+    raise exception 'A versioned grading configuration is required for new component scores';
+  end if;
+
+  select * into cfg
+  from public.school_grading_configurations
+  where id = new.grading_configuration_id
+    and school_id = new.school_id;
+
+  if not found then
+    raise exception 'The grading configuration does not belong to this school';
+  end if;
+
+  if new.cat1_score is null or new.cat2_score is null or new.exam_score is null or new.coursework_score is null then
+    raise exception 'All configured grading components are required';
+  end if;
+
+  if new.cat1_score < 0 or new.cat1_score > cfg.cat1_max
+    or new.cat2_score < 0 or new.cat2_score > cfg.cat2_max
+    or new.exam_score < 0 or new.exam_score > cfg.exam_max
+    or new.coursework_score < 0 or new.coursework_score > cfg.coursework_max then
+    raise exception 'A score exceeds its configured maximum';
+  end if;
+
+  if abs(coalesce(new.ca_score, 0) - (new.cat1_score + new.cat2_score)) >= 0.001 then
+    raise exception 'CA subtotal must equal CAT 1 plus CAT 2';
+  end if;
+
+  if cfg.notes_max is null and cfg.assignments_max is null and cfg.projects_max is null then
+    if new.notes_score is not null or new.assignments_score is not null or new.projects_score is not null then
+      raise exception 'Individual coursework scores are not enabled for this grading version';
+    end if;
+  else
+    if new.notes_score is null or new.assignments_score is null or new.projects_score is null then
+      raise exception 'Notes, assignments and projects scores are all required for this grading version';
+    end if;
+    if new.notes_score < 0 or new.notes_score > cfg.notes_max
+      or new.assignments_score < 0 or new.assignments_score > cfg.assignments_max
+      or new.projects_score < 0 or new.projects_score > cfg.projects_max
+      or abs(new.notes_score + new.assignments_score + new.projects_score - new.coursework_score) >= 0.001 then
+      raise exception 'Coursework scores exceed or do not add up to the configured coursework pool';
+    end if;
+  end if;
+
+  if abs(coalesce(new.total_score, 0) - (new.cat1_score + new.cat2_score + new.exam_score + new.coursework_score)) >= 0.001 then
+    raise exception 'Subject total must equal the sum of all configured component scores';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_validate_resa_student_subject_result_grading on public.student_subject_results;
+create trigger trg_validate_resa_student_subject_result_grading
+before insert or update of cat1_score, cat2_score, ca_score, exam_score, coursework_score,
+  notes_score, assignments_score, projects_score, grading_configuration_id, total_score
+on public.student_subject_results
+for each row execute function public.validate_resa_student_subject_result_grading();
