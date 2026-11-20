@@ -103,7 +103,7 @@ create or replace function public.audit_school_grading_configuration_insert()
 returns trigger
 language plpgsql
 set search_path = pg_catalog, public
-as $
+as $audit$
 begin
   insert into public.school_grading_configuration_audit (
     school_id, grading_configuration_id, changed_by, action, snapshot
@@ -112,7 +112,7 @@ begin
   );
   return new;
 end;
-$;
+$audit$;
 
 drop trigger if exists trg_audit_school_grading_configuration_insert on public.school_grading_configurations;
 create trigger trg_audit_school_grading_configuration_insert
