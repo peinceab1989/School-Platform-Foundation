@@ -1,17 +1,18 @@
 -- Versioned, school-admin-controlled grading maxima for each academic term.
--- Initial standard: CAT 1 20 + CAT 2 20 + Examination 50 + Coursework pool 10 = 100.
--- Coursework remains a combined Notes/Assignments/Projects pool until the school
--- explicitly approves an individual split; no arbitrary split is assumed.
+-- No component maxima are assumed: the school administrator must enter the
+-- approved CAT 1, CAT 2, examination and coursework allocations before score entry.
+-- Coursework remains a combined Notes/Assignments/Projects pool unless the school
+-- explicitly approves an individual split.
 create table if not exists public.school_grading_configurations (
   id uuid primary key default gen_random_uuid(),
   school_id uuid not null,
   academic_session_id uuid not null,
   term_id uuid not null,
   version integer not null check (version > 0),
-  cat1_max numeric(7,2) not null default 20 check (cat1_max >= 0),
-  cat2_max numeric(7,2) not null default 20 check (cat2_max >= 0),
-  exam_max numeric(7,2) not null default 50 check (exam_max >= 0),
-  coursework_max numeric(7,2) not null default 10 check (coursework_max >= 0),
+  cat1_max numeric(7,2) not null check (cat1_max >= 0),
+  cat2_max numeric(7,2) not null check (cat2_max >= 0),
+  exam_max numeric(7,2) not null check (exam_max >= 0),
+  coursework_max numeric(7,2) not null check (coursework_max >= 0),
   notes_max numeric(7,2),
   assignments_max numeric(7,2),
   projects_max numeric(7,2),
@@ -121,8 +122,8 @@ for each row execute function public.audit_school_grading_configuration_insert()
 
 -- Preserve the live legacy grading scale for terms that already contain combined
 -- CA (40) and examination (60) records. Do not rewrite or split historical marks.
--- New terms without saved results continue to receive the approved 20 + 20 + 50 + 10
--- default through create_school_grading_configuration().
+-- New terms without saved results remain unconfigured until an administrator enters
+-- the school-approved maxima through create_school_grading_configuration().
 insert into public.school_grading_configurations (
   school_id, academic_session_id, term_id, version,
   cat1_max, cat2_max, exam_max, coursework_max, total_max, created_by
