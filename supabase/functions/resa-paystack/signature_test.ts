@@ -76,6 +76,56 @@ Deno.test("accepts the legacy x-paystack-signature during migration", async () =
   assertEquals(accepted, true);
 });
 
+Deno.test("accepts secret rotation when any v1 signature matches", async () => {
+  const nowMs = 1_800_000_000_000;
+  const timestamp = String(Math.floor(nowMs / 1000));
+  const prefix = encoder.encode(timestamp + ".");
+  const payload = new Uint8Array(prefix.length + rawBody.length);
+  payload.set(prefix);
+  payload.set(rawBody, prefix.length);
+  const oldDigest = await hmacSha512Hex("whsec_previous_secret", payload);
+  const currentDigest = await hmacSha512Hex(webhookSecret, payload);
+  const accepted = await verifyPaystackWebhookSignature({
+    modernSignature: `t=${timestamp},v1=whk_old:${oldDigest},v1=whk_current:${currentDigest}`,
+    legacySignature: null,
+    rawBody,
+    webhookSecret,
+    secretKey,
+    nowMs,
+  });
+  assertEquals(accepted, true);
+});
+
+Deno.test("rejects duplicate timestamp fields", async () => {
+  const nowMs = 1_800_000_000_000;
+  const timestamp = String(Math.floor(nowMs / 1000));
+  const prefix = encoder.encode(timestamp + ".");
+  const payload = new Uint8Array(prefix.length + rawBody.length);
+  payload.set(prefix);
+  payload.set(rawBody, prefix.length);
+  const digest = await hmacSha512Hex(webhookSecret, payload);
+  const accepted = await verifyPaystackWebhookSignature({
+    modernSignature: `t=${timestamp},t=${timestamp},v1=whk_current:${digest}`,
+    legacySignature: null,
+    rawBody,
+    webhookSecret,
+    secretKey,
+    nowMs,
+  });
+  assertEquals(accepted, false);
+});
+
+Deno.test("rejects non-decimal timestamp values", async () => {
+  const accepted = await verifyPaystackWebhookSignature({
+    modernSignature: "t=1e9,v1=whk_current:" + "a".repeat(128),
+    legacySignature: null,
+    rawBody,
+    webhookSecret,
+    secretKey,
+  });
+  assertEquals(accepted, false);
+});
+
 Deno.test("rejects malformed legacy signatures", async () => {
   const accepted = await verifyPaystackWebhookSignature({
     modernSignature: null,
