@@ -39,7 +39,7 @@ No production learner, staff, parent, attendance, assignment, submission, grade,
 ### A. Push dispatcher v4 — post-deployment validation
 - Live dispatcher is ACTIVE version 4 and includes `index.ts` plus `parent-audience.ts` from the schema-aligned mainline.
 - Live schema preflight confirmed the real `student_parent_guardians` table has no `is_active` column; the deployed query now uses relationship-row presence and requires the separate active `parent_student_portal_access` row.
-- The webhook token and both VAPID key settings were confirmed configured without exposing their values.
+- The webhook token and both VAPID key settings were confirmed configured without exposing their values. The current-main parent payment-options UI is merged; it does not collect payments or change Finance records.
 - The existing `verify_jwt=false` invocation contract was preserved because the function validates test-user sessions and database webhook tokens internally.
 - Next, test one consenting account per role and a parent linked to a test learner. Confirm positive delivery and denial for a suspended/unlinked parent. Do not equate push-service acceptance with actual Android display.
 - Record the server response, recipient/device counts and actual Android notification display separately. Do not equate accepted-by-push-service with displayed-on-device.
