@@ -49,7 +49,7 @@ create or replace function public.create_paystack_payment_intent(
 )
 returns uuid
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $function$
 declare
@@ -121,7 +121,7 @@ create or replace function public.record_verified_paystack_fee_payment(
 )
 returns jsonb
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $function$
 declare
