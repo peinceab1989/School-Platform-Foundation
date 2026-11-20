@@ -59,7 +59,7 @@ export default function ResaAssistantWidget() {
   const [path] = useLocation();
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [reply, setReply] = useState<HelpTopic | null>(null);
+  const [transcript, setTranscript] = useState<Array<{ role: "user" | "assistant"; content: string; href?: string }>>([]);
   const [customerCareAvailable, setCustomerCareAvailable] = useState<boolean | null>(null);
   const [invitationVisible, setInvitationVisible] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
@@ -95,19 +95,14 @@ export default function ResaAssistantWidget() {
     if (!trimmed || isThinking) return;
     setQuestion("");
     const knownAnswer = findTopic(trimmed);
+    setTranscript(previous => [...previous, { role: "user", content: trimmed }].slice(-12));
     if (knownAnswer) {
-      setReply(knownAnswer);
+      setTranscript(previous => [...previous, { role: "assistant", content: knownAnswer.answer, href: knownAnswer.href }].slice(-12));
       setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: knownAnswer.answer }].slice(-6));
       return;
     }
 
     setIsThinking(true);
-    setReply({
-      title: "RESA is preparing an answer",
-      answer: "Please wait a moment while I check how best to help.",
-      href: "/contact",
-      keys: [],
-    });
     try {
       const { data, error } = await getSupabaseClient().functions.invoke("resa-public-assistant", {
         body: { question: trimmed, history },
@@ -117,11 +112,11 @@ export default function ResaAssistantWidget() {
         throw new Error("The assistant returned no answer.");
       }
       const answer = data.answer.trim();
-      setReply({ title: "RESA Virtual Assistant", answer, href: "/contact", keys: [] });
+      setTranscript(previous => [...previous, { role: "assistant", content: answer, href: "/contact" }].slice(-12));
       setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: answer }].slice(-6));
     } catch {
       const answer = "I can answer common RESA questions using the school's verified help information, but the general AI connection is not active or is temporarily unavailable. For a school-specific answer, please contact RESA on WhatsApp at +234 805 842 2691 or email rhemaexploitsacademy@gmail.com. Please do not send passwords, one-time codes or private student information in this chat.";
-      setReply({ title: "I can still help with RESA information", answer, href: "/contact", keys: [] });
+      setTranscript(previous => [...previous, { role: "assistant", content: answer, href: "/contact" }].slice(-12));
       setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: answer }].slice(-6));
     } finally {
       setIsThinking(false);
@@ -138,7 +133,7 @@ export default function ResaAssistantWidget() {
         <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3"><div className="flex items-center gap-2 text-sm font-bold text-emerald-950">{customerCareAvailable === true ? <><CircleCheck size={16}/> Customer Care is available</> : <><Bot size={16}/> RESA Virtual Assistant is ready</>}</div><p className="mt-1 text-xs leading-5 text-emerald-900">{customerCareAvailable === true ? "Our team is ready to chat and answer your questions. You can start with the school team or ask the virtual assistant." : "Our automated assistant is here while the school team is away. You can still ask questions at any time."}</p></div><p className="text-sm leading-6 text-slate-600">Hello! Ask about admissions, fees, classes, school hours, learning, examinations, results, assignments, technology, directions or portal use. When the AI service is connected, I can also answer a wider range of general questions.</p>
         <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","Find RESA on the map"].map(q=><button type="button" key={q} onClick={()=>ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50">{q}</button>)}</div>
         {isThinking && <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900" role="status" aria-live="polite">RESA is preparing your answer…</div>}
-        {reply && !isThinking && <div className="rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"><p className="font-bold text-slate-900">{reply.title}</p><p className="mt-1 whitespace-pre-wrap">{reply.answer}</p><a href={reply.href} className="mt-3 inline-flex items-center gap-1 font-bold text-emerald-800 underline underline-offset-4">Open relevant section <ArrowUpRight size={14}/></a></div>}
+        {transcript.map((line, index) => <div key={index} className={line.role === "user" ? "ml-8 rounded-2xl rounded-br-md bg-[#174c35] p-3 text-sm leading-6 text-white" : "mr-5 rounded-2xl rounded-bl-md bg-slate-100 p-3 text-sm leading-6 text-slate-700"}><p className="mb-1 text-[10px] font-extrabold uppercase tracking-wider opacity-70">{line.role === "user" ? "You" : "RESA Virtual Assistant"}</p><p className="whitespace-pre-wrap">{line.content}</p>{line.href && <a href={line.href} className="mt-2 inline-flex items-center gap-1 font-bold text-emerald-800 underline underline-offset-4">Open relevant section <ArrowUpRight size={14}/></a>}</div>)}
       </div>
       <form onSubmit={e=>{e.preventDefault();ask();}} className="flex gap-2 border-t border-slate-100 p-3">
         <input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Type your question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700" aria-label="Ask RESA a question"/>
