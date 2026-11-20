@@ -23,7 +23,17 @@ function response(body: unknown, status = 200, headers: Record<string, string> =
 
 function cors(origin: string | null) {
   const allowed = [APP_URL, "https://school-platform-foundation.pages.dev", "https://resa-school-portal.netlify.app"];
-  const value = origin && allowed.includes(origin) ? origin : APP_URL;
+  let cloudflarePreview = false;
+  if (origin) {
+    try {
+      const hostname = new URL(origin).hostname;
+      cloudflarePreview = hostname === "school-platform-foundation.pages.dev" ||
+        hostname.endsWith(".school-platform-foundation.pages.dev");
+    } catch {
+      cloudflarePreview = false;
+    }
+  }
+  const value = origin && (allowed.includes(origin) || cloudflarePreview) ? origin : APP_URL;
   return {
     "Access-Control-Allow-Origin": value,
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -172,7 +182,7 @@ Deno.serve(async (req: Request) => {
       if (amountNaira > balance + 0.001) return response({ error: "Payment exceeds the current outstanding balance of ₦" + balance.toLocaleString("en-NG") + "." }, 400, headers);
       if (Math.abs(amountNaira - amountKobo / 100) > 0.000001) return response({ error: "Enter an amount with no more than two decimal places." }, 400, headers);
 
-      if (!user.email) return response({ error: "Your RESA sign-in account has no verified email address. Contact the school office before paying online." }, 400, headers);
+      if (!user.email || !user.email_confirmed_at) return response({ error: "Your RESA sign-in account needs a verified email address before online payment. Contact the school office if you need help." }, 400, headers);
       const reference = "RESA-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16).toUpperCase();
       const { data: intentId, error: intentError } = await admin.rpc("create_paystack_payment_intent", {
         p_school_id: schoolId,
