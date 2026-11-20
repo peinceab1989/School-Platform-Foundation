@@ -38,13 +38,21 @@ create index if not exists school_grading_configurations_term_idx
 
 alter table public.student_subject_results
   add column if not exists coursework_score numeric(7,2),
+  add column if not exists notes_score numeric(7,2),
+  add column if not exists assignments_score numeric(7,2),
+  add column if not exists projects_score numeric(7,2),
   add column if not exists grading_configuration_id uuid;
 
 alter table public.student_subject_results
-  drop constraint if exists student_subject_results_coursework_score_nonnegative;
+  drop constraint if exists student_subject_results_coursework_score_nonnegative,
+  drop constraint if exists student_subject_results_notes_score_nonnegative,
+  drop constraint if exists student_subject_results_assignments_score_nonnegative,
+  drop constraint if exists student_subject_results_projects_score_nonnegative;
 alter table public.student_subject_results
-  add constraint student_subject_results_coursework_score_nonnegative
-  check (coursework_score is null or coursework_score >= 0);
+  add constraint student_subject_results_coursework_score_nonnegative check (coursework_score is null or coursework_score >= 0),
+  add constraint student_subject_results_notes_score_nonnegative check (notes_score is null or notes_score >= 0),
+  add constraint student_subject_results_assignments_score_nonnegative check (assignments_score is null or assignments_score >= 0),
+  add constraint student_subject_results_projects_score_nonnegative check (projects_score is null or projects_score >= 0);
 
 do $$
 begin
