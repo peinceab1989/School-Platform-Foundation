@@ -7,7 +7,7 @@
 - School-specific answers are constrained to verified public facts in the function prompt. Unknown school policies, fees, deadlines, exam dates, and personal records must be referred to the school office.
 - General educational and everyday questions can be answered when the AI provider is configured.
 - The endpoint accepts only short text questions and a small recent conversation history. It does not read student records, admissions records, grades, attendance, messages, or private files.
-- Requests are limited to 30 per IP-hash per UTC hour and 120 total requests per UTC hour across the service. The global ceiling limits aggregate provider spend even if callers rotate IP addresses. Only salted SHA-256 hashes and hourly counters are stored; raw IP addresses and chat content are not written to the rate-limit table.
+- Requests are limited to 30 per IP-hash per UTC hour, 120 total requests per UTC hour, and 300 total requests per UTC day across the service. The global ceilings limit aggregate provider spend even if callers rotate IP addresses. Only salted SHA-256 hashes and hourly counters are stored; raw IP addresses and chat content are not written to the rate-limit table.
 - Request bodies are capped at 12,000 characters and model output is capped at 350 tokens.
 - OpenAI request storage is disabled with `store: false`.
 - Public human-support handoff is via RESA's official WhatsApp number. The public Customer Care availability toggle controls the website invitation; this is not a native agent inbox.
