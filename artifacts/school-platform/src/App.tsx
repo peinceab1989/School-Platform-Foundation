@@ -643,7 +643,35 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-extrabold text-emerald-950">School fees & payments</h2><p className="mt-1 text-sm text-slate-600">Charges, due dates and balances for your linked learners.</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900">Parent view</span></div>
           {overviewLoading ? <p className="mt-4 text-sm text-slate-500">Loading fee information…</p> : feeRows.length === 0 ? <p className="mt-4 rounded-xl border border-dashed p-4 text-sm leading-6 text-slate-600">No fee charges have been published to your parent account yet. For payment instructions, contact the school through <Link href="/school-communication" className="font-bold text-emerald-800 underline">School Messages</Link>.</p> : <div className="mt-4 overflow-x-auto rounded-xl border"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-slate-50"><tr><th className="px-3 py-3">Learner</th><th className="px-3 py-3">Amount due</th><th className="px-3 py-3">Paid</th><th className="px-3 py-3">Balance</th><th className="px-3 py-3">Due date</th><th className="px-3 py-3">Status</th></tr></thead><tbody>{feeRows.map((row) => { const paid = paidByAssignment[String(row.id)] || 0; const due = Number(row.amount_due || 0); const balance = Math.max(0, due - paid); return <tr key={String(row.id)} className="border-t"><td className="px-3 py-3"><p className="font-semibold">{childName(String(row.student_id))}</p><p className="mt-1 text-xs text-slate-500">{feeTypeNames[String(row.fee_type_id)] || "School fee"}</p></td><td className="px-3 py-3">{money(due)}</td><td className="px-3 py-3">{money(paid)}</td><td className="px-3 py-3 font-bold">{money(balance)}</td><td className="px-3 py-3">{row.due_date ? new Date(String(row.due_date) + "T00:00:00").toLocaleDateString("en-NG") : "—"}</td><td className="px-3 py-3">{balance <= 0 ? "Paid" : paid > 0 ? "Part-paid" : String(row.status || "Outstanding")}</td></tr>; })}</tbody></table></div>}
-          <p className="mt-3 text-xs leading-5 text-slate-500">Online card/bank checkout is not enabled. Confirm payment instructions directly with RESA Finance before making any payment.</p>
+          <section aria-labelledby="resa-parent-payment-options" className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold uppercase tracking-[.14em] text-emerald-800">Payment options</p>
+                <h3 id="resa-parent-payment-options" className="mt-1 text-base font-extrabold text-emerald-950">Choose an approved way to pay RESA</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">Your balance changes only after the school's Finance Office confirms a successful payment.</p>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">Optional online payment</span>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center gap-2">
+                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-lg font-bold text-slate-700">₦</span>
+                  <div><p className="font-extrabold text-slate-900">Pay online with Paystack</p><p className="text-xs font-semibold text-amber-700">Coming soon · not activated</p></div>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Secure online checkout will become available after RESA completes merchant onboarding, server-side verification and payment testing. Supported channels will depend on the school's approved Paystack configuration.</p>
+                <p className="mt-2 text-xs text-slate-500">No payment is taken from this option while it is inactive.</p>
+              </div>
+              <div className="rounded-xl border border-emerald-200 bg-white p-4">
+                <div className="flex items-center gap-2">
+                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">↗</span>
+                  <div><p className="font-extrabold text-emerald-950">Bank transfer or school office</p><p className="text-xs font-semibold text-emerald-700">Ask Finance for verified instructions</p></div>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Contact RESA through the official School Messages channel to confirm the school's approved account details or in-person payment procedure before sending money.</p>
+                <Link href="/school-communication" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-2.5 text-center text-sm font-extrabold text-white transition hover:bg-emerald-800">Contact RESA Finance</Link>
+              </div>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500">Payment safety: use only bank details confirmed through an official RESA channel. Keep transfer evidence. A transfer screenshot or checkout attempt is not a receipt; an official receipt is issued only after Finance verifies the payment.</p>
+          </section>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-extrabold text-emerald-950">Payment history & receipts</h2>
