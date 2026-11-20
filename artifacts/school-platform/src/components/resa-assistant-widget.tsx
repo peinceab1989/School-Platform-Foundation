@@ -1,6 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight } from "lucide-react";
+import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight, Headset, CircleCheck } from "lucide-react";
+import { getSupabaseClient } from "@/lib/supabase/client";
+
+const RESA_PUBLIC_SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
 
 type HelpTopic = {
   keys: string[];
@@ -51,15 +54,41 @@ export default function ResaAssistantWidget() {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [reply, setReply] = useState<HelpTopic | null>(null);
+  const [customerCareAvailable, setCustomerCareAvailable] = useState<boolean | null>(null);
+  const [invitationVisible, setInvitationVisible] = useState(false);
   const activePage = useMemo(() => path.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "home", [path]);
+
+  useEffect(() => {
+    let active = true;
+    const checkAvailability = async () => {
+      try {
+        const { data, error } = await (getSupabaseClient() as any).rpc(
+          "get_public_customer_care_status",
+          { p_school_id: RESA_PUBLIC_SCHOOL_ID },
+        );
+        if (active) setCustomerCareAvailable(error ? false : data === true);
+      } catch {
+        if (active) setCustomerCareAvailable(false);
+      }
+    };
+    void checkAvailability();
+    const poll = window.setInterval(() => void checkAvailability(), 60000);
+    return () => { active = false; window.clearInterval(poll); };
+  }, []);
+
+  useEffect(() => {
+    if (customerCareAvailable !== true || open) return;
+    const timer = window.setTimeout(() => setInvitationVisible(true), 7000);
+    return () => window.clearTimeout(timer);
+  }, [customerCareAvailable, open, path]);
 
   function ask(value = question) {
     const trimmed = value.trim();
     if (!trimmed) return;
     setReply(findTopic(trimmed) ?? {
-      title: "I couldn't verify that answer",
-      answer: "I could not find a verified answer in the current RESA help library. Please try a shorter keyword, open the Portal Navigation Guide, or contact RESA Customer Care. I will not guess about school procedures or account permissions.",
-      href: "/portal-navigation-guide",
+      title: "Let me help you find a reliable answer",
+      answer: "I am RESA's always-available virtual assistant. I can answer verified questions about the school, admissions, fees, learning, examinations, technology, directions and portal use. I do not yet have a live general-purpose AI connection, so I will not invent facts. For other topics, try a more specific question or use a trusted information source; the school team can also help when available.",
+      href: "/contact",
       keys: [],
     });
     setQuestion(value);
@@ -68,11 +97,11 @@ export default function ResaAssistantWidget() {
   return <div className="fixed bottom-4 right-4 z-[1200]">
     {open && <section role="dialog" aria-modal="false" aria-label="RESA help assistant" className="mb-3 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl">
       <header className="flex items-center justify-between bg-[#103b2d] p-4 text-white">
-        <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">Verified quick help • Page: {activePage}</p></div></div>
+        <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">{customerCareAvailable === true ? "Customer Care is available now" : "Virtual assistant available 24/7"} • Page: {activePage}</p></div></div>
         <button type="button" onClick={()=>setOpen(false)} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
       </header>
       <div className="max-h-80 space-y-3 overflow-y-auto p-4" aria-live="polite">
-        <p className="text-sm leading-6 text-slate-600">Hello! Ask about attendance, results, fees, assignments, admissions, staff accounts, examinations, school communication or directions.</p>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3"><div className="flex items-center gap-2 text-sm font-bold text-emerald-950">{customerCareAvailable === true ? <><CircleCheck size={16}/> Customer Care is available</> : <><Bot size={16}/> RESA Virtual Assistant is ready</>}</div><p className="mt-1 text-xs leading-5 text-emerald-900">{customerCareAvailable === true ? "Our team is ready to chat and answer your questions. You can start with the school team or ask the virtual assistant." : "Our automated assistant is here while the school team is away. You can still ask questions at any time."}</p></div><p className="text-sm leading-6 text-slate-600">Hello! Ask about admissions, fees, classes, school hours, learning, examinations, results, assignments, technology, directions or portal use. I can also offer general study and digital-safety guidance.</p>
         <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","Find RESA on the map"].map(q=><button type="button" key={q} onClick={()=>ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50">{q}</button>)}</div>
         {reply && <div className="rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"><p className="font-bold text-slate-900">{reply.title}</p><p className="mt-1">{reply.answer}</p><a href={reply.href} className="mt-3 inline-flex items-center gap-1 font-bold text-emerald-800 underline underline-offset-4">Open relevant section <ArrowUpRight size={14}/></a></div>}
       </div>
@@ -80,10 +109,11 @@ export default function ResaAssistantWidget() {
         <input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Type your question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700" aria-label="Ask RESA a question"/>
         <button type="submit" aria-label="Send question" className="rounded-xl bg-[#174c35] px-3 text-white"><Send size={17}/></button>
       </form>
-      <footer className="flex justify-between gap-2 px-4 pb-3 text-xs"><a href="/portal-navigation-guide" className="font-semibold text-emerald-800 underline">Portal guide</a><a href="/maps" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MapPin size={12}/> Maps</a><a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MessageCircle size={12}/> Customer care</a></footer>
-      <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">This version uses a curated help library, not generative AI. It cannot see private records or change account data.</p>
+      <footer className="flex flex-wrap justify-between gap-2 px-4 pb-3 text-xs"><a href="/portal-navigation-guide" className="font-semibold text-emerald-800 underline">Portal guide</a><a href="/maps" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MapPin size={12}/> Maps</a>{customerCareAvailable === true && <a href="/school-communication" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><Headset size={12}/> Chat with admin</a>}<a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MessageCircle size={12}/> WhatsApp</a></footer>
+      <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">The assistant uses RESA's verified help information and does not access private student records or change accounts. General-purpose AI answers require a separately secured AI service.</p>
     </section>}
-    <button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open} aria-label={open ? "Close Ask RESA assistant" : "Open Ask RESA assistant"} className="ml-auto flex items-center gap-2 rounded-full bg-[#103b2d] px-4 py-3 font-bold text-white shadow-xl ring-2 ring-white transition hover:bg-[#1a5a3d]">
+    {invitationVisible && !open && <div role="status" className="mb-3 ml-auto max-w-[min(330px,calc(100vw-2rem))] rounded-2xl border border-amber-200 bg-white p-3 shadow-xl"><div className="flex items-start gap-2"><span className="mt-0.5 rounded-full bg-emerald-100 p-1.5 text-emerald-800"><Headset size={16}/></span><div className="min-w-0 flex-1"><p className="text-sm font-extrabold text-emerald-950">RESA Customer Care is available</p><p className="mt-1 text-xs leading-5 text-slate-600">We are ready to chat and answer your questions. How can we help?</p><button type="button" onClick={()=>{setOpen(true);setInvitationVisible(false);}} className="mt-2 rounded-lg bg-[#174c35] px-3 py-2 text-xs font-bold text-white">Chat with us</button></div><button type="button" onClick={()=>setInvitationVisible(false)} aria-label="Dismiss chat invitation" className="rounded-md p-1 text-slate-400 hover:bg-slate-100"><X size={15}/></button></div></div>}
+    <button type="button" onClick={()=>{setOpen(v=>!v);setInvitationVisible(false);}} aria-expanded={open} aria-label={open ? "Close Ask RESA assistant" : "Open Ask RESA assistant"} className="ml-auto flex items-center gap-2 rounded-full bg-[#103b2d] px-4 py-3 font-bold text-white shadow-xl ring-2 ring-white transition hover:bg-[#1a5a3d]">
       {open ? <X size={19}/> : <MessageCircle size={19}/>}<span className="text-sm">Ask RESA</span>
     </button>
   </div>;
