@@ -148,7 +148,16 @@ begin
     raise exception 'Paystack payment intent was not found';
   end if;
 
+  if p_currency <> 'NGN'
+    or p_amount_kobo <> v_intent.amount_kobo
+    or p_provider_domain <> v_intent.gateway_mode then
+    raise exception 'Verified Paystack transaction does not match the stored payment intent';
+  end if;
+
   if v_intent.status = 'paid' then
+    if p_provider_transaction_id is distinct from v_intent.provider_transaction_id then
+      raise exception 'The verified Paystack transaction ID does not match the settled payment';
+    end if;
     return jsonb_build_object(
       'success', true, 'idempotent_replay', true,
       'payment_id', v_intent.payment_id, 'receipt_id', v_intent.receipt_id,
@@ -158,12 +167,6 @@ begin
 
   if v_intent.status not in ('pending','review_required') then
     raise exception 'This Paystack payment intent is not payable';
-  end if;
-
-  if p_currency <> 'NGN'
-    or p_amount_kobo <> v_intent.amount_kobo
-    or p_provider_domain <> v_intent.gateway_mode then
-    raise exception 'Verified Paystack transaction does not match the stored payment intent';
   end if;
 
   select * into v_assignment
@@ -213,7 +216,7 @@ begin
      amount, payment_method, description, issued_by)
   values
     (v_intent.school_id, v_payment_id, v_receipt_number, v_today, v_assignment.student_id,
-     v_amount, 'paystack', 'Verified online school-fee payment', v_intent.initiated_by)
+     v_amount, 'paystack', 'Verified online school-fee payment; automated receipt', null)
   returning id into v_receipt_id;
 
   update public.student_fee_assignments
