@@ -49,6 +49,9 @@ export default function ParentPaystackCheckout({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [receiptNumber, setReceiptNumber] = useState("");
+  const [gatewayReady, setGatewayReady] = useState(false);
+  const [gatewayMode, setGatewayMode] = useState<"test" | "live">("test");
+  const [gatewayChecking, setGatewayChecking] = useState(true);
 
   useEffect(() => {
     if (!assignmentId && outstandingFees.length) {
@@ -56,6 +59,22 @@ export default function ParentPaystackCheckout({
       setAmount(String(outstandingFees[0].balance.toFixed(2)));
     }
   }, [assignmentId, outstandingFees]);
+
+  useEffect(() => {
+    let active = true;
+    void getSupabaseClient().functions.invoke("resa-paystack", {
+      body: { action: "status" },
+    }).then(({ data, error }) => {
+      if (!active) return;
+      setGatewayReady(!error && data?.configured === true);
+      if (data?.mode === "live") setGatewayMode("live");
+    }).catch(() => {
+      if (active) setGatewayReady(false);
+    }).finally(() => {
+      if (active) setGatewayChecking(false);
+    });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -154,10 +173,11 @@ export default function ParentPaystackCheckout({
                 aria-label="Amount to pay in naira" />
             </label>
             <p className="mt-2 text-xs text-slate-500">Outstanding balance: <strong>{money(balance)}</strong>. Partial payments are allowed up to this amount.</p>
-            <button type="button" disabled={busy || !selected} onClick={() => void startCheckout()}
+            <button type="button" disabled={busy || !selected || !gatewayReady || gatewayChecking} onClick={() => void startCheckout()}
               className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
-              {busy ? "Please wait…" : "Continue to secure Paystack checkout"}
+              {busy ? "Please wait…" : gatewayChecking ? "Checking Paystack availability…" : !gatewayReady ? "Paystack coming soon · not activated" : gatewayMode === "test" ? "Continue to Paystack test checkout" : "Continue to secure Paystack checkout"}
             </button>
+            {!gatewayReady && !gatewayChecking && <p className="mt-2 text-xs leading-5 text-amber-800">Online checkout is not yet configured by RESA Finance. No payment can be taken through this option until the merchant keys and signed webhook are configured and tested.</p>}
           </>
         )}
         {notice && <div role="status" aria-live="polite" className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-xs leading-5 text-emerald-950">
