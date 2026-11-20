@@ -80,6 +80,7 @@
 - [ ] Submit an enquiry and confirm delivery to resainternational2024@gmail.com.
 - [ ] Complete the approved admissions application validation path.
 - [ ] Verify application status, review, approval/rejection and applicant notifications.
+- [ ] Confirm Supabase Auth Site URL and redirect allow-list include `https://school-platform-foundation.pages.dev`, `/accept-invitation` and `/reset-password`; verify invitation and recovery emails land on the current Cloudflare portal rather than the exhausted Netlify deployment.
 - [ ] Test external-candidate registration and admission-form purchase/validation only after the school confirms the actual payment flow and zero-cost implications.
 - [ ] Before adding Paystack to admissions/external CBT, obtain the school-approved exact form fee, confirm whether it covers the admission application, CBT registration or both, and approve refund/reconciliation rules. Do not reuse the parent school-fee checkout for candidate forms.
 - [ ] Verify external CBT candidates are isolated from enrolled-student accounts and exams.
