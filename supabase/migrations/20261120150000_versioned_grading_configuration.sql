@@ -219,17 +219,18 @@ begin
 
   -- Legacy combined-CA rows may be annotated with CAT1/CAT2 only when their
   -- original CA, examination and total values remain exactly unchanged.
-  if tg_op = 'UPDATE'
-    and old.grading_configuration_id is null
-    and old.cat1_score is null
-    and old.cat2_score is null
-    and old.coursework_score is null
-    and new.grading_configuration_id is not null then
-    if new.ca_score is distinct from old.ca_score
-      or new.exam_score is distinct from old.exam_score
-      or new.total_score is distinct from old.total_score
-      or coalesce(new.coursework_score, 0) <> 0 then
-      raise exception 'Historical combined-CA results cannot be recalculated or changed';
+  if tg_op = 'UPDATE' then
+    if old.grading_configuration_id is null
+      and old.cat1_score is null
+      and old.cat2_score is null
+      and old.coursework_score is null
+      and new.grading_configuration_id is not null then
+      if new.ca_score is distinct from old.ca_score
+        or new.exam_score is distinct from old.exam_score
+        or new.total_score is distinct from old.total_score
+        or coalesce(new.coursework_score, 0) <> 0 then
+        raise exception 'Historical combined-CA results cannot be recalculated or changed';
+      end if;
     end if;
   end if;
 
