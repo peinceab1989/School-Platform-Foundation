@@ -59,7 +59,7 @@ declare
   v_intent_id uuid;
 begin
   if p_amount_kobo is null or p_amount_kobo <= 0
-    or p_gateway_mode not in ('test','live')
+    or p_gateway_mode is null or p_gateway_mode not in ('test','live')
     or nullif(trim(coalesce(p_reference,'')), '') is null then
     raise exception 'A valid Paystack payment request is required';
   end if;
