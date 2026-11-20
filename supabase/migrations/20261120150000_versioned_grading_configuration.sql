@@ -132,12 +132,11 @@ as $$
 declare
   cfg public.school_grading_configurations%rowtype;
 begin
-  if new.cat1_score is null and new.cat2_score is null and new.coursework_score is null then
-    -- Preserve legacy combined-CA rows without inventing component marks.
-    return new;
-  end if;
-
   if new.grading_configuration_id is null then
+    if new.cat1_score is null and new.cat2_score is null and new.coursework_score is null then
+      -- Preserve legacy combined-CA rows without inventing component marks.
+      return new;
+    end if;
     raise exception 'A versioned grading configuration is required for new component scores';
   end if;
 
@@ -150,7 +149,21 @@ begin
     raise exception 'The grading configuration does not belong to this school';
   end if;
 
-  if new.cat1_score is null or new.cat2_score is null or new.exam_score is null or new.coursework_score is null then
+  if new.exam_score is null or new.exam_score < 0 or new.exam_score > cfg.exam_max then
+    raise exception 'The examination score exceeds its configured maximum';
+  end if;
+
+  if new.cat1_score is null and new.cat2_score is null and new.coursework_score is null then
+    if coalesce(new.ca_score, 0) <> 0
+      or abs(coalesce(new.total_score, 0) - new.exam_score) >= 0.001 then
+      raise exception 'An exam-only transfer must not include unrecorded CA or coursework marks';
+    end if;
+    -- A configured CBT transfer may write the examination component before the
+    -- teacher enters CAT and coursework marks.
+    return new;
+  end if;
+
+  if new.cat1_score is null or new.cat2_score is null or new.coursework_score is null then
     raise exception 'All configured grading components are required';
   end if;
 
