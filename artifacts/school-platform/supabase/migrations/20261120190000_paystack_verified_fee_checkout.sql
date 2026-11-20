@@ -20,6 +20,7 @@ create table if not exists public.paystack_payment_intents (
   paid_at timestamptz,
   last_verified_at timestamptz,
   failure_reason text,
+  expires_at timestamptz not null default (now() + interval '30 minutes'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -28,10 +29,88 @@ create index if not exists paystack_payment_intents_school_status_created_idx
   on public.paystack_payment_intents (school_id, status, created_at desc);
 create index if not exists paystack_payment_intents_assignment_idx
   on public.paystack_payment_intents (student_fee_assignment_id, created_at desc);
+create unique index if not exists paystack_payment_intents_provider_transaction_uidx
+  on public.paystack_payment_intents (provider_transaction_id)
+  where provider_transaction_id is not null;
 
 alter table public.paystack_payment_intents enable row level security;
 revoke all on table public.paystack_payment_intents from public, anon, authenticated;
 grant all on table public.paystack_payment_intents to service_role;
+
+
+create or replace function public.create_paystack_payment_intent(
+  p_school_id uuid,
+  p_assignment_id uuid,
+  p_student_id uuid,
+  p_initiated_by uuid,
+  p_reference text,
+  p_amount_kobo bigint,
+  p_gateway_mode text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_assignment public.student_fee_assignments%rowtype;
+  v_paid numeric(12,2);
+  v_reserved numeric(12,2);
+  v_intent_id uuid;
+begin
+  if p_amount_kobo is null or p_amount_kobo <= 0
+    or p_gateway_mode not in ('test','live')
+    or nullif(trim(coalesce(p_reference,'')), '') is null then
+    raise exception 'A valid Paystack payment request is required';
+  end if;
+
+  select * into v_assignment
+  from public.student_fee_assignments
+  where id = p_assignment_id
+    and school_id = p_school_id
+    and student_id = p_student_id
+  for update;
+
+  if not found then
+    raise exception 'The selected fee assignment was not found for this school and learner';
+  end if;
+
+  update public.paystack_payment_intents
+  set status = 'failed',
+      failure_reason = 'Checkout reservation expired before payment confirmation.',
+      updated_at = now()
+  where student_fee_assignment_id = p_assignment_id
+    and status = 'pending'
+    and expires_at <= now();
+
+  select coalesce(sum(amount_paid),0) into v_paid
+  from public.student_fee_payments
+  where school_id = p_school_id and student_fee_assignment_id = p_assignment_id;
+
+  select coalesce(sum(amount_kobo),0)::numeric / 100 into v_reserved
+  from public.paystack_payment_intents
+  where student_fee_assignment_id = p_assignment_id
+    and status = 'pending'
+    and expires_at > now();
+
+  if p_amount_kobo::numeric / 100 > greatest(v_assignment.amount_due - v_paid - v_reserved, 0) then
+    raise exception 'The requested amount exceeds the available balance after other active checkout reservations';
+  end if;
+
+  insert into public.paystack_payment_intents
+    (school_id, student_fee_assignment_id, student_id, initiated_by, reference,
+     amount_kobo, currency, gateway_mode, status)
+  values
+    (p_school_id, p_assignment_id, p_student_id, p_initiated_by, p_reference,
+     p_amount_kobo, 'NGN', p_gateway_mode, 'pending')
+  returning id into v_intent_id;
+
+  return v_intent_id;
+end;
+$function$;
+
+revoke all on function public.create_paystack_payment_intent(uuid,uuid,uuid,uuid,text,bigint,text) from public, anon, authenticated;
+grant execute on function public.create_paystack_payment_intent(uuid,uuid,uuid,uuid,text,bigint,text) to service_role;
 
 create or replace function public.record_verified_paystack_fee_payment(
   p_reference text,
