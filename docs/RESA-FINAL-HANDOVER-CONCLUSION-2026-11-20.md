@@ -4,78 +4,102 @@
 
 **NO-GO for final production handover at this time.**
 
-The engineering source in draft PR #120 passes the latest automated checks, but critical school acceptance and disaster-recovery evidence is still missing. A responsible handover cannot be signed off solely because the application compiles or CI passes.
+The current development branches have passed their latest automated CI checks and the public Cloudflare website has passed read-only browser smoke tests. However, production migrations, payment activation, real Android delivery, complete role-based school acceptance and a verified disaster-recovery rehearsal remain outstanding. A responsible handover cannot be signed off solely because the application compiles or public pages render.
 
-This is a technical release decision, not a rejection of the completed engineering work. RESA can proceed to a controlled school acceptance session once the release branch has completed review.
+This is a release-control decision, not a rejection of the completed engineering work.
 
-## Verified source and CI
+## Verified repository and CI
 
 - Repository: `peinceab1989/School-Platform-Foundation`.
-- Draft PR: [#120 — Add safe editing for existing school classes](https://github.com/peinceab1989/School-Platform-Foundation/pull/120).
-- Branch: `improvement/editable-existing-classes`.
-- Latest verified head at the time of this report: `6701c47ee39f28ba64396e2e419c4bb5c261e9e7`.
-- GitHub Actions run `44754694957` completed successfully.
-- Passed checks: locked dependency installation, workspace TypeScript, production application build, RESA Edge Function typecheck and push-audience authorization tests.
-- Earlier run `44754270844` also passed for the preceding checklist commit.
+- PR #120: [Class, grading, notification, admissions UX and handover improvements](https://github.com/peinceab1989/School-Platform-Foundation/pull/120).
+- PR #120 branch: `improvement/editable-existing-classes`.
+- PR #120 latest head: `7fd391696eae03cc276c21b9e462819775b5bb1b`.
+- PR #120 GitHub Actions run [44793280064](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44793280064) passed: workspace TypeScript, production application build, RESA Edge Function typecheck, parent push-audience tests and notification-preference routing tests.
+- PR #123: [Secure Paystack checkout for RESA parent fees](https://github.com/peinceab1989/School-Platform-Foundation/pull/123).
+- PR #123 latest head: `0da811a9d63cbca124e467f6e024602cb81a3f8f`.
+- PR #123 GitHub Actions run [44791987759](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44791987759) passed: workspace TypeScript, production build, Edge Function typecheck, push-audience tests and Paystack webhook signature tests.
 
-CI success verifies those automated checks only. It does not replace role-based browser testing, real Android push delivery, Storage journeys, school-user acceptance or a disaster-recovery rehearsal.
+Both PRs remain draft, unmerged and undeployed. The CI results validate source/build/tests only; they do not validate production database migrations, live payment processing or real school-user workflows.
 
-## Work represented in PR #120
+## Engineering work represented in PR #120
 
-- Existing class editing and safe subject catalogue editing while preserving linked identifiers.
-- Admissions enquiry routing and dedicated contact route.
-- Zero-cost, locally bundled RESA help-centre assistant; no paid AI invocation or paid AI secret.
-- CAT 1 / CAT 2 / examination / coursework grading configuration, versioning and configured CBT exam-mark scaling.
-- Acceptance checklist and implementation documentation.
-- Corrected PostgreSQL dollar-quoting delimiter in the grading audit trigger.
+- Safe in-place editing of existing classes with duplicate-name validation; linked class IDs, enrolments and historical results are preserved.
+- Versioned grading configuration using the school-approved editable initial 20/20/50/10 standard, optional coursework split and historical CA 40 / Exam 60 preservation.
+- CBT-to-results transfer uses the configured examination maximum and protects saved/published results.
+- Parent attendance Web Push now checks the dedicated `parent_attendance_notification_preferences` table and exact guardian/user scope instead of the unrelated general preference table.
+- Added tests for parent-specific attendance preference routing and isolation; prevents duplicate foreground native notifications when Web Push is registered.
+- Corrected account invitation and recovery redirect targets to the active Cloudflare Pages portal.
+- Added a branded RESA 404 page with safe navigation.
+- Admissions and external CBT forms now visibly mark required fields, label optional fields and show official Admissions contact details and safe payment guidance without inventing an unapproved form fee.
+- RESA Drive and practical-evidence upload controls are aligned to Supabase Free's 50 MB per-file ceiling.
+- Updated the navigation guide, final handover report and school acceptance checklist.
 
-All grading migrations in PR #120 remain unapplied to production. The PR remains draft and unmerged.
+## Paystack implementation — PR #123
+
+- Parent-facing full and partial checkout for authorised student fee assignments.
+- Server-side initialization and independent transaction verification; no secret key in browser code.
+- Modern timestamped `Paystack-Signature` validation over the raw body using HMAC-SHA512, a 300-second replay window, constant-time comparison and all `v1` signatures during secret rotation; legacy signature support remains during migration.
+- Private RLS-enabled payment-intent ledger with 30-minute balance reservations, concurrent checkout protection and provider transaction deduplication.
+- Atomic, replay-safe fee-payment and official receipt creation after verified settlement.
+- Offline bank transfer, POS and cash-at-school-office paths remain available, with Finance verification required before balances/receipts change.
+
+**Production Paystack remains inactive.** The live Supabase project has no `paystack_payment_intents` table, no Paystack settlement RPCs and no deployed `resa-paystack` Edge Function. No merchant credentials, production migration, webhook, charge, refund or live activation has been configured. The migration still requires independent review, isolated-database validation and test-mode end-to-end acceptance.
+
+This PR covers parent school-fee assignments only. Admissions and external CBT form purchases are excluded until the school confirms the exact form fee and whether it covers the admission application, CBT registration or both. No amount has been invented.
+
+## Public website smoke tests
+
+Read-only browser runs completed on 20 November 2026:
+
+- Run [49b0fd8f-5942-407f-ae82-88358d7a3026](https://agent.tinyfish.ai/runs/49b0fd8f-5942-407f-ae82-88358d7a3026): homepage, admissions, portal sign-in, portal-options, About, Academics and Contact rendered; no visible loading errors, broken images or unexpected redirects.
+- Run [e4e0e562-6545-4099-b892-d8c551c0c037](https://agent.tinyfish.ai/runs/e4e0e562-6545-4099-b892-d8c551c0c037): `/admissions-apply` and `/external-cbt-registration` rendered. The test found missing visual required-field indicators, missing direct contact details and no fee information. PR #120 now addresses the field labels and contact guidance; fee amounts remain intentionally absent pending school approval.
+- The public site is currently hosted at `https://school-platform-foundation.pages.dev/`. The old Netlify URL is a legacy address; new invitation/recovery source redirects now target Cloudflare. Supabase Auth Site URL and redirect allow-list still need a dashboard check before those email flows are accepted.
+- The public smoke test found that invalid routes lacked a clear branded 404 experience. PR #120 now includes a branded 404 page; this source change still needs deployment and a post-deploy browser check.
+
+No login, form submission, application creation or production write action was performed during these smoke tests.
 
 ## Live operational evidence and outstanding risks
 
 The latest read-only inventory recorded:
 
 - One push subscription total and no parent notification-log rows. Parent Android delivery remains unproven.
-- Read-only preference counts: 3 parent attendance preference rows are enabled with phone alerts enabled, while 19 general RESA notification preference rows have only 1 phone-enabled row. The deployed push dispatcher v4 was filtering attendance pushes through the general preference table rather than the parent-specific attendance preference table. Draft PR #120 now routes attendance pushes through the exact parent's attendance preference and prevents duplicate foreground system alerts when a device is already registered. This source correction is not yet deployed; real Android delivery and opt-out tests remain release gates.
+- Three parent attendance preference rows were enabled with phone alerts enabled, while 19 general RESA notification preference rows had only one phone-enabled row. The deployed push dispatcher v4 was using the general preference table for attendance; PR #120 corrects the source routing. The fix is not deployed. Real Android check-in/check-out delivery, opt-out and duplicate-alert tests remain mandatory.
 - One direct conversation, one message and no group membership data. Real cross-device and group acceptance remain.
-- Zero RESA Drive file records and no Storage objects in the Drive/practical-evidence buckets. Real upload, listing, preview and download remain unproven.
+- Zero RESA Drive file records and no Drive/practical-evidence Storage objects. Real upload, listing, preview and download remain unproven.
 - Zero admission applications and zero external candidate registrations. Full admissions/external CBT journeys remain unproven.
 - Existing assignment records exist, but the complete school-user workflow still needs acceptance.
-- Dropbox `/RESA MASTER BACKUP/` contains the seven agreed folders and a manifest, but is not a complete verified backup. A current complete source archive, full database/Auth recovery material, Storage object bytes, required website/school assets, checksums and an isolated restore rehearsal remain outstanding.
-- Supabase Free plan limitations, including native leaked-password protection availability, remain documented; no paid upgrade is recommended or authorised.
-- Paystack implementation is now represented by separate draft PR [#123 — Secure Paystack checkout](https://github.com/peinceab1989/School-Platform-Foundation/pull/123), whose latest head `0da811a9d63cbca124e467f6e024602cb81a3f8f` passed GitHub Actions run `44791987759` (workspace typecheck, production build, Edge Function typecheck, push authorization tests and Paystack webhook signature tests). Paystack remains inactive: no merchant credentials, production migration, Edge Function deployment, test/live charge or webhook delivery has been configured or accepted. The payment migration still requires isolated-database review and test-mode end-to-end acceptance.
+- Dropbox `/RESA MASTER BACKUP/` contains the seven agreed folders and a manifest, but is not a complete verified backup. A current complete source archive, database/Auth recovery material, actual Storage object bytes, required website/school assets, checksums and an isolated restore rehearsal remain outstanding.
+- Supabase Free supports a maximum 50 MB individual file upload, even though the RESA bucket-level setting is 100 MB. The application cap is now 50 MB. The requested 100 MB upload capability needs a different storage provider or a higher plan limit; no paid upgrade has been made.
+- Supabase Security Advisor still reports two RLS-enabled event tables with no policies, `pg_net` installed in `public`, three anon-executable SECURITY DEFINER public-content functions, 30 authenticated-executable SECURITY DEFINER functions, and leaked-password protection disabled. Public-content RPCs and closed event tables appear intentional; privileged functions require a function-by-function review. Do not blindly revoke grants or move extensions.
+- No production data, Auth identities, Storage objects, schema or live payment records were modified during this work.
 
 ## Release blockers
 
-1. Independent review and approval of PR #120.
-2. Controlled admin/teacher/student/parent acceptance of class and subject edits, grading, result approval and publication.
-3. Parent Android push registration and verified check-in/check-out delivery.
-4. Direct/group messaging and unread/read behaviour on real role accounts and devices.
-5. Drive upload/list/preview/download and assignment submission/marking on real accounts.
-6. Public admissions and external CBT end-to-end tests using approved test identities and no unauthorised charges.
-7. Complete copy-only backup of current source, database/Auth recovery material, Storage bytes, website assets and approved school records.
-8. Encrypted handling of sensitive database/Auth dumps, SHA-256 inventory and successful restore rehearsal in an isolated non-production environment.
-9. Paystack PR #123 independent code/migration review, isolated migration validation, test-secret configuration, Edge Function deployment to a non-production/test setup and end-to-end payment acceptance; live merchant onboarding and activation remain a later school-authorised step.
-10. Written school acceptance and explicit release approval.
+1. Independent review of PR #120 and PR #123; keep both unmerged until release evidence is complete.
+2. Verify Supabase Auth Site URL and redirect allow-list for Cloudflare invitation and password-recovery routes.
+3. Review and validate grading and Paystack migrations in an isolated database; do not apply them directly to production.
+4. Complete controlled admin/teacher/student/parent acceptance of class/subject edits, grading, result approval and publication.
+5. Test parent Android push registration, check-in/check-out alerts, opt-out and duplicate suppression on a real parent device.
+6. Test direct/group messaging, read receipts and unread counts on real role accounts/devices.
+7. Test Drive upload/list/preview/download and assignment submission/marking on real accounts.
+8. Complete admissions and external CBT registration using approved test identities. Obtain the approved form fee and payment scope before implementing candidate checkout.
+9. Complete Paystack test-mode checkout, webhook delivery, retries, concurrency, wrong-parent/fee rejection, receipt issuance and Finance reconciliation before any live activation.
+10. Complete a copy-only backup of source, database/Auth recovery material, Storage bytes, website assets and approved school records; encrypt sensitive exports, verify hashes and rehearse restore in an isolated environment.
+11. Complete the remaining security-advisor review without blanket permission changes.
+12. Obtain written school acceptance and explicit production release approval.
 
 ## Required operating safeguards
 
 - Preserve existing production data, Auth identities, schema and Storage objects.
 - Do not reset or clean up demo/test records until the school separately authorises a documented cleanup.
-- Do not apply PR grading migrations to production until they have been independently reviewed, tested against a non-production copy, backed up and separately approved.
-- Do not merge or deploy the draft PR as a substitute for the acceptance gates.
-- Keep the solution within the approved zero-additional-cost requirement. Paystack transaction fees, if later activated, must be disclosed and approved before use.
+- Do not apply PR grading or Paystack migrations to production until independently reviewed, tested against a non-production copy, backed up and separately approved.
+- Do not merge or deploy draft PRs as a substitute for acceptance gates.
+- Keep the solution within the approved zero-additional-cost requirement. Paystack transaction fees must be disclosed and approved before live use.
 - Keep original school assets and backup source files intact; backup is copy-only.
 - Do not export secrets or unencrypted sensitive dumps to Dropbox.
 
 ## Handover recommendation
 
-Proceed with a scheduled, evidence-recorded school acceptance session and a separate isolated disaster-recovery rehearsal. Update the production completion tracker only when each gate has a named tester, timestamp, expected result, actual result and evidence reference.
+Proceed to a scheduled, evidence-recorded school acceptance session and a separate isolated disaster-recovery rehearsal. Update the production completion tracker only when each gate has a named tester, timestamp, expected result, actual result and evidence reference.
 
-**Final conclusion: PR #120 head `06b8f5ad99e9567fed4a9e7747f2d7866a03a07c` passed GitHub Actions run `44791842871`, and Paystack PR #123 head `0da811a9d63cbca124e467f6e024602cb81a3f8f` passed run `44791987759`; production handover is not yet accepted. Maintain NO-GO until all release blockers pass.**
-
-
-
-## Final source verification addendum
-
-The final documentation commit `5e560944a76d430de8b165393145a31a5295e8af` subsequently passed GitHub Actions run `44755275827`. All workflow steps completed successfully: locked dependency installation, workspace TypeScript, production application build, RESA Edge Function typecheck and push-audience authorization tests. This confirms the latest PR branch source is CI-green; it does not close the real-device, school acceptance or disaster-recovery release blockers above.
+**Final conclusion: engineering source and CI are substantially improved, and the public site routes are operational. RESA is not yet ready for final production handover. Maintain NO-GO until the release blockers pass and school management signs off.**
