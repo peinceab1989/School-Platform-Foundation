@@ -236,6 +236,17 @@ begin
     raise exception 'Grading component maximums must be non-negative and total exactly 100';
   end if;
 
+  if not exists (
+    select 1 from public.academic_sessions
+    where id = p_academic_session_id and school_id = p_school_id
+  ) or not exists (
+    select 1 from public.academic_terms
+    where id = p_term_id and school_id = p_school_id
+      and academic_session_id = p_academic_session_id
+  ) then
+    raise exception 'The selected academic session and term must belong to this school';
+  end if;
+
   v_has_split := p_notes_max is not null or p_assignments_max is not null or p_projects_max is not null;
   if v_has_split and (
     p_notes_max is null or p_assignments_max is null or p_projects_max is null
