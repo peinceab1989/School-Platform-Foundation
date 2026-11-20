@@ -81,6 +81,7 @@
 - [ ] Complete the approved admissions application validation path.
 - [ ] Verify application status, review, approval/rejection and applicant notifications.
 - [ ] Test external-candidate registration and admission-form purchase/validation only after the school confirms the actual payment flow and zero-cost implications.
+- [ ] Before adding Paystack to admissions/external CBT, obtain the school-approved exact form fee, confirm whether it covers the admission application, CBT registration or both, and approve refund/reconciliation rules. Do not reuse the parent school-fee checkout for candidate forms.
 - [ ] Verify external CBT candidates are isolated from enrolled-student accounts and exams.
 - [ ] Verify published exams, timing, attempt limits, answer-key protection, scoring and results.
 - [ ] Test enrolled-student CBT separately from external-candidate CBT.
@@ -91,7 +92,7 @@
 - [ ] Verify offline payment evidence is pending until finance verification.
 - [ ] Verify receipts are issued only after confirmed finance approval.
 - [ ] Verify duplicate payment submissions/references are safely rejected or idempotently replayed.
-- [ ] Review draft Paystack implementation PR #123 and confirm the exact passing CI head SHA.
+- [ ] Review draft Paystack implementation PR #123 and confirm the exact passing CI head SHA; its current scope is parent school-fee assignments only, not admission/external CBT form purchases.
 - [ ] Review the private intent-ledger migration in an isolated database; test fee reservation, expiry, concurrency, overpayment, idempotency and duplicate provider transaction IDs.
 - [ ] Configure Paystack test secret and webhook signing secret only in Supabase secrets (never in chat, source code or browser variables).
 - [ ] Deploy the Edge Function to a non-production/test environment with webhook JWT verification disabled only because the handler independently authenticates parent actions and verifies webhook signatures.
