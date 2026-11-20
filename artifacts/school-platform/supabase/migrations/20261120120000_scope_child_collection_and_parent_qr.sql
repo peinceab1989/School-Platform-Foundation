@@ -55,8 +55,7 @@ begin
  returning id into v_release_id;
  return jsonb_build_object('success',true,'release_id',v_release_id,'released_at',now());
 end;
-$function$
-
+$function$;
 
 CREATE OR REPLACE FUNCTION public.resa_record_parent_event_checkin(p_school_id uuid, p_event_id uuid, p_parent_qr_hash text, p_station_id uuid DEFAULT NULL::uuid)
  RETURNS jsonb
@@ -88,5 +87,4 @@ begin
  if v_id is null then raise exception 'Parent already checked in for this event'; end if;
  return jsonb_build_object('success',true,'attendance_id',v_id,'event_name',v_event.event_name,'checked_in_at',now());
 end;
-$function$
-
+$function$;
