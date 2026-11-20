@@ -162,7 +162,7 @@ export default function MyPublishedResultsPage({schoolId,userId,role}:Props){
        </div>
       </section>
       <section className="mt-5">
-       <div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-black uppercase tracking-wider text-emerald-950">Academic performance</h3><span className="text-[10px] text-slate-500">Continuous assessment + examination</span></div>
+       <div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-black uppercase tracking-wider text-emerald-950">Academic performance</h3><span className="text-[10px] text-slate-500">CAT 1 + CAT 2 + examination</span></div>
        <div className="overflow-hidden rounded-lg border border-slate-300">
         <table className="w-full border-collapse text-left text-[10px] sm:text-xs">
          <thead><tr className="bg-emerald-950 text-white"><th className="px-2 py-2.5">S/N</th><th className="px-2 py-2.5">Subject</th><th className="px-2 py-2.5 text-center">CAT 1<br/>20</th><th className="px-2 py-2.5 text-center">CAT 2<br/>20</th><th className="px-2 py-2.5 text-center">CA<br/>40</th><th className="px-2 py-2.5 text-center">Exam<br/>60</th><th className="px-2 py-2.5 text-center">Total<br/>100</th><th className="px-2 py-2.5 text-center">Grade</th><th className="px-2 py-2.5 text-center">Position</th></tr></thead>
