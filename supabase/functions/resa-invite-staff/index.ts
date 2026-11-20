@@ -252,7 +252,7 @@ Deno.serve(async (req: Request) => {
     // 6. Send the invitation. The role is fixed to teacher.
     const { data: inviteData, error: inviteError } =
       await adminClient.auth.admin.inviteUserByEmail(email, {
-        redirectTo: "https://resa-school-portal.netlify.app/accept-invitation",
+        redirectTo: "https://school-platform-foundation.pages.dev/accept-invitation",
         data: {
           first_name: firstName,
           last_name: lastName,
