@@ -36,6 +36,7 @@ All grading migrations in PR #120 remain unapplied to production. The PR remains
 The latest read-only inventory recorded:
 
 - One push subscription total and no parent notification-log rows. Parent Android delivery remains unproven.
+- Read-only preference counts: 3 parent attendance preference rows are enabled with phone alerts enabled, while 19 general RESA notification preference rows have only 1 phone-enabled row. The deployed push dispatcher v4 was filtering attendance pushes through the general preference table rather than the parent-specific attendance preference table. Draft PR #120 now routes attendance pushes through the exact parent's attendance preference and prevents duplicate foreground system alerts when a device is already registered. This source correction is not yet deployed; real Android delivery and opt-out tests remain release gates.
 - One direct conversation, one message and no group membership data. Real cross-device and group acceptance remain.
 - Zero RESA Drive file records and no Storage objects in the Drive/practical-evidence buckets. Real upload, listing, preview and download remain unproven.
 - Zero admission applications and zero external candidate registrations. Full admissions/external CBT journeys remain unproven.
