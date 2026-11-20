@@ -14,7 +14,7 @@ This document translates the school's observations into implementation requireme
 | Payment provider | Paystack |
 | Payment methods | Both online payment and the existing offline/manual school payment route must remain available |
 | Online receipts | Generate an official receipt only after server-side verification confirms successful payment |
-| CAT terminology | CAT 1 and CAT 2 mean Continuous Assessment Test 1 and Continuous Assessment Test 2 |
+| CAT terminology and allocation | CAT 1 and CAT 2 mean Continuous Assessment Test 1 and Continuous Assessment Test 2; CAT 1 is out of 20 and CAT 2 is out of 20 (40 CA marks combined) |
 | Class catalogue | Retain the existing classes; authorised administrators must be able to edit them |
 | Admissions email | `resainternational2024@gmail.com` |
 | Data/architecture | Preserve existing data and architecture; no reset, destructive migration or replacement platform |
@@ -65,11 +65,13 @@ This document translates the school's observations into implementation requireme
 ## 4. CAT 1 and CAT 2 assessments
 
 - Label CAT 1 and CAT 2 clearly as Continuous Assessment Test 1 and Continuous Assessment Test 2 in the assessment and result interfaces.
-- Keep CAT 1, CAT 2 and examination marks distinct in storage and calculation.
+- Confirmed allocation: CAT 1 maximum = 20; CAT 2 maximum = 20; combined CA maximum = 40. Examination maximum = 60; subject total = 100.
+- Keep CAT 1, CAT 2 and examination marks distinct in storage and calculation; do not store only a combined CA value for new results.
 - Use the existing assessment/results architecture; do not introduce a parallel gradebook.
-- Before implementing calculations or changing report-card totals, obtain written school confirmation of each component's maximum mark, weighting, rounding rule, missing-score treatment and publication workflow.
+- Validate CAT 1 in the inclusive range 0–20, CAT 2 in 0–20, and examination in 0–60. Combined CA is CAT 1 + CAT 2; subject total is CAT 1 + CAT 2 + examination.
+- Preserve legacy rows that contain only a combined `ca_score`: do not invent a split or rewrite historic/published results. Display legacy CA as an explicitly identified legacy combined value until an authorised school correction is made.
+- Keep the current grading thresholds and rounding behaviour unless the school separately approves a change.
 - Test with synthetic learners and verify that previously published results remain unchanged.
-- Do not assume that each CAT is out of 20 or that the two CATs have equal weight without school approval.
 
 ## 5. Admissions workflow
 
@@ -126,7 +128,7 @@ Requirements:
 |---|---|
 | Classes/subjects | CI green; admin edits existing row; linked enrolment, attendance, CBT and historical result views remain correct |
 | Gender | Registration/edit validation; legacy values audited without automatic rewrite |
-| CAT 1/CAT 2 | School-approved mark/weighting specification; calculation tests; no historical result regression |
+| CAT 1/CAT 2 | Confirmed 20/20 allocation; separate persistence and validation; calculation tests; legacy/published result regression tests |
 | Paystack | Sandbox initialization, valid/invalid webhook, duplicate webhook, amount/reference mismatch, pending/failure/refund/reconciliation tests |
 | Offline payments | Finance verification and one-receipt/idempotency test |
 | Admissions | Both payment routes, secure documents, unique code, online status check, duplicate/concurrency and rejection tests |
