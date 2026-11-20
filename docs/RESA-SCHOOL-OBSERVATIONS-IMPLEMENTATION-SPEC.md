@@ -14,7 +14,7 @@ This document translates the school's observations into implementation requireme
 | Payment provider | Paystack |
 | Payment methods | Both online payment and the existing offline/manual school payment route must remain available |
 | Online receipts | Generate an official receipt only after server-side verification confirms successful payment |
-| CAT terminology and allocation | CAT 1 and CAT 2 mean Continuous Assessment Test 1 and Continuous Assessment Test 2; CAT 1 is out of 20 and CAT 2 is out of 20 (40 CA marks combined) |
+| Grading structure | Initial confirmed structure: CAT 1 = 20, CAT 2 = 20, Examination = 50, and Notes + Assignments + Projects share 10 marks; total = 100. All component maximums must be configurable by authorised administrators, subject to a 100-mark total. |
 | Class catalogue | Retain the existing classes; authorised administrators must be able to edit them |
 | Admissions email | `resainternational2024@gmail.com` |
 | Data/architecture | Preserve existing data and architecture; no reset, destructive migration or replacement platform |
@@ -62,16 +62,31 @@ This document translates the school's observations into implementation requireme
 - Preserve subject IDs and class assignments, result and assessment references.
 - Do not offer destructive deletion where historical records depend on the subject.
 
-## 4. CAT 1 and CAT 2 assessments
+## 4. Configurable assessment and grading structure
 
-- Label CAT 1 and CAT 2 clearly as Continuous Assessment Test 1 and Continuous Assessment Test 2 in the assessment and result interfaces.
-- Confirmed allocation: CAT 1 maximum = 20; CAT 2 maximum = 20; combined CA maximum = 40. Examination maximum = 60; subject total = 100.
-- Keep CAT 1, CAT 2 and examination marks distinct in storage and calculation; do not store only a combined CA value for new results.
-- Use the existing assessment/results architecture; do not introduce a parallel gradebook.
-- Validate CAT 1 in the inclusive range 0–20, CAT 2 in 0–20, and examination in 0–60. Combined CA is CAT 1 + CAT 2; subject total is CAT 1 + CAT 2 + examination.
-- Preserve legacy rows that contain only a combined `ca_score`: do not invent a split or rewrite historic/published results. Display legacy CA as an explicitly identified legacy combined value until an authorised school correction is made.
-- Keep the current grading thresholds and rounding behaviour unless the school separately approves a change.
-- Test with synthetic learners and verify that previously published results remain unchanged.
+### Initial school-approved structure
+- CAT 1 (Continuous Assessment Test 1): maximum 20.
+- CAT 2 (Continuous Assessment Test 2): maximum 20.
+- Examination: maximum 50.
+- Notes, assignments and projects: combined maximum 10.
+- Overall subject maximum: 100.
+
+### Administrator-configurable marks
+- Provide an authorised, audited grading-configuration screen for school administrators.
+- Administrators must be able to adjust the maximum marks for every component: CAT 1, CAT 2, Examination, Notes, Assignments and Projects.
+- Notes, Assignments and Projects must each have their own configurable maximum; their combined maximum is initially 10, but the school may change their individual allocation.
+- The sum of all active component maximums must equal the configured subject total (initially 100). Reject incomplete, negative, invalid or non-100 configurations; do not silently normalise or redistribute marks.
+- Configuration changes must be versioned and effective-dated by academic session/term (or another explicitly selected future assessment period). Do not retroactively apply a new configuration to saved, approved or published results.
+- Restrict configuration changes to authorised administrators; record actor, timestamp, old values, new values and effective period in an audit trail.
+- Teachers may enter scores only within the currently effective component maximums for their assigned class/subject.
+- Result screens, validation, totals, grades, broadsheets, report cards, exports and approval/publication checks must all use the same effective configuration. Show each component's achieved score and maximum.
+- Keep CAT 1, CAT 2, Examination, Notes, Assignments and Projects distinct in storage for new results. Do not collapse them into one CA value.
+- Keep the existing grading thresholds and rounding behaviour unless the school separately approves a change.
+- Preserve legacy rows that contain only a combined `ca_score`: do not invent a split or rewrite historic/published results. Clearly label them as legacy combined CA until an authorised correction is made.
+- CBT-to-exam transfer must use the effective Examination maximum and must not overwrite an existing mark or alter a published result.
+- Use the existing assessment/results architecture where practical; do not introduce a parallel gradebook.
+- Test configuration validation, score entry, calculations, role permissions, effective dates, legacy results and published-result immutability with synthetic learners.
+
 
 ## 5. Admissions workflow
 
@@ -128,7 +143,7 @@ Requirements:
 |---|---|
 | Classes/subjects | CI green; admin edits existing row; linked enrolment, attendance, CBT and historical result views remain correct |
 | Gender | Registration/edit validation; legacy values audited without automatic rewrite |
-| CAT 1/CAT 2 | Confirmed 20/20 allocation; separate persistence and validation; calculation tests; legacy/published result regression tests |
+| Configurable grading | All six component maximums configurable by authorised administrators; totals constrained to 100; versioned effective dates; separate score persistence; audit trail; role, calculation, CBT-transfer and legacy/published-result regression tests |
 | Paystack | Sandbox initialization, valid/invalid webhook, duplicate webhook, amount/reference mismatch, pending/failure/refund/reconciliation tests |
 | Offline payments | Finance verification and one-receipt/idempotency test |
 | Admissions | Both payment routes, secure documents, unique code, online status check, duplicate/concurrency and rejection tests |
@@ -141,7 +156,7 @@ Requirements:
 
 - No destructive reset or cleanup of production data.
 - No automatic bulk class rename or historical record rewrite.
-- No automatic CAT mark weighting.
+- No silent or automatic redistribution of marks; only authorised, explicitly saved grading-configuration changes may alter future component maximums.
 - No live Paystack activation before merchant credentials, sandbox tests and school approval.
 - No public exposure of medical reports, birth certificates or previous results.
 - No publication of identifiable photographs without school approval/consent.
