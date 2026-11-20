@@ -40,7 +40,13 @@
 4. Assign the correct class, subject and academic session. Set a form-teacher relationship only when authorised.
 5. Ask the teacher to sign in and confirm the correct dashboard and assigned classes appear.
 
-### D. Attendance
+### D. Form-teacher assignment and attendance
+1. Open **Form Teacher & Attendance** as an administrator.
+2. Select the intended teacher, class and academic session; assign the form teacher and verify the assignment appears in the list.
+3. Confirm the teacher signs in and sees the correct class/session in the form-teacher attendance workspace.
+4. Assign only the teacher approved by school management. Do not assume that a subject teacher is automatically the form teacher.
+
+### E. Attendance
 - Open the attendance workspace for the correct date and session.
 - Confirm the selected class or staff group before recording attendance.
 - Use the approved biometric/camera/card workflow available at the school. Use the documented fallback process when a card is missing or a device is unavailable.
@@ -48,7 +54,7 @@
 - Review student and staff attendance separately.
 - Check parent notification preferences and escalation procedures. Do not promise a push alert until a real device test confirms delivery.
 
-### E. Results and examinations
+### F. Results and examinations
 - Confirm the session, term, class and subject before entering or importing marks.
 - Check score totals, grading rules and learner identity before publishing.
 - Preview the result and confirm the intended audience before publishing.
@@ -56,7 +62,7 @@
 - Confirm the examination is visible to an enrolled learner account before the examination window begins.
 - Never edit a live examination or result as a workaround for an access problem; record the issue and use the authorised correction process.
 
-### F. Fees and payment verification
+### G. Fees and payment verification
 1. Review fee types and the correct learner/session assignments.
 2. Check each learner's amount due, paid amount and balance.
 3. For bank transfer or office payment, verify the transaction using the school's approved Finance evidence and bank records.
@@ -65,7 +71,7 @@
 6. Reconcile the payment record against the bank statement. Escalate mismatched amounts or duplicate references.
 7. The Paystack option is currently marked **Coming soon — not activated**. Do not instruct parents to use it or imply that online checkout is live.
 
-### G. RESA Drive, assignments and communication
+### H. RESA Drive, assignments and communication
 - Upload only approved school materials and choose the intended visibility.
 - After upload, verify that the file appears in the list and opens for an authorised user.
 - Teachers should publish assignments to the intended class and verify due dates and instructions.
@@ -77,7 +83,7 @@
 
 1. Sign in using your own teacher account and check your name, dashboard and assigned classes.
 2. Confirm the correct session, class and subject before taking attendance or entering marks.
-3. Take attendance only for the class and date assigned to you. Report missing learners or incorrect class lists to the administrator.
+3. Take attendance only for the class and date assigned to you. Form-teacher attendance access is enabled only after the administrator assigns you to the correct class and academic session. Report missing learners or incorrect class lists to the administrator.
 4. Publish lesson materials only to the intended class and verify that learners can open them.
 5. Create assignments with clear instructions, allowed file types and a realistic due date.
 6. Check that the assignment is visible to the intended learners.
