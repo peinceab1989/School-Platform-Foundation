@@ -1,6 +1,7 @@
 # RESA Portal Navigation Quick Reference
 
-**Portal:** https://resa-school-portal.netlify.app/  
+**Portal:** https://school-platform-foundation.pages.dev/
+**Direct portal sign-in:** https://school-platform-foundation.pages.dev/portal  
 **School:** RHEMA EXPLOITS SCIENCE ACADEMY (RESA)  
 **Use:** Existing main RESA portal only. Demo/test records remain demo data and must not be treated as official school records.
 
@@ -45,15 +46,16 @@
 5. Enter the response and select **Submit assignment** before the deadline. Check the submission status afterwards.
 6. Open **My ID Card** to view and print the student ID card when the school has approved printing and uploaded the passport photograph.
 7. Open **Student CBT** to take an available published examination.
-7. Open **My Report Cards** to view results released by the school.
+8. Open **My Report Cards** to view results released by the school.
 9. Use **Learning Resources**, **Practice Drills**, **School Messages** and **Notifications** for learning and communication.
 
 ## Parent / guardian navigation
 1. Sign in using the registered parent email, phone/login ID or RESA login ID and password.
 2. Confirm that the correct learner(s) are linked to the account.
-3. Review fee charges, payments, receipts and outstanding balances.
+3. Review fee items, verified payments, official receipts and outstanding balances. Paystack online checkout is not active until the school completes merchant setup and test acceptance. Until then, follow the school's confirmed bank-transfer, POS or cash-at-Finance-office procedure; Finance must verify funds before the balance changes or an official receipt is issued.
 4. Open published results and attendance information when available.
-5. Use School Messages, Notifications and Customer Care to contact the school.
+5. In **Attendance Notifications**, review the alert and sound preferences. Android phone push requires registering the device in Chrome and granting notification permission; the school must complete the live device acceptance test before relying on it.
+6. Use School Messages, Notifications and Customer Care to contact the school.
 
 ## Important checks and support
 - A teacher must publish an assignment before it appears in the learner's published assignment list. The learner's active class and academic session must match the assignment.
