@@ -28,6 +28,8 @@ const MAX_QUESTION_LENGTH = 1200;
 const MAX_HISTORY_ITEMS = 6;
 const MAX_HISTORY_ITEM_LENGTH = 900;
 const REQUESTS_PER_HOUR = 30;
+const GLOBAL_REQUESTS_PER_HOUR = 120;
+const MAX_REQUEST_BODY_LENGTH = 12000;
 
 function jsonResponse(body: unknown, status = 200, origin?: string) {
   const headers: Record<string, string> = {
@@ -108,7 +110,15 @@ Deno.serve(async (req: Request) => {
 
   let body: { question?: unknown; history?: unknown };
   try {
-    body = await req.json();
+    const declaredLength = Number(req.headers.get("content-length") || 0);
+    if (declaredLength > MAX_REQUEST_BODY_LENGTH) {
+      return jsonResponse({ error: "The chat request is too large. Please shorten your message." }, 413, origin);
+    }
+    const rawBody = await req.text();
+    if (rawBody.length > MAX_REQUEST_BODY_LENGTH) {
+      return jsonResponse({ error: "The chat request is too large. Please shorten your message." }, 413, origin);
+    }
+    body = JSON.parse(rawBody);
   } catch {
     return jsonResponse({ error: "Please send a valid question." }, 400, origin);
   }
@@ -144,6 +154,22 @@ Deno.serve(async (req: Request) => {
     if (allowed !== true) return jsonResponse({
       error: "You have reached the chat limit for this hour. Please wait a little and try again, or contact RESA directly.",
       code: "RATE_LIMITED",
+    }, 429, origin);
+
+    // A shared hourly ceiling limits aggregate provider spend even if callers rotate IP addresses.
+    const globalHash = await hashIdentifier("global-hourly-budget", serviceRoleKey);
+    const { data: globalAllowed, error: globalRateError } = await supabase.rpc("consume_resa_public_assistant_rate_limit", {
+      p_ip_hash: globalHash,
+      p_window_start: windowStart,
+      p_max_requests: GLOBAL_REQUESTS_PER_HOUR,
+    });
+    if (globalRateError) {
+      console.error("RESA assistant global budget check failed:", globalRateError.message);
+      return jsonResponse({ error: "The assistant is temporarily unavailable. Please try again later." }, 503, origin);
+    }
+    if (globalAllowed !== true) return jsonResponse({
+      error: "RESA's chat service has reached its hourly capacity. Please try again later or contact the school directly.",
+      code: "GLOBAL_RATE_LIMITED",
     }, 429, origin);
 
     const model = Deno.env.get("RESA_ASSISTANT_MODEL") || "gpt-5.4-mini";
