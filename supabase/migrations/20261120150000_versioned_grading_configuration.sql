@@ -99,6 +99,28 @@ create index if not exists school_grading_configuration_audit_school_idx
 
 alter table public.school_grading_configuration_audit enable row level security;
 
+create or replace function public.audit_school_grading_configuration_insert()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $
+begin
+  insert into public.school_grading_configuration_audit (
+    school_id, grading_configuration_id, changed_by, action, snapshot
+  ) values (
+    new.school_id, new.id, coalesce(new.created_by, auth.uid()), 'created', to_jsonb(new)
+  );
+  return new;
+end;
+$;
+
+drop trigger if exists trg_audit_school_grading_configuration_insert on public.school_grading_configurations;
+create trigger trg_audit_school_grading_configuration_insert
+after insert on public.school_grading_configurations
+for each row execute function public.audit_school_grading_configuration_insert();
+
+revoke all on function public.audit_school_grading_configuration_insert() from public;
+
 drop policy if exists "school admins can read grading configuration audit" on public.school_grading_configuration_audit;
 create policy "school admins can read grading configuration audit"
 on public.school_grading_configuration_audit for select to authenticated
@@ -298,12 +320,6 @@ begin
     p_cat1_max, p_cat2_max, p_exam_max, p_coursework_max,
     p_notes_max, p_assignments_max, p_projects_max, 100, auth.uid()
   ) returning * into v_config;
-
-  insert into public.school_grading_configuration_audit (
-    school_id, grading_configuration_id, changed_by, action, snapshot
-  ) values (
-    p_school_id, v_config.id, auth.uid(), 'created', to_jsonb(v_config)
-  );
 
   return v_config.id;
 end;
