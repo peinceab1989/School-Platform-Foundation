@@ -40,6 +40,14 @@
 4. Assign the correct class, subject and academic session. Set a form-teacher relationship only when authorised.
 5. Ask the teacher to sign in and confirm the correct dashboard and assigned classes appear.
 
+### Child collection and parent QR setup
+1. Do not enable child collection or parent event QR until school management has approved the written pickup/event procedure and named responsible staff.
+2. In **Smart Access Settings**, enable **Child pickup** and/or **Parent events** only when the school is ready to operate the feature.
+3. Use the administrator QR preparation action to generate pending credentials, then review and approve each required credential.
+4. Issue parent QR credentials only to active parent portal accounts with the correct active child link. Revoking/suspending a parent account must block its QR at the time of use.
+5. Test with a controlled test parent and test learner first. Confirm an assigned teacher can release the test learner, an unassigned teacher cannot, and a disabled parent account cannot use the QR.
+6. Record the staff member responsible for each release and keep the manual verification route documented for a device/QR failure.
+
 ### D. Form-teacher assignment and attendance
 1. Open **Form Teacher & Attendance** as an administrator.
 2. Select the intended teacher, class and academic session; assign the form teacher and verify the assignment appears in the list.

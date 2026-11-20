@@ -47,6 +47,12 @@ No production learner, staff, parent, attendance, assignment, submission, grade,
 - Live role tests in rolled-back transactions: active student recipient sees 1 message, 1 conversation and unread count 1; active admin sender sees 1 message, 1 conversation and unread count 0; temporarily suspended student sees 0 messages, 0 conversations and unread count 0. The temporary suspension was rolled back and the membership verified active.
 - Current chat dataset contains one direct admin-support conversation and one message, with no group memberships; group access is statically reviewed but lacks a live group test.
 
+## 2C. Child collection and parent QR security
+
+- PR #113 is merged and migration `20261120120000_scope_child_collection_and_parent_qr.sql` is applied. Teacher child-release is limited to active assigned classes/sessions; admins retain school-wide authority. Parent QR child-release and event check-in revalidate active parent account, active parent membership and portal-enabled guardian; child release also validates the active child link and guardian relationship.
+- The migration was exercised in a rolled-back transaction: assigned teacher + active parent QR succeeded; unassigned teacher was rejected; parent event QR succeeded; disabling the parent account/suspending membership caused both QR operations to be rejected. All temporary data and settings were rolled back.
+- Operational status is still disabled: `child_pickup_enabled=false`, `parent_events_enabled=false`; there are no parent QR credentials or school events. School management must explicitly enable/configure these before real operational testing.
+
 ## 3. Critical release blockers
 
 ### A. Push dispatcher v4 — post-deployment validation
