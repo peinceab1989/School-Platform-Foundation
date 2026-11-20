@@ -1,18 +1,17 @@
 -- Versioned, school-admin-controlled grading maxima for each academic term.
--- No component maxima are assumed: the school administrator must enter the
--- approved CAT 1, CAT 2, examination and coursework allocations before score entry.
--- Coursework remains a combined Notes/Assignments/Projects pool unless the school
--- explicitly approves an individual split.
+-- RESA-approved initial standard: CAT 1 20 + CAT 2 20 + Examination 50
+-- + combined Notes/Assignments/Projects coursework 10 = 100.
+-- All component maxima remain editable by authorised administrators for future terms.
 create table if not exists public.school_grading_configurations (
   id uuid primary key default gen_random_uuid(),
   school_id uuid not null,
   academic_session_id uuid not null,
   term_id uuid not null,
   version integer not null check (version > 0),
-  cat1_max numeric(7,2) not null check (cat1_max >= 0),
-  cat2_max numeric(7,2) not null check (cat2_max >= 0),
-  exam_max numeric(7,2) not null check (exam_max >= 0),
-  coursework_max numeric(7,2) not null check (coursework_max >= 0),
+  cat1_max numeric(7,2) not null default 20 check (cat1_max >= 0),
+  cat2_max numeric(7,2) not null default 20 check (cat2_max >= 0),
+  exam_max numeric(7,2) not null default 50 check (exam_max >= 0),
+  coursework_max numeric(7,2) not null default 10 check (coursework_max >= 0),
   notes_max numeric(7,2),
   assignments_max numeric(7,2),
   projects_max numeric(7,2),
@@ -120,9 +119,34 @@ create trigger trg_audit_school_grading_configuration_insert
 after insert on public.school_grading_configurations
 for each row execute function public.audit_school_grading_configuration_insert();
 
--- Historical combined-CA rows remain untouched and unconfigured. Do not invent a
--- CAT1/CAT2 split for their original CA total. Any new scoring for this term
--- requires the school to explicitly approve and save the component maxima.
+-- Preserve the legacy CA 40 + Examination 60 scale for terms that already
+-- contain historical combined-CA results. Do not split or rewrite those marks.
+-- New terms receive the RESA-approved editable 20 + 20 + 50 + 10 standard.
+insert into public.school_grading_configurations (
+  school_id, academic_session_id, term_id, version,
+  cat1_max, cat2_max, exam_max, coursework_max, total_max, created_by
+)
+select legacy.school_id, legacy.academic_session_id, legacy.term_id, 1,
+       20, 20, 60, 0, 100, null
+from (
+  select distinct tr.school_id, tr.academic_session_id, tr.term_id
+  from public.student_term_results tr
+  join public.student_subject_results sr
+    on sr.term_result_id = tr.id
+   and sr.school_id = tr.school_id
+  where sr.grading_configuration_id is null
+    and sr.cat1_score is null
+    and sr.cat2_score is null
+    and sr.coursework_score is null
+) legacy
+where not exists (
+  select 1
+  from public.school_grading_configurations existing
+  where existing.school_id = legacy.school_id
+    and existing.academic_session_id = legacy.academic_session_id
+    and existing.term_id = legacy.term_id
+)
+on conflict (school_id, academic_session_id, term_id, version) do nothing;
 
 revoke all on function public.audit_school_grading_configuration_insert() from public;
 
