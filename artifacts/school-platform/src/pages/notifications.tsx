@@ -17,6 +17,7 @@ type Notice = {
 
 export default function NotificationsPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
   const [items, setItems] = useState<Notice[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [userId, setUserId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -27,8 +28,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   const [pushStatus, setPushStatus] = useState({ registered: false, supported: typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, detail: "Checking this device…" });
   const [testBusy, setTestBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    setError("");
     try {
       const db = getSupabaseClient() as any;
       const { data: auth, error: authError } = await db.auth.getUser();
@@ -38,11 +40,18 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       void getResaPushRegistrationStatus(schoolId)
         .then(status => setPushStatus({ registered: status.registered, supported: status.supported, detail: status.detail }))
         .catch(() => setPushStatus({ registered: false, supported: true, detail: "Could not verify this phone's registration." }));
-      const [messageResult, announcementResult, chatResult] = await Promise.all([
+      const [messageResult, announcementResult, chatResult, directUnreadResult, chatUnreadResult] = await Promise.all([
         db.from("school_messages").select("id,sender_id,recipient_id,subject,message,is_read,sent_at,channel").eq("school_id", schoolId).eq("recipient_id", uid).order("sent_at", { ascending: false }).limit(100),
         db.from("announcements").select("id,title,content,announcement_type,is_published,published_at,created_at,expires_at").eq("school_id", schoolId).eq("is_published", true).order("published_at", { ascending: false }).limit(50),
         db.from("resa_chat_messages").select("id,conversation_id,sender_id,body,created_at").eq("school_id", schoolId).order("created_at", { ascending: false }).limit(100),
+        db.from("school_messages").select("id", { count: "exact", head: true }).eq("school_id", schoolId).eq("recipient_id", uid).eq("is_read", false),
+        db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
       ]);
+      if (!directUnreadResult.error && !chatUnreadResult.error) {
+        setUnreadCount((directUnreadResult.count ?? 0) + Number(chatUnreadResult.data || 0));
+      } else {
+        setNotice("The inbox is loaded, but the full unread count could not be verified. Refresh or reconnect to retry.");
+      }
       if (messageResult.error && announcementResult.error) {
         throw new Error("Messages and announcements could not be loaded. " + messageResult.error.message + " / " + announcementResult.error.message);
       }
@@ -75,7 +84,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, channel: "chat" }));
       setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); }
-    finally { setLoading(false); }
+    finally { if (!quiet) setLoading(false); }
   }, [schoolId]);
 
   useEffect(() => { void load(); }, [load]);
@@ -86,22 +95,41 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     try {
       db = getSupabaseClient();
       channel = db.channel("resa-notifications-" + schoolId)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
-          if (payload.new?.recipient_id === userId) {
-            void load();
+        .on("postgres_changes", { event: "*", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
+          if (payload.new?.recipient_id === userId || payload.old?.recipient_id === userId) {
+            void load(true);
           }
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_messages", filter: "school_id=eq." + schoolId }, (payload: any) => {
-          if (payload.new?.sender_id !== userId) void load();
+          if (payload.new?.sender_id !== userId) void load(true);
+        })
+        .on("postgres_changes", { event: "*", schema: "public", table: "resa_chat_message_reads", filter: "school_id=eq." + schoolId }, (payload: any) => {
+          if (payload.new?.user_id === userId || payload.old?.user_id === userId) void load(true);
         })
         .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
           // The authenticated app-level listener handles the phone alert once;
           // this page only refreshes the inbox to avoid duplicate notifications.
-          void load();
+          void load(true);
         }).subscribe();
     } catch { /* Refresh remains available if Realtime is not configured. */ }
     return () => { if (db && channel) void db.removeChannel(channel); };
   }, [schoolId, userId, load]);
+
+  useEffect(() => {
+    const refreshQuietly = () => {
+      if (document.visibilityState === "visible" && navigator.onLine) void load(true);
+    };
+    const timer = window.setInterval(refreshQuietly, 20000);
+    window.addEventListener("focus", refreshQuietly);
+    window.addEventListener("online", refreshQuietly);
+    document.addEventListener("visibilitychange", refreshQuietly);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshQuietly);
+      window.removeEventListener("online", refreshQuietly);
+      document.removeEventListener("visibilitychange", refreshQuietly);
+    };
+  }, [load]);
 
   async function markRead(item: Notice) {
     if (!item.unread) return;
@@ -116,6 +144,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         if (updateError) throw updateError;
       } else return;
       setItems(previous => previous.map(n => n.id === item.id ? { ...n, unread: false } : n));
+      setUnreadCount(previous => Math.max(0, previous - 1));
     } catch (e) { setError(e instanceof Error ? e.message : "Could not mark this notification as read."); }
   }
 
@@ -146,7 +175,6 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     }
   }
 
-  const unreadCount = items.filter(item => (item.kind === "message" || item.kind === "chat") && item.unread).length;
   const filteredItems = useMemo(() => items.filter(item => {
     const itemDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.createdAt));
     const matchesDate = itemDate === selectedDate;
