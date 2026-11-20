@@ -29,12 +29,16 @@ export async function verifyPaystackWebhookSignature(input: {
 }) {
   const { modernSignature, legacySignature, rawBody, webhookSecret, secretKey } = input;
   if (modernSignature && webhookSecret.startsWith("whsec_")) {
-    const fields = modernSignature.split(",");
-    const timestamp = fields.find((part) => part.trim().startsWith("t="))?.trim().slice(2);
-    const signatures = fields.filter((part) => part.trim().startsWith("v1=")).map((part) => part.trim().slice(3));
+    const fields = modernSignature.split(",").map((part) => part.trim());
+    const timestampFields = fields.filter((part) => part.startsWith("t="));
+    const signatureFields = fields.filter((part) => part.startsWith("v1="));
+    if (timestampFields.length !== 1 || signatureFields.length === 0) return false;
+    const timestamp = timestampFields[0].slice(2);
+    if (!/^\\d+$/.test(timestamp)) return false;
+    const signatures = signatureFields.map((part) => part.slice(3));
     const seconds = Number(timestamp);
     const nowSeconds = (input.nowMs ?? Date.now()) / 1000;
-    if (!Number.isFinite(seconds) || Math.abs(nowSeconds - seconds) > 300) return false;
+    if (!Number.isSafeInteger(seconds) || Math.abs(nowSeconds - seconds) > 300) return false;
 
     const prefix = new TextEncoder().encode(timestamp + ".");
     const payload = new Uint8Array(prefix.length + rawBody.length);
@@ -46,7 +50,7 @@ export async function verifyPaystackWebhookSignature(input: {
       if (separator < 1) return false;
       const keyId = item.slice(0, separator);
       const signature = item.slice(separator + 1);
-      return keyId.startsWith("whk_") && /^[0-9a-f]{128}$/.test(signature) &&
+      return /^whk_[A-Za-z0-9]+$/.test(keyId) && /^[0-9a-f]{128}$/.test(signature) &&
         constantTimeEqual(expected, signature);
     });
   }
