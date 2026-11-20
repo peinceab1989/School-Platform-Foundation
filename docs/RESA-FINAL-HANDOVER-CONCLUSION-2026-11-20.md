@@ -13,9 +13,8 @@ This is a release-control decision, not a rejection of the completed engineering
 - Repository: `peinceab1989/School-Platform-Foundation`.
 - PR #120: [Class, grading, notification, admissions UX and handover improvements](https://github.com/peinceab1989/School-Platform-Foundation/pull/120).
 - PR #120 branch: `improvement/editable-existing-classes`.
-- PR #120 current head: `d34b2143353cb9ec36417ee39f105f1cc290282e` (handover documentation update).
-- Latest code-containing head: `7fd391696eae03cc276c21b9e462819775b5bb1b`.
-- PR #120 GitHub Actions run [44793280064](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44793280064) passed on that code-containing head: workspace TypeScript, production application build, RESA Edge Function typecheck, parent push-audience tests and notification-preference routing tests.
+- PR #120 current head: `bfc1314494ed3f5279586dcac2312f9a8fe1b83d`.
+- Latest PR #120 GitHub Actions run [44793572401](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44793572401) passed on the current head: workspace TypeScript, production application build, RESA Edge Function typecheck, parent push-audience tests and notification-preference routing tests.
 - PR #123: [Secure Paystack checkout for RESA parent fees](https://github.com/peinceab1989/School-Platform-Foundation/pull/123).
 - PR #123 latest head: `0da811a9d63cbca124e467f6e024602cb81a3f8f`.
 - PR #123 GitHub Actions run [44791987759](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44791987759) passed: workspace TypeScript, production build, Edge Function typecheck, push-audience tests and Paystack webhook signature tests.
@@ -64,7 +63,7 @@ No login, form submission, application creation or production write action was p
 The latest read-only inventory recorded:
 
 - One push subscription total and no parent notification-log rows. Parent Android delivery remains unproven.
-- Three parent attendance preference rows were enabled with phone alerts enabled, while 19 general RESA notification preference rows had only one phone-enabled row. The deployed push dispatcher v4 was using the general preference table for attendance; PR #120 corrects the source routing. The fix is not deployed. Real Android check-in/check-out delivery, opt-out and duplicate-alert tests remain mandatory.
+- Three parent attendance preference rows were enabled with phone alerts enabled, while 19 general RESA notification preference rows had only one phone-enabled row. The deployed push dispatcher v4 was using the general preference table for attendance; PR #120 corrects the source routing and adds unit tests. The fix is not deployed. Real Android check-in/check-out delivery, opt-out and duplicate-alert tests remain mandatory.
 - One direct conversation, one message and no group membership data. Real cross-device and group acceptance remain.
 - Zero RESA Drive file records and no Drive/practical-evidence Storage objects. Real upload, listing, preview and download remain unproven.
 - Zero admission applications and zero external candidate registrations. Full admissions/external CBT journeys remain unproven.
