@@ -62,7 +62,6 @@ export default function ResaAssistantWidget() {
   const [transcript, setTranscript] = useState<Array<{ role: "user" | "assistant"; content: string; href?: string }>>([]);
   const [customerCareAvailable, setCustomerCareAvailable] = useState<boolean | null>(null);
   const [invitationVisible, setInvitationVisible] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
   const activePage = useMemo(() => path.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "home", [path]);
 
   useEffect(() => {
@@ -89,9 +88,9 @@ export default function ResaAssistantWidget() {
     return () => window.clearTimeout(timer);
   }, [customerCareAvailable, open, path]);
 
-  async function ask(value = question) {
+  function ask(value = question) {
     const trimmed = value.trim();
-    if (!trimmed || isThinking) return;
+    if (!trimmed) return;
     setQuestion("");
     const knownAnswer = findTopic(trimmed);
     setTranscript(previous => [...previous, { role: "user" as const, content: trimmed }].slice(-12));
@@ -115,12 +114,11 @@ export default function ResaAssistantWidget() {
       <div className="max-h-80 space-y-3 overflow-y-auto p-4" aria-live="polite">
         <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3"><div className="flex items-center gap-2 text-sm font-bold text-emerald-950">{customerCareAvailable === true ? <><CircleCheck size={16}/> Customer Care is available</> : <><Bot size={16}/> RESA Virtual Assistant is ready</>}</div><p className="mt-1 text-xs leading-5 text-emerald-900">{customerCareAvailable === true ? "Our team is ready to chat and answer your questions. You can start with the school team or ask the virtual assistant." : "Our automated assistant is here while the school team is away. You can still ask questions at any time."}</p></div><p className="text-sm leading-6 text-slate-600">Hello! I can answer common questions using RESA’s reviewed help library. Choose a suggested question or type a question about the school, portal, learning or digital safety. If the answer is not in the library, I’ll direct you to the school team.</p>
         <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","Find RESA on the map"].map(q=><button type="button" key={q} onClick={()=>ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50">{q}</button>)}</div>
-        {isThinking && <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900" role="status" aria-live="polite">RESA is preparing your answer…</div>}
         {transcript.map((line, index) => <div key={index} className={line.role === "user" ? "ml-8 rounded-2xl rounded-br-md bg-[#174c35] p-3 text-sm leading-6 text-white" : "mr-5 rounded-2xl rounded-bl-md bg-slate-100 p-3 text-sm leading-6 text-slate-700"}><p className="mb-1 text-[10px] font-extrabold uppercase tracking-wider opacity-70">{line.role === "user" ? "You" : "RESA Virtual Assistant"}</p><p className="whitespace-pre-wrap">{line.content}</p>{line.href && <a href={line.href} className="mt-2 inline-flex items-center gap-1 font-bold text-emerald-800 underline underline-offset-4">Open relevant section <ArrowUpRight size={14}/></a>}</div>)}
       </div>
       <form onSubmit={e=>{e.preventDefault();ask();}} className="flex gap-2 border-t border-slate-100 p-3">
         <input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Type your question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700" aria-label="Ask RESA a question"/>
-        <button type="submit" aria-label="Send question" disabled={isThinking} className="rounded-xl bg-[#174c35] px-3 text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={17}/></button>
+        <button type="submit" aria-label="Send question" className="rounded-xl bg-[#174c35] px-3 text-white"><Send size={17}/></button>
       </form>
       <footer className="flex flex-wrap justify-between gap-2 px-4 pb-3 text-xs"><a href="/portal-navigation-guide" className="font-semibold text-emerald-800 underline">Portal guide</a><a href="/maps" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MapPin size={12}/> Maps</a>{customerCareAvailable === true && <a href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance." target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><Headset size={12}/> Chat with Customer Care</a>}<a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MessageCircle size={12}/> WhatsApp</a></footer>
       <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">This free assistant uses a reviewed, locally available help library. It does not use a paid AI service, access private student records or change accounts. Answers may be limited; contact the school team when you need confirmation. Do not share passwords or sensitive information.</p>
