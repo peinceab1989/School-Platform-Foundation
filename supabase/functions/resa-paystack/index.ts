@@ -150,6 +150,10 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const action = String(body.action || "");
 
+    if (action === "status") {
+      return response({ configured: Boolean(PAYSTACK_SECRET_KEY), mode: PAYSTACK_MODE === "live" ? "live" : "test" }, 200, headers);
+    }
+
     if (action === "initialize") {
       if (!PAYSTACK_SECRET_KEY) return response({ error: "Paystack is not configured yet. RESA Finance must complete merchant setup." }, 503, headers);
       if (!["test", "live"].includes(PAYSTACK_MODE)) return response({ error: "Paystack mode is misconfigured." }, 503, headers);
@@ -198,17 +202,15 @@ Deno.serve(async (req: Request) => {
       if (amountKobo / 100 !== Number(amountNaira.toFixed(2))) return response({ error: "Enter an amount with no more than two decimal places." }, 400, headers);
 
       const reference = "RESA-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16).toUpperCase();
-      const { data: intent, error: intentError } = await admin.from("paystack_payment_intents").insert({
-        school_id: schoolId,
-        student_fee_assignment_id: assignmentId,
-        student_id: assignment.student_id,
-        initiated_by: user.id,
-        reference,
-        amount_kobo: amountKobo,
-        currency: "NGN",
-        gateway_mode: PAYSTACK_MODE,
-        status: "pending",
-      }).select("id").single();
+      const { data: intentId, error: intentError } = await admin.rpc("create_paystack_payment_intent", {
+        p_school_id: schoolId,
+        p_assignment_id: assignmentId,
+        p_student_id: assignment.student_id,
+        p_initiated_by: user.id,
+        p_reference: reference,
+        p_amount_kobo: amountKobo,
+        p_gateway_mode: PAYSTACK_MODE,
+      });
       if (intentError) throw intentError;
 
       if (!user.email) return response({ error: "Your RESA sign-in account has no verified email address. Contact the school office before paying online." }, 400, headers);
@@ -227,7 +229,7 @@ Deno.serve(async (req: Request) => {
       });
       const initPayload = await initialized.json().catch(() => null);
       if (!initialized.ok || !initPayload?.status || !initPayload?.data?.authorization_url) {
-        await admin.from("paystack_payment_intents").update({ status: "failed", failure_reason: "Paystack initialization failed", updated_at: new Date().toISOString() }).eq("id", intent.id);
+        await admin.from("paystack_payment_intents").update({ status: "failed", failure_reason: "Paystack initialization failed", updated_at: new Date().toISOString() }).eq("id", intentId);
         return response({ error: "Paystack could not start checkout. Please try again or contact RESA Finance." }, 502, headers);
       }
       await admin.from("paystack_payment_intents").update({
