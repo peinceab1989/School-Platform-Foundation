@@ -1,4 +1,4 @@
-export type ParentStudentLink = { parent_guardian_id: string; is_active: boolean };
+export type ParentStudentLink = { parent_guardian_id: string };
 export type ParentStudentAccess = { parent_guardian_id: string; is_active: boolean };
 export type ParentGuardian = { id: string; person_id: string; portal_enabled: boolean };
 export type ParentPerson = { id: string; user_id: string | null };
@@ -22,7 +22,7 @@ export type ParentAudienceInput = {
  * database reads to the school and exact student).
  */
 export function resolveEligibleParentUserIds(input: ParentAudienceInput): string[] {
-  const linked = new Set(input.studentLinks.filter((row) => row.is_active).map((row) => row.parent_guardian_id));
+  const linked = new Set(input.studentLinks.map((row) => row.parent_guardian_id));
   const requested = input.requestedGuardianIds?.length
     ? new Set(input.requestedGuardianIds)
     : null;
