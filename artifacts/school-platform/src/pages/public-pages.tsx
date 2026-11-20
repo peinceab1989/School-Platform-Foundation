@@ -30,6 +30,7 @@ const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
 const ADDRESS =
   "1, Smiling George Way, Opposite Winners’ Chapel, Behind Matice, Sapele Road, Benin City, Edo State, Nigeria.";
 const EMAIL = "rhemaexploitsacademy@gmail.com";
+const ADMISSIONS_EMAIL = "resainternational2024@gmail.com";
 const PHONE = "08058422691";
 const WHATSAPP = "08058422691";
 const WHATSAPP_URL = "https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20would%20like%20to%20make%20an%20enquiry.";
@@ -642,7 +643,8 @@ export function ContactPage() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <FeatureCard number="01" icon={MapPin} title="Visit the school" description={ADDRESS} />
             <FeatureCard number="02" icon={Phone} title="Call the school" description={`Main line: ${PHONE}. WhatsApp: ${WHATSAPP}.`} />
-            <FeatureCard number="03" icon={Mail} title="Send an email" description={EMAIL} />
+            <FeatureCard number="03" icon={Mail} title="General enquiries" description={EMAIL} />
+            <FeatureCard number="04" icon={GraduationCap} title="Admissions enquiries" description={ADMISSIONS_EMAIL} />
           </div>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             <a href={`tel:${PHONE}`} className="flex items-center justify-center gap-3 rounded-2xl bg-[#163c2e] p-5 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-1">
@@ -653,6 +655,9 @@ export function ContactPage() {
             </a>
             <a href={`mailto:${EMAIL}`} className="flex items-center justify-center gap-3 rounded-2xl border border-[#e7dec9] bg-white p-5 font-extrabold text-[#163c2e] transition hover:-translate-y-1">
               <Mail size={20} /> Email RESA
+            </a>
+            <a href={`mailto:${ADMISSIONS_EMAIL}`} className="flex items-center justify-center gap-3 rounded-2xl border border-[#e7dec9] bg-white p-5 font-extrabold text-[#163c2e] transition hover:-translate-y-1">
+              <GraduationCap size={20} /> Email Admissions
             </a>
             <a href={FACEBOOK} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 rounded-2xl border border-[#e7dec9] bg-white p-5 font-extrabold text-[#163c2e] transition hover:-translate-y-1">
               <Users size={20} /> Follow us on Facebook
