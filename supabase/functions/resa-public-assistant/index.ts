@@ -29,6 +29,7 @@ const MAX_HISTORY_ITEMS = 6;
 const MAX_HISTORY_ITEM_LENGTH = 900;
 const REQUESTS_PER_HOUR = 30;
 const GLOBAL_REQUESTS_PER_HOUR = 120;
+const GLOBAL_REQUESTS_PER_DAY = 300;
 const MAX_REQUEST_BODY_LENGTH = 12000;
 
 function jsonResponse(body: unknown, status = 200, origin?: string) {
@@ -170,6 +171,22 @@ Deno.serve(async (req: Request) => {
     if (globalAllowed !== true) return jsonResponse({
       error: "RESA's chat service has reached its hourly capacity. Please try again later or contact the school directly.",
       code: "GLOBAL_RATE_LIMITED",
+    }, 429, origin);
+
+    const globalDailyHash = await hashIdentifier("global-daily-budget", serviceRoleKey);
+    const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    const { data: dailyAllowed, error: dailyRateError } = await supabase.rpc("consume_resa_public_assistant_rate_limit", {
+      p_ip_hash: globalDailyHash,
+      p_window_start: dayStart,
+      p_max_requests: GLOBAL_REQUESTS_PER_DAY,
+    });
+    if (dailyRateError) {
+      console.error("RESA assistant daily budget check failed:", dailyRateError.message);
+      return jsonResponse({ error: "The assistant is temporarily unavailable. Please try again later." }, 503, origin);
+    }
+    if (dailyAllowed !== true) return jsonResponse({
+      error: "RESA's virtual assistant has reached its daily chat capacity. Please contact the school directly or try again tomorrow.",
+      code: "GLOBAL_DAILY_LIMITED",
     }, 429, origin);
 
     const model = Deno.env.get("RESA_ASSISTANT_MODEL") || "gpt-5.4-mini";
