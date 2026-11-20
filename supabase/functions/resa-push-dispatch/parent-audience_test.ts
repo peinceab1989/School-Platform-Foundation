@@ -3,8 +3,8 @@ import { resolveEligibleParentUserIds } from "./parent-audience.ts";
 
 const base = {
   studentLinks: [
-    { parent_guardian_id: "guardian-a", is_active: true },
-    { parent_guardian_id: "guardian-b", is_active: true },
+    { parent_guardian_id: "guardian-a" },
+    { parent_guardian_id: "guardian-b" },
   ],
   activeAccess: [
     { parent_guardian_id: "guardian-a", is_active: true },
@@ -82,12 +82,9 @@ Deno.test("does not notify a guardian who is not linked to the learner", () => {
   }), []);
 });
 
-Deno.test("denies inactive student-to-guardian relationship", () => {
+Deno.test("denies a guardian without a learner relationship row", () => {
   assertEquals(resolveEligibleParentUserIds({
     ...base,
-    studentLinks: [
-      { parent_guardian_id: "guardian-a", is_active: false },
-      { parent_guardian_id: "guardian-b", is_active: true },
-    ],
+    studentLinks: [{ parent_guardian_id: "guardian-b" }],
   }), ["user-b"]);
 });

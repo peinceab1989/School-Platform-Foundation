@@ -23,7 +23,7 @@ function uniqueIds(values: unknown[]) {
 
 /**
  * Resolve only currently authorised parent accounts for one exact learner.
- * Both relationship records must be active, the guardian portal must be
+ * The learner-to-guardian link must exist and the separate child portal-access row must be active; the guardian portal must be
  * enabled, the account must be active, and the same user must hold an active
  * parent membership for this school. This is notification audience filtering,
  * not a substitute for the database RLS checks protecting portal data.
@@ -37,10 +37,9 @@ async function resolveActiveParentAudience(
 
   const { data: studentLinks, error: studentLinkError } = await admin
     .from("student_parent_guardians")
-    .select("parent_guardian_id,is_active")
+    .select("parent_guardian_id")
     .eq("school_id", schoolId)
-    .eq("student_id", studentId)
-    .eq("is_active", true);
+    .eq("student_id", studentId);
   if (studentLinkError) throw studentLinkError;
 
   const linkedGuardianIds = uniqueIds((studentLinks || []).map((item) => item.parent_guardian_id));
