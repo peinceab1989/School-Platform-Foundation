@@ -49,6 +49,8 @@
 - [ ] Test the approved fallback when a card/device is unavailable.
 - [ ] Confirm a fresh daily attendance record, correct timestamps and duplicate-event handling.
 - [ ] Confirm parent attendance preferences persist across sign-in and reload.
+- [ ] Confirm disabling the parent's phone-alert preference stops future attendance Web Push even if the general RESA notification preference remains enabled.
+- [ ] Confirm one attendance event produces one foreground system notification when push is registered (no duplicate local + Web Push alert).
 - [ ] On a real Android parent device, grant browser notification permission and register a subscription.
 - [ ] Trigger a real test attendance event and confirm the parent receives the correct notification at the correct time—not merely when enabling alerts.
 - [ ] Verify in-app notification, push delivery log, recipient targeting and acknowledgement.
