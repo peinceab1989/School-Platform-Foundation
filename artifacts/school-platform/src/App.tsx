@@ -27,6 +27,7 @@ import AdminPortalShell from '@/components/admin-portal-shell';
 import ResaAssistantWidget from '@/components/resa-assistant-widget';
 const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
+import ParentPaystackCheckout from '@/components/parent-paystack-checkout';
 import PeopleStatusNotices from '@/components/people-status-notices';
 const StaffInvitationsPage = lazy(() => import('@/pages/staff-invitations'));
 const TeachingAssignmentsPage = lazy(() => import('@/pages/teaching-assignments'));
@@ -652,24 +653,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
               </div>
               <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">Optional online payment</span>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-2">
-                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-lg font-bold text-slate-700">₦</span>
-                  <div><p className="font-extrabold text-slate-900">Pay online with Paystack</p><p className="text-xs font-semibold text-amber-700">Coming soon · not activated</p></div>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Secure online checkout will become available after RESA completes merchant onboarding, server-side verification and payment testing. Supported channels will depend on the school's approved Paystack configuration.</p>
-                <p className="mt-2 text-xs text-slate-500">No payment is taken from this option while it is inactive.</p>
-              </div>
-              <div className="rounded-xl border border-emerald-200 bg-white p-4">
-                <div className="flex items-center gap-2">
-                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">↗</span>
-                  <div><p className="font-extrabold text-emerald-950">Bank transfer or school office</p><p className="text-xs font-semibold text-emerald-700">Ask Finance for verified instructions</p></div>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Contact RESA through the official School Messages channel to confirm the school's approved account details or in-person payment procedure before sending money.</p>
-                <Link href="/school-communication" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-2.5 text-center text-sm font-extrabold text-white transition hover:bg-emerald-800">Contact RESA Finance</Link>
-              </div>
-            </div>
+            <ParentPaystackCheckout schoolId={schoolId} feeRows={feeRows as any} paymentRows={paymentRows as any} feeTypeNames={feeTypeNames} childName={childName} />
             <p className="mt-3 text-xs leading-5 text-slate-500">Payment safety: use only bank details confirmed through an official RESA channel. Keep transfer evidence. A transfer screenshot or checkout attempt is not a receipt; an official receipt is issued only after Finance verifies the payment.</p>
           </section>
         </article>
