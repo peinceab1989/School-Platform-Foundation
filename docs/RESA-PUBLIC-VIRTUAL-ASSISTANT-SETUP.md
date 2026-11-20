@@ -1,42 +1,41 @@
-# RESA Public Virtual Assistant
+# RESA Public Virtual Assistant — zero-cost operating mode
 
-## What this adds
+## Release decision
 
-- A public RESA assistant Edge Function at `resa-public-assistant`.
-- The assistant uses OpenAI's Responses API from the server only. The browser never receives the provider key.
-- School-specific answers are constrained to verified public facts in the function prompt. Unknown school policies, fees, deadlines, exam dates, and personal records must be referred to the school office.
-- General educational and everyday questions can be answered when the AI provider is configured.
-- The endpoint accepts only short text questions and a small recent conversation history. It does not read student records, admissions records, grades, attendance, messages, or private files.
-- Requests are limited to 30 per IP-hash per UTC hour, 120 total requests per UTC hour, and 300 total requests per UTC day across the service. The global ceilings limit aggregate provider spend even if callers rotate IP addresses. Only salted SHA-256 hashes and hourly counters are stored; raw IP addresses and chat content are not written to the rate-limit table.
-- Request bodies are capped at 12,000 characters and model output is capped at 350 tokens.
-- OpenAI request storage is disabled with `store: false`.
-- Public human-support handoff is via RESA's official WhatsApp number. The public Customer Care availability toggle controls the website invitation; this is not a native agent inbox.
+The public RESA assistant is designed to operate without a paid AI provider, API key, subscription, or per-message charge. The browser widget uses a reviewed knowledge base bundled with the website. It does not call OpenAI or another external generative-AI endpoint.
 
-## Required provider setup
+## Current capabilities
 
-The Edge Function requires an `OPENAI_API_KEY` Supabase Edge Function secret. No key is stored in this repository and no key is configured by this change. The function returns `AI_NOT_CONFIGURED` until the secret exists; the website continues to answer the curated RESA FAQ topics and shows the Customer Care WhatsApp contact.
+- Answers reviewed, common questions about RESA admissions, location, attendance, results, fees and payment verification, CBT, assignments, classes, parent and staff accounts, school communication, school services, study skills and digital safety.
+- Provides links to relevant portal and public website sections.
+- Displays the Customer Care invitation only when the existing public Customer Care status reports availability.
+- Hands visitors to the school's existing WhatsApp channel and published email address.
+- Gives an honest fallback when a question is not covered, rather than inventing school policy or claiming a human has answered.
+- Does not read private student, parent, admission, grade, attendance, message or file records. It cannot change accounts or confirm payments.
 
-Set the secret only after the school owner approves the provider and its usage charges. Use the Supabase Dashboard's Edge Function secrets page or the current Supabase CLI secrets workflow. Never put the key in a `VITE_*` variable, source code, GitHub file, browser storage, or chat message.
+## Zero-cost and privacy boundary
 
-Optional `RESA_ASSISTANT_MODEL` defaults to `gpt-5.4-mini`. The function currently allowlists that model only. Do not change the allowlist without testing and reviewing expected API cost.
+- No OpenAI API key or other provider secret is required.
+- No paid AI endpoint is called by the public widget.
+- No visitor question is sent to a generative-AI provider.
+- Knowledge-base answers must be reviewed against current school-approved information before release.
+- Do not add fees, deadlines, school policies, staff details, examination dates or other operational facts unless the school has verified them.
+- Do not invite visitors to submit passwords, one-time codes, payment-card details, medical records or private student information.
+- WhatsApp handoff opens the school's existing external WhatsApp channel. It is not a native website agent inbox and should not be described as one.
 
-OpenAI's current developer guidance recommends the Responses API for new text-generation integrations:
-- https://developers.openai.com/api/docs/guides/text
-- https://developers.openai.com/api/docs/guides/migrate-to-responses
+## How to extend the free knowledge base
 
-## Database migration
+1. Add a focused topic with plain-language keywords, a short approved answer and a relevant public route.
+2. Check the answer against the school's current approved information.
+3. Include safe guidance and a human contact route for topics that require confirmation.
+4. Run the repository's TypeScript and production-build checks.
+5. Test the widget on a narrow Android-sized viewport and desktop.
+6. Confirm that a question with no matching topic produces the honest fallback and does not make a network request to an AI provider.
 
-`supabase/migrations/20261120170000_resa_public_assistant_rate_limit.sql` creates a private rate-limit table and a narrowly granted RPC. RLS is enabled; browser roles have no table access; only `service_role` can execute the rate-limit RPC. The migration is committed to the development branch but has **not** been applied to the live Supabase project.
+## Deferred features
 
-Before deployment:
-1. Complete and verify a fresh backup and recovery path for the live project.
-2. Review the SQL and apply it to a disposable Supabase environment first.
-3. Run security and performance advisors.
-4. Deploy `resa-public-assistant` with JWT verification disabled only because it is a public website endpoint; retain the server-side rate limit and keep the service-role and OpenAI keys exclusively in Edge Function secrets.
-5. Add the approved `OPENAI_API_KEY` secret only after confirming the account, spending limits, and budget.
-6. Test the public FAQ fallback, AI answers, unknown school-policy questions, rate limiting, origin allowlist, and WhatsApp handoff.
-7. Do not merge or deploy to production until the school owner approves the release.
+Open-ended generative answers, native live-agent inbox, retained chat transcripts, WhatsApp Business API automation and paid third-party integrations are not part of this zero-cost release. They must not be activated or represented as available without separate technical review and explicit school approval.
 
-## Public support boundary
+## Release safeguards
 
-The availability pop-up offers a direct WhatsApp handoff to +234 805 842 2691 when Customer Care is marked available. This is a live external channel, not a website-native agent inbox. A native public chat inbox with authenticated staff assignment, transcript retention controls, and moderation is a separate feature and should not be represented as already delivered.
+No production database migration is needed for the local knowledge-base assistant. Preserve existing Supabase authentication, RLS, school data and Customer Care status logic. Do not merge or deploy this draft until the complete PR checks, backup/recovery safeguards and school acceptance tests pass and the school owner approves release.
