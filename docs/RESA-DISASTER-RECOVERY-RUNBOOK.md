@@ -56,14 +56,14 @@ Supabase's current CLI backup guide requires Docker Desktop for `supabase db dum
 The documented logical export consists of three separate files:
 
 ```bash
-supabase db dump --db-url "$RESA_DATABASE_URL" -f roles.sql --role-only
-supabase db dump --db-url "$RESA_DATABASE_URL" -f schema.sql
-supabase db dump --db-url "$RESA_DATABASE_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
+supabase db dump --remote="$RESA_DATABASE_URL" -f roles.sql --role-only
+supabase db dump --remote="$RESA_DATABASE_URL" -f schema.sql
+supabase db dump --remote="$RESA_DATABASE_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
 ```
 
-Use the supported `--db-url` flag with the exact session-pooler or direct connection string copied from the Supabase Dashboard. Do not use an undocumented `--remote` flag. Keep the connection string only in a local environment variable and confirm the target project reference before each dump.
+Use the documented `--remote` flag with the exact connection string copied from the Supabase Dashboard Connect panel, as shown in the current Supabase CLI backup guide. Keep the connection string only in a local environment variable and confirm the target project reference before each dump.
 
-Use the exact database URL only in a local environment variable. Confirm the CLI's printed Target line identifies project `mhwwzzxwpsqwhxrsuwaa` before proceeding. The standard Supabase CLI dump excludes managed `auth` and `storage` schemas and extension-managed schemas; therefore these files alone are not a full Auth or Storage backup.
+Use the exact database URL only in a local environment variable. Confirm the CLI's printed Target line identifies project `mhwwzzxwpsqwhxrsuwaa` before proceeding. The CLI logical dump is sensitive: Supabase's current backup guidance notes that `data.sql` can include Auth user rows such as `auth.users` and password hashes. Encrypt the dump before off-site storage. Do not assume it is a complete Auth recovery package: verify whether required identities, MFA factors, provider configuration, Auth customizations and secrets are captured or need separate restoration. Custom changes to managed `auth` and `storage` schemas (such as custom triggers or RLS policies) may need a separate schema diff/recreation. Storage object bytes are always a separate export.
 
 Also export the migration history needed to reconcile the restored database with source control, following Supabase's migration-history backup instructions. Keep the three dump files and migration-history exports in a restricted local directory; encrypt the complete archive before copying it to Dropbox.
 
@@ -71,8 +71,9 @@ Also export the migration history needed to reconcile the restored database with
 
 Auth records are sensitive. Supabase documents exporting users from the Auth schema through SQL Editor (for example, `auth.users`) and exporting query results as CSV. For a recoverable Auth migration, verify whether the export includes the associated identities and any required Auth records; a users-only CSV is an inventory, not a full Auth restore.
 
-- Never export password hashes, refresh tokens, MFA secrets or identity tokens to an unencrypted Dropbox file.
-- Prefer a supported full project backup/restore path where available; verify what it includes before relying on it.
+- Treat `data.sql` as highly sensitive because it may include `auth.users` and password hashes. Never place it in an unencrypted Dropbox file.
+- Do not assume a users CSV is a complete Auth backup; verify the Auth identities, MFA factors, provider settings and custom Auth schema objects needed for recovery.
+- Prefer a supported full project backup/restore path where available; verify what it includes before relying on it. The CLI restore guide separately calls out custom `auth`/`storage` schema changes and other configuration that must be recreated.
 - If a logical export is required, have an authorised database administrator define and verify the minimum Auth tables and relationships needed for recovery.
 - Keep JWT signing secrets, API keys, SMTP credentials and provider client secrets out of the backup archive. Record only the names of required settings and configure fresh/approved values during recovery.
 - A restored project may require users to sign in again if JWT signing configuration differs.
