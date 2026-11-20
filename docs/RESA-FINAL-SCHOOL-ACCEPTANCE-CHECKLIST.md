@@ -83,6 +83,7 @@
 - [ ] Confirm Supabase Auth Site URL and redirect allow-list include `https://school-platform-foundation.pages.dev`, `/accept-invitation` and `/reset-password`; verify invitation and recovery emails land on the current Cloudflare portal rather than the exhausted Netlify deployment.
 - [ ] Test external-candidate registration and admission-form purchase/validation only after the school confirms the actual payment flow and zero-cost implications.
 - [ ] Before adding Paystack to admissions/external CBT, obtain the school-approved exact form fee, confirm whether it covers the admission application, CBT registration or both, and approve refund/reconciliation rules. Do not reuse the parent school-fee checkout for candidate forms.
+- [ ] Confirm admissions and external CBT forms visibly mark required fields, label optional fields and show the official admissions contact details.
 - [ ] Verify external CBT candidates are isolated from enrolled-student accounts and exams.
 - [ ] Verify published exams, timing, attempt limits, answer-key protection, scoring and results.
 - [ ] Test enrolled-student CBT separately from external-candidate CBT.
@@ -104,6 +105,7 @@
 ## 10. Public website and assistant
 
 - [ ] Check public pages at mobile and desktop widths.
+- [ ] Enter a deliberately invalid URL and confirm the branded RESA 404 page offers working Home, Admissions and Back links.
 - [ ] Verify official school name, motto, address, contact information, admissions email and map destination.
 - [ ] Verify links, forms, privacy boundaries and accessible labels.
 - [ ] Confirm the assistant answers only from its reviewed local knowledge base.
