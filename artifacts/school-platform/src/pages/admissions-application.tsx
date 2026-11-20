@@ -6,6 +6,24 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 type ClassOption={id:string;name:string;level:string|null};
 type ApplicationResult={application_number:string;message:string};
 
+async function functionErrorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error && typeof error === "object" && "context" in error) {
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try {
+        const payload = await context.clone().json() as { error?: unknown };
+        if (typeof payload.error === "string" && payload.error.trim()) return payload.error;
+      } catch {
+        // Keep the safe fallback when the function response is not JSON.
+      }
+    }
+  }
+  if (error instanceof Error && error.message && !/Edge Function returned a non-2xx status code/i.test(error.message)) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export default function AdmissionsApplicationPage(){
   const [formNumber,setFormNumber]=useState("");
   const [classes,setClasses]=useState<ClassOption[]>([]);
@@ -26,7 +44,7 @@ export default function AdmissionsApplicationPage(){
       setSessionName(data.academic_session?.name||"Current session not yet configured");
       setChecked(true);
       if(!data.classes?.length)setError("The school has not configured any classes for admission yet. Please contact the school office.");
-    }catch(e){setError(e instanceof Error?e.message:"The form number could not be verified.");}
+    }catch(e){setError(await functionErrorMessage(e,"The form number could not be verified. Check the number and try again."));}
     finally{setLoading(false);}
   }
 
@@ -44,7 +62,7 @@ export default function AdmissionsApplicationPage(){
       if(!data?.success)throw new Error(data?.error||"The application could not be submitted.");
       setResult({application_number:data.application_number,message:data.message});
       setFormNumber("");setChecked(false);setClasses([]);
-    }catch(e){setError(e instanceof Error?e.message:"The application could not be submitted. Try again later.");}
+    }catch(e){setError(await functionErrorMessage(e,"The application could not be submitted. Try again later."));}
     finally{setBusy(false);}
   }
 
