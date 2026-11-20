@@ -13,8 +13,8 @@ This is a release-control decision, not a rejection of the completed engineering
 - Repository: `peinceab1989/School-Platform-Foundation`.
 - PR #120: [Class, grading, notification, admissions UX and handover improvements](https://github.com/peinceab1989/School-Platform-Foundation/pull/120).
 - PR #120 branch: `improvement/editable-existing-classes`.
-- PR #120 current head: `bfc1314494ed3f5279586dcac2312f9a8fe1b83d`.
-- Latest PR #120 GitHub Actions run [44793572401](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44793572401) passed on the current head: workspace TypeScript, production application build, RESA Edge Function typecheck, parent push-audience tests and notification-preference routing tests.
+- PR #120 latest code-containing head: `bfc1314494ed3f5279586dcac2312f9a8fe1b83d`; subsequent documentation-only evidence commits update the handover report.
+- PR #120 GitHub Actions run [44794668216](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44794668216) completed successfully on `f98dd08771933ba1cf011685fd380140ea3b3e33`, validating workspace TypeScript, production application build, RESA Edge Function typecheck, parent push-audience tests and notification-preference routing tests.
 - PR #123: [Secure Paystack checkout for RESA parent fees](https://github.com/peinceab1989/School-Platform-Foundation/pull/123).
 - PR #123 latest head: `0da811a9d63cbca124e467f6e024602cb81a3f8f`.
 - PR #123 GitHub Actions run [44791987759](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44791987759) passed: workspace TypeScript, production build, Edge Function typecheck, push-audience tests and Paystack webhook signature tests.
