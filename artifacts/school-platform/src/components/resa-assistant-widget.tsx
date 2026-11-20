@@ -95,10 +95,10 @@ export default function ResaAssistantWidget() {
     if (!trimmed || isThinking) return;
     setQuestion("");
     const knownAnswer = findTopic(trimmed);
-    setTranscript(previous => [...previous, { role: "user", content: trimmed }].slice(-12));
+    setTranscript(previous => [...previous, { role: "user" as const, content: trimmed }].slice(-12));
     if (knownAnswer) {
-      setTranscript(previous => [...previous, { role: "assistant", content: knownAnswer.answer, href: knownAnswer.href }].slice(-12));
-      setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: knownAnswer.answer }].slice(-6));
+      setTranscript(previous => [...previous, { role: "assistant" as const, content: knownAnswer.answer, href: knownAnswer.href }].slice(-12));
+      setHistory(previous => [...previous, { role: "user" as const, content: trimmed }, { role: "assistant" as const, content: knownAnswer.answer }].slice(-6));
       return;
     }
 
@@ -112,12 +112,12 @@ export default function ResaAssistantWidget() {
         throw new Error("The assistant returned no answer.");
       }
       const answer = data.answer.trim();
-      setTranscript(previous => [...previous, { role: "assistant", content: answer, href: "/contact" }].slice(-12));
-      setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: answer }].slice(-6));
+      setTranscript(previous => [...previous, { role: "assistant" as const, content: answer, href: "/contact" }].slice(-12));
+      setHistory(previous => [...previous, { role: "user" as const, content: trimmed }, { role: "assistant" as const, content: answer }].slice(-6));
     } catch {
       const answer = "I can answer common RESA questions using the school's verified help information, but the general AI connection is not active or is temporarily unavailable. For a school-specific answer, please contact RESA on WhatsApp at +234 805 842 2691 or email rhemaexploitsacademy@gmail.com. Please do not send passwords, one-time codes or private student information in this chat.";
-      setTranscript(previous => [...previous, { role: "assistant", content: answer, href: "/contact" }].slice(-12));
-      setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: answer }].slice(-6));
+      setTranscript(previous => [...previous, { role: "assistant" as const, content: answer, href: "/contact" }].slice(-12));
+      setHistory(previous => [...previous, { role: "user" as const, content: trimmed }, { role: "assistant" as const, content: answer }].slice(-6));
     } finally {
       setIsThinking(false);
     }
