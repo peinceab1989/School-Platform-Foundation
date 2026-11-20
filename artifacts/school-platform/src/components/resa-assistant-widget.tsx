@@ -62,6 +62,8 @@ export default function ResaAssistantWidget() {
   const [reply, setReply] = useState<HelpTopic | null>(null);
   const [customerCareAvailable, setCustomerCareAvailable] = useState<boolean | null>(null);
   const [invitationVisible, setInvitationVisible] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [history, setHistory] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
   const activePage = useMemo(() => path.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "home", [path]);
 
   useEffect(() => {
@@ -88,16 +90,42 @@ export default function ResaAssistantWidget() {
     return () => window.clearTimeout(timer);
   }, [customerCareAvailable, open, path]);
 
-  function ask(value = question) {
+  async function ask(value = question) {
     const trimmed = value.trim();
-    if (!trimmed) return;
-    setReply(findTopic(trimmed) ?? {
-      title: "Let me help you find a reliable answer",
-      answer: "I am RESA's always-available virtual assistant. I can answer verified questions about the school, admissions, fees, learning, examinations, technology, directions and portal use. I do not yet have a live general-purpose AI connection, so I will not invent facts. For other topics, try a more specific question or use a trusted information source; the school team can also help when available.",
+    if (!trimmed || isThinking) return;
+    setQuestion("");
+    const knownAnswer = findTopic(trimmed);
+    if (knownAnswer) {
+      setReply(knownAnswer);
+      setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: knownAnswer.answer }].slice(-6));
+      return;
+    }
+
+    setIsThinking(true);
+    setReply({
+      title: "RESA is preparing an answer",
+      answer: "Please wait a moment while I check how best to help.",
       href: "/contact",
       keys: [],
     });
-    setQuestion(value);
+    try {
+      const { data, error } = await getSupabaseClient().functions.invoke("resa-public-assistant", {
+        body: { question: trimmed, history },
+      });
+      if (error) throw error;
+      if (typeof data?.answer !== "string" || !data.answer.trim()) {
+        throw new Error("The assistant returned no answer.");
+      }
+      const answer = data.answer.trim();
+      setReply({ title: "RESA Virtual Assistant", answer, href: "/contact", keys: [] });
+      setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: answer }].slice(-6));
+    } catch {
+      const answer = "I can answer common RESA questions using the school's verified help information, but the general AI connection is not active or is temporarily unavailable. For a school-specific answer, please contact RESA on WhatsApp at +234 805 842 2691 or email rhemaexploitsacademy@gmail.com. Please do not send passwords, one-time codes or private student information in this chat.";
+      setReply({ title: "I can still help with RESA information", answer, href: "/contact", keys: [] });
+      setHistory(previous => [...previous, { role: "user", content: trimmed }, { role: "assistant", content: answer }].slice(-6));
+    } finally {
+      setIsThinking(false);
+    }
   }
 
   return <div className="fixed bottom-4 right-4 z-[1200]">
@@ -107,16 +135,17 @@ export default function ResaAssistantWidget() {
         <button type="button" onClick={()=>setOpen(false)} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
       </header>
       <div className="max-h-80 space-y-3 overflow-y-auto p-4" aria-live="polite">
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3"><div className="flex items-center gap-2 text-sm font-bold text-emerald-950">{customerCareAvailable === true ? <><CircleCheck size={16}/> Customer Care is available</> : <><Bot size={16}/> RESA Virtual Assistant is ready</>}</div><p className="mt-1 text-xs leading-5 text-emerald-900">{customerCareAvailable === true ? "Our team is ready to chat and answer your questions. You can start with the school team or ask the virtual assistant." : "Our automated assistant is here while the school team is away. You can still ask questions at any time."}</p></div><p className="text-sm leading-6 text-slate-600">Hello! Ask about admissions, fees, classes, school hours, learning, examinations, results, assignments, technology, directions or portal use. I can also offer general study and digital-safety guidance.</p>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3"><div className="flex items-center gap-2 text-sm font-bold text-emerald-950">{customerCareAvailable === true ? <><CircleCheck size={16}/> Customer Care is available</> : <><Bot size={16}/> RESA Virtual Assistant is ready</>}</div><p className="mt-1 text-xs leading-5 text-emerald-900">{customerCareAvailable === true ? "Our team is ready to chat and answer your questions. You can start with the school team or ask the virtual assistant." : "Our automated assistant is here while the school team is away. You can still ask questions at any time."}</p></div><p className="text-sm leading-6 text-slate-600">Hello! Ask about admissions, fees, classes, school hours, learning, examinations, results, assignments, technology, directions or portal use. When the AI service is connected, I can also answer a wider range of general questions.</p>
         <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","Find RESA on the map"].map(q=><button type="button" key={q} onClick={()=>ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50">{q}</button>)}</div>
-        {reply && <div className="rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"><p className="font-bold text-slate-900">{reply.title}</p><p className="mt-1">{reply.answer}</p><a href={reply.href} className="mt-3 inline-flex items-center gap-1 font-bold text-emerald-800 underline underline-offset-4">Open relevant section <ArrowUpRight size={14}/></a></div>}
+        {isThinking && <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-900" role="status" aria-live="polite">RESA is preparing your answer…</div>}
+        {reply && !isThinking && <div className="rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"><p className="font-bold text-slate-900">{reply.title}</p><p className="mt-1 whitespace-pre-wrap">{reply.answer}</p><a href={reply.href} className="mt-3 inline-flex items-center gap-1 font-bold text-emerald-800 underline underline-offset-4">Open relevant section <ArrowUpRight size={14}/></a></div>}
       </div>
       <form onSubmit={e=>{e.preventDefault();ask();}} className="flex gap-2 border-t border-slate-100 p-3">
         <input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Type your question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700" aria-label="Ask RESA a question"/>
-        <button type="submit" aria-label="Send question" className="rounded-xl bg-[#174c35] px-3 text-white"><Send size={17}/></button>
+        <button type="submit" aria-label="Send question" disabled={isThinking} className="rounded-xl bg-[#174c35] px-3 text-white disabled:cursor-not-allowed disabled:opacity-50"><Send size={17}/></button>
       </form>
       <footer className="flex flex-wrap justify-between gap-2 px-4 pb-3 text-xs"><a href="/portal-navigation-guide" className="font-semibold text-emerald-800 underline">Portal guide</a><a href="/maps" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MapPin size={12}/> Maps</a>{customerCareAvailable === true && <a href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance." target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><Headset size={12}/> Chat with Customer Care</a>}<a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MessageCircle size={12}/> WhatsApp</a></footer>
-      <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">The assistant uses RESA's verified help information and does not access private student records or change accounts. General-purpose AI answers require a separately secured AI service.</p>
+      <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">The assistant uses verified public school information and a secured AI service when configured. It cannot access private student records or change accounts. Do not share passwords or sensitive information.</p>
     </section>}
     {invitationVisible && !open && <div role="status" className="mb-3 ml-auto max-w-[min(330px,calc(100vw-2rem))] rounded-2xl border border-amber-200 bg-white p-3 shadow-xl"><div className="flex items-start gap-2"><span className="mt-0.5 rounded-full bg-emerald-100 p-1.5 text-emerald-800"><Headset size={16}/></span><div className="min-w-0 flex-1"><p className="text-sm font-extrabold text-emerald-950">RESA Customer Care is available</p><p className="mt-1 text-xs leading-5 text-slate-600">We are ready to chat and answer your questions. How can we help?</p><a href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20need%20assistance." target="_blank" rel="noreferrer" onClick={()=>setInvitationVisible(false)} className="mt-2 inline-flex rounded-lg bg-[#174c35] px-3 py-2 text-xs font-bold text-white">Chat with us on WhatsApp</a></div><button type="button" onClick={()=>setInvitationVisible(false)} aria-label="Dismiss chat invitation" className="rounded-md p-1 text-slate-400 hover:bg-slate-100"><X size={15}/></button></div></div>}
     <button type="button" onClick={()=>{setOpen(v=>!v);setInvitationVisible(false);}} aria-expanded={open} aria-label={open ? "Close Ask RESA assistant" : "Open Ask RESA assistant"} className="ml-auto flex items-center gap-2 rounded-full bg-[#103b2d] px-4 py-3 font-bold text-white shadow-xl ring-2 ring-white transition hover:bg-[#1a5a3d]">
