@@ -43,7 +43,7 @@ The latest read-only inventory recorded:
 - Existing assignment records exist, but the complete school-user workflow still needs acceptance.
 - Dropbox `/RESA MASTER BACKUP/` contains the seven agreed folders and a manifest, but is not a complete verified backup. A current complete source archive, full database/Auth recovery material, Storage object bytes, required website/school assets, checksums and an isolated restore rehearsal remain outstanding.
 - Supabase Free plan limitations, including native leaked-password protection availability, remain documented; no paid upgrade is recommended or authorised.
-- Paystack implementation is now represented by separate draft PR [#123 — Secure Paystack checkout](https://github.com/peinceab1989/School-Platform-Foundation/pull/123), whose latest head `fa1f702d1f1ac1ba53428d95dfc27f27afe5b45b` passed GitHub Actions run `44789757830` (workspace typecheck, production build, Edge Function typecheck, push authorization tests and Paystack webhook signature tests). Paystack remains inactive: no merchant credentials, production migration, Edge Function deployment, test/live charge or webhook delivery has been configured or accepted. The payment migration still requires isolated-database review and test-mode end-to-end acceptance.
+- Paystack implementation is now represented by separate draft PR [#123 — Secure Paystack checkout](https://github.com/peinceab1989/School-Platform-Foundation/pull/123), whose latest head `0da811a9d63cbca124e467f6e024602cb81a3f8f` passed GitHub Actions run `44791987759` (workspace typecheck, production build, Edge Function typecheck, push authorization tests and Paystack webhook signature tests). Paystack remains inactive: no merchant credentials, production migration, Edge Function deployment, test/live charge or webhook delivery has been configured or accepted. The payment migration still requires isolated-database review and test-mode end-to-end acceptance.
 
 ## Release blockers
 
@@ -72,7 +72,7 @@ The latest read-only inventory recorded:
 
 Proceed with a scheduled, evidence-recorded school acceptance session and a separate isolated disaster-recovery rehearsal. Update the production completion tracker only when each gate has a named tester, timestamp, expected result, actual result and evidence reference.
 
-**Final conclusion: engineering CI for PR #120 and the latest Paystack PR #123 revision is green; production handover is not yet accepted. Maintain NO-GO until all release blockers pass.**
+**Final conclusion: PR #120 head `06b8f5ad99e9567fed4a9e7747f2d7866a03a07c` passed GitHub Actions run `44791842871`, and Paystack PR #123 head `0da811a9d63cbca124e467f6e024602cb81a3f8f` passed run `44791987759`; production handover is not yet accepted. Maintain NO-GO until all release blockers pass.**
 
 
 
