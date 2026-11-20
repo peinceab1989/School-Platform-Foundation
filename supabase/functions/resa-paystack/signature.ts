@@ -34,7 +34,7 @@ export async function verifyPaystackWebhookSignature(input: {
     const signatureFields = fields.filter((part) => part.startsWith("v1="));
     if (timestampFields.length !== 1 || signatureFields.length === 0) return false;
     const timestamp = timestampFields[0].slice(2);
-    if (!/^\\d+$/.test(timestamp)) return false;
+    if (!/^\d+$/.test(timestamp)) return false;
     const signatures = signatureFields.map((part) => part.slice(3));
     const seconds = Number(timestamp);
     const nowSeconds = (input.nowMs ?? Date.now()) / 1000;
