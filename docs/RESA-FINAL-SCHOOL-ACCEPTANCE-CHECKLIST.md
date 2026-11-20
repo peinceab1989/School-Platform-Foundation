@@ -89,7 +89,13 @@
 - [ ] Verify offline payment evidence is pending until finance verification.
 - [ ] Verify receipts are issued only after confirmed finance approval.
 - [ ] Verify duplicate payment submissions/references are safely rejected or idempotently replayed.
-- [ ] Keep Paystack disabled until merchant ownership, transaction charges, test-mode verification, signed webhook validation, reconciliation and school approval are complete.
+- [ ] Review draft Paystack implementation PR #123 and confirm the exact passing CI head SHA.
+- [ ] Review the private intent-ledger migration in an isolated database; test fee reservation, expiry, concurrency, overpayment, idempotency and duplicate provider transaction IDs.
+- [ ] Configure Paystack test secret and webhook signing secret only in Supabase secrets (never in chat, source code or browser variables).
+- [ ] Deploy the Edge Function to a non-production/test environment with webhook JWT verification disabled only because the handler independently authenticates parent actions and verifies webhook signatures.
+- [ ] Complete test-mode parent checkout, failed/cancelled payment, duplicate webhook, forged signature, stale timestamp, wrong-parent, partial/full payment and official receipt tests.
+- [ ] Verify reconciliation and Finance reporting against the Paystack dashboard before any live activation.
+- [ ] Keep Paystack disabled until merchant ownership, transaction charges, test-mode verification, signed webhook validation, reconciliation and written school approval are complete.
 
 ## 10. Public website and assistant
 
