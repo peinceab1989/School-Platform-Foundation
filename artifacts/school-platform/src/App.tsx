@@ -654,7 +654,6 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
               <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">Optional online payment</span>
             </div>
             <ParentPaystackCheckout schoolId={schoolId} feeRows={feeRows as any} paymentRows={paymentRows as any} feeTypeNames={feeTypeNames} childName={childName} />
-            </div>
             <p className="mt-3 text-xs leading-5 text-slate-500">Payment safety: use only bank details confirmed through an official RESA channel. Keep transfer evidence. A transfer screenshot or checkout attempt is not a receipt; an official receipt is issued only after Finance verifies the payment.</p>
           </section>
         </article>
