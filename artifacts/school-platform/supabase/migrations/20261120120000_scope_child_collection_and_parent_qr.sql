@@ -44,7 +44,7 @@ begin
   join public.parents_guardians guardian on guardian.id=q.parent_guardian_id and guardian.school_id=q.school_id and guardian.portal_enabled
   where q.school_id=p_school_id and q.token_hash=p_parent_qr_hash and q.is_active
    and l.student_id=p_student_id and l.is_active;
-  if not found then raise exception 'Parent QR is invalid or not linked to this student'; end if;
+  if not found then raise exception 'Parent QR is invalid, revoked, inactive or not linked to this student'; end if;
  elsif p_verification_method<>'manual_verified' then
   raise exception 'Approved authorization, linked parent QR or documented manual verification is required';
  end if;
@@ -78,7 +78,7 @@ begin
   and membership.role='parent'::public.school_role and membership.status='active'::public.membership_status
  join public.parents_guardians guardian on guardian.id=q.parent_guardian_id and guardian.school_id=q.school_id and guardian.portal_enabled
  where q.school_id=p_school_id and q.token_hash=p_parent_qr_hash and q.is_active;
- if not found then raise exception 'Parent QR is invalid or revoked'; end if;
+ if not found then raise exception 'Parent QR is invalid, revoked or the parent portal account is inactive'; end if;
  if p_station_id is not null and not exists(select 1 from public.biometric_devices d where d.id=p_station_id and d.school_id=p_school_id and d.is_active) then
   raise exception 'Invalid attendance station'; end if;
  insert into public.school_access_event_attendance(school_id,event_id,parent_guardian_id,recorded_by,station_id)
