@@ -245,7 +245,13 @@ begin
     raise exception 'Notes, Assignments and Projects must all be set and total the coursework maximum';
   end if;
 
-  if exists (
+  select coalesce(max(version), 0) into v_version
+  from public.school_grading_configurations
+  where school_id = p_school_id
+    and academic_session_id = p_academic_session_id
+    and term_id = p_term_id;
+
+  if v_version > 0 and exists (
     select 1
     from public.student_term_results tr
     join public.student_subject_results sr
@@ -257,11 +263,7 @@ begin
     raise exception 'Grading configuration cannot change after subject scores have been saved for this term';
   end if;
 
-  select coalesce(max(version), 0) + 1 into v_version
-  from public.school_grading_configurations
-  where school_id = p_school_id
-    and academic_session_id = p_academic_session_id
-    and term_id = p_term_id;
+  v_version := v_version + 1;
 
   insert into public.school_grading_configurations (
     school_id, academic_session_id, term_id, version,
