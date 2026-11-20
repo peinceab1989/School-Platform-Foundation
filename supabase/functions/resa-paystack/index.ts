@@ -37,7 +37,9 @@ function hex(bytes: ArrayBuffer) {
 
 async function hmac(secret: string, data: Uint8Array) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
-  return hex(await crypto.subtle.sign("HMAC", key, data));
+  const safeBytes = new Uint8Array(data.length);
+  safeBytes.set(data);
+  return hex(await crypto.subtle.sign("HMAC", key, safeBytes.buffer));
 }
 
 function constantTimeEqual(a: string, b: string) {
@@ -199,8 +201,9 @@ Deno.serve(async (req: Request) => {
       const balance = Math.max(0, Number(assignment.amount_due) - paid);
       const amountKobo = Math.round(amountNaira * 100);
       if (amountNaira > balance + 0.001) return response({ error: "Payment exceeds the current outstanding balance of ₦" + balance.toLocaleString("en-NG") + "." }, 400, headers);
-      if (amountKobo / 100 !== Number(amountNaira.toFixed(2))) return response({ error: "Enter an amount with no more than two decimal places." }, 400, headers);
+      if (Math.abs(amountNaira - amountKobo / 100) > 0.000001) return response({ error: "Enter an amount with no more than two decimal places." }, 400, headers);
 
+      if (!user.email) return response({ error: "Your RESA sign-in account has no verified email address. Contact the school office before paying online." }, 400, headers);
       const reference = "RESA-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomUUID().replace(/-/g, "").slice(0, 16).toUpperCase();
       const { data: intentId, error: intentError } = await admin.rpc("create_paystack_payment_intent", {
         p_school_id: schoolId,
@@ -213,7 +216,6 @@ Deno.serve(async (req: Request) => {
       });
       if (intentError) throw intentError;
 
-      if (!user.email) return response({ error: "Your RESA sign-in account has no verified email address. Contact the school office before paying online." }, 400, headers);
       const callbackUrl = APP_URL + "/parent-dashboard?paystack=verify";
       const initialized = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
@@ -224,7 +226,7 @@ Deno.serve(async (req: Request) => {
           currency: "NGN",
           reference,
           callback_url: callbackUrl,
-          metadata: { school_id: schoolId, fee_assignment_id: assignmentId, payment_intent_id: intent.id },
+          metadata: { school_id: schoolId, fee_assignment_id: assignmentId, payment_intent_id: intentId },
         }),
       });
       const initPayload = await initialized.json().catch(() => null);
@@ -236,7 +238,7 @@ Deno.serve(async (req: Request) => {
         authorization_url: initPayload.data.authorization_url,
         access_code: initPayload.data.access_code,
         updated_at: new Date().toISOString(),
-      }).eq("id", intent.id);
+      }).eq("id", intentId);
       return response({ authorization_url: initPayload.data.authorization_url, reference }, 200, headers);
     }
 
