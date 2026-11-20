@@ -30,6 +30,7 @@ const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
 const ADDRESS =
   "1, Smiling George Way, Opposite Winners’ Chapel, Behind Matice, Sapele Road, Benin City, Edo State, Nigeria.";
 const EMAIL = "rhemaexploitsacademy@gmail.com";
+const ADMISSIONS_EMAIL = "resainternational2024@gmail.com";
 const PHONE = "08058422691";
 const WHATSAPP = "08058422691";
 const WHATSAPP_URL = "https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20would%20like%20to%20make%20an%20enquiry.";
@@ -602,10 +603,13 @@ export function AdmissionsPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e9f0e7] text-[#20553d]"><GraduationCap size={30} /></div>
             <h2 className="mt-5 text-2xl font-black text-[#163c2e]">Admission enquiry</h2>
             <p className="mt-3 leading-7 text-slate-600">Please contact the school to confirm current admission availability, fees, documents and other requirements before making payment.</p>
+            <a href={`mailto:${ADMISSIONS_EMAIL}`} className="mt-4 flex items-center gap-3 rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-4 font-semibold text-[#163c2e] transition hover:border-[#c9ad66]">
+              <Mail size={19} /> <span>Admissions email: {ADMISSIONS_EMAIL}</span>
+            </a>
             <div className="mt-6 rounded-2xl bg-[#faf8f1] p-5">
-              <p className="text-sm font-bold text-slate-500">Admission fee (as provided by the school)</p>
-              <p className="mt-1 text-3xl font-black text-[#163c2e]">₦10,000</p>
-              <p className="mt-2 text-xs leading-5 text-slate-500">Confirm the current fee and payment instructions directly with the school.</p>
+              <p className="text-sm font-bold text-slate-500">Admission application fee</p>
+              <p className="mt-1 text-lg font-extrabold text-[#163c2e]">Confirm with RESA Admissions</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">The current amount, what it covers and approved payment instructions must be confirmed directly with the school before payment.</p>
             </div>
             <div className="mt-5 rounded-2xl border border-[#e7dec9] p-5">
               <p className="font-extrabold text-[#163c2e]">Document to prepare</p>
@@ -642,7 +646,8 @@ export function ContactPage() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <FeatureCard number="01" icon={MapPin} title="Visit the school" description={ADDRESS} />
             <FeatureCard number="02" icon={Phone} title="Call the school" description={`Main line: ${PHONE}. WhatsApp: ${WHATSAPP}.`} />
-            <FeatureCard number="03" icon={Mail} title="Send an email" description={EMAIL} />
+            <FeatureCard number="03" icon={Mail} title="General enquiries" description={EMAIL} />
+            <FeatureCard number="04" icon={GraduationCap} title="Admissions enquiries" description={ADMISSIONS_EMAIL} />
           </div>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             <a href={`tel:${PHONE}`} className="flex items-center justify-center gap-3 rounded-2xl bg-[#163c2e] p-5 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-1">
@@ -653,6 +658,9 @@ export function ContactPage() {
             </a>
             <a href={`mailto:${EMAIL}`} className="flex items-center justify-center gap-3 rounded-2xl border border-[#e7dec9] bg-white p-5 font-extrabold text-[#163c2e] transition hover:-translate-y-1">
               <Mail size={20} /> Email RESA
+            </a>
+            <a href={`mailto:${ADMISSIONS_EMAIL}`} className="flex items-center justify-center gap-3 rounded-2xl border border-[#e7dec9] bg-white p-5 font-extrabold text-[#163c2e] transition hover:-translate-y-1">
+              <GraduationCap size={20} /> Email Admissions
             </a>
             <a href={FACEBOOK} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-3 rounded-2xl border border-[#e7dec9] bg-white p-5 font-extrabold text-[#163c2e] transition hover:-translate-y-1">
               <Users size={20} /> Follow us on Facebook
