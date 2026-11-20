@@ -11,9 +11,9 @@ alter table public.student_subject_results
 
 alter table public.student_subject_results
   add constraint student_subject_results_cat1_score_range
-    check (cat1_score is null or cat1_score >= 0),
+    check (cat1_score is null or (cat1_score >= 0 and cat1_score <= 20)),
   add constraint student_subject_results_cat2_score_range
-    check (cat2_score is null or cat2_score >= 0),
+    check (cat2_score is null or (cat2_score >= 0 and cat2_score <= 20)),
   add constraint student_subject_results_cat_total_consistency
     check (
       (cat1_score is null and cat2_score is null)
@@ -25,6 +25,6 @@ alter table public.student_subject_results
     );
 
 comment on column public.student_subject_results.cat1_score is
-  'Continuous Assessment Test 1 score. The school-approved maximum is stored in the term grading configuration. NULL denotes a legacy combined CA record.';
+  'Continuous Assessment Test 1 score, maximum 20. NULL denotes a legacy combined CA record.';
 comment on column public.student_subject_results.cat2_score is
-  'Continuous Assessment Test 2 score. The school-approved maximum is stored in the term grading configuration. NULL denotes a legacy combined CA record.';
+  'Continuous Assessment Test 2 score, maximum 20. NULL denotes a legacy combined CA record.';
