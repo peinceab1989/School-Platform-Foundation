@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, BellRing } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from "@/lib/notifications/push";
@@ -26,7 +26,11 @@ function playResaChime() {
   }
 }
 
-/** Unified unread direct/group-chat count and per-device RESA Web Push enrolment. */
+/**
+ * Unified unread direct/group-chat count and per-device RESA Web Push enrolment.
+ * Realtime is the fast path; focus/reconnect and a low-frequency poll are the
+ * recovery path so a dropped socket cannot leave the badge stale indefinitely.
+ */
 export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
   const [count, setCount] = useState(0);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
@@ -35,6 +39,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
   const [registered, setRegistered] = useState(false);
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState("");
+  const refreshSequence = useRef(0);
 
   const registerPush = useCallback(async () => {
     await enableResaPushNotifications(schoolId, false);
@@ -63,17 +68,30 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
     let userId = "";
 
     const refresh = async () => {
-      const { data } = await db.auth.getUser();
-      userId = data?.user?.id ?? "";
-      if (!userId || !active) return;
-      const [direct, chatCount] = await Promise.all([
-        db.from("school_messages")
-          .select("id", { count: "exact", head: true })
-          .eq("school_id", schoolId).eq("recipient_id", userId).eq("is_read", false),
-        db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
-      ]);
-      const unreadChat = chatCount.error ? 0 : Number(chatCount.data || 0);
-      if (active) setCount((direct.error ? 0 : direct.count ?? 0) + unreadChat);
+      const sequence = ++refreshSequence.current;
+      try {
+        const { data, error: authError } = await db.auth.getUser();
+        if (authError) throw authError;
+        userId = data?.user?.id ?? "";
+        if (!userId || !active) {
+          if (active && sequence === refreshSequence.current) setCount(0);
+          return;
+        }
+        const [direct, chatCount] = await Promise.all([
+          db.from("school_messages")
+            .select("id", { count: "exact", head: true })
+            .eq("school_id", schoolId).eq("recipient_id", userId).eq("is_read", false),
+          db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
+        ]);
+        if (direct.error) throw direct.error;
+        if (chatCount.error) throw chatCount.error;
+        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0);
+        // Ignore slower, older requests that finish after a newer Realtime refresh.
+        if (active && sequence === refreshSequence.current) setCount(nextCount);
+      } catch (error) {
+        // Keep the last known count during a transient network/RLS failure.
+        console.warn("RESA unread count refresh failed; retaining last known count:", error);
+      }
     };
 
     const notify = async (title: string, body: string, tag: string, url: string) => {
@@ -93,6 +111,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       }
     };
 
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const refreshWhenOnline = () => { void refresh(); };
+
     void refresh();
     if ("Notification" in window && Notification.permission === "granted") {
       void registerPush().catch(error => {
@@ -104,6 +127,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
         .then(status => { if (active) setRegistered(status.registered); })
         .catch(() => { if (active) setRegistered(false); });
     }
+
     channel = db.channel("resa-unread-badge-" + schoolId)
       .on("postgres_changes", { event: "*", schema: "public", table: "school_messages", filter: "school_id=eq." + schoolId }, async (payload: any) => {
         const message = payload.new;
@@ -130,13 +154,31 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           void refresh();
         }
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "resa_chat_message_reads", filter: "school_id=eq." + schoolId }, (payload: any) => {
-        if (payload.new?.user_id === userId) void refresh();
+      .on("postgres_changes", { event: "*", schema: "public", table: "resa_chat_message_reads", filter: "school_id=eq." + schoolId }, (payload: any) => {
+        if (payload.new?.user_id === userId || payload.old?.user_id === userId) void refresh();
       })
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") void refresh();
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          console.warn("RESA unread-count Realtime channel status:", status, "— recovery refresh remains active.");
+        }
+      });
+
+    // Realtime normally updates within seconds. Polling is a safety net for
+    // mobile browsers that suspend sockets or temporarily lose connectivity.
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine) void refresh();
+    }, 20000);
+    window.addEventListener("focus", refreshWhenVisible);
+    window.addEventListener("online", refreshWhenOnline);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
 
     return () => {
       active = false;
+      window.clearInterval(poll);
+      window.removeEventListener("focus", refreshWhenVisible);
+      window.removeEventListener("online", refreshWhenOnline);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
       if (channel) void db.removeChannel(channel);
     };
   }, [schoolId, registerPush]);
