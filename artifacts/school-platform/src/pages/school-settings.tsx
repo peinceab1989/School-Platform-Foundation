@@ -302,7 +302,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
       if (action === "remove") {
         setNotice("Incomplete invitation removed from this school. The global sign-in account was retained. You can now create an internal RESA login from this page.");
       } else {
-        const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, { redirectTo: "https://resa-school-portal.netlify.app/accept-invitation" });
+        const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, { redirectTo: "https://school-platform-foundation.pages.dev/accept-invitation" });
         if (resetError) throw resetError;
         setNotice("Password setup/recovery email requested for " + targetEmail + ". Ask the teacher to check their inbox and spam folder.");
       }
