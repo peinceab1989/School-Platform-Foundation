@@ -99,6 +99,20 @@ For each deployed function:
 
 Do not deploy all functions during a restore rehearsal. Restore them one by one only after reviewing their dependencies and configuration.
 
+## 8A. Push notifications and messaging readiness
+
+The current live dispatcher is v4 and its webhook/VAPID settings are configured, but endpoint acceptance is not device delivery. Current inventory at the 20 Nov 2026 audit: one push subscription (teacher account, last seen 10 Nov 2026), three parents with phone-alert preferences enabled but no parent push subscriptions, 19 in-app attendance notices marked delivered and 8 WhatsApp notices pending. Parent notification logs are empty.
+
+For a controlled school test:
+1. Use a school-owned test parent account linked to a synthetic/test learner, not a real learner's sensitive attendance record.
+2. On the parent's Android phone, open the HTTPS RESA portal in a supported browser, sign in and open notification settings.
+3. Enable phone notifications and accept the browser's permission prompt. Confirm a subscription record appears for that parent account; do not export endpoint/auth keys into the backup.
+4. Trigger one approved test attendance event for the test learner. Record the dispatcher response, recipient count, push-service result and actual phone notification display separately.
+5. Verify the parent can open the portal inbox, mark the message read and see the unread count update on another signed-in device.
+6. Repeat with a suspended/unlinked test parent and confirm no notification is sent.
+
+WhatsApp delivery remains unconfigured: the eight historical WhatsApp outbox entries are still pending. Do not mark WhatsApp automation complete until an approved provider/Meta route is configured, verified and tested end-to-end. No paid provider is authorised by this runbook.
+
 ## 9. Checksums and verification
 
 Create a manifest with:
