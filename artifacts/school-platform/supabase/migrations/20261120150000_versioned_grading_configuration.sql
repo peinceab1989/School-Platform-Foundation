@@ -203,3 +203,85 @@ grant select, insert on public.school_grading_configuration_audit to authenticat
 
 -- The trigger function is not an RPC endpoint.
 revoke all on function public.validate_resa_student_subject_result_grading() from public;
+-- Atomic, invoker-rights configuration version creation and audit.
+create or replace function public.create_school_grading_configuration(
+  p_school_id uuid,
+  p_academic_session_id uuid,
+  p_term_id uuid,
+  p_cat1_max numeric,
+  p_cat2_max numeric,
+  p_exam_max numeric,
+  p_coursework_max numeric,
+  p_notes_max numeric default null,
+  p_assignments_max numeric default null,
+  p_projects_max numeric default null
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+declare
+  v_version integer;
+  v_config public.school_grading_configurations%rowtype;
+  v_has_split boolean;
+begin
+  if auth.uid() is null
+    or not public.has_school_role(p_school_id, array['admin']::public.school_role[]) then
+    raise exception 'Only an authenticated school administrator may change grading configuration';
+  end if;
+
+  if p_cat1_max < 0 or p_cat2_max < 0 or p_exam_max < 0 or p_coursework_max < 0
+    or abs(p_cat1_max + p_cat2_max + p_exam_max + p_coursework_max - 100) >= 0.001 then
+    raise exception 'Grading component maximums must be non-negative and total exactly 100';
+  end if;
+
+  v_has_split := p_notes_max is not null or p_assignments_max is not null or p_projects_max is not null;
+  if v_has_split and (
+    p_notes_max is null or p_assignments_max is null or p_projects_max is null
+    or p_notes_max < 0 or p_assignments_max < 0 or p_projects_max < 0
+    or abs(p_notes_max + p_assignments_max + p_projects_max - p_coursework_max) >= 0.001
+  ) then
+    raise exception 'Notes, Assignments and Projects must all be set and total the coursework maximum';
+  end if;
+
+  if exists (
+    select 1
+    from public.student_term_results tr
+    join public.student_subject_results sr
+      on sr.term_result_id = tr.id and sr.school_id = tr.school_id
+    where tr.school_id = p_school_id
+      and tr.academic_session_id = p_academic_session_id
+      and tr.term_id = p_term_id
+  ) then
+    raise exception 'Grading configuration cannot change after subject scores have been saved for this term';
+  end if;
+
+  select coalesce(max(version), 0) + 1 into v_version
+  from public.school_grading_configurations
+  where school_id = p_school_id
+    and academic_session_id = p_academic_session_id
+    and term_id = p_term_id;
+
+  insert into public.school_grading_configurations (
+    school_id, academic_session_id, term_id, version,
+    cat1_max, cat2_max, exam_max, coursework_max,
+    notes_max, assignments_max, projects_max, total_max, created_by
+  ) values (
+    p_school_id, p_academic_session_id, p_term_id, v_version,
+    p_cat1_max, p_cat2_max, p_exam_max, p_coursework_max,
+    p_notes_max, p_assignments_max, p_projects_max, 100, auth.uid()
+  ) returning * into v_config;
+
+  insert into public.school_grading_configuration_audit (
+    school_id, grading_configuration_id, changed_by, action, snapshot
+  ) values (
+    p_school_id, v_config.id, auth.uid(), 'created', to_jsonb(v_config)
+  );
+
+  return v_config.id;
+end;
+$$;
+
+revoke all on function public.create_school_grading_configuration(uuid, uuid, uuid, numeric, numeric, numeric, numeric, numeric, numeric, numeric) from public;
+grant execute on function public.create_school_grading_configuration(uuid, uuid, uuid, numeric, numeric, numeric, numeric, numeric, numeric, numeric) to authenticated;
