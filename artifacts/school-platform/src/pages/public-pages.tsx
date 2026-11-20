@@ -603,6 +603,9 @@ export function AdmissionsPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e9f0e7] text-[#20553d]"><GraduationCap size={30} /></div>
             <h2 className="mt-5 text-2xl font-black text-[#163c2e]">Admission enquiry</h2>
             <p className="mt-3 leading-7 text-slate-600">Please contact the school to confirm current admission availability, fees, documents and other requirements before making payment.</p>
+            <a href={`mailto:${ADMISSIONS_EMAIL}`} className="mt-4 flex items-center gap-3 rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-4 font-semibold text-[#163c2e] transition hover:border-[#c9ad66]">
+              <Mail size={19} /> <span>Admissions email: {ADMISSIONS_EMAIL}</span>
+            </a>
             <div className="mt-6 rounded-2xl bg-[#faf8f1] p-5">
               <p className="text-sm font-bold text-slate-500">Admission fee (as provided by the school)</p>
               <p className="mt-1 text-3xl font-black text-[#163c2e]">₦10,000</p>
