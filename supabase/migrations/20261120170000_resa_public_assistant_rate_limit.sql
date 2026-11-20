@@ -3,7 +3,7 @@
 create table if not exists public.resa_public_assistant_rate_limits (
   ip_hash text not null check (ip_hash ~ '^[0-9a-f]{64}$'),
   window_start timestamptz not null,
-  request_count integer not null default 0 check (request_count >= 1 and request_count <= 30),
+  request_count integer not null default 0 check (request_count >= 1 and request_count <= 120),
   primary key (ip_hash, window_start)
 );
 
@@ -28,7 +28,7 @@ begin
     or p_window_start is null
     or p_max_requests is null
     or p_max_requests < 1
-    or p_max_requests > 30
+    or p_max_requests > 120
   then
     return false;
   end if;
