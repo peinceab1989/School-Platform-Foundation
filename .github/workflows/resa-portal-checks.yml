@@ -63,3 +63,6 @@ jobs:
 
       - name: Test RESA push audience authorization
         run: deno test --node-modules-dir=auto supabase/functions/resa-push-dispatch/parent-audience_test.ts
+
+      - name: Test RESA Paystack webhook signature verification
+        run: deno test --node-modules-dir=auto supabase/functions/resa-paystack/signature_test.ts
