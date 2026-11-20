@@ -416,7 +416,7 @@ Deno.serve(async (request) => {
       recipientIds,
       parentGuardianId: String(row.parent_guardian_id || ""),
       genericPreferences: eventType === "attendance" ? [] : (preferences || []),
-      parentAttendancePreferences: eventType === "attendance" ? (preferences || []) : [],
+      parentAttendancePreferences: eventType === "attendance" ? (preferences || []) as Array<{ user_id: string; parent_guardian_id: string; enabled: boolean; phone_notifications_enabled: boolean }> : [],
     });
     if (!optedIn.length) return json({ accepted: true, recipients: recipientIds.length, devices: 0, sent: 0 });
 
