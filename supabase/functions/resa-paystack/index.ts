@@ -13,7 +13,7 @@ const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-function response(body: unknown, status = 200, headers: HeadersInit = {}) {
+function response(body: unknown, status = 200, headers: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers },
@@ -211,6 +211,7 @@ Deno.serve(async (req: Request) => {
       }).select("id").single();
       if (intentError) throw intentError;
 
+      if (!user.email) return response({ error: "Your RESA sign-in account has no verified email address. Contact the school office before paying online." }, 400, headers);
       const callbackUrl = APP_URL + "/parent-dashboard?paystack=verify";
       const initialized = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
@@ -244,13 +245,13 @@ Deno.serve(async (req: Request) => {
         .select("reference,initiated_by,status,school_id").eq("reference", reference).maybeSingle();
       if (intentError) throw intentError;
       if (!intent || intent.initiated_by !== user.id) return response({ error: "This payment reference does not belong to your signed-in account." }, 403, headers);
-      if (intent.status === "paid") return response({ success: true, status: "paid" });
+      if (intent.status === "paid") return response({ success: true, status: "paid" }, 200, headers);
       const verified = await verifyWithPaystack(reference);
       if (String(verified.reference) !== reference) return response({ error: "Paystack verification reference mismatch." }, 400, headers);
-      if (String(verified.status) !== "success") return response({ success: false, status: String(verified.status || "pending"), message: "Paystack has not confirmed this payment as successful yet." });
+      if (String(verified.status) !== "success") return response({ success: false, status: String(verified.status || "pending"), message: "Paystack has not confirmed this payment as successful yet." }, 200, headers);
       const settled = await settleVerifiedTransaction(verified as Record<string, unknown>);
       if (settled.review_required) return response({ success: false, status: "review_required", message: "Payment received, but the fee balance changed. RESA Finance must reconcile this transaction." }, 409, headers);
-      return response({ success: true, status: "paid", receipt_number: settled.receipt_number });
+      return response({ success: true, status: "paid", receipt_number: settled.receipt_number }, 200, headers);
     }
 
     return response({ error: "Unknown payment action." }, 400, headers);
