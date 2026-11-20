@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { verifyPaystackWebhookSignature } from "./signature.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -31,48 +32,6 @@ function cors(origin: string | null) {
   };
 }
 
-function hex(bytes: ArrayBuffer) {
-  return Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function hmac(secret: string, data: Uint8Array) {
-  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
-  const safeBytes = new Uint8Array(data.length);
-  safeBytes.set(data);
-  return hex(await crypto.subtle.sign("HMAC", key, safeBytes.buffer));
-}
-
-function constantTimeEqual(a: string, b: string) {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-async function validWebhookSignature(req: Request, raw: Uint8Array) {
-  const modern = req.headers.get("paystack-signature");
-  if (modern && PAYSTACK_WEBHOOK_SECRET.startsWith("whsec_")) {
-    const fields = modern.split(",");
-    const timestamp = fields.find((part) => part.trim().startsWith("t="))?.trim().slice(2);
-    const signatures = fields.filter((part) => part.trim().startsWith("v1=")).map((part) => part.trim().slice(3));
-    const seconds = Number(timestamp);
-    if (!Number.isFinite(seconds) || Math.abs(Date.now() / 1000 - seconds) > 300) return false;
-    const prefix = new TextEncoder().encode(timestamp + ".");
-    const payload = new Uint8Array(prefix.length + raw.length);
-    payload.set(prefix);
-    payload.set(raw, prefix.length);
-    const expected = await hmac(PAYSTACK_WEBHOOK_SECRET, payload);
-    return signatures.some((item) => {
-      const separator = item.indexOf(":");
-      const signature = separator >= 0 ? item.slice(separator + 1) : item;
-      return /^[0-9a-f]{128}$/.test(signature) && constantTimeEqual(expected, signature);
-    });
-  }
-
-  const legacy = req.headers.get("x-paystack-signature") || "";
-  if (!PAYSTACK_SECRET_KEY || !/^[0-9a-f]{128}$/.test(legacy)) return false;
-  return constantTimeEqual(await hmac(PAYSTACK_SECRET_KEY, raw), legacy);
-}
 
 async function currentUser(req: Request) {
   const header = req.headers.get("Authorization") || "";
@@ -129,7 +88,13 @@ Deno.serve(async (req: Request) => {
   const isWebhook = url.searchParams.get("action") === "webhook";
   if (isWebhook) {
     const raw = new Uint8Array(await req.arrayBuffer());
-    if (!(await validWebhookSignature(req, raw))) return response({ error: "Invalid Paystack signature" }, 401);
+    if (!(await verifyPaystackWebhookSignature({
+      modernSignature: req.headers.get("paystack-signature"),
+      legacySignature: req.headers.get("x-paystack-signature"),
+      rawBody: raw,
+      webhookSecret: PAYSTACK_WEBHOOK_SECRET,
+      secretKey: PAYSTACK_SECRET_KEY,
+    }))) return response({ error: "Invalid Paystack signature" }, 401);
     let event: Record<string, unknown>;
     try { event = JSON.parse(new TextDecoder().decode(raw)); } catch { return response({ error: "Invalid webhook payload" }, 400); }
     if (event.event !== "charge.success") return response({ received: true });
