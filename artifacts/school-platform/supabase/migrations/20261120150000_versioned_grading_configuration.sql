@@ -195,3 +195,11 @@ before insert or update of cat1_score, cat2_score, ca_score, exam_score, coursew
   notes_score, assignments_score, projects_score, grading_configuration_id, total_score
 on public.student_subject_results
 for each row execute function public.validate_resa_student_subject_result_grading();
+
+-- Public-schema tables are not automatically exposed through the Data API on newer
+-- Supabase projects. Grant only authenticated access; RLS remains the row boundary.
+grant select, insert on public.school_grading_configurations to authenticated;
+grant select, insert on public.school_grading_configuration_audit to authenticated;
+
+-- The trigger function is not an RPC endpoint.
+revoke all on function public.validate_resa_student_subject_result_grading() from public;
