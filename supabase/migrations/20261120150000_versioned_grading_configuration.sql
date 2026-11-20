@@ -183,6 +183,7 @@ set search_path = pg_catalog, public
 as $$
 declare
   cfg public.school_grading_configurations%rowtype;
+  result_term public.student_term_results%rowtype;
 begin
   if new.grading_configuration_id is null then
     if new.cat1_score is null and new.cat2_score is null and new.coursework_score is null then
@@ -199,6 +200,37 @@ begin
 
   if not found then
     raise exception 'The grading configuration does not belong to this school';
+  end if;
+
+  -- A result may only use a configuration created for its own session and term.
+  select * into result_term
+  from public.student_term_results
+  where id = new.term_result_id
+    and school_id = new.school_id;
+
+  if not found then
+    raise exception 'The linked term result does not belong to this school';
+  end if;
+
+  if cfg.academic_session_id <> result_term.academic_session_id
+    or cfg.term_id <> result_term.term_id then
+    raise exception 'The grading configuration does not match this result session and term';
+  end if;
+
+  -- Legacy combined-CA rows may be annotated with CAT1/CAT2 only when their
+  -- original CA, examination and total values remain exactly unchanged.
+  if tg_op = 'UPDATE'
+    and old.grading_configuration_id is null
+    and old.cat1_score is null
+    and old.cat2_score is null
+    and old.coursework_score is null
+    and new.grading_configuration_id is not null then
+    if new.ca_score is distinct from old.ca_score
+      or new.exam_score is distinct from old.exam_score
+      or new.total_score is distinct from old.total_score
+      or coalesce(new.coursework_score, 0) <> 0 then
+      raise exception 'Historical combined-CA results cannot be recalculated or changed';
+    end if;
   end if;
 
   if new.exam_score is null or new.exam_score < 0 or new.exam_score > cfg.exam_max then
