@@ -53,6 +53,12 @@ No production learner, staff, parent, attendance, assignment, submission, grade,
 - The migration was exercised in a rolled-back transaction: assigned teacher + active parent QR succeeded; unassigned teacher was rejected; parent event QR succeeded; disabling the parent account/suspending membership caused both QR operations to be rejected. All temporary data and settings were rolled back.
 - Operational status is still disabled: `child_pickup_enabled=false`, `parent_events_enabled=false`; there are no parent QR credentials or school events. School management must explicitly enable/configure these before real operational testing.
 
+## 2D. Biometric QR attendance authorization
+
+- PR #115 is merged and migration `20261120123000_scope_qr_attendance_operator.sql` is applied. Teachers can scan only learners in their active assigned classes/sessions and can record staff QR attendance only for themselves; administrators retain school-wide operator access.
+- Live rollback-only test: assigned teacher check-in for an assigned learner succeeded; unassigned teacher was denied; assigned teacher was denied when using another staff member's QR. All writes rolled back; biometric event count stayed 36 and no test attendance row remained.
+- Live inventory has one active test biometric station, 3 approved active student QR credentials and 2 approved active staff QR credentials. Server-side authorization is tested; physical scanner/camera and real-device capture remain untested.
+
 ## 3. Critical release blockers
 
 ### A. Push dispatcher v4 — post-deployment validation

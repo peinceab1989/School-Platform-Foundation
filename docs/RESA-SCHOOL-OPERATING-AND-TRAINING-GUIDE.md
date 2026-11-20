@@ -54,6 +54,14 @@
 3. Confirm the teacher signs in and sees the correct class/session in the form-teacher attendance workspace.
 4. Assign only the teacher approved by school management. Do not assume that a subject teacher is automatically the form teacher.
 
+### QR attendance station operation
+1. An administrator approves the required student/staff QR credentials and confirms the biometric station is active.
+2. Select the correct active attendance station before scanning.
+3. A teacher may scan learners only in classes/sessions assigned to that teacher. A teacher may scan their own staff QR only; an administrator is required to record attendance for another staff member.
+4. Use **Check in** once at arrival and **Check out** only after a valid check-in. Duplicate check-in or check-out is rejected.
+5. If a QR is lost, revoked or unreadable, use the school's approved card/manual fallback and notify the administrator; do not bypass the assigned-class restriction.
+6. Test with a controlled learner and staff account before using the physical station for daily attendance.
+
 ### E. Attendance
 - Open the attendance workspace for the correct date and session.
 - Confirm the selected class or staff group before recording attendance.
