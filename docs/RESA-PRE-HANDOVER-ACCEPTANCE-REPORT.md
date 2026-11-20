@@ -12,15 +12,18 @@ The RESA platform has substantial implemented functionality and recent source-le
 
 This report deliberately distinguishes source/CI evidence from production evidence. A successful build, a merged pull request, an HTTP 200 response or a healthy database does not by itself prove that the school can safely operate the feature.
 
-No production database records, Auth users, Storage objects or schema were changed during this reassessment. The RESA push dispatcher was deployed to version 4 after a live-schema preflight and successful CI validation. No test notification was sent, and no manual Pages production deployment was initiated; GitHub merges may trigger automatic Cloudflare builds.
+No production learner, staff, parent, attendance, assignment, submission, grade, Auth-user or Storage-object records were modified. Two additive production security migrations were applied to harden parent and teacher access, and the RESA push dispatcher was deployed to v4 after live-schema preflight and successful CI validation. No test notification was sent, and no manual Pages production deployment was initiated; GitHub merges may trigger automatic Cloudflare builds.
 
 ## 2. Verified evidence and current status
 
 | Area | Evidence observed | Acceptance status |
 |---|---|---|
-| Push notification audience protection | PR #88 merged; nine parent-audience authorization tests passed in GitHub Actions | Source validated; live reconciliation and device delivery pending |
+| Push notification audience protection | PR #88 merged; schema-alignment PR #100 merged; nine parent-audience authorization tests passed | Live v4 deployed; real device delivery pending |
 | Live push dispatcher | Supabase reports `resa-push-dispatch` ACTIVE v4 with schema-aligned parent-audience helper; webhook and VAPID configuration presence verified | Device delivery pending |
-| Push runtime logs | Recent dispatcher requests returned HTTP 200; log response does not prove a device displayed the alert or identify a successful recipient | Not accepted |
+| Parent access hardening | PR #103 migration applied; all 3 active parent accounts passed helper checks for their 1, 2 and 2 active linked children | Helper verified; device journey pending |
+| Teacher/student access hardening | PR #104 migration applied; broad school-wide teacher reads removed from sensitive student/person policies | RLS impersonation tests passed for assigned/unassigned teacher, admin, student and parent |
+| Form-teacher attendance | 27 student attendance rows; zero persisted form-teacher assignments; temporary assignment test read all 27 rows and rolled back | Admin must assign actual form teachers before launch |
+| Push runtime logs | Earlier requests returned HTTP 200; no post-v4 test notification was sent during this reassessment | Device display not verified |
 | Messaging unread-count recovery | PR #101 merged after TypeScript, production build and Edge Function checks passed | Mobile/cross-device tests pending |
 | RESA Drive visibility | Migration `20261115102316` is present; private `resa-drive` bucket is 100 MB capped and currently contains zero objects | Policy/source reviewed; actual file journey pending |
 | Assignments | 5 published assignments, 18 submissions (all graded); role RLS tests and grading RPC transaction test passed | Database authorization verified; real UI/file journey pending |
@@ -33,7 +36,7 @@ No production database records, Auth users, Storage objects or schema were chang
 
 ## 3. Critical release blockers
 
-### A. Push dispatcher reconciliation
+### A. Push dispatcher v4 — post-deployment validation
 - Live dispatcher is ACTIVE version 4 and includes `index.ts` plus `parent-audience.ts` from the schema-aligned mainline.
 - Live schema preflight confirmed the real `student_parent_guardians` table has no `is_active` column; the deployed query now uses relationship-row presence and requires the separate active `parent_student_portal_access` row.
 - The webhook token and both VAPID key settings were confirmed configured without exposing their values.
