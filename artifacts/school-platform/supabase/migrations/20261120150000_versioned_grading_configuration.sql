@@ -40,6 +40,12 @@ alter table public.student_subject_results
   add column if not exists coursework_score numeric(7,2),
   add column if not exists grading_configuration_id uuid;
 
+alter table public.student_subject_results
+  drop constraint if exists student_subject_results_coursework_score_nonnegative;
+alter table public.student_subject_results
+  add constraint student_subject_results_coursework_score_nonnegative
+  check (coursework_score is null or coursework_score >= 0);
+
 do $$
 begin
   if not exists (
