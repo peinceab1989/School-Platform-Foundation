@@ -68,19 +68,20 @@ This document translates the school's observations into implementation requireme
 - CAT 1 (Continuous Assessment Test 1): maximum 20.
 - CAT 2 (Continuous Assessment Test 2): maximum 20.
 - Examination: maximum 50.
-- Notes, assignments and projects: combined maximum 10.
+- Notes, Assignments and Projects: one combined coursework pool, maximum 10. No individual split is assumed until the school chooses one.
 - Overall subject maximum: 100.
 
 ### Administrator-configurable marks
 - Provide an authorised, audited grading-configuration screen for school administrators.
-- Administrators must be able to adjust the maximum marks for every component: CAT 1, CAT 2, Examination, Notes, Assignments and Projects.
-- Notes, Assignments and Projects must each have their own configurable maximum; their combined maximum is initially 10, but the school may change their individual allocation.
+- Administrators must be able to adjust CAT 1, CAT 2, Examination and the combined Notes/Assignments/Projects coursework pool. The initial maxima are 20, 20, 50 and 10 respectively.
+- The initial coursework score is entered as one combined 10-mark value; do not invent a split between Notes, Assignments and Projects.
+- When the school approves an individual coursework allocation, administrators can configure separate Notes, Assignments and Projects maximums whose sum must equal the coursework pool. Teachers then enter the three component scores separately.
 - The sum of all active component maximums must equal the configured subject total (initially 100). Reject incomplete, negative, invalid or non-100 configurations; do not silently normalise or redistribute marks.
 - Configuration changes must be versioned and effective-dated by academic session/term (or another explicitly selected future assessment period). Do not retroactively apply a new configuration to saved, approved or published results.
 - Restrict configuration changes to authorised administrators; record actor, timestamp, old values, new values and effective period in an audit trail.
 - Teachers may enter scores only within the currently effective component maximums for their assigned class/subject.
 - Result screens, validation, totals, grades, broadsheets, report cards, exports and approval/publication checks must all use the same effective configuration. Show each component's achieved score and maximum.
-- Keep CAT 1, CAT 2, Examination, Notes, Assignments and Projects distinct in storage for new results. Do not collapse them into one CA value.
+- Store CAT 1, CAT 2, Examination and coursework separately for new results. When an individual coursework split is enabled, also store Notes, Assignments and Projects separately and retain their combined coursework subtotal. Never collapse CAT 1 and CAT 2 into an undocumented single CA mark for new results.
 - Keep the existing grading thresholds and rounding behaviour unless the school separately approves a change.
 - Preserve legacy rows that contain only a combined `ca_score`: do not invent a split or rewrite historic/published results. Clearly label them as legacy combined CA until an authorised correction is made.
 - CBT-to-exam transfer must use the effective Examination maximum and must not overwrite an existing mark or alter a published result.
