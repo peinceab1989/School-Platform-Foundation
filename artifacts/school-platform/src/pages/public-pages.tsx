@@ -607,9 +607,9 @@ export function AdmissionsPage() {
               <Mail size={19} /> <span>Admissions email: {ADMISSIONS_EMAIL}</span>
             </a>
             <div className="mt-6 rounded-2xl bg-[#faf8f1] p-5">
-              <p className="text-sm font-bold text-slate-500">Admission fee (as provided by the school)</p>
-              <p className="mt-1 text-3xl font-black text-[#163c2e]">₦10,000</p>
-              <p className="mt-2 text-xs leading-5 text-slate-500">Confirm the current fee and payment instructions directly with the school.</p>
+              <p className="text-sm font-bold text-slate-500">Admission application fee</p>
+              <p className="mt-1 text-lg font-extrabold text-[#163c2e]">Confirm with RESA Admissions</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">The current amount, what it covers and approved payment instructions must be confirmed directly with the school before payment.</p>
             </div>
             <div className="mt-5 rounded-2xl border border-[#e7dec9] p-5">
               <p className="font-extrabold text-[#163c2e]">Document to prepare</p>
