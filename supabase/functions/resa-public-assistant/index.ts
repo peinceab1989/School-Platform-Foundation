@@ -41,7 +41,7 @@ function jsonResponse(body: unknown, status = 200, origin?: string) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-function allowedOrigin(origin: string | null): string | undefined | null {
+export function allowedOrigin(origin: string | null): string | undefined | null {
   if (!origin) return undefined;
   try {
     const parsed = new URL(origin);
@@ -70,7 +70,7 @@ function getClientIdentifier(req: Request): string {
   return cloudflare || forwarded || "unknown";
 }
 
-function extractOutputText(payload: unknown): string {
+export function extractOutputText(payload: unknown): string {
   if (!payload || typeof payload !== "object") return "";
   const output = (payload as { output?: unknown }).output;
   if (!Array.isArray(output)) return "";
