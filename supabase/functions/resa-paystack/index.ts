@@ -153,7 +153,11 @@ Deno.serve(async (req: Request) => {
     const action = String(body.action || "");
 
     if (action === "status") {
-      return response({ configured: Boolean(PAYSTACK_SECRET_KEY), mode: PAYSTACK_MODE === "live" ? "live" : "test" }, 200, headers);
+      const expectedKeyPrefix = PAYSTACK_MODE === "live" ? "sk_live_" : "sk_test_";
+      const configured = PAYSTACK_MODE === "test" || PAYSTACK_MODE === "live";
+      const ready = configured && PAYSTACK_SECRET_KEY.startsWith(expectedKeyPrefix) &&
+        PAYSTACK_WEBHOOK_SECRET.startsWith("whsec_") && Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY);
+      return response({ configured: ready, mode: PAYSTACK_MODE === "live" ? "live" : "test" }, 200, headers);
     }
 
     if (action === "initialize") {
@@ -234,11 +238,12 @@ Deno.serve(async (req: Request) => {
         await admin.from("paystack_payment_intents").update({ status: "failed", failure_reason: "Paystack initialization failed", updated_at: new Date().toISOString() }).eq("id", intentId);
         return response({ error: "Paystack could not start checkout. Please try again or contact RESA Finance." }, 502, headers);
       }
-      await admin.from("paystack_payment_intents").update({
+      const { error: checkoutUpdateError } = await admin.from("paystack_payment_intents").update({
         authorization_url: initPayload.data.authorization_url,
         access_code: initPayload.data.access_code,
         updated_at: new Date().toISOString(),
       }).eq("id", intentId);
+      if (checkoutUpdateError) throw checkoutUpdateError;
       return response({ authorization_url: initPayload.data.authorization_url, reference }, 200, headers);
     }
 
@@ -246,10 +251,10 @@ Deno.serve(async (req: Request) => {
       const reference = String(body.reference || "");
       if (!reference) return response({ error: "A payment reference is required." }, 400, headers);
       const { data: intent, error: intentError } = await admin.from("paystack_payment_intents")
-        .select("reference,initiated_by,status,school_id").eq("reference", reference).maybeSingle();
+        .select("reference,initiated_by,status,school_id,receipt_number").eq("reference", reference).maybeSingle();
       if (intentError) throw intentError;
       if (!intent || intent.initiated_by !== user.id) return response({ error: "This payment reference does not belong to your signed-in account." }, 403, headers);
-      if (intent.status === "paid") return response({ success: true, status: "paid" }, 200, headers);
+      if (intent.status === "paid") return response({ success: true, status: "paid", receipt_number: intent.receipt_number }, 200, headers);
       const verified = await verifyWithPaystack(reference);
       if (String(verified.reference) !== reference) return response({ error: "Paystack verification reference mismatch." }, 400, headers);
       if (String(verified.status) !== "success") return response({ success: false, status: String(verified.status || "pending"), message: "Paystack has not confirmed this payment as successful yet." }, 200, headers);
