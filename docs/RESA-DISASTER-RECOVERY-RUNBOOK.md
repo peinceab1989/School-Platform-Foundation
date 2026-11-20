@@ -117,6 +117,10 @@ For a controlled school test:
 
 WhatsApp delivery remains unconfigured: the eight historical WhatsApp outbox entries are still pending. Do not mark WhatsApp automation complete until an approved provider/Meta route is configured, verified and tested end-to-end. No paid provider is authorised by this runbook.
 
+## 8B. Authentication security residual
+
+Supabase Security Advisor currently reports native leaked-password protection as disabled. Supabase's current password-security documentation says this native control is available on Pro plan and above; the RESA project remains on Free and no paid upgrade is approved. Do not claim this control is enabled. Until the school decides otherwise, require long, unique passwords for administrators and staff, avoid shared passwords, use a password manager where practical, and promptly reset any suspected compromised account. Review this residual risk during handover sign-off.
+
 ## 9. Checksums and verification
 
 Create a manifest with:
