@@ -85,7 +85,18 @@ Database backups preserve Storage metadata only in some backup paths; the actual
 6. Compare the number of source objects with the number of downloaded objects and investigate every mismatch.
 7. Do not delete or modify the source objects.
 
-Use a trusted local Node.js script with the Supabase client and a service credential supplied only through a local environment variable. The script must be download-only, recurse through all folders, handle pagination, fail on any download error, and write an object manifest. Never commit the service credential or script output containing secret values.
+The repository now includes `scripts/backup-resa-storage.mjs`, a native-Node, copy-only exporter that uses the Supabase Storage REST API (no extra package installation required). It lists every bucket, recursively handles folders and pagination, downloads each object to local disk, and writes a `storage-manifest.json` with per-object size and SHA-256. It never uploads, updates or deletes remote objects and never writes the service key to the manifest.
+
+From a trusted local checkout, set these environment variables locally (use a password manager or secure local environment method for the service-role key; do not type the key into a command, paste it into chat, commit it, or put it in Dropbox):
+
+```powershell
+$env:SUPABASE_URL = "https://mhwwzzxwpsqwhxrsuwaa.supabase.co"
+$env:RESA_BACKUP_DIR = "D:\\RESA-STORAGE-BACKUP-2026-11-20"
+# Set SUPABASE_SERVICE_ROLE_KEY in the current local session using your secure secret manager.
+node scripts/backup-resa-storage.mjs
+```
+
+Use a new destination directory that does not already exist. The script fails on any bucket/list/download error and writes a failed manifest when possible. Review the bucket/object counts and checksums before archiving. Storage object contents may include personal school data: encrypt the archive before copying it to Dropbox. Never commit the service credential or script output containing secret values.
 
 ## 8. Edge Functions and configuration
 
