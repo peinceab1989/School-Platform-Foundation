@@ -41,6 +41,12 @@ No production learner, staff, parent, attendance, assignment, submission, grade,
 - A live authenticated administrator test in a rolled-back transaction returned the same receipt on first call and retry (`RESA-20261120-38BA4167`, replay=true), rejected a changed payload and duplicate reference, and left the live payment count unchanged at one after rollback. Existing payment row remains unmodified; no test payment persisted.
 - This is retry-safety validation for manual Finance recording, not a Paystack payment or provider-webhook test. Merchant onboarding, server-side Paystack initialization, signed webhook verification, provider idempotency/reconciliation and test-mode transaction journeys remain pending.
 
+## 2B. Chat authorization and unread-count verification
+
+- PR #111 is merged and migration `20261120101500_require_active_membership_for_chat_access.sql` is applied. Direct/group conversation reads, message reads/sends, read receipts, conversation activity updates and unread-count calculation require an active same-school membership as well as the appropriate participant/group-member relationship.
+- Live role tests in rolled-back transactions: active student recipient sees 1 message, 1 conversation and unread count 1; active admin sender sees 1 message, 1 conversation and unread count 0; temporarily suspended student sees 0 messages, 0 conversations and unread count 0. The temporary suspension was rolled back and the membership verified active.
+- Current chat dataset contains one direct admin-support conversation and one message, with no group memberships; group access is statically reviewed but lacks a live group test.
+
 ## 3. Critical release blockers
 
 ### A. Push dispatcher v4 — post-deployment validation

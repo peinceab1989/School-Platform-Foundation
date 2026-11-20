@@ -94,6 +94,15 @@
 
 ## 4. Parent/guardian training
 
+### Parent phone-notification setup
+1. Open the RESA portal over HTTPS on the Android phone using a supported browser.
+2. Sign in to the correct parent account and open **Notification Settings**.
+3. Turn on phone notifications and accept the browser permission prompt.
+4. Confirm the portal reports that the device is registered. If permission was previously blocked, change the browser's site notification permission in Android settings and try again.
+5. Keep the in-portal inbox as the authoritative fallback until the school completes a real test notification and confirms it appears on the phone.
+6. Report missing alerts to the school administrator; do not assume the preference toggle alone means the phone has subscribed.
+
+
 1. Sign in using the parent account issued or activated by the school.
 2. Confirm that the correct learner(s) are linked to your account. If a child is missing or incorrectly linked, contact the school; do not create another account.
 3. Review attendance, published results, fee balances, announcements and school messages.

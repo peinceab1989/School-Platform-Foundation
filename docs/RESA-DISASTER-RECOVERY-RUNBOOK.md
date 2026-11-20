@@ -8,6 +8,8 @@
 
 The existing Dropbox backup is **PARTIAL**. It is not yet a verified disaster-recovery backup. It contains selected source and metadata snapshots, but does not yet contain a current full repository bundle, complete database export, all Storage object bytes or a restore-rehearsal report.
 
+**Important plan limitation:** Supabase's current backup documentation says automatic daily database backups are provided for Pro, Team and Enterprise projects. Free projects should regularly run manual CLI exports and maintain off-site copies. RESA is on the Free plan, so do not rely on an automatic daily backup or assume a managed restore point exists. The official guidance is linked in section 12.
+
 Do not describe the backup as complete until every required export is present, checksummed, and restored successfully in an isolated local environment.
 
 ## 2. What must be preserved
@@ -54,10 +56,12 @@ Supabase's current CLI backup guide requires Docker Desktop for `supabase db dum
 The documented logical export consists of three separate files:
 
 ```bash
-supabase db dump --remote="$RESA_DATABASE_URL" -f roles.sql --role-only
-supabase db dump --remote="$RESA_DATABASE_URL" -f schema.sql
-supabase db dump --remote="$RESA_DATABASE_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
+supabase db dump --db-url "$RESA_DATABASE_URL" -f roles.sql --role-only
+supabase db dump --db-url "$RESA_DATABASE_URL" -f schema.sql
+supabase db dump --db-url "$RESA_DATABASE_URL" -f data.sql --use-copy --data-only -x "storage.buckets_vectors" -x "storage.vector_indexes"
 ```
+
+Use the supported `--db-url` flag with the exact session-pooler or direct connection string copied from the Supabase Dashboard. Do not use an undocumented `--remote` flag. Keep the connection string only in a local environment variable and confirm the target project reference before each dump.
 
 Use the exact database URL only in a local environment variable. Confirm the CLI's printed Target line identifies project `mhwwzzxwpsqwhxrsuwaa` before proceeding. The standard Supabase CLI dump excludes managed `auth` and `storage` schemas and extension-managed schemas; therefore these files alone are not a full Auth or Storage backup.
 
@@ -98,6 +102,20 @@ For each deployed function:
 - Record which functions need redeployment and the intended version/source commit.
 
 Do not deploy all functions during a restore rehearsal. Restore them one by one only after reviewing their dependencies and configuration.
+
+## 8A. Push notifications and messaging readiness
+
+The current live dispatcher is v4 and its webhook/VAPID settings are configured, but endpoint acceptance is not device delivery. Current inventory at the 20 Nov 2026 audit: one push subscription (teacher account, last seen 10 Nov 2026), three parents with phone-alert preferences enabled but no parent push subscriptions, 19 in-app attendance notices marked delivered and 8 WhatsApp notices pending. Parent notification logs are empty.
+
+For a controlled school test:
+1. Use a school-owned test parent account linked to a synthetic/test learner, not a real learner's sensitive attendance record.
+2. On the parent's Android phone, open the HTTPS RESA portal in a supported browser, sign in and open notification settings.
+3. Enable phone notifications and accept the browser's permission prompt. Confirm a subscription record appears for that parent account; do not export endpoint/auth keys into the backup.
+4. Trigger one approved test attendance event for the test learner. Record the dispatcher response, recipient count, push-service result and actual phone notification display separately.
+5. Verify the parent can open the portal inbox, mark the message read and see the unread count update on another signed-in device.
+6. Repeat with a suspended/unlinked test parent and confirm no notification is sent.
+
+WhatsApp delivery remains unconfigured: the eight historical WhatsApp outbox entries are still pending. Do not mark WhatsApp automation complete until an approved provider/Meta route is configured, verified and tested end-to-end. No paid provider is authorised by this runbook.
 
 ## 9. Checksums and verification
 
