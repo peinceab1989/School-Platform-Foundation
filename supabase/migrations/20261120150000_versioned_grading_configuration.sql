@@ -120,35 +120,9 @@ create trigger trg_audit_school_grading_configuration_insert
 after insert on public.school_grading_configurations
 for each row execute function public.audit_school_grading_configuration_insert();
 
--- Preserve the live legacy grading scale for terms that already contain combined
--- CA (40) and examination (60) records. Do not rewrite or split historical marks.
--- New terms without saved results remain unconfigured until an administrator enters
--- the school-approved maxima through create_school_grading_configuration().
-insert into public.school_grading_configurations (
-  school_id, academic_session_id, term_id, version,
-  cat1_max, cat2_max, exam_max, coursework_max, total_max, created_by
-)
-select legacy.school_id, legacy.academic_session_id, legacy.term_id, 1,
-       20, 20, 60, 0, 100, null
-from (
-  select distinct tr.school_id, tr.academic_session_id, tr.term_id
-  from public.student_term_results tr
-  join public.student_subject_results sr
-    on sr.term_result_id = tr.id
-   and sr.school_id = tr.school_id
-  where sr.grading_configuration_id is null
-    and sr.cat1_score is null
-    and sr.cat2_score is null
-    and sr.coursework_score is null
-) legacy
-where not exists (
-  select 1
-  from public.school_grading_configurations existing
-  where existing.school_id = legacy.school_id
-    and existing.academic_session_id = legacy.academic_session_id
-    and existing.term_id = legacy.term_id
-)
-on conflict (school_id, academic_session_id, term_id, version) do nothing;
+-- Historical combined-CA rows remain untouched and unconfigured. Do not invent a
+-- CAT1/CAT2 split for their original CA total. Any new scoring for this term
+-- requires the school to explicitly approve and save the component maxima.
 
 revoke all on function public.audit_school_grading_configuration_insert() from public;
 
