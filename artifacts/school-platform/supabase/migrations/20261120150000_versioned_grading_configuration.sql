@@ -15,7 +15,7 @@ create table if not exists public.school_grading_configurations (
   notes_max numeric(7,2),
   assignments_max numeric(7,2),
   projects_max numeric(7,2),
-  total_max numeric(7,2) not null default 100 check (total_max > 0),
+  total_max numeric(7,2) not null default 100 check (total_max = 100),
   created_by uuid,
   created_at timestamptz not null default now(),
   constraint school_grading_configurations_total_100
@@ -70,4 +70,30 @@ with check (
   and (created_by is null or created_by = (select auth.uid()))
 );
 
-drop policy if exists "school admins can read grading configuration audit" on public.school_grading_configurations;
+create table if not exists public.school_grading_configuration_audit (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null,
+  grading_configuration_id uuid not null references public.school_grading_configurations(id) on delete restrict,
+  changed_by uuid,
+  action text not null check (action = 'created'),
+  snapshot jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists school_grading_configuration_audit_school_idx
+  on public.school_grading_configuration_audit (school_id, created_at desc);
+
+alter table public.school_grading_configuration_audit enable row level security;
+
+drop policy if exists "school admins can read grading configuration audit" on public.school_grading_configuration_audit;
+create policy "school admins can read grading configuration audit"
+on public.school_grading_configuration_audit for select to authenticated
+using (public.has_school_role(school_id, array['admin']::public.school_role[]));
+
+drop policy if exists "school admins can append grading configuration audit" on public.school_grading_configuration_audit;
+create policy "school admins can append grading configuration audit"
+on public.school_grading_configuration_audit for insert to authenticated
+with check (
+  public.has_school_role(school_id, array['admin']::public.school_role[])
+  and (changed_by is null or changed_by = (select auth.uid()))
+);
