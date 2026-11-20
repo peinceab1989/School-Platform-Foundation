@@ -98,7 +98,7 @@
 2. Confirm that the correct learner(s) are linked to your account. If a child is missing or incorrectly linked, contact the school; do not create another account.
 3. Review attendance, published results, fee balances, announcements and school messages.
 4. Check notification preferences and allow notifications in the phone/browser only if you want them.
-5. If a phone notification does not arrive, open RESA and check the portal inbox; notification delivery depends on device permissions, browser support, network state and server configuration.
+5. If a phone notification does not arrive, open RESA and check the portal inbox; notification delivery depends on device permissions, browser support, network state and server configuration. The dispatcher is live v4, but the school must still run a real-device delivery exercise before relying on phone alerts.
 6. Contact RESA Finance through an official school channel to obtain verified bank-transfer or office-payment instructions.
 7. Do not pay into account details received from an unverified message. A screenshot is not a receipt; wait for Finance verification.
 8. Contact the school promptly if learner details, attendance, results or fee balances appear incorrect.
