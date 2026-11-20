@@ -59,6 +59,12 @@ No production learner, staff, parent, attendance, assignment, submission, grade,
 - Live rollback-only test: assigned teacher check-in for an assigned learner succeeded; unassigned teacher was denied; assigned teacher was denied when using another staff member's QR. All writes rolled back; biometric event count stayed 36 and no test attendance row remained.
 - Live inventory has one active test biometric station, 3 approved active student QR credentials and 2 approved active staff QR credentials. Server-side authorization is tested; physical scanner/camera and real-device capture remain untested.
 
+## 2E. Parent policy consistency and plan limitations
+
+- PR #117 is merged and migration `20261120130000_parent_policies_use_hardened_helpers.sql` is applied. Parent policies for child-collection authorizations, official access requests and attendance preferences now use the hardened guardian/student helpers.
+- Live post-migration rollback tests: active parent could insert/read a temporary authorization and official request and see their own preference; after temporary account deactivation, membership suspension and guardian portal disablement, the same parent saw zero rows and could not submit another request. All temporary changes rolled back.
+- Supabase Security Advisor still flags native leaked-password protection as disabled. Supabase documents this native feature as Pro plan and above; RESA remains on Free and no paid upgrade was made. This is a documented residual risk, not a claim that leaked-password checking is enabled. Maintain strong unique passwords and review this limitation during school security sign-off.
+
 ## 3. Critical release blockers
 
 ### A. Push dispatcher v4 — post-deployment validation
