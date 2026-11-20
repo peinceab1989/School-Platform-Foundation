@@ -189,9 +189,9 @@ export default function ParentPaystackCheckout({
       <div className="rounded-xl border border-emerald-200 bg-white p-4">
         <div className="flex items-center gap-2">
           <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">↗</span>
-          <div><p className="font-extrabold text-emerald-950">Bank transfer or school office</p><p className="text-xs font-semibold text-emerald-700">Finance confirmation required</p></div>
+          <div><p className="font-extrabold text-emerald-950">Bank transfer, POS or cash</p><p className="text-xs font-semibold text-emerald-700">Offline payment · Finance confirmation required</p></div>
         </div>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Contact RESA through the official School Messages channel to confirm the school's approved account details or in-person payment procedure before sending money.</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">You may pay by bank transfer to the school's verified account, POS at the school office, or cash at the Finance office. Confirm bank details with RESA Finance before transferring and keep your transaction reference. Your portal balance changes and official receipt are updated only after Finance verifies that the funds have been received.</p>
         <a href="/school-communication" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-2.5 text-center text-sm font-extrabold text-white transition hover:bg-emerald-800">Contact RESA Finance</a>
       </div>
     </div>
