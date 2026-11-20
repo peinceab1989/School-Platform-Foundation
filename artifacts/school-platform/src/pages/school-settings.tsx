@@ -150,8 +150,8 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
       }).eq("school_id", schoolId);
       if (updateError) throw updateError;
       setNotice(customerCareEnabled
-        ? "Public Customer Care has been activated. The floating Help handle will appear on public pages."
-        : "Public Customer Care has been deactivated. The floating Help handle is now hidden from public pages.");
+        ? "Customer Care is now marked available. Website visitors will see a chat invitation; the virtual assistant remains available."
+        : "Customer Care is now marked unavailable. The virtual assistant remains available and visitors will be told the team is away.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update Customer Care availability.");
       await load();
@@ -369,7 +369,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
                   <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><Settings2 size={20} /></div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-base font-extrabold text-slate-900">Public Customer Care</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">Manage whether the floating Help handle appears on the public RESA website. This setting does not affect private messages inside the signed-in school portal.</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">Set Customer Care to available when an administrator or support officer is ready to respond. When enabled, visitors receive a friendly invitation to chat and can open the school communication channel. When disabled, the RESA virtual assistant remains available and explains that the human team is away. This does not disable private portal messaging.</p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
