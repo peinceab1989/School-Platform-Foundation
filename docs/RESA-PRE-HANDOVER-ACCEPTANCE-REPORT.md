@@ -4,6 +4,7 @@
 **Project repository:** peinceab1989/School-Platform-Foundation  
 **Supabase project:** School digital portal (mhwwzzxwpsqwhxrsuwaa)  
 **Assessment date:** 20 November 2026  
+**Source baseline:** `c88373091057c1600b6b4550a5f6f9f99d79fddd`
 **Report status:** **NOT ACCEPTED FOR FINAL HANDOVER — controlled acceptance tests and recovery evidence remain outstanding.**
 
 ## 1. Executive assessment
@@ -23,7 +24,7 @@ No production learner, staff, parent, attendance, assignment, submission, grade,
 | Parent access hardening | PR #103 migration applied; all 3 active parent accounts passed helper checks for their 1, 2 and 2 active linked children | Helper verified; device journey pending |
 | Teacher/student access hardening | PR #104 migration applied; broad school-wide teacher reads removed from sensitive student/person policies | RLS impersonation tests passed for assigned/unassigned teacher, admin, student and parent |
 | Form-teacher attendance | 27 student attendance rows; zero persisted form-teacher assignments; temporary assignment test read all 27 rows and rolled back | Admin must assign actual form teachers before launch |
-| Push runtime logs | Earlier requests returned HTTP 200; no post-v4 test notification was sent during this reassessment | Device display not verified |
+| Push runtime logs | Last 24h sample: 639 requests on v3 before deployment and 40 requests on v4 after deployment; all returned HTTP 200. Webhook token and both VAPID keys are configured; 12 database event triggers call the dispatcher | Event endpoint accepted requests; real device display/delivery still not proven |
 | Messaging unread-count recovery | PR #101 merged after TypeScript, production build and Edge Function checks passed | Mobile/cross-device tests pending |
 | RESA Drive visibility | Migration `20261115102316` is present; private `resa-drive` bucket is 100 MB capped and currently contains zero objects | Policy/source reviewed; actual file journey pending |
 | Assignments | 5 published assignments, 18 submissions (all graded); role RLS tests and grading RPC transaction test passed | Database authorization verified; real UI/file journey pending |
@@ -39,6 +40,8 @@ No production learner, staff, parent, attendance, assignment, submission, grade,
 ### A. Push dispatcher v4 — post-deployment validation
 - Live dispatcher is ACTIVE version 4 and includes `index.ts` plus `parent-audience.ts` from the schema-aligned mainline.
 - Live schema preflight confirmed the real `student_parent_guardians` table has no `is_active` column; the deployed query now uses relationship-row presence and requires the separate active `parent_student_portal_access` row.
+- The push secret resolver confirms the webhook token, VAPID public key and VAPID private key are all configured (values intentionally not read into this report). Twelve database triggers are wired for attendance, messages, chat, announcements, results, assignments, exams, fees, timetable and admissions events.
+- Log aggregation shows 40 dispatcher v4 HTTP 200 requests after deployment (and 639 v3 requests before it in the same 24-hour window). HTTP 200 proves the function accepted the webhook request; it does not prove a phone displayed a notification. No test push was sent to a real device during this audit.
 - The webhook token and both VAPID key settings were confirmed configured without exposing their values.
 - The existing `verify_jwt=false` invocation contract was preserved because the function validates test-user sessions and database webhook tokens internally.
 - Next, test one consenting account per role and a parent linked to a test learner. Confirm positive delivery and denial for a suspended/unlinked parent. Do not equate push-service acceptance with actual Android display.
@@ -117,11 +120,11 @@ For each test, record tester, role, date/time, test account identifier (non-sens
 
 **Current decision: NO-GO for final school handover.**
 
-The system may continue in controlled testing. Do not describe it as fully accepted, fully backed up or production-ready for unrestricted school operation until all critical tests pass and the school signs the acceptance record.
+The system may continue in controlled testing. PR #106 is the current-main parent payment UI proposal; it is not merged. GitHub Actions TypeScript/production build is still running, Netlify checks fail while the team's build quota is exhausted, and a RESA Cloudflare preview has not yet been recorded for this PR. Do not describe it as fully accepted, fully backed up or production-ready for unrestricted school operation until all critical tests pass and the school signs the acceptance record.
 
 ### Conditions to change the decision to GO
-1. Push dispatcher source reconciled with live version and tested on real Android devices.
-2. PR #92 reviewed, approved and mobile unread-count tests passed.
+1. Push dispatcher v4 source reconciled and configured; real Android delivery and parent attendance event tests passed.
+2. PR #101 unread-count recovery merged; real Android parent/teacher/student/admin tests for cross-device read state, foreground/background recovery and offline reconnect passed.
 3. Drive and assignment journeys passed for the relevant roles.
 4. Student CBT, external CBT and admissions tests passed, including negative/abuse cases.
 5. Complete backup exports verified and isolated restore rehearsal passed.
