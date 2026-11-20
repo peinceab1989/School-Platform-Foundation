@@ -34,6 +34,13 @@ No production learner, staff, parent, attendance, assignment, submission, grade,
 | Backup | Dropbox root/seven folders and runbook exist; selected source/schema metadata present | **Partial only — no full DB/Auth/Storage export or restore rehearsal** |
 | Training | Role-based operating guide and disaster-recovery runbook merged | School validation and practical training sign-off pending |
 
+## 2A. Finance payment integrity update
+
+- Parent payment-options UI PR #106 is merged. Paystack remains visibly marked **Coming soon — not activated**; no merchant credentials, gateway initialization or live charges are configured.
+- Finance idempotency PR #109 is merged and migration `20261120100000_idempotent_verified_fee_payments.sql` is applied. The authenticated Finance RPC now requires a request UUID, returns the original receipt for an identical retry, rejects reuse of a key with different details, and prevents duplicate normalized payment references for the same fee assignment.
+- A live authenticated administrator test in a rolled-back transaction returned the same receipt on first call and retry (`RESA-20261120-38BA4167`, replay=true), rejected a changed payload and duplicate reference, and left the live payment count unchanged at one after rollback. Existing payment row remains unmodified; no test payment persisted.
+- This is retry-safety validation for manual Finance recording, not a Paystack payment or provider-webhook test. Merchant onboarding, server-side Paystack initialization, signed webhook verification, provider idempotency/reconciliation and test-mode transaction journeys remain pending.
+
 ## 3. Critical release blockers
 
 ### A. Push dispatcher v4 — post-deployment validation
@@ -117,7 +124,7 @@ For each test, record tester, role, date/time, test account identifier (non-sens
 
 **Current decision: NO-GO for final school handover.**
 
-The system may continue in controlled testing. Do not describe it as fully accepted, fully backed up or production-ready for unrestricted school operation until all critical tests pass and the school signs the acceptance record.
+The system may continue in controlled testing. Parent payment-options UI PR #106 and Finance idempotency PR #109 are merged; Paystack is still inactive and no online payment is taken. Manual Finance payment retries now return the original receipt for the same request key. Provider integration and test-mode end-to-end payments remain outstanding. Do not describe it as fully accepted, fully backed up or production-ready for unrestricted school operation until all critical tests pass and the school signs the acceptance record.
 
 ### Conditions to change the decision to GO
 1. Push dispatcher source reconciled with live version and tested on real Android devices.
