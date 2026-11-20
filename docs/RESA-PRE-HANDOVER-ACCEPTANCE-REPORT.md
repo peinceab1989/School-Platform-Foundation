@@ -12,28 +12,31 @@ The RESA platform has substantial implemented functionality and recent source-le
 
 This report deliberately distinguishes source/CI evidence from production evidence. A successful build, a merged pull request, an HTTP 200 response or a healthy database does not by itself prove that the school can safely operate the feature.
 
-No production database records, Auth users, Storage objects or schema were changed during this reassessment. The RESA push dispatcher was deployed to version 4 after a live-schema preflight and successful CI validation. No test notification was sent, and no manual Pages production deployment was initiated; GitHub merges may trigger automatic Cloudflare builds.
+No production learner, staff, parent, attendance, assignment, submission, grade, Auth-user or Storage-object records were modified. Two additive production security migrations were applied to harden parent and teacher access, and the RESA push dispatcher was deployed to v4 after live-schema preflight and successful CI validation. No test notification was sent, and no manual Pages production deployment was initiated; GitHub merges may trigger automatic Cloudflare builds.
 
 ## 2. Verified evidence and current status
 
 | Area | Evidence observed | Acceptance status |
 |---|---|---|
-| Push notification audience protection | PR #88 merged; nine parent-audience authorization tests passed in GitHub Actions | Source validated; live reconciliation and device delivery pending |
-| Live push dispatcher | Supabase reports `resa-push-dispatch` ACTIVE, version 3; deployed source lacks the newer parent-audience helper | **Blocker** |
-| Push runtime logs | Recent dispatcher requests returned HTTP 200; log response does not prove a device displayed the alert or identify a successful recipient | Not accepted |
-| Messaging unread-count recovery | PR #92 remains open/draft; associated TypeScript/build/Edge Function typecheck run succeeded; Cloudflare preview succeeded | Review and role/device tests pending |
-| RESA Drive visibility | Migration `20261115102316` is present in live migration history | Schema change verified; upload/list/preview/download user journey pending |
-| Assignments | Assignment routes and source improvements are present | Teacher-to-student lifecycle not accepted |
-| Student CBT | Live `resa-student-cbt` function v6; authenticated user lookup and active student membership checks are present in inspected source | Controlled exam lifecycle tests pending |
-| External CBT | Live external CBT function v1; candidate authentication, approved-candidate checks and assigned-exam lookup are present in inspected source | Candidate registration/approval/attempt/results tests pending |
-| External candidate registration | Live registration function v1; hashed-key rate event checks and form-purchase verification are present | Concurrency, duplicate, abuse and rollback tests pending |
+| Push notification audience protection | PR #88 merged; schema-alignment PR #100 merged; nine parent-audience authorization tests passed | Live v4 deployed; real device delivery pending |
+| Live push dispatcher | Supabase reports `resa-push-dispatch` ACTIVE v4 with schema-aligned parent-audience helper; webhook and VAPID configuration presence verified | Device delivery pending |
+| Parent access hardening | PR #103 migration applied; all 3 active parent accounts passed helper checks for their 1, 2 and 2 active linked children | Helper verified; device journey pending |
+| Teacher/student access hardening | PR #104 migration applied; broad school-wide teacher reads removed from sensitive student/person policies | RLS impersonation tests passed for assigned/unassigned teacher, admin, student and parent |
+| Form-teacher attendance | 27 student attendance rows; zero persisted form-teacher assignments; temporary assignment test read all 27 rows and rolled back | Admin must assign actual form teachers before launch |
+| Push runtime logs | Earlier requests returned HTTP 200; no post-v4 test notification was sent during this reassessment | Device display not verified |
+| Messaging unread-count recovery | PR #101 merged after TypeScript, production build and Edge Function checks passed | Mobile/cross-device tests pending |
+| RESA Drive visibility | Migration `20261115102316` is present; private `resa-drive` bucket is 100 MB capped and currently contains zero objects | Policy/source reviewed; actual file journey pending |
+| Assignments | 5 published assignments, 18 submissions (all graded); role RLS tests and grading RPC transaction test passed | Database authorization verified; real UI/file journey pending |
+| Student CBT | Function v6 ACTIVE; 4 published exams, 16 questions, 21 attempts all match active enrolment; answer keys excluded from student question response; role RLS tests passed | Server/RLS checks passed; real student exam journey pending |
+| External CBT | Function v1 ACTIVE; approved-candidate and assigned-exam checks inspected; save/submit RPCs service-role-only; no external candidates or assignments exist | End-to-end tests blocked by zero test candidate data |
+| External candidate registration | Function v1 ACTIVE; verified form purchase and one-time redemption checks; no external candidate/form-purchase records exist | End-to-end tests pending |
 | Admission application | Live admission submit function v1; verified/unused admission-form check, class validation and rate-event checks are present | Duplicate redemption, concurrency, application review and end-to-end tests pending |
-| Backup | Dropbox backup root and seven folders exist; text snapshots, schema/migration metadata and selected Edge Function source are present | **Partial only — not disaster-recovery ready** |
-| Training | Role-based operating guide drafted alongside this report | School validation and practical training sign-off pending |
+| Backup | Dropbox root/seven folders and runbook exist; selected source/schema metadata present | **Partial only — no full DB/Auth/Storage export or restore rehearsal** |
+| Training | Role-based operating guide and disaster-recovery runbook merged | School validation and practical training sign-off pending |
 
 ## 3. Critical release blockers
 
-### A. Push dispatcher reconciliation
+### A. Push dispatcher v4 — post-deployment validation
 - Live dispatcher is ACTIVE version 4 and includes `index.ts` plus `parent-audience.ts` from the schema-aligned mainline.
 - Live schema preflight confirmed the real `student_parent_guardians` table has no `is_active` column; the deployed query now uses relationship-row presence and requires the separate active `parent_student_portal_access` row.
 - The webhook token and both VAPID key settings were confirmed configured without exposing their values.
@@ -50,13 +53,16 @@ No production database records, Auth users, Storage objects or schema were chang
 - Confirm mobile layout, notification permissions and VAPID configuration. A browser badge count is not a substitute for push delivery.
 
 ### C. Drive and assignments
-- The Drive visibility constraint migration is live, but no controlled user journey is accepted by this report.
+- The Drive visibility constraint migration is live; the private Drive bucket currently has zero objects. A controlled upload/preview/download test is still required.
+- Assignment database access is verified: 5 published assignments, 18 submissions (all graded), student/parent/teacher/admin RLS checks passed, and the authorised teacher grading RPC returned true in a rolled-back test transaction. Real UI/device submission and evidence-file tests remain required.
 - Use a harmless test file. Verify upload, metadata creation, list display, preview/open, download and authorised deletion. Confirm private/staff/parent/school visibility boundaries.
 - Test assignments through teacher creation/publication, student visibility, submission, teacher grading, feedback visibility and deadline enforcement.
 - Verify access denial for a student outside the assigned class and for a suspended account.
 
 ### D. CBT and admissions
-- Student CBT: verify only the learner's active enrolments and published/scheduled exams are returned; test start, save/submit, timeout, attempt limits, duplicate submit and results transfer.
+- Student CBT source and RLS checks are verified: 4 published exams, 16 questions, 21 attempts; every attempt matches an active enrolment and published exam. Student direct reads cannot see exam questions or answer rows; the authenticated Edge Function must serve the exam, and the inspected question-list response excludes correct answers.
+- Complete real student exam start/save/submit/timeout/attempt-limit/results journey on a test account.
+- External candidate and admission tables currently contain no candidate/form/application data; their Edge Function source checks are reviewed but end-to-end acceptance must wait for approved synthetic test forms and candidates.
 - External CBT: verify only approved candidates with assigned exams can list/start/submit; test pending, rejected and suspended candidates; test expired assignments and attempt limits.
 - Candidate registration: verify purchased/verified form requirement, one-time redemption, duplicate email/form handling, rate limits, concurrent requests and cleanup/rollback when account creation fails.
 - Admissions: verify verified and unused admission form, valid school/class/session, duplicate submissions, concurrent redemption, application review and safe handling of invalid forms.
@@ -84,6 +90,11 @@ Not verified as backed up:
 
 **Do not delete test data, alter production records or mark the backup complete until the exports are verified and a restore has been rehearsed in a separate disposable environment.** Secrets must remain outside Dropbox and outside chat.
 
+### E. Form-teacher setup and attendance
+- There are currently zero persisted `class_form_teachers` assignments. The admin Form Teacher & Attendance page exists and can assign a teacher to a class/session.
+- A temporary assignment in a rolled-back transaction allowed the assigned teacher to read all 27 attendance rows for that class/session; the temporary row was rolled back and no live assignment was retained.
+- Before school launch, management must select the actual form teacher for each relevant class/session and save those assignments in the admin page. Do not infer or autoassign staff.
+
 ## 5. Required acceptance test matrix
 
 For each test, record tester, role, date/time, test account identifier (non-sensitive), expected result, actual result, evidence reference and pass/fail.
@@ -91,10 +102,11 @@ For each test, record tester, role, date/time, test account identifier (non-sens
 - [ ] Admin: invite/approve staff, assign class/subject, publish announcement and verify audit trail.
 - [ ] Admissions: verify form, submit application, review/approve and enrol learner without duplicate record.
 - [ ] Teacher: take attendance, publish lesson material, create assignment, grade submission and enter results.
-- [ ] Student: view assigned CBT, complete test, submit assignment and view published result/feedback.
+- [ ] Student: view assigned CBT through the Edge Function, complete test, submit assignment and view published result/feedback.
 - [ ] Parent: verify only linked learner data, attendance, fees, results, messages and notification settings.
 - [ ] Finance: verify pending payment, reconcile evidence, confirm payment and generate one official receipt.
-- [ ] Drive: upload, list, preview, download and authorised delete with visibility boundary tests.
+- [ ] Drive: upload a controlled file, list, preview, download and authorised delete with visibility boundary tests.
+- [ ] Form teacher: admin assigns the selected teacher/class/session; teacher verifies attendance list and comparisons on the live account.
 - [ ] Messaging: direct/group message, read receipts, unread count, reconnect and mobile background recovery.
 - [ ] Push: test notification displayed on a real Android device; verify unauthorised recipient receives nothing.
 - [ ] Security: suspended/unlinked users denied; cross-school and cross-class access denied.
