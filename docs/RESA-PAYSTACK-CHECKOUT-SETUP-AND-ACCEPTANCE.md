@@ -25,7 +25,7 @@ Subscribe to `charge.success`. The function verifies the signature on the raw re
 
 ## Database release
 
-Apply `artifacts/school-platform/supabase/migrations/20261120190000_paystack_verified_fee_checkout.sql` only after review and backup. It creates a private RLS-enabled intent table and two service-role-only RPCs:
+Apply `supabase/migrations/20261120190000_paystack_verified_fee_checkout.sql` only after review and backup. It creates a private RLS-enabled intent table and two service-role-only RPCs:
 
 - `create_paystack_payment_intent` locks the fee assignment and reserves only the remaining unreserved balance for 30 minutes, preventing simultaneous checkout sessions from oversubscribing a fee.
 - `record_verified_paystack_fee_payment` verifies the stored intent amount, currency and mode, creates the fee payment and official receipt in one transaction, updates the assignment balance, and is safe to replay after a successful settlement.
