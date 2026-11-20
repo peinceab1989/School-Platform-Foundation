@@ -6,6 +6,10 @@ This change adds a parent-facing Paystack checkout path, a server-side payment i
 
 Paystack is **not active** until RESA completes merchant onboarding and supplies its own credentials. The code defaults to test mode and the parent portal displays “Coming soon · not activated” when the server reports that credentials are absent.
 
+## Scope boundary: admissions and external CBT forms
+
+This PR implements parent-facing school-fee assignment checkout only. It does not charge or redeem admission applications or external CBT form purchases. RESA has not supplied an approved admission/external-CBT form price or confirmed whether one purchase covers the admission application, CBT registration, or both. No amount is hard-coded and no candidate checkout is activated. Before adding that flow, the school must approve the exact fee, what it covers, and the reconciliation/refund policy. Existing administrator-verified offline form-purchase records remain unchanged.
+
 ## Required Edge Function configuration
 
 Deploy `supabase/functions/resa-paystack/index.ts` as the Supabase Edge Function `resa-paystack` with JWT verification **disabled at the gateway** because Paystack webhooks do not carry a Supabase JWT. The function independently validates the Supabase bearer token for the `status`, `initialize` and `verify` actions, and validates the Paystack signature for the webhook action.
