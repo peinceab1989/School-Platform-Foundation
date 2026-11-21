@@ -173,6 +173,10 @@ Read-only production checks show:
 ### Scope of role testing
 The live browser session authenticated only as a school administrator. Parent, teacher and student dashboards were not signed into with their own accounts during this pass. Database membership counts and RLS policy definitions were inspected read-only, but this does not substitute for separate role-specific sign-in acceptance and cross-account data-isolation tests.
 
+## Additional migration review note — grading bands
+
+The live `public.grading_scales` table currently contains no RESA rows. The CBT transfer migration assigns letter grades using fixed thresholds (A 80+, B 70+, C 60+, D 50+, E 40+, F below 40) rather than reading an approved school grading-scale record. The migration can safely scale CBT raw marks to the configured examination maximum, but the letter-grade thresholds must be explicitly approved by the school before official results are published, or the transfer function must be revised to use a versioned grading-scale source. Do not silently treat the current hard-coded bands as a school-approved grading policy.
+
 ## Updated release decision
 
 **NO-GO for production release / school handover.** The administrator Settings pages and main management routes render, and admissions/CBT admin dashboards are present. Remaining blockers include:
