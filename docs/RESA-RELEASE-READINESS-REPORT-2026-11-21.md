@@ -10,10 +10,11 @@ No production deployment, database migration, school-record update, authenticati
 
 - Repository: `peinceab1989/School-Platform-Foundation`
 - Release candidate branch: `improvement/editable-existing-classes`
-- Current reviewed application-code head: `23b98d96f4489ac3572ddd3bf1624034888e8ae4`
+- Latest reviewed application-code head: `23b98d96f4489ac3572ddd3bf1624034888e8ae4`
 - Main baseline: `209cbb5e96f3650d57cbc0b81e2214e5aac1203c`
 - Pull request: [#120 — Add safe editing for existing school classes](https://github.com/peinceab1989/School-Platform-Foundation/pull/120)
-- Latest RESA workflow: [Run 44899030602](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44899030602) — **passed** (workspace typecheck, production build, Edge Function typecheck, push-audience tests, notification-preference routing tests).
+- Application-code workflow: [Run 44899030602](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44899030602) — **passed** on the latest code commit (workspace typecheck, production build, Edge Function typecheck, push-audience tests, notification-preference routing tests).
+- Documentation follow-up workflow: [Run 44899231180](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44899231180) — **passed** with the readiness evidence update.
 - The branch is still marked one commit behind `main` in Git history. The admissions-contact/fee-guidance change from the latest main commit is already present in the branch: `public-pages.tsx` has the same blob SHA on both refs. The PR remains draft/open.
 - Legacy Netlify preview statuses are failing and are not evidence of a Cloudflare Pages build. Netlify build minutes were previously exhausted.
 
@@ -100,7 +101,7 @@ After merge approval, redeploy the reviewed function versions in a controlled se
 Current advisory categories include:
 - Two RLS-enabled rate-limit/event tables with no client policies (service-role-only access by design; verify this remains intentional).
 - One public-schema `pg_net` extension warning.
-- Three publicly executable SECURITY DEFINER RPCs; the Customer Care RPC was inspected and returns only a boolean for the fixed RESA school. The public announcement/content RPCs need the same data-minimisation review.
+- Three publicly executable SECURITY DEFINER RPCs. All three were inspected: Customer Care returns only a boolean for the fixed RESA school; the announcement RPC returns only published, currently active announcements for RESA; the website-content RPC returns only published, currently active public content for RESA. All use an empty search_path and schema-qualified object references.
 - Thirty authenticated SECURITY DEFINER RPC warnings requiring function-by-function review, not blanket revocation.
 - One Auth leaked-password protection warning; confirm availability on the current Free plan before attempting to enable.
 - Performance notices: 12 RLS init-plan patterns, 132 multiple-permissive-policy findings, 58 unindexed foreign keys and 415 unused indexes. These need prioritised review; unused indexes should not be dropped without workload evidence.
@@ -119,6 +120,16 @@ Current advisory categories include:
 10. Verify Auth redirect URLs, backup file hashes, and a restore rehearsal in an isolated environment.
 11. Confirm the exact Cloudflare production deployment SHA and preview build for the release candidate.
 12. Obtain explicit school-owner release confirmation before merge, production migrations or deployment.
+
+## Controlled Cloudflare release sequence
+
+1. Complete the isolated database migration test and verify the backup/restore rehearsal.
+2. Confirm the Supabase Auth Site URL and redirect allow-list for the Cloudflare production and approved preview URLs.
+3. Under separate final release approval, apply the three reviewed migrations in timestamp order: CAT 1/CAT 2 columns, versioned grading configuration, then configured-exam-maximum CBT transfer. Run the post-migration catalog, policy, legacy-score and configuration checks before application deployment.
+4. Merge the reviewed release candidate to `main`; Cloudflare Pages is configured to build from `main` using Node 22, `pnpm run build`, and `artifacts/school-platform/dist/public`.
+5. Deploy the reviewed Supabase Edge Function updates: parent push dispatcher, staff invitation, student-login creation, staff-login linking, and the admissions application function if its final diff remains required. Keep the current production functions in service until the reviewed replacements are ready.
+6. Verify the Cloudflare deployment SHA, public routes, admin Settings, Customer Care status/handoff, role permissions, parent Android push, admissions, CBT, grading, finance and messaging.
+7. Keep the previous Cloudflare deployment available for application rollback. Do not roll back schema destructively; use a forward migration if a database correction is required.
 
 ## Protected actions
 
