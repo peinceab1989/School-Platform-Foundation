@@ -7,7 +7,7 @@ type DocumentPermission = { staff_id: string; document_type: "id_card" | "appoin
 
 type Employee = {
   id: string; person_id: string; user_id: string | null; staff_number: string | null;
-  job_title: string | null; department: string | null; status: string; created_at: string;
+  job_title: string | null; department: string | null; staff_category: "academic" | "non_academic" | "unclassified"; status: string; created_at: string;
   first_name: string; middle_name: string | null; last_name: string;
   email: string | null; phone: string | null; address: string | null;
 };
@@ -33,6 +33,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
   const [address, setAddress] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [department, setDepartment] = useState("");
+  const [staffCategory, setStaffCategory] = useState<"academic" | "non_academic">("non_academic");
   const [status, setStatus] = useState("active");
 
   const loadEmployees = useCallback(async () => {
@@ -40,7 +41,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
     try {
       const client = getSupabaseClient();
       const { data: staffRows, error: staffError } = await client.from("staff")
-        .select("id, person_id, user_id, staff_number, job_title, department, status, created_at")
+        .select("id, person_id, user_id, staff_number, job_title, department, staff_category, status, created_at")
         .eq("school_id", schoolId).order("created_at", { ascending: false });
       if (staffError) throw staffError;
       const rows = staffRows ?? [];
@@ -118,7 +119,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
       const staffNumber = `RESA-STAFF-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
       const { error: staffError } = await client.from("staff").insert({
         school_id: schoolId, person_id: person.id, staff_number: staffNumber,
-        job_title: jobTitle.trim(), department: department.trim() || null, status,
+        job_title: jobTitle.trim(), department: department.trim() || null, staff_category: staffCategory, status,
       });
       if (staffError) {
         // Roll back the newly created person if the linked staff record cannot be created.
@@ -126,7 +127,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
         throw staffError;
       }
       setNotice(`Employee record created. Staff ID: ${staffNumber}`);
-      setFirstName(""); setMiddleName(""); setLastName(""); setEmail(""); setPhone(""); setAddress(""); setJobTitle(""); setDepartment(""); setStatus("active"); setShowForm(false);
+      setFirstName(""); setMiddleName(""); setLastName(""); setEmail(""); setPhone(""); setAddress(""); setJobTitle(""); setDepartment(""); setStaffCategory("non_academic"); setStatus("active"); setShowForm(false);
       await loadEmployees();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save this employee record.");
@@ -177,6 +178,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
           <label className="text-sm font-semibold">Phone<input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} className={fieldClass}/></label>
           <label className="text-sm font-semibold">Job title *<input required value={jobTitle} onChange={e=>setJobTitle(e.target.value)} className={fieldClass} placeholder="e.g. Bursar, Teacher"/></label>
           <label className="text-sm font-semibold">Department<input value={department} onChange={e=>setDepartment(e.target.value)} className={fieldClass} placeholder="e.g. Administration"/></label>
+          <label className="text-sm font-semibold">Staff classification *<select required value={staffCategory} onChange={e=>setStaffCategory(e.target.value as "academic" | "non_academic")} className={fieldClass}><option value="academic">Academic staff (teaching)</option><option value="non_academic">Non-academic staff (support/administration)</option></select></label>
           <label className="text-sm font-semibold">Employment status<select value={status} onChange={e=>setStatus(e.target.value)} className={fieldClass}><option value="active">Active</option><option value="pending">Pending</option></select></label>
           <label className="text-sm font-semibold sm:col-span-2 lg:col-span-3">Address<textarea value={address} onChange={e=>setAddress(e.target.value)} className={fieldClass} rows={2}/></label>
           <div className="sm:col-span-2 lg:col-span-3"><button type="submit" disabled={saving} className={buttonClass}>{saving ? "Saving record…" : "Save employee record"}</button></div>
@@ -193,7 +195,8 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
         {loading ? <p className="py-12 text-center text-sm text-slate-500">Loading employee records…</p> : filtered.length === 0 ? <div className="py-12 text-center"><BriefcaseBusiness className="mx-auto text-slate-300" size={36}/><p className="mt-3 font-semibold">No employee records found</p><p className="mt-1 text-sm text-slate-500">Add an employee or change your search filters.</p></div> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {filtered.map(e=><article key={e.id} className="rounded-xl border border-slate-200 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{e.first_name} {e.middle_name ? e.middle_name+" " : ""}{e.last_name}</h3><p className="mt-1 text-xs font-semibold text-green-800">{e.staff_number || "No staff ID assigned"}</p></div><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${e.status.toLowerCase()==="active"?"bg-green-100 text-green-800":e.status.toLowerCase()==="suspended"?"bg-red-100 text-red-800":"bg-amber-100 text-amber-800"}`}>{e.status}</span></div>
-            <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-slate-600 sm:grid-cols-2"><p><span className="font-semibold text-slate-800">Job:</span> {e.job_title || "Not set"}</p><p><span className="font-semibold text-slate-800">Department:</span> {e.department || "Not set"}</p><p className="break-all"><span className="font-semibold text-slate-800">Email:</span> {e.email || "Not provided"}</p><p><span className="font-semibold text-slate-800">Phone:</span> {e.phone || "Not provided"}</p><p className="sm:col-span-2"><span className="font-semibold text-slate-800">Record created:</span> {new Date(e.created_at).toLocaleDateString()}</p></div>
+            <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-slate-600 sm:grid-cols-2"><p><span className="font-semibold text-slate-800">Job:</span> {e.job_title || "Not set"}</p><p><span className="font-semibold text-slate-800">Department:</span> {e.department || "Not set"}</p><p><span className="font-semibold text-slate-800">Classification:</span> {e.staff_category === "academic" ? "Academic" : e.staff_category === "non_academic" ? "Non-academic" : "Needs classification"}</p><p className="break-all"><span className="font-semibold text-slate-800">Email:</span> {e.email || "Not provided"}</p><p><span className="font-semibold text-slate-800">Phone:</span> {e.phone || "Not provided"}</p><p className="sm:col-span-2"><span className="font-semibold text-slate-800">Record created:</span> {new Date(e.created_at).toLocaleDateString()}</p></div>
+            <div className="mt-4 rounded-xl bg-amber-50 p-3"><label className="block text-xs font-bold text-slate-700">Staff classification<select value={e.staff_category || "unclassified"} disabled={saving} onChange={async event=>{const next=event.target.value as "academic"|"non_academic"|"unclassified";setSaving(true);setError("");setNotice("");const {error:updateError}=await getSupabaseClient().from("staff").update({staff_category:next}).eq("id",e.id).eq("school_id",schoolId);if(updateError)setError(updateError.message);else setNotice("Staff classification updated for "+e.first_name+" "+e.last_name+".");await loadEmployees();setSaving(false);}} className={fieldClass}><option value="unclassified">Needs classification</option><option value="academic">Academic staff</option><option value="non_academic">Non-academic staff</option></select></label></div>
             <div className="mt-4 rounded-xl bg-slate-50 p-3">
               <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-slate-600">Staff document permissions</p>
               <div className="flex flex-wrap gap-2">
