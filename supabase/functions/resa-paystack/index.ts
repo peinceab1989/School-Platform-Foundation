@@ -8,7 +8,9 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const PAYSTACK_SECRET_KEY = Deno.env.get("PAYSTACK_SECRET_KEY") || "";
 const PAYSTACK_WEBHOOK_SECRET = Deno.env.get("PAYSTACK_WEBHOOK_SECRET") || "";
 const PAYSTACK_MODE = (Deno.env.get("PAYSTACK_MODE") || "test").toLowerCase();
-const APP_URL = (Deno.env.get("RESA_APP_URL") || "https://school-platform-foundation.pages.dev").replace(/\/$/, "");\n// Fail closed until administrator-issued RESA Payment Clearance IDs are enforced end-to-end.\nconst PAYMENT_CLEARANCE_GATE_READY = false;
+const APP_URL = (Deno.env.get("RESA_APP_URL") || "https://school-platform-foundation.pages.dev").replace(/\/$/, "");
+// Fail closed until administrator-issued RESA Payment Clearance IDs are enforced end-to-end.
+const PAYMENT_CLEARANCE_GATE_READY = false;
 
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
