@@ -128,14 +128,35 @@ Deno.serve(async (req: Request) => {
     const action = String(body.action || "");
 
     if (action === "status") {
+      const schoolId = String(body.school_id || "");
+      if (!schoolId) return response({ error: "School context is required." }, 400, headers);
+      const { data: gatewaySetting, error: settingError } = await admin
+        .from("resa_payment_gateway_settings")
+        .select("paystack_enabled")
+        .eq("school_id", schoolId)
+        .maybeSingle();
+      if (settingError) throw settingError;
+      const enabled = gatewaySetting?.paystack_enabled === true;
       const expectedKeyPrefix = PAYSTACK_MODE === "live" ? "sk_live_" : "sk_test_";
-      const configured = PAYSTACK_MODE === "test" || PAYSTACK_MODE === "live";
-      const ready = configured && PAYSTACK_SECRET_KEY.startsWith(expectedKeyPrefix) &&
+      const validMode = PAYSTACK_MODE === "test" || PAYSTACK_MODE === "live";
+      const configured = validMode && PAYSTACK_SECRET_KEY.startsWith(expectedKeyPrefix) &&
         PAYSTACK_WEBHOOK_SECRET.startsWith("whsec_") && Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_SERVICE_ROLE_KEY);
-      return response({ configured: ready, mode: PAYSTACK_MODE === "live" ? "live" : "test" }, 200, headers);
+      return response({ enabled, configured: enabled && configured, mode: PAYSTACK_MODE === "live" ? "live" : "test",
+        message: !enabled ? "Paystack is disabled by RESA Finance." : !configured ? "Paystack merchant setup is incomplete." : null }, 200, headers);
     }
 
     if (action === "initialize") {
+      const requestedSchoolId = String(body.school_id || "");
+      if (!requestedSchoolId) return response({ error: "School context is required." }, 400, headers);
+      const { data: gatewaySetting, error: settingError } = await admin
+        .from("resa_payment_gateway_settings")
+        .select("paystack_enabled")
+        .eq("school_id", requestedSchoolId)
+        .maybeSingle();
+      if (settingError) throw settingError;
+      if (gatewaySetting?.paystack_enabled !== true) {
+        return response({ error: "Paystack is currently disabled by RESA Finance. Please use an approved offline payment method or contact the school." }, 403, headers);
+      }
       if (!PAYSTACK_SECRET_KEY) return response({ error: "Paystack is not configured yet. RESA Finance must complete merchant setup." }, 503, headers);
       if (!["test", "live"].includes(PAYSTACK_MODE)) return response({ error: "Paystack mode is misconfigured." }, 503, headers);
       if ((PAYSTACK_MODE === "test" && !PAYSTACK_SECRET_KEY.startsWith("sk_test_")) ||
