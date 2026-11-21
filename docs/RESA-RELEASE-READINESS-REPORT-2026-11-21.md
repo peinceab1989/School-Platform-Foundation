@@ -177,6 +177,40 @@ The live browser session authenticated only as a school administrator. Parent, t
 
 The live `public.grading_scales` table currently contains no RESA rows. The CBT transfer migration assigns letter grades using fixed thresholds (A 80+, B 70+, C 60+, D 50+, E 40+, F below 40) rather than reading an approved school grading-scale record. The migration can safely scale CBT raw marks to the configured examination maximum, but the letter-grade thresholds must be explicitly approved by the school before official results are published, or the transfer function must be revised to use a versioned grading-scale source. Do not silently treat the current hard-coded bands as a school-approved grading policy.
 
+## Controlled Cloudflare release runbook
+
+**Target:** Cloudflare Pages project `school-platform-foundation`, production URL `https://school-platform-foundation.pages.dev`, production branch `main`.
+
+### Before merge
+1. Reconcile the one-commit main-branch divergence and review the complete PR #120 diff.
+2. Require a green RESA workflow on the exact reconciled head: TypeScript, production build, Edge Function typecheck, parent push-audience authorization tests and notification-preference routing tests.
+3. Validate the three pending migrations in an isolated Postgres/Supabase environment. Do not create a billable Supabase development branch on the Free plan without the owner's explicit agreement to any cost.
+4. Confirm historical result preservation, legacy CA 40 / Exam 60 term seeding, new CAT 1 / CAT 2 / Exam / Coursework limits, approved grade bands, no post-score configuration changes, audit immutability, CBT transfer scaling, duplicate transfer and published-result protections.
+5. Complete administrator, teacher, student and parent role tests, Android push acceptance, backup hash verification and isolated restore rehearsal.
+6. Confirm the correct Customer Care WhatsApp number and the school-approved operational session/term/fee records.
+7. Verify Supabase Auth Site URL and redirect allow-list for the Cloudflare production origin and approved preview origins. The current Auth redirect configuration has not been read from the Supabase dashboard.
+
+### Database and Edge Functions
+1. Take and verify a pre-release backup before any production DDL.
+2. Apply migrations in timestamp order only after the isolated tests pass:
+   - `20261120140000_add_cat1_cat2_scores.sql`
+   - `20261120150000_versioned_grading_configuration.sql`
+   - `20261120160000_cbt_transfer_uses_configured_exam_max.sql`
+3. Deploy the reviewed Edge Function versions after their dependent schema exists: admission application submit, staff invitation, student login creation, staff login linking, and the parent-preference-aware push dispatcher.
+4. Verify invitation/recovery redirects and push dispatcher recipient counts; test a parent device subscription before claiming attendance delivery.
+5. Keep Paystack disabled until the separate Payment Clearance ID gate, test-mode verification, webhook signing secret, reconciliation and written school approval are complete.
+
+### Cloudflare Pages
+1. Confirm project settings remain: production branch `main`, build command `pnpm run build`, output directory `artifacts/school-platform/dist/public`, Node.js 22.
+2. Confirm only the browser-safe `VITE_SUPABASE_URL` and publishable/anon key are present as build variables. Never place the service-role key or provider secret in a `VITE_*` variable.
+3. Build and inspect the PR preview; test public routes, administrator Settings, admissions validation, results/CBT, fees, messaging, notifications and mobile layout.
+4. After the owner authorises release, merge the reviewed PR, wait for Cloudflare's production build to finish, and verify the deployed commit SHA in the Cloudflare Pages dashboard. A green GitHub workflow alone is not evidence that Cloudflare deployed that commit.
+5. Smoke-test the production URL and critical routes; verify Auth invitation links, Customer Care status/handoff, parent Android push, and role-specific visibility. Monitor function and Pages errors after release.
+6. Retain the previous deployment as rollback target. If smoke checks fail, roll back the Cloudflare deployment first; do not reverse database migrations blindly. Use a forward fix or a separately reviewed recovery plan.
+
+### Current deployment evidence gap
+The production Pages URL is reachable, but this review did not have Cloudflare dashboard access to independently confirm the exact production deployment SHA, current build variables or preview deployment for the release branch. These must be verified in the Cloudflare dashboard before release. The old Netlify deploy-preview status checks are not Cloudflare Pages checks.
+
 ## Updated release decision
 
 **NO-GO for production release / school handover.** The administrator Settings pages and main management routes render, and admissions/CBT admin dashboards are present. Remaining blockers include:
