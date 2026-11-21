@@ -143,7 +143,12 @@ A signed-in RESA administrator browser session was available for read-only check
 ### Settings Centre
 All six Settings areas loaded without a spinner, visible error or permission denial: School profile/academic defaults, Staff & other users, Admin profile, Account & passwords, and Password & security. The school profile displayed the correct school name, motto and address, 2026/2027 session, Customer Care enabled, and First Term marked **DEMO ONLY**. The configured website URL still points to the legacy Netlify URL, and the logo URL is blank. No settings were changed. This live check did not reproduce the original infinite-loading issue; the branch timeout remains a defensive recovery improvement rather than a proven root-cause fix.
 
-The administrator settings page displays a Customer Care WhatsApp number different from the number embedded in the public Ask RESA widget. The settings page showed 07010945774; the live public widget's handoff URL is `https://wa.me/2348058422691`. Confirm which number is the intended Customer Care destination before changing either value.
+The administrator settings page displays contact details that need owner confirmation before handover:
+- Customer Care WhatsApp field: `07010945774`; public Ask RESA handoff URL: `https://wa.me/2348058422691` (+234 805 842 2691).
+- Settings “official school email”: `Resainternational2024@gmail.com`; the separately confirmed general school mailbox is `rhemaexploitsacademy@gmail.com`, while `resainternational2024@gmail.com` is the confirmed admissions mailbox.
+- Admissions/enquiry phone in Settings: `08052159511`; main school phone: `08058422691`.
+- Settings website URL still points to the legacy Netlify site; logo image URL is blank.
+Confirm the intended Customer Care WhatsApp number and the school/admissions email assignment before changing these values. No settings were changed.
 
 ### Ask RESA and Customer Care
 The currently deployed widget is still the older curated-help version. It does not display Customer Care availability. The known question “What is the full name of RESA?” failed to match the current help library; the unknown private-account question safely returned a refusal/fallback and did not reveal private data. The WhatsApp handoff link is correctly formatted and points to +234 805 842 2691. No message was sent.
