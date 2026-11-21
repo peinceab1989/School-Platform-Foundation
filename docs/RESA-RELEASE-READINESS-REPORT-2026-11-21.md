@@ -57,6 +57,7 @@ No forms were submitted. The route `/admissions-application` returns 404 because
 - Four exams are currently marked published and 21 CBT attempts are submitted. No attempt was created, edited or transferred during this review.
 - The grading migration preserves historical combined CA results rather than splitting them into invented CAT 1/CAT 2 values. It introduces term-versioned maxima and server-side score validation.
 - Migration review identified a need to protect the configuration-version and audit tables from direct client inserts. The release-candidate migration now routes configuration creation through an explicitly authorised, fixed-search-path SECURITY DEFINER RPC and makes the audit insert trigger owner-executed; authenticated users retain read access but cannot fabricate audit rows directly.
+- Results Management no longer creates a grading configuration silently when an administrator opens the page. The administrator must explicitly initialise the proposed default. The RPC also blocks initialisation or version changes once any subject scores exist for the term; migration seeding must therefore preserve legacy terms before the application is released.
 - The SQL migrations still require isolated-database execution tests, including legacy-result preservation, score-boundary cases, role denial, audit immutability, and CBT transfer/replay/overwrite tests. CI does not execute these migrations.
 
 ## Fees and payments
@@ -82,11 +83,11 @@ No forms were submitted. The route `/admissions-application` returns 404 because
 
 Current advisory categories include:
 - Two RLS-enabled rate-limit/event tables with no client policies (service-role-only access by design; verify this remains intentional).
-- Public-schema `pg_net` extension warning.
-- Publicly executable SECURITY DEFINER RPCs for public website/customer-care information; the Customer Care RPC was inspected and returns only a boolean for the fixed RESA school.
-- Authenticated SECURITY DEFINER RPC warnings requiring function-by-function review, not blanket revocation.
-- Auth leaked-password protection warning; confirm availability on the current Free plan before attempting to enable.
-- Performance notices for RLS init-plan patterns, multiple permissive policies, unindexed foreign keys and unused indexes. These need prioritised review; unused indexes should not be dropped without workload evidence.
+- One public-schema `pg_net` extension warning.
+- Three publicly executable SECURITY DEFINER RPCs; the Customer Care RPC was inspected and returns only a boolean for the fixed RESA school. The public announcement/content RPCs need the same data-minimisation review.
+- Thirty authenticated SECURITY DEFINER RPC warnings requiring function-by-function review, not blanket revocation.
+- One Auth leaked-password protection warning; confirm availability on the current Free plan before attempting to enable.
+- Performance notices: 12 RLS init-plan patterns, 132 multiple-permissive-policy findings, 58 unindexed foreign keys and 415 unused indexes. These need prioritised review; unused indexes should not be dropped without workload evidence.
 
 ## Required school acceptance before release
 
