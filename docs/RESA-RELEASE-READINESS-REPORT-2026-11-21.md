@@ -76,8 +76,20 @@ No forms were submitted. The route `/admissions-application` returns 404 because
 ## Notifications
 
 - Read-only counts show three parent attendance preference rows, one push subscription, 27 biometric-parent notification records, zero parent notification-log rows and zero smart-access notification-outbox rows.
+- The production `resa-push-dispatch` Edge Function is version 4. Its deployed source does not yet use the dedicated parent attendance notification-preference resolver included in the release-candidate branch. The branch implementation is source-only until the Edge Function is redeployed.
 - The latest branch CI passes push-audience authorization and notification-preference routing tests.
 - Real Android permission, subscription, background delivery, event timing, duplicate suppression and parent receipt/acknowledgement still require device testing.
+
+## Edge Function deployment delta
+
+Read-only comparison of deployed Edge Function source with the release-candidate branch found:
+- `resa-invite-staff`: production version 5 still lacks the Cloudflare redirect origin that the branch adds.
+- `resa-create-student-login`: production version 4 still lacks the Cloudflare redirect origin that the branch adds.
+- `resa-link-staff-login`: production version 3 still lacks the Cloudflare redirect origin that the branch adds.
+- `resa-push-dispatch`: production version 4 lacks the branch's dedicated parent-attendance preference routing.
+- `resa-admission-application-submit`: production version 1 already contains the Cloudflare origin, although the branch source has a small additional change.
+
+After merge approval, redeploy the reviewed function versions in a controlled sequence, then verify invitation/recovery links and push delivery. Before doing so, confirm the Supabase Auth Site URL and redirect allow-list include the Cloudflare production URL and the exact preview URL patterns. No Edge Function was deployed during this review.
 
 ## Supabase advisory review
 
