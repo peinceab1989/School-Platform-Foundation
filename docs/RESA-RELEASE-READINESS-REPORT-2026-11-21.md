@@ -10,10 +10,10 @@ No production deployment, database migration, school-record update, authenticati
 
 - Repository: `peinceab1989/School-Platform-Foundation`
 - Release candidate branch: `improvement/editable-existing-classes`
-- Current reviewed branch head: `6d63fcee7a5c4d9874b94cad03f119b1ac4f95fd`
+- Current reviewed application-code head: `23b98d96f4489ac3572ddd3bf1624034888e8ae4`
 - Main baseline: `209cbb5e96f3650d57cbc0b81e2214e5aac1203c`
 - Pull request: [#120 — Add safe editing for existing school classes](https://github.com/peinceab1989/School-Platform-Foundation/pull/120)
-- Latest RESA workflow: [Run 44898373289](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44898373289) — **passed** (workspace typecheck, production build, Edge Function typecheck, push-audience tests, notification-preference routing tests).
+- Latest RESA workflow: [Run 44899030602](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44899030602) — **passed** (workspace typecheck, production build, Edge Function typecheck, push-audience tests, notification-preference routing tests).
 - The branch is still marked one commit behind `main` in Git history. The admissions-contact/fee-guidance change from the latest main commit is already present in the branch: `public-pages.tsx` has the same blob SHA on both refs. The PR remains draft/open.
 - Legacy Netlify preview statuses are failing and are not evidence of a Cloudflare Pages build. Netlify build minutes were previously exhausted.
 
@@ -44,7 +44,11 @@ Read-only public pages rendered at the Cloudflare Pages URL:
 - About
 - Contact
 
-No forms were submitted. The route `/admissions-application` returns 404 because it is not the linked route; the correct public route is `/admissions-apply`. The live deployment's exact source SHA was not independently confirmed from the Cloudflare dashboard.
+The route `/admissions-application` returns 404 because it is not the linked route; the correct public route is `/admissions-apply`. The live deployment's exact source SHA was not independently confirmed from the Cloudflare dashboard.
+
+A live, read-only browser test of Ask RESA confirmed that a known question about checking results returns a curated answer and a Results Management link; an unrelated question receives a safe fallback instead of an invented answer. The live widget has a WhatsApp Customer Care handoff in its footer, but it does not show a live Customer Care availability indicator. The release-candidate branch adds availability polling/status, but that code is not live yet.
+
+A negative-path admissions test entered only a fictitious, unissued form number and clicked `Verify form`. The server rejected it and no application was created. The live page displayed a generic `Edge Function returned a non-2xx status code` alert instead of the specific server explanation. The branch contains improved parsing of the Edge Function error response; verify the friendlier message on a branch preview before release. No applicant details were entered and no application submission or payment was attempted.
 
 ## Admissions, CBT and grading
 
