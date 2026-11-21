@@ -134,3 +134,55 @@ Current advisory categories include:
 ## Protected actions
 
 Do not reset production data, delete test records, rotate credentials, change Auth settings, apply migrations, merge the PR or deploy Cloudflare without the appropriate explicit release approval.
+
+
+## Authenticated acceptance evidence — 21 November 2026 (administrator session)
+
+A signed-in RESA administrator browser session was available for read-only checks.
+
+### Settings Centre
+All six Settings areas loaded without a spinner, visible error or permission denial: School profile/academic defaults, Staff & other users, Admin profile, Account & passwords, and Password & security. The school profile displayed the correct school name, motto and address, 2026/2027 session, Customer Care enabled, and First Term marked **DEMO ONLY**. The configured website URL still points to the legacy Netlify URL, and the logo URL is blank. No settings were changed. This live check did not reproduce the original infinite-loading issue; the branch timeout remains a defensive recovery improvement rather than a proven root-cause fix.
+
+The administrator settings page displays a Customer Care WhatsApp number different from the number embedded in the public Ask RESA widget. The settings page showed 07010945774; the live public widget's handoff URL is `https://wa.me/2348058422691`. Confirm which number is the intended Customer Care destination before changing either value.
+
+### Ask RESA and Customer Care
+The currently deployed widget is still the older curated-help version. It does not display Customer Care availability. The known question “What is the full name of RESA?” failed to match the current help library; the unknown private-account question safely returned a refusal/fallback and did not reveal private data. The WhatsApp handoff link is correctly formatted and points to +234 805 842 2691. No message was sent.
+
+The release-candidate branch adds school-name/location and other reviewed help topics, a Customer Care availability indicator/poll, and the 60-second status refresh. These improvements are source-only until release.
+
+### Administrator route checks
+The following pages loaded in the authenticated administrator session:
+- `/results-management`: displays legacy CA 40 + Examination 60. The new CAT 1/CAT 2 versioned grading UI is not yet live.
+- `/examinations`: published/demo exam cards and CBT transfer statuses displayed.
+- `/fees`: finance dashboard displayed; its single fee type is explicitly labelled DEMO ONLY / NOT PAYABLE.
+- `/school-communication`: inbox and direct/group/announcement controls displayed.
+- `/notifications`: inbox and device registration controls displayed, but the browser session reported notification permission not granted.
+- `/admissions-management`: working administrator dashboard, currently 0 applications, 0 awaiting review, 0 unused verified forms.
+- `/external-cbt-management`: working administrator dashboard, currently 0 awaiting candidates, 0 approved candidates, 0 unused verified forms.
+- `/external-cbt-registration`: public external-candidate form rendered.
+- `/admissions-apply`: public application form rendered. A fictitious unissued form number was rejected, but the live UI showed the generic message `Edge Function returned a non-2xx status code`, rather than a useful validation explanation. No application or form record was created.
+
+### Live test-data and notification findings
+Read-only production checks show:
+- 7 active admin memberships, 3 parent memberships, 7 student memberships and 7 teacher memberships (membership counts are role-specific: 2 admins, 3 parents, 7 students, 7 teachers).
+- 7 active student portal accounts and 3 active parent portal accounts; 7 student records and 7 staff records have linked auth user IDs.
+- `school_messages` contains 7,200 rows, of which 7,198 are unread. 7,192 are attendance checkpoint alerts, 7,191 of those unread. The current-day attendance checkpoint set contains 8 staff and 12 student alerts, with up to 11 reminders already sent to each pending alert. This matches the configured repeated-reminder behaviour until acknowledgement, but the very large unread backlog must be reviewed during the agreed test-data cleanup and school acceptance; do not bulk-delete or mass-mark read without owner approval.
+- Existing notification inbox displayed 3,576 unread items for the signed-in administrator session. This is a user-visible backlog, not proof that 3,576 notifications were delivered to parent devices.
+- The public widget and Settings page disagree on the Customer Care WhatsApp number; see above.
+
+### Scope of role testing
+The live browser session authenticated only as a school administrator. Parent, teacher and student dashboards were not signed into with their own accounts during this pass. Database membership counts and RLS policy definitions were inspected read-only, but this does not substitute for separate role-specific sign-in acceptance and cross-account data-isolation tests.
+
+## Updated release decision
+
+**NO-GO for production release / school handover.** The administrator Settings pages and main management routes render, and admissions/CBT admin dashboards are present. Remaining blockers include:
+1. Verify parent, teacher and student journeys using their own approved accounts.
+2. Confirm the correct Customer Care WhatsApp number and make the public widget availability indicator and improved help library live only after release approval.
+3. Resolve the generic admission form validation error shown on the live page.
+4. Complete notification permission and real parent Android push acceptance.
+5. Review the large attendance-alert unread backlog and agree the test-data cleanup plan; do not delete or mark messages read without explicit approval.
+6. Decide when to replace DEMO ONLY session/term, fee and result data with school-approved operational records.
+7. Verify the configured website URL and logo asset in Settings; no settings were changed during this pass.
+8. Run isolated migration tests and then the approved release sequence.
+
+No production data, settings, Auth accounts, migrations, Edge Functions, Cloudflare deployment, or PR merge were changed during these acceptance checks.
