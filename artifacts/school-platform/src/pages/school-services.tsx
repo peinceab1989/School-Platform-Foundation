@@ -16,7 +16,7 @@ const MODULES: ModuleDefinition[] = [
   { key: "biometric", title: "Biometric Attendance", description: "Registered devices and attendance event records.", table: "biometric_devices" },
 ];
 type RowRecord = Record<string, unknown>;
-const MAX_FILE_BYTES = 100 * 1024 * 1024;
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 const safeFileName = (name: string) => name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(-160) || "file";
 const describeUploadError = (error: unknown) => {
@@ -162,7 +162,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setError("Your file selection was not retained. Please choose it again, wait for its name to appear, then upload.");
       return;
     }
-    if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 100 MB limit on the current Supabase Free plan. Compress it or choose a smaller file."); return; }
+    if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than Supabase Free's 50 MB per-file limit. Compress it or choose a smaller file. Compress it or choose a smaller file."); return; }
     setUploading(true); setError(""); setNotice(""); setUploadStage("Checking your school account");
     const db = getSupabaseClient() as any;
     let uploadedPath = "";

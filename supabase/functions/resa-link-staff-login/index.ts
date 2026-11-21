@@ -121,7 +121,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: "https://resa-school-portal.netlify.app/accept-invitation",
+      redirectTo: "https://school-platform-foundation.pages.dev/accept-invitation",
       data: {
         first_name: person.first_name,
         last_name: person.last_name,

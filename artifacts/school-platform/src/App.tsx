@@ -273,7 +273,9 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [soundChoice, setSoundChoice] = useState<"chime" | "bell" | "soft" | "none">("chime");
   const [phoneNotificationsEnabled, setPhoneNotificationsEnabled] = useState(false);
   const [phoneDeviceRegistered, setPhoneDeviceRegistered] = useState(false);
+  const phoneDeviceRegisteredRef = useRef(false);
   const phoneNotificationsRef = useRef(false);
+  useEffect(() => { phoneDeviceRegisteredRef.current = phoneDeviceRegistered; }, [phoneDeviceRegistered]);
   const [notificationPreferencesLoading, setNotificationPreferencesLoading] = useState(true);
   const [notificationBusy, setNotificationBusy] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("all");
@@ -361,7 +363,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           if (soundAlertsRef.current && soundChoiceRef.current !== "none" && typeof window !== "undefined") {
             playParentAttendanceSound(soundChoiceRef.current);
           }
-          if (phoneNotificationsRef.current && "Notification" in window && Notification.permission === "granted") {
+          if (phoneNotificationsRef.current && !phoneDeviceRegisteredRef.current && "Notification" in window && Notification.permission === "granted") {
             const title = "RESA · Attendance update";
             const body = String(incoming.message || "A linked learner's attendance was updated.");
             if ("serviceWorker" in navigator) {

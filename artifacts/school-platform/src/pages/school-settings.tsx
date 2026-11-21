@@ -33,6 +33,18 @@ const labelClass = "block text-sm font-semibold text-slate-700";
 const primaryButton = "inline-flex items-center justify-center gap-2 rounded-xl bg-green-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50";
 const secondaryButton = "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50";
 
+function withSettingsTimeout<T>(promise: Promise<T>, milliseconds = 15000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error("Settings are taking too long to load. Check your connection, then select Refresh. If this continues, contact the portal administrator."));
+    }, milliseconds);
+    promise.then(
+      value => { window.clearTimeout(timeoutId); resolve(value); },
+      error => { window.clearTimeout(timeoutId); reject(error); },
+    );
+  });
+}
+
 export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
   const [form, setForm] = useState<Settings>(blank);
   const [schoolName, setSchoolName] = useState("RHEMA EXPLOITS SCIENCE ACADEMY INT’L");
@@ -70,26 +82,33 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
     setError("");
     try {
       const db = getSupabaseClient();
-      const [{ data: authData, error: authError }, { data: schoolData, error: schoolError }, { data: sessionData, error: sessionError }, { data: termData, error: termError }] = await Promise.all([
+      const [
+        { data: authData, error: authError },
+        { data: schoolData, error: schoolError },
+        { data: sessionData, error: sessionError },
+        { data: termData, error: termError },
+        { data: schoolNameData, error: schoolNameError },
+        { data: careData, error: careError },
+      ] = await withSettingsTimeout(Promise.all([
         db.auth.getUser(),
         db.from("school_settings").select("*").eq("school_id", schoolId).maybeSingle(),
         db.from("academic_sessions").select("id,name").eq("school_id", schoolId).order("start_date", { ascending: false }),
         db.from("academic_terms").select("id,name,academic_session_id").eq("school_id", schoolId).order("term_number"),
-      ]);
+        db.from("schools").select("name").eq("id", schoolId).maybeSingle(),
+        (db as any).from("resa_chat_settings").select("customer_care_enabled").eq("school_id", schoolId).maybeSingle(),
+      ]));
       if (authError) throw authError;
       if (schoolError) throw schoolError;
       if (sessionError) throw sessionError;
       if (termError) throw termError;
-      const { data: schoolNameData, error: schoolNameError } = await db.from("schools").select("name").eq("id", schoolId).maybeSingle();
       if (schoolNameError) throw schoolNameError;
+      if (careError) throw careError;
       setSchoolName(schoolNameData?.name ?? "RHEMA EXPLOITS SCIENCE ACADEMY INT’L");
       const user = authData.user;
       setUserId(user?.id ?? "");
       setCurrentEmail(user?.email ?? "");
       setNewEmail(user?.email ?? "");
       setDisplayName(String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? ""));
-      const { data: careData, error: careError } = await (db as any).from("resa_chat_settings").select("customer_care_enabled").eq("school_id", schoolId).maybeSingle();
-      if (careError) throw careError;
       setCustomerCareEnabled(careData?.customer_care_enabled !== false);
       setForm(schoolData ? { ...blank, ...schoolData } : blank);
       setSessions(sessionData ?? []);
@@ -150,8 +169,8 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
       }).eq("school_id", schoolId);
       if (updateError) throw updateError;
       setNotice(customerCareEnabled
-        ? "Public Customer Care has been activated. The floating Help handle will appear on public pages."
-        : "Public Customer Care has been deactivated. The floating Help handle is now hidden from public pages.");
+        ? "Customer Care is now marked available. Website visitors will see a chat invitation; the virtual assistant remains available."
+        : "Customer Care is now marked unavailable. The virtual assistant remains available and visitors will be told the team is away.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update Customer Care availability.");
       await load();
@@ -302,7 +321,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
       if (action === "remove") {
         setNotice("Incomplete invitation removed from this school. The global sign-in account was retained. You can now create an internal RESA login from this page.");
       } else {
-        const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, { redirectTo: "https://resa-school-portal.netlify.app/accept-invitation" });
+        const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, { redirectTo: "https://school-platform-foundation.pages.dev/accept-invitation" });
         if (resetError) throw resetError;
         setNotice("Password setup/recovery email requested for " + targetEmail + ". Ask the teacher to check their inbox and spam folder.");
       }
@@ -369,7 +388,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
                   <div className="rounded-xl bg-slate-100 p-2.5 text-slate-700"><Settings2 size={20} /></div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-base font-extrabold text-slate-900">Public Customer Care</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">Manage whether the floating Help handle appears on the public RESA website. This setting does not affect private messages inside the signed-in school portal.</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">Set Customer Care to available when an administrator or support officer is ready to respond. When enabled, visitors receive a friendly invitation to chat and can open the school communication channel. When disabled, the RESA virtual assistant remains available and explains that the human team is away. This does not disable private portal messaging.</p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

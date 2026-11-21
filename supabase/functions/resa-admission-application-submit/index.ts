@@ -96,6 +96,7 @@ Deno.serve(async (req: Request) => {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply(400, { success: false, error: "Enter a valid applicant email address." }, origin);
     if (parentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parentEmail)) return reply(400, { success: false, error: "Enter a valid parent email address." }, origin);
     if (dob && !validDate(dob)) return reply(400, { success: false, error: "Enter a valid date of birth." }, origin);
+    if (gender && gender !== "Male" && gender !== "Female") return reply(400, { success: false, error: "Select Male or Female for the applicant gender." }, origin);
     if (!classId) return reply(400, { success: false, error: "Select the class being applied for." }, origin);
 
     const rateKey = await digest(formNumber + "|" + parentPhone);

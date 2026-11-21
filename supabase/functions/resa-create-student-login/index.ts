@@ -130,7 +130,7 @@ Deno.serve(async (req: Request) => {
     if (emailMatch) return reply(409, { success: false, error: "This email is already attached to another person in this school." });
 
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: "https://resa-school-portal.netlify.app/accept-invitation",
+      redirectTo: "https://school-platform-foundation.pages.dev/accept-invitation",
       data: {
         first_name: person.first_name,
         last_name: person.last_name,
