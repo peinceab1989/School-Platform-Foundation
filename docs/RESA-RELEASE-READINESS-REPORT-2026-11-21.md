@@ -82,6 +82,7 @@ A negative-path admissions test entered only a fictitious, unissued form number 
 
 - Read-only counts show three parent attendance preference rows, one push subscription, 27 biometric-parent notification records, zero parent notification-log rows and zero smart-access notification-outbox rows.
 - The production `resa-push-dispatch` Edge Function is version 4. Its deployed source does not yet use the dedicated parent attendance notification-preference resolver included in the release-candidate branch. The branch implementation is source-only until the Edge Function is redeployed.
+- All three stored parent attendance preference rows currently have notifications enabled and phone notifications enabled (two choose Chime, one chooses Bell). There is still only one registered push subscription in production, and it belongs to a teacher; there is no registered parent device.
 - The latest branch CI passes push-audience authorization and notification-preference routing tests.
 - Real Android permission, subscription, background delivery, event timing, duplicate suppression and parent receipt/acknowledgement still require device testing.
 
