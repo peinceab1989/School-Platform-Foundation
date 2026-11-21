@@ -171,7 +171,16 @@ Read-only production checks show:
 - The public widget and Settings page disagree on the Customer Care WhatsApp number; see above.
 
 ### Scope of role testing
-The live browser session authenticated only as a school administrator. Parent, teacher and student dashboards were not signed into with their own accounts during this pass. Database membership counts and RLS policy definitions were inspected read-only, but this does not substitute for separate role-specific sign-in acceptance and cross-account data-isolation tests.
+
+The live browser session authenticated as a school administrator. In addition, I ran read-only Postgres RLS checks in rolled-back transactions using `SET LOCAL ROLE authenticated` and the existing parent, student and teacher user IDs as JWT subject claims. These tests exercised database policies but were not actual browser sign-ins.
+
+- **Student:** a student account with published results could see exactly 1 published term result and 14 subject results; no draft/unpublished term results, fee assignments, or parent attendance notifications were visible.
+- **Parent:** a linked parent account could see 1 published term result, 14 subject results, 1 authorised fee assignment and 5 linked attendance notifications. It could see its own 1 attendance-preference row; it could not see parent notification logs or unrelated preference/attendance rows.
+- **Teacher:** a teacher with class/subject allocations could see 11 term results (5 draft and 6 published) and 38 subject results for assigned classes/subjects, but no fee assignments or parent attendance notifications.
+- A student account without a published result returned zero visible result rows, as expected.
+- Membership inventory: 2 active admins, 3 active parents, 7 active students and 7 active teachers; 7 active student portal accounts and 3 active parent portal accounts.
+
+The relevant RLS definitions enforce published-only student/parent result access, teacher assignment scope, linked-parent child scope, self-managed parent notification preferences, participant/group-member messaging scope and self-managed push subscriptions. These checks provide useful database-level evidence, but actual parent/teacher/student browser sign-in, mobile dashboard navigation and two-device messaging remain outstanding.
 
 ## Additional migration review note — grading bands
 
@@ -224,3 +233,7 @@ The production Pages URL is reachable, but this review did not have Cloudflare d
 8. Run isolated migration tests and then the approved release sequence.
 
 No production data, settings, Auth accounts, migrations, Edge Functions, Cloudflare deployment, or PR merge were changed during these acceptance checks.
+
+
+### Latest branch verification
+[GitHub Actions run 44918951392](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/44918951392) passed on current branch head `6e0216de268637a4993607d2988c2c812444717e`: workspace TypeScript, production build, Edge Function typecheck, push-audience authorization and notification-preference routing tests.
