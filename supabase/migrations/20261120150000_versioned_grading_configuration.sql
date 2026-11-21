@@ -77,12 +77,10 @@ on public.school_grading_configurations for select to authenticated
 using (public.has_school_role(school_id, array['admin','teacher']::public.school_role[]));
 
 drop policy if exists "school admins can create grading configurations" on public.school_grading_configurations;
-create policy "school admins can create grading configurations"
-on public.school_grading_configurations for insert to authenticated
-with check (
-  public.has_school_role(school_id, array['admin']::public.school_role[])
-  and (created_by is null or created_by = (select auth.uid()))
-);
+-- New versions must pass through the validated RPC so version sequencing and
+-- the no-rewrite-after-scores rule cannot be bypassed with direct table inserts.
+revoke insert on public.school_grading_configurations from public, anon, authenticated;
+grant select on public.school_grading_configurations to authenticated;
 
 create table if not exists public.school_grading_configuration_audit (
   id uuid primary key default gen_random_uuid(),
@@ -294,8 +292,9 @@ for each row execute function public.validate_resa_student_subject_result_gradin
 
 -- Public-schema tables are not automatically exposed through the Data API on newer
 -- Supabase projects. Grant only authenticated access; RLS remains the row boundary.
-grant select, insert on public.school_grading_configurations to authenticated;
-grant select, insert on public.school_grading_configuration_audit to authenticated;
+revoke insert on public.school_grading_configuration_audit from public, anon, authenticated;
+grant select on public.school_grading_configurations to authenticated;
+grant select on public.school_grading_configuration_audit to authenticated;
 
 -- The trigger function is not an RPC endpoint.
 revoke all on function public.validate_resa_student_subject_result_grading() from public;
@@ -314,7 +313,7 @@ create or replace function public.create_school_grading_configuration(
 )
 returns uuid
 language plpgsql
-security invoker
+security definer
 set search_path = pg_catalog, public
 as $$
 declare
