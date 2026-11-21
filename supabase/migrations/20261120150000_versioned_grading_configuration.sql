@@ -357,7 +357,7 @@ begin
     and academic_session_id = p_academic_session_id
     and term_id = p_term_id;
 
-  if v_version > 0 and exists (
+  if exists (
     select 1
     from public.student_term_results tr
     join public.student_subject_results sr
@@ -366,7 +366,7 @@ begin
       and tr.academic_session_id = p_academic_session_id
       and tr.term_id = p_term_id
   ) then
-    raise exception 'Grading configuration cannot change after subject scores have been saved for this term';
+    raise exception 'Grading configuration cannot be initialized or changed after subject scores have been saved for this term';
   end if;
 
   v_version := v_version + 1;
