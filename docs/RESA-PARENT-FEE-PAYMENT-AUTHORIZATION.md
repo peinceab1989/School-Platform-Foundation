@@ -61,3 +61,39 @@ Introduce a RESA Payment Clearance ID (PCID). It is a school-issued, opaque refe
 ## Current implementation gap found
 
 The existing Paystack checkout work (PR #123) verifies that the signed-in parent account is linked to the selected learner, but it does not yet require a school-issued, administrator-approved PCID. The new authorisation gate must be added to the Paystack initializer and settlement path and to Finance's offline payment-recording path before checkout is enabled. PR #123 is still a draft and is not deployed; no production schema or payment records were changed for this specification.
+
+## Paystack is optional and administrator-controlled
+
+Paystack is an optional payment channel, not a compulsory school-fee payment method. Parents must retain the ability to pay through school-approved offline methods (bank transfer, POS, or cash) where RESA offers them. The portal must clearly distinguish payment instructions from a confirmed/receipted payment.
+
+### Administrator gateway controls
+
+Add a dedicated **Finance Settings → Online Payment Channels** panel. Only the school owner or explicitly permissioned administrator/Finance role may change these settings.
+
+- Global master switch: **Enable Paystack online payments**. Default OFF until RESA completes test-mode acceptance and explicitly activates it.
+- When OFF, hide or disable Paystack checkout for parents and reject all new initialization requests server-side. Existing offline payment options remain available.
+- When ON, the parent may choose Paystack or an available offline method; the parent is never forced to use Paystack.
+- Separate mode selector: Test / Live. Live mode requires an additional high-privilege confirmation and a successful test-mode acceptance record. A live secret key alone must never activate live payments.
+- Optional per-fee-type, per-session and per-term availability controls. A global OFF switch always overrides every narrower setting.
+- Show gateway health/configuration state without exposing keys: Not configured, Test ready, Live ready, Disabled by administrator, or Attention required.
+- Provide an emergency **Disable Paystack immediately** control. It blocks new checkouts while preserving verification/reconciliation of transactions already initiated or confirmed by Paystack.
+- Record who changed the switch/mode, previous and new values, timestamp, and reason in an append-only audit log.
+- Secrets remain in Supabase Edge Function secrets, never in browser storage, database settings readable by clients, GitHub, or the admin UI. The admin UI must not display or retrieve secret values.
+
+### Payment behaviour and reconciliation
+
+- PCID authorisation is mandatory regardless of payment channel. Turning Paystack OFF does not bypass the school's approval requirement for official payment recording.
+- For Paystack, the server checks both the administrator's current gateway switch and the PCID at checkout initialization. A client-side disabled button is not a security control.
+- If Paystack is disabled after a checkout has already been initiated, no new checkout may start. Any provider-confirmed transaction must still be independently verified and safely reconciled; it must not be discarded or silently marked unpaid.
+- For bank transfer, POS and cash, the parent can follow school instructions, but the payment remains pending and does not reduce the balance or issue an official receipt until Finance verifies receipt of funds and records the transaction against the same PCID.
+- Admin can disable Paystack without disabling all fee collection. Parents should see a clear message such as "Online card/bank checkout is temporarily unavailable. Please use an approved offline payment method or contact RESA Finance."
+
+### Additional acceptance tests
+
+- Paystack is OFF by default and no parent can initialize checkout until an authorised admin enables it.
+- Admin can turn Paystack OFF and ON; backend enforcement works even when a parent calls the Edge Function directly.
+- When Paystack is OFF, offline payment instructions remain available and no parent is forced to use Paystack.
+- A global OFF setting overrides per-fee or term settings.
+- Only authorised Finance/admin roles can change gateway settings; parents, teachers and unauthorised staff cannot.
+- Switching OFF does not erase intents or prevent verification/reconciliation of a transaction already completed with Paystack.
+- Admin mode selection cannot switch to live unless the explicit live-activation requirements are met; secret keys remain server-side.
