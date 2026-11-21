@@ -63,7 +63,7 @@ export default function ParentPaystackCheckout({
   useEffect(() => {
     let active = true;
     void getSupabaseClient().functions.invoke("resa-paystack", {
-      body: { action: "status" },
+      body: { action: "status", school_id: schoolId },
     }).then(({ data, error }) => {
       if (!active) return;
       setGatewayReady(!error && data?.configured === true);
