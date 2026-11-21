@@ -102,6 +102,7 @@ alter table public.school_grading_configuration_audit enable row level security;
 create or replace function public.audit_school_grading_configuration_insert()
 returns trigger
 language plpgsql
+security definer
 set search_path = pg_catalog, public
 as $audit$
 begin
@@ -156,12 +157,10 @@ on public.school_grading_configuration_audit for select to authenticated
 using (public.has_school_role(school_id, array['admin']::public.school_role[]));
 
 drop policy if exists "school admins can append grading configuration audit" on public.school_grading_configuration_audit;
-create policy "school admins can append grading configuration audit"
-on public.school_grading_configuration_audit for insert to authenticated
-with check (
-  public.has_school_role(school_id, array['admin']::public.school_role[])
-  and (changed_by is null or changed_by = (select auth.uid()))
-);
+-- Audit rows are written only by the owner-executed insert trigger. Direct
+-- client inserts would let an administrator fabricate audit snapshots.
+revoke insert on public.school_grading_configuration_audit from public, anon, authenticated;
+grant select on public.school_grading_configuration_audit to authenticated;
 alter table public.student_subject_results
   drop constraint if exists student_subject_results_coursework_split_consistency;
 alter table public.student_subject_results
