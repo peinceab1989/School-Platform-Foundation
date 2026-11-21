@@ -33,6 +33,18 @@ const labelClass = "block text-sm font-semibold text-slate-700";
 const primaryButton = "inline-flex items-center justify-center gap-2 rounded-xl bg-green-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50";
 const secondaryButton = "inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50";
 
+function withSettingsTimeout<T>(promise: Promise<T>, milliseconds = 15000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error("Settings are taking too long to load. Check your connection, then select Refresh. If this continues, contact the portal administrator."));
+    }, milliseconds);
+    promise.then(
+      value => { window.clearTimeout(timeoutId); resolve(value); },
+      error => { window.clearTimeout(timeoutId); reject(error); },
+    );
+  });
+}
+
 export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
   const [form, setForm] = useState<Settings>(blank);
   const [schoolName, setSchoolName] = useState("RHEMA EXPLOITS SCIENCE ACADEMY INT’L");
@@ -70,26 +82,33 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
     setError("");
     try {
       const db = getSupabaseClient();
-      const [{ data: authData, error: authError }, { data: schoolData, error: schoolError }, { data: sessionData, error: sessionError }, { data: termData, error: termError }] = await Promise.all([
+      const [
+        { data: authData, error: authError },
+        { data: schoolData, error: schoolError },
+        { data: sessionData, error: sessionError },
+        { data: termData, error: termError },
+        { data: schoolNameData, error: schoolNameError },
+        { data: careData, error: careError },
+      ] = await withSettingsTimeout(Promise.all([
         db.auth.getUser(),
         db.from("school_settings").select("*").eq("school_id", schoolId).maybeSingle(),
         db.from("academic_sessions").select("id,name").eq("school_id", schoolId).order("start_date", { ascending: false }),
         db.from("academic_terms").select("id,name,academic_session_id").eq("school_id", schoolId).order("term_number"),
-      ]);
+        db.from("schools").select("name").eq("id", schoolId).maybeSingle(),
+        (db as any).from("resa_chat_settings").select("customer_care_enabled").eq("school_id", schoolId).maybeSingle(),
+      ]));
       if (authError) throw authError;
       if (schoolError) throw schoolError;
       if (sessionError) throw sessionError;
       if (termError) throw termError;
-      const { data: schoolNameData, error: schoolNameError } = await db.from("schools").select("name").eq("id", schoolId).maybeSingle();
       if (schoolNameError) throw schoolNameError;
+      if (careError) throw careError;
       setSchoolName(schoolNameData?.name ?? "RHEMA EXPLOITS SCIENCE ACADEMY INT’L");
       const user = authData.user;
       setUserId(user?.id ?? "");
       setCurrentEmail(user?.email ?? "");
       setNewEmail(user?.email ?? "");
       setDisplayName(String(user?.user_metadata?.full_name ?? user?.user_metadata?.name ?? ""));
-      const { data: careData, error: careError } = await (db as any).from("resa_chat_settings").select("customer_care_enabled").eq("school_id", schoolId).maybeSingle();
-      if (careError) throw careError;
       setCustomerCareEnabled(careData?.customer_care_enabled !== false);
       setForm(schoolData ? { ...blank, ...schoolData } : blank);
       setSessions(sessionData ?? []);
