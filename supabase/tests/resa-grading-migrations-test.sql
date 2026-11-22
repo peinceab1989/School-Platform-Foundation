@@ -253,7 +253,7 @@ DO $$
 DECLARE
   payload jsonb;
 BEGIN
-  SELECT payload INTO payload FROM test_cbt_transfer;
+  SELECT t.payload INTO payload FROM test_cbt_transfer AS t;
   IF payload->>'success' <> 'true'
     OR payload->>'already_transferred' <> 'false'
     OR payload->>'exam_score' <> '35.00'
@@ -280,7 +280,7 @@ DO $$
 DECLARE
   payload jsonb;
 BEGIN
-  SELECT payload INTO payload FROM test_cbt_replay;
+  SELECT t.payload INTO payload FROM test_cbt_replay AS t;
   IF payload->>'already_transferred' <> 'true' THEN
     RAISE EXCEPTION 'Repeated CBT transfer was not treated as idempotent: %', payload;
   END IF;
