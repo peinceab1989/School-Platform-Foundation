@@ -8,7 +8,7 @@ This is a manually triggered, one-way backup workflow. It does not run on pushes
 
 The encrypted archive contains:
 - PostgreSQL application schemas and data, excluding Supabase-managed schemas.
-- Auth user records and user metadata from the Supabase Admin API. It does **not** export passwords, sessions, refresh tokens, MFA secrets or password hashes.
+- An allowlisted set of Auth user identity/profile fields and user metadata from the Supabase Admin API. The exporter drops all fields outside an explicit allowlist, including password hashes, encrypted passwords, sessions, access/refresh tokens, MFA factors and recovery codes.
 - Storage bucket configuration and downloaded Storage object bytes.
 - A safe PostgreSQL role inventory (role names and safe attributes only; no role passwords).
 - Per-object Storage manifest entries alongside downloaded object bytes, including available object metadata and timestamps.
@@ -51,7 +51,7 @@ This is a recovery archive, not a one-click point-in-time restore. A restore req
 
 - Manual trigger only; no schedule, push, pull-request or deployment trigger.
 - Standard `ubuntu-latest` GitHub-hosted runner on this public repository; no larger runner, paid third-party service, or artifact storage is used.
-- The workflow uses read-only repository permissions and uploads only encrypted data.
+- The workflow uses read-only repository permissions and uploads only encrypted data. Before packaging, it validates the PostgreSQL dump with `pg_restore --list` and performs a full GPG decrypt-to-null integrity check.
 - Plaintext backup files exist only temporarily on the ephemeral runner and are deleted before upload.
 - Never enable step debug logging for this workflow.
 - If any required secret is absent or a backup/export/upload fails, the workflow stops and reports failure; it does not change the live project.
