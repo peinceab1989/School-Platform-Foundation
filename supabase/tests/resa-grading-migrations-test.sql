@@ -7,9 +7,6 @@ SET request.jwt.claim.role = 'admin';
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM public.online_exams
-    WHERE id IS NULL
-  ) AND NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'online_exams' AND column_name = 'term_id'
   ) THEN
@@ -79,6 +76,25 @@ END;
 $$;
 
 SET request.jwt.claim.role = 'admin';
+
+-- A mathematically invalid maximum total is rejected even before scores exist.
+DO $
+BEGIN
+  BEGIN
+    PERFORM public.create_school_grading_configuration(
+      '10000000-0000-0000-0000-000000000001',
+      '60000000-0000-0000-0000-000000000001',
+      '70000000-0000-0000-0000-000000000002',
+      25, 25, 50, 10, 4, 3, 3
+    );
+    RAISE EXCEPTION 'Expected grading maxima not totalling 100 to be rejected';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM = 'Expected grading maxima not totalling 100 to be rejected' THEN
+      RAISE;
+    END IF;
+  END;
+END;
+$;
 
 CREATE TEMP TABLE test_grading_config AS
 SELECT public.create_school_grading_configuration(
