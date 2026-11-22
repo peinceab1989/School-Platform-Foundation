@@ -2,8 +2,6 @@
 -- It contains only the existing objects required by the three pending RESA
 -- CAT/grading/CBT migrations and deliberately contains no real school data.
 
-create extension if not exists pgcrypto;
-
 create role anon nologin;
 create role authenticated nologin;
 create role service_role nologin bypassrls;
