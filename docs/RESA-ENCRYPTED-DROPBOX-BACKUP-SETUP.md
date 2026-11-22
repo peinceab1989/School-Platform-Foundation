@@ -11,6 +11,7 @@ The encrypted archive contains:
 - Auth user records and user metadata from the Supabase Admin API. It does **not** export passwords, sessions, refresh tokens, MFA secrets or password hashes.
 - Storage bucket configuration and downloaded Storage object bytes.
 - A safe PostgreSQL role inventory (role names and safe attributes only; no role passwords).
+- Per-object Storage manifest entries alongside downloaded object bytes, including available object metadata and timestamps.
 - A JSON manifest with counts and explicit exclusions.
 
 It does not export Supabase project secrets, API keys, Edge Function secrets, billing settings or provider configuration. Existing GitHub source and Edge Function source backups remain separate.
@@ -44,7 +45,7 @@ Create a Dropbox API app using **Scoped access** and **Full Dropbox** content ac
 
 ## Important restore limitations
 
-This is a recovery archive, not a one-click point-in-time restore. A restore requires a compatible Supabase project, restoring the application database dump, recreating Auth users through supported Admin APIs, uploading Storage objects, and reapplying project-level configuration and secrets separately. The archive deliberately excludes credentials and Supabase-managed internals. Test restoration in a separate project before relying on it.
+This is a recovery archive, not a one-click point-in-time restore. A restore requires a compatible Supabase project, restoring the application database dump, recreating Auth users through supported Admin APIs, uploading Storage objects, and reapplying project-level configuration and secrets separately. The archive deliberately excludes credentials and Supabase-managed internals. PostgreSQL ACLs/grants are omitted by the dump flags, so a restore must reapply the correct grants and role memberships. Extension installation, Auth user recreation, Storage upload, Edge Function deployment, project settings and secrets also require separate restore steps. Test restoration in a separate project before relying on it.
 
 ## Safety and cost controls
 
