@@ -81,7 +81,7 @@ $$;
 SET request.jwt.claim.role = 'admin';
 
 -- A mathematically invalid maximum total is rejected even before scores exist.
-DO $
+DO $$
 BEGIN
   BEGIN
     PERFORM public.create_school_grading_configuration(
@@ -97,7 +97,7 @@ BEGIN
     END IF;
   END;
 END;
-$;
+$$;
 
 CREATE TEMP TABLE test_grading_config AS
 SELECT public.create_school_grading_configuration(
