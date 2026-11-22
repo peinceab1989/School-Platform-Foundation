@@ -430,7 +430,7 @@ def main():
             ["gpg", "--batch", "--yes", "--pinentry-mode", "loopback",
              "--passphrase-fd", "0", "--decrypt", "--output", os.devnull,
              str(encrypted)],
-            input=(passphrase + "\\n").encode("utf-8"),
+            input=(passphrase + "\n").encode("utf-8"),
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
