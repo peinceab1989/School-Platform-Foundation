@@ -8,9 +8,12 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'online_exams' AND column_name = 'term_id'
+    WHERE table_schema = 'public' AND table_name = 'student_subject_results' AND column_name = 'cat1_score'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'student_subject_results' AND column_name = 'cat2_score'
   ) THEN
-    RAISE EXCEPTION 'Migration did not add online_exams.term_id';
+    RAISE EXCEPTION 'CAT 1 / CAT 2 columns were not added';
   END IF;
 
   IF NOT EXISTS (
