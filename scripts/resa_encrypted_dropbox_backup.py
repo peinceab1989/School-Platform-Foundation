@@ -17,7 +17,6 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import time
 import urllib.parse
 
 import requests
@@ -178,7 +177,28 @@ def export_storage(root: pathlib.Path, supabase_url: str, service_key: str):
     return len(buckets), file_count, byte_count
 
 
+def postgres_environment(db_url: str) -> dict[str, str]:
+    parsed = urllib.parse.urlsplit(db_url)
+    if parsed.scheme not in ("postgres", "postgresql") or not parsed.hostname:
+        raise RuntimeError("RESA_DB_URL must be a valid PostgreSQL connection URI")
+    query = urllib.parse.parse_qs(parsed.query)
+    env = os.environ.copy()
+    env.update({
+        "PGHOST": parsed.hostname,
+        "PGPORT": str(parsed.port or 5432),
+        "PGUSER": urllib.parse.unquote(parsed.username or ""),
+        "PGPASSWORD": urllib.parse.unquote(parsed.password or ""),
+        "PGDATABASE": urllib.parse.unquote(parsed.path.lstrip("/")),
+        "PGSSLMODE": query.get("sslmode", ["require"])[0],
+        "PGCONNECT_TIMEOUT": "20",
+    })
+    if not env["PGUSER"] or not env["PGDATABASE"]:
+        raise RuntimeError("RESA_DB_URL is missing its PostgreSQL username or database")
+    return env
+
+
 def export_database(root: pathlib.Path, db_url: str):
+    pg_env = postgres_environment(db_url)
     dump_file = root / "application-database.dump"
     command = [
         "pg_dump",
@@ -191,9 +211,8 @@ def export_database(root: pathlib.Path, db_url: str):
     ]
     for schema in MANAGED_SCHEMAS:
         command.extend(["--exclude-schema", schema])
-    command.append(db_url)
     try:
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, env=pg_env)
     except subprocess.CalledProcessError:
         # Do not include the command in logs: it contains the database URI.
         raise RuntimeError("PostgreSQL database export failed; connection details suppressed")
@@ -210,9 +229,10 @@ def export_database(root: pathlib.Path, db_url: str):
     with roles_file.open("w", encoding="utf-8") as output:
         try:
             subprocess.run(
-                ["psql", db_url, "--no-password", "--tuples-only", "--no-align", "-c", role_sql],
+                ["psql", "--no-password", "--tuples-only", "--no-align", "-c", role_sql],
                 check=True,
                 stdout=output,
+                env=pg_env,
             )
         except subprocess.CalledProcessError:
             raise RuntimeError("PostgreSQL role inventory failed; connection details suppressed")
