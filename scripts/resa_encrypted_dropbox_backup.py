@@ -350,7 +350,7 @@ def main():
     timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     work = pathlib.Path(tempfile.mkdtemp(prefix="resa-backup-"))
     archive = work / f"RESA-Supabase-Full-{timestamp}.tar.gz"
-    encrypted = pathlib.Path.cwd() / f"RESA-Supabase-Full-{timestamp}.tar.gz.gpg"
+    encrypted = pathlib.Path(tempfile.gettempdir()) / f"RESA-Supabase-Full-{timestamp}.tar.gz.gpg"
 
     try:
         db_bytes = export_database(work, db_url)
@@ -386,6 +386,8 @@ def main():
         )
         with tarfile.open(archive, "w:gz") as tar:
             for item in sorted(work.iterdir()):
+                if item == archive or item == encrypted:
+                    continue
                 tar.add(item, arcname=item.name)
 
         # Encrypt the complete archive before any upload leaves the ephemeral runner.
@@ -415,6 +417,17 @@ def main():
             raise RuntimeError("Dropbox-reported size differs from encrypted backup size")
         if uploaded.get("content_hash") != expected_hash:
             raise RuntimeError("Dropbox content hash verification failed")
+        metadata_response = requests.post(
+            "https://api.dropboxapi.com/2/files/get_metadata",
+            headers={**{"Authorization": f"Bearer {token}"},
+                     "Content-Type": "application/json"},
+            json={"path": uploaded["id"]},
+            timeout=TIMEOUT,
+        )
+        metadata_response.raise_for_status()
+        verified = metadata_response.json()
+        if verified.get("size") != encrypted.stat().st_size or verified.get("content_hash") != expected_hash:
+            raise RuntimeError("Dropbox read-after-write verification failed")
         print(json.dumps({
             "status": "uploaded",
             "dropbox_path": uploaded.get("path_display", remote_path),
