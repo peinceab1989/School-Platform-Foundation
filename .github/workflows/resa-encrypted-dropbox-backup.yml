@@ -13,6 +13,7 @@ concurrency:
 jobs:
   backup:
     name: Export, encrypt and upload RESA backup
+    if: github.ref == 'refs/heads/main' && github.actor == 'peinceab1989'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
