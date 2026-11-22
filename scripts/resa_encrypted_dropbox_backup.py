@@ -366,9 +366,16 @@ def main():
     supabase_url = required("SUPABASE_URL").rstrip("/")
     service_key = required("SUPABASE_SERVICE_ROLE_KEY")
     passphrase = required("RESA_BACKUP_PASSPHRASE")
-    app_key = required("DROPBOX_APP_KEY")
-    app_secret = required("DROPBOX_APP_SECRET")
-    refresh_token = required("DROPBOX_REFRESH_TOKEN")
+    # A manually generated short-lived token supports a one-time browser-only run.
+    # For repeatable automation, prefer the refresh-token credentials.
+    direct_access_token = os.environ.get("DROPBOX_ACCESS_TOKEN", "").strip()
+    app_key = os.environ.get("DROPBOX_APP_KEY", "").strip()
+    app_secret = os.environ.get("DROPBOX_APP_SECRET", "").strip()
+    refresh_token = os.environ.get("DROPBOX_REFRESH_TOKEN", "").strip()
+    if not direct_access_token and not all([app_key, app_secret, refresh_token]):
+        raise RuntimeError(
+            "Provide DROPBOX_ACCESS_TOKEN or all three Dropbox refresh-token credentials"
+        )
 
     timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     work = pathlib.Path(tempfile.mkdtemp(prefix="resa-backup-"))
@@ -442,7 +449,7 @@ def main():
         archive.unlink(missing_ok=True)
         shutil.rmtree(work, ignore_errors=True)
 
-        token = dropbox_access_token(app_key, app_secret, refresh_token)
+        token = direct_access_token or dropbox_access_token(app_key, app_secret, refresh_token)
         remote_path = (
             f"{DROPBOX_DESTINATION_DIR}/RESA-Supabase-Full-{timestamp}.tar.gz.gpg"
         )
