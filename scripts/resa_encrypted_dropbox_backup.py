@@ -116,6 +116,7 @@ def export_storage(root: pathlib.Path, supabase_url: str, service_key: str):
     storage_root = root / "storage-objects"
     file_count = 0
     byte_count = 0
+    object_manifest = []
 
     for bucket_info in buckets:
         bucket = bucket_info["name"]
@@ -153,6 +154,16 @@ def export_storage(root: pathlib.Path, supabase_url: str, service_key: str):
                     seen.add(object_path)
                     file_count += 1
                     byte_count += target.stat().st_size
+                    object_manifest.append({
+                        "bucket": bucket,
+                        "path": object_path,
+                        "id": item.get("id"),
+                        "metadata": item.get("metadata"),
+                        "created_at": item.get("created_at"),
+                        "updated_at": item.get("updated_at"),
+                        "last_accessed_at": item.get("last_accessed_at"),
+                        "downloaded_bytes": target.stat().st_size,
+                    })
                 if len(entries) < 1000:
                     break
                 offset += len(entries)
@@ -160,6 +171,10 @@ def export_storage(root: pathlib.Path, supabase_url: str, service_key: str):
                     raise RuntimeError("Storage pagination safety limit reached")
 
         walk("")
+    (root / "storage-objects-manifest.json").write_text(
+        json.dumps(object_manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     return len(buckets), file_count, byte_count
 
 
