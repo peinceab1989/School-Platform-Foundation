@@ -63,7 +63,19 @@ def export_auth_users(root: pathlib.Path, supabase_url: str, service_key: str) -
         )
         payload = response.json()
         batch = payload.get("users", []) if isinstance(payload, dict) else []
-        users.extend(batch)
+        # Export only an explicit allowlist. Never persist password hashes,
+        # encrypted_password, tokens, MFA factors, recovery codes or sessions,
+        # even if the Auth API adds sensitive fields in a future response.
+        safe_fields = {
+            "id", "aud", "role", "email", "phone", "app_metadata",
+            "user_metadata", "created_at", "updated_at", "is_anonymous",
+            "is_sso_user", "invited_at", "last_sign_in_at", "confirmed_at",
+            "email_confirmed_at", "phone_confirmed_at", "banned_until",
+            "deleted_at",
+        }
+        for user in batch:
+            if isinstance(user, dict):
+                users.append({key: value for key, value in user.items() if key in safe_fields})
         if len(batch) < 1000:
             break
         page += 1
@@ -218,6 +230,17 @@ def export_database(root: pathlib.Path, db_url: str):
         raise RuntimeError("PostgreSQL database export failed; connection details suppressed")
     if not dump_file.exists() or dump_file.stat().st_size == 0:
         raise RuntimeError("Database dump is empty; backup stopped")
+    # Validate that PostgreSQL can read the custom-format dump before packaging.
+    try:
+        subprocess.run(
+            ["pg_restore", "--list", str(dump_file)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=pg_env,
+        )
+    except subprocess.CalledProcessError:
+        raise RuntimeError("Database dump validation failed; backup stopped")
 
     # Record role names and safe attributes only; never export role passwords.
     role_sql = (
@@ -402,6 +425,18 @@ def main():
         )
         if encryption.returncode != 0 or not encrypted.exists():
             raise RuntimeError("GPG encryption failed; encrypted backup was not uploaded")
+        # Perform a full decrypt-to-null integrity check before removing plaintext.
+        integrity = subprocess.run(
+            ["gpg", "--batch", "--yes", "--pinentry-mode", "loopback",
+             "--passphrase-fd", "0", "--decrypt", "--output", os.devnull,
+             str(encrypted)],
+            input=(passphrase + "\\n").encode("utf-8"),
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if integrity.returncode != 0:
+            raise RuntimeError("Encrypted archive integrity check failed; upload stopped")
 
         # Remove plaintext immediately after encryption and before Dropbox upload.
         archive.unlink(missing_ok=True)
