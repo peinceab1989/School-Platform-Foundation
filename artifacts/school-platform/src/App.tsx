@@ -2283,7 +2283,7 @@ function FoundationPage() {
     }
 
     if (parentMembership) {
-      if (!['/parent-dashboard', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance'].includes(currentPath)) {
+      if (!['/parent-dashboard', '/parent-authorizations', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance'].includes(currentPath)) {
         setLocation('/parent-dashboard');
       }
       return;
