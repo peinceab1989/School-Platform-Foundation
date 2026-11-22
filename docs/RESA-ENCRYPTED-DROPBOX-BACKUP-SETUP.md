@@ -32,7 +32,7 @@ After this workflow has been reviewed and merged into `main`, add these under **
 
 ### Dropbox app setup
 
-Create a Dropbox API app using **Scoped access** and **Full Dropbox** content access, because the existing backup folder is at the Dropbox account root and an App folder app cannot write there. In the app's **Permissions** tab, enable only `files.content.write`; do not enable file read, sharing, account, team or other scopes. This is a write-only API token, but its write scope can target paths throughout the Dropbox account, so keep the refresh token and app secret private. Complete OAuth code flow with `token_access_type=offline` to obtain a refresh token. Dropbox access tokens are short-lived; the refresh token lets this manually triggered workflow obtain a fresh access token when needed.
+Create a Dropbox API app using **Scoped access** and **Full Dropbox** content access, because the existing backup folder is at the Dropbox account root and an App folder app cannot write there. In the app's **Permissions** tab, enable `files.content.write` and `files.metadata.read` (the latter is needed only to verify the uploaded file's size and content hash); do not enable file content read, sharing, account, team or other scopes. This is a write-only API token, but its write scope can target paths throughout the Dropbox account, so keep the refresh token and app secret private. Complete OAuth code flow with `token_access_type=offline` to obtain a refresh token. Dropbox access tokens are short-lived; the refresh token lets this manually triggered workflow obtain a fresh access token when needed.
 
 ## Run procedure
 
