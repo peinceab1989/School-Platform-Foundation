@@ -26,19 +26,20 @@ After this workflow has been reviewed and merged into `main`, add these under **
 | `SUPABASE_URL` | Project HTTPS URL, e.g. `https://<project-ref>.supabase.co`. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key. Never place it in source code or chat. |
 | `RESA_BACKUP_PASSPHRASE` | A unique, strong passphrase of at least 20 characters. Store it separately in a secure password manager; it is required to decrypt the archive. |
-| `DROPBOX_APP_KEY` | Dropbox developer app key. |
-| `DROPBOX_APP_SECRET` | Dropbox developer app secret. |
-| `DROPBOX_REFRESH_TOKEN` | OAuth refresh token for the Dropbox app. |
+| `DROPBOX_ACCESS_TOKEN` | Optional short-lived token generated in the Dropbox Developer Console for a one-time run. Use this OR the three refresh-token secrets below. |
+| `DROPBOX_APP_KEY` | Dropbox developer app key (needed only for refresh-token automation). |
+| `DROPBOX_APP_SECRET` | Dropbox developer app secret (needed only for refresh-token automation). |
+| `DROPBOX_REFRESH_TOKEN` | OAuth refresh token (needed only for repeatable automation). |
 
 ### Dropbox app setup
 
-Create a Dropbox API app using **Scoped access** and **Full Dropbox** content access, because the existing backup folder is at the Dropbox account root and an App folder app cannot write there. In the app's **Permissions** tab, enable `files.content.write` and `files.metadata.read` (the latter is needed only to verify the uploaded file's size and content hash); do not enable file content read, sharing, account, team or other scopes. This is a write-only API token, but its write scope can target paths throughout the Dropbox account, so keep the refresh token and app secret private. Complete OAuth code flow with `token_access_type=offline` to obtain a refresh token. Dropbox access tokens are short-lived; the refresh token lets this manually triggered workflow obtain a fresh access token when needed.
+Create a Dropbox API app using **Scoped access** and **Full Dropbox** content access, because the existing backup folder is at the Dropbox account root and an App folder app cannot write there. In the app's **Permissions** tab, enable `files.content.write` and `files.metadata.read` (the latter is needed only to verify the uploaded file's size and content hash); do not enable file content read, sharing, account, team or other scopes. This is a write-only API token, but its write scope can target paths throughout the Dropbox account, so keep the refresh token and app secret private. For a browser-only one-time backup, use the app's **Generate access token** control and save the resulting short-lived token directly as the GitHub secret `DROPBOX_ACCESS_TOKEN`. It expires, so this is not suitable for future repeat runs. For repeatable automation, complete OAuth code flow with `token_access_type=offline` and instead configure `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET` and `DROPBOX_REFRESH_TOKEN`. Configure either the direct access token OR all three refresh-token secrets; never paste either token into ChatGPT.
 
 ## Run procedure
 
 1. Review this workflow and script in the pull request.
 2. Merge only after review. The workflow is intentionally not active from a feature branch; GitHub requires a `workflow_dispatch` workflow to exist on the default branch for the Run workflow control.
-3. Add all seven secrets above. Do not send them in ChatGPT.
+3. Add the database URL, Supabase URL, service-role key and passphrase secrets, plus either `DROPBOX_ACCESS_TOKEN` (one-time) or the three Dropbox refresh-token secrets. Do not send them in ChatGPT.
 4. Open **Actions → RESA encrypted Supabase backup to Dropbox → Run workflow** and select `main`.
 5. Confirm the run reports `status: uploaded` and shows the final Dropbox path and byte counts.
 6. Verify the file in Dropbox and preserve the passphrase separately. Do not delete or reset any live data until a restore test is completed.
