@@ -51,5 +51,10 @@ jobs:
             exit 1
           fi
 
+      - name: Install isolated Python dependency
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --disable-pip-version-check requests
+
       - name: Export database, Auth users and Storage objects; encrypt and upload
-        run: python3 scripts/resa_encrypted_dropbox_backup.py
+        run: .venv/bin/python scripts/resa_encrypted_dropbox_backup.py
