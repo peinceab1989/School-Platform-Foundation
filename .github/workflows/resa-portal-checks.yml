@@ -65,3 +65,48 @@ jobs:
 
       - name: Test RESA notification preference routing
         run: deno test --node-modules-dir=auto supabase/functions/resa-push-dispatch/notification-preferences_test.ts
+
+  detect-migration-changes:
+    name: Detect database migration changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      migrations: ${{ steps.changed.outputs.migrations }}
+    steps:
+      - name: Check out pull request history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect changed migration files
+        id: changed
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if git diff --name-only "$BASE_REF"...HEAD | grep -q '^supabase/migrations/'; then
+            echo "migrations=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "migrations=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  migration-replay:
+    name: Replay migrations in disposable Supabase
+    needs: detect-migration-changes
+    if: needs.detect-migration-changes.outputs.migrations == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out pull request
+        uses: actions/checkout@v4
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.58.5
+      - name: Start disposable local Supabase stack
+        run: supabase start
+      - name: Replay every migration against the disposable database
+        run: supabase db reset --local
+      - name: Confirm migration history is fully applied
+        run: supabase migration list --local
+      - name: Stop disposable local Supabase stack
+        if: always()
+        run: supabase stop --no-backup
