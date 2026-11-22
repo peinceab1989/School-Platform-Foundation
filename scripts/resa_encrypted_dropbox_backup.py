@@ -8,6 +8,7 @@ This script deliberately does not export password hashes or access tokens.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import json
 import os
 import pathlib
@@ -221,6 +222,17 @@ def dropbox_access_token(app_key: str, app_secret: str, refresh_token: str) -> s
     return token
 
 
+def dropbox_content_hash(local_file: pathlib.Path) -> str:
+    block_hashes = []
+    with local_file.open("rb") as source:
+        while True:
+            block = source.read(4 * 1024 * 1024)
+            if not block:
+                break
+            block_hashes.append(hashlib.sha256(block).digest())
+    return hashlib.sha256(b"".join(block_hashes)).hexdigest()
+
+
 def dropbox_upload(token: str, local_file: pathlib.Path, remote_path: str):
     headers = {"Authorization": f"Bearer {token}"}
     size = local_file.stat().st_size
@@ -362,9 +374,12 @@ def main():
         remote_path = (
             f"{DROPBOX_DESTINATION_DIR}/RESA-Supabase-Full-{timestamp}.tar.gz.gpg"
         )
+        expected_hash = dropbox_content_hash(encrypted)
         uploaded = dropbox_upload(token, encrypted, remote_path)
         if uploaded.get("size") != encrypted.stat().st_size:
             raise RuntimeError("Dropbox-reported size differs from encrypted backup size")
+        if uploaded.get("content_hash") != expected_hash:
+            raise RuntimeError("Dropbox content hash verification failed")
         print(json.dumps({
             "status": "uploaded",
             "dropbox_path": uploaded.get("path_display", remote_path),
