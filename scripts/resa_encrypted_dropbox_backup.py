@@ -176,7 +176,11 @@ def export_database(root: pathlib.Path, db_url: str):
     for schema in MANAGED_SCHEMAS:
         command.extend(["--exclude-schema", schema])
     command.append(db_url)
-    subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+    try:
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        # Do not include the command in logs: it contains the database URI.
+        raise RuntimeError("PostgreSQL database export failed; connection details suppressed")
     if not dump_file.exists() or dump_file.stat().st_size == 0:
         raise RuntimeError("Database dump is empty; backup stopped")
 
@@ -188,11 +192,14 @@ def export_database(root: pathlib.Path, db_url: str):
     )
     roles_file = root / "database-roles.tsv"
     with roles_file.open("w", encoding="utf-8") as output:
-        subprocess.run(
-            ["psql", db_url, "--no-password", "--tuples-only", "--no-align", "-c", role_sql],
-            check=True,
-            stdout=output,
-        )
+        try:
+            subprocess.run(
+                ["psql", db_url, "--no-password", "--tuples-only", "--no-align", "-c", role_sql],
+                check=True,
+                stdout=output,
+            )
+        except subprocess.CalledProcessError:
+            raise RuntimeError("PostgreSQL role inventory failed; connection details suppressed")
     return dump_file.stat().st_size
 
 
