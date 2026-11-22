@@ -653,6 +653,12 @@ export default function StudentsPage({
     const firstName = form.first_name.trim();
     const lastName = form.last_name.trim();
     const admissionNumber = form.admission_number.trim();
+    const normalizedGender = form.gender.trim().toLowerCase();
+
+    if (normalizedGender && normalizedGender !== "male" && normalizedGender !== "female") {
+      setError("Select Male or Female for the student gender.");
+      return;
+    }
 
     if (!firstName || !lastName || !admissionNumber) {
       setError("First name, last name and admission number are required.");
@@ -1224,8 +1230,7 @@ export default function StudentsPage({
                       <option value="">Select gender</option>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
+                                    </select>
                   </label>
 
                   <label className="block text-sm font-medium">

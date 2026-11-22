@@ -193,7 +193,7 @@ export default function StaffInvitationsPage({
         setMessage("Incomplete invitation removed from this school. The global sign-in account was retained. You can now use Invite a Teacher below to send a fresh invitation.");
       } else {
         const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, {
-          redirectTo: "https://resa-school-portal.netlify.app/accept-invitation",
+          redirectTo: "https://school-platform-foundation.pages.dev/accept-invitation",
         });
         if (resetError) throw resetError;
         setMessage("Password setup/recovery email requested for " + targetEmail + ". Ask the teacher to check their inbox and spam folder. If no email arrives, remove the incomplete school invitation and send a fresh invitation below.");

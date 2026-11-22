@@ -223,7 +223,7 @@ export default function CbtResultsPanel({ schoolId }: { schoolId: string }) {
       if (result.error) throw result.error;
       setNotice(result.data?.already_transferred
         ? "This attempt was already transferred."
-        : "Score transferred to the correct term as Exam / 60. Existing CA marks were preserved. The result still requires normal approval and publication.");
+        : `Score transferred to the correct term as Exam / ${result.data?.exam_max ?? "the configured maximum"}. Existing CAT and coursework marks were preserved. The result still requires normal approval and publication.`);
       setSelected("");
       setAnswers([]);
       await load();

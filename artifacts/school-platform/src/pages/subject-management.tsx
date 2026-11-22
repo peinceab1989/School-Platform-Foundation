@@ -12,6 +12,8 @@ import {
   GraduationCap,
   Loader2,
   Plus,
+  Pencil,
+  Save,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -227,6 +229,9 @@ export default function SubjectsPage({
   const [searchTerm, setSearchTerm] = useState("");
   const [subjectName, setSubjectName] = useState("");
   const [subjectCode, setSubjectCode] = useState("");
+  const [editingSubject, setEditingSubject] = useState<SchoolSubject | null>(null);
+  const [editSubjectName, setEditSubjectName] = useState("");
+  const [editSubjectCode, setEditSubjectCode] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [savingSubject, setSavingSubject] = useState(false);
@@ -469,6 +474,59 @@ export default function SubjectsPage({
       setError(
         err instanceof Error ? err.message : "The subject could not be added.",
       );
+    } finally {
+      setSavingSubject(false);
+    }
+  };
+
+  const beginEditSubject = (subject: SchoolSubject) => {
+    setEditingSubject(subject);
+    setEditSubjectName(subject.name);
+    setEditSubjectCode(subject.code ?? "");
+    setError("");
+    setNotice("");
+  };
+
+  const cancelEditSubject = () => {
+    setEditingSubject(null);
+    setEditSubjectName("");
+    setEditSubjectCode("");
+  };
+
+  const handleSaveSubject = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingSubject) return;
+    const name = editSubjectName.trim();
+    const code = editSubjectCode.trim();
+    if (!name) {
+      setError("Enter a subject name.");
+      return;
+    }
+    if (subjects.some((item) => item.id !== editingSubject.id && normalize(item.name) === normalize(name))) {
+      setError("Another subject already uses this name.");
+      return;
+    }
+    setSavingSubject(true);
+    setError("");
+    setNotice("");
+    try {
+      const { data, error: updateError } = await supabase
+        .from("subjects")
+        .update({ name, code: code || null })
+        .eq("school_id", schoolId)
+        .eq("id", editingSubject.id)
+        .select("id, school_id, name, code, created_at, department_id");
+      if (updateError) {
+        if (updateError.code === "23505") throw new Error("This subject name or code is already in use.");
+        throw updateError;
+      }
+      if (!data?.length) throw new Error("The subject was not updated. Check your administrator permissions and try again.");
+      const updated = data[0] as SchoolSubject;
+      setSubjects((current) => current.map((item) => item.id === updated.id ? updated : item).sort((a, b) => a.name.localeCompare(b.name)));
+      setNotice(`Subject updated to "${updated.name}". Existing class assignments and result references remain attached to this subject.`);
+      cancelEditSubject();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "The subject could not be updated.");
     } finally {
       setSavingSubject(false);
     }
@@ -749,6 +807,32 @@ export default function SubjectsPage({
           </div>
         )}
 
+        {editingSubject && (
+          <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 font-bold text-slate-900"><Pencil className="h-5 w-5 text-emerald-700" /> Edit catalogue subject</h2>
+                <p className="mt-1 text-sm text-slate-500">Update the subject label or code without removing its existing assignments or result links.</p>
+              </div>
+              <button type="button" onClick={cancelEditSubject} aria-label="Cancel subject editing" className="rounded-lg border p-2 hover:bg-slate-50">×</button>
+            </div>
+            <form onSubmit={handleSaveSubject} className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
+              <label className="text-sm font-medium text-slate-700">Subject name
+                <input value={editSubjectName} onChange={(event) => setEditSubjectName(event.target.value)} maxLength={120} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal" />
+              </label>
+              <label className="text-sm font-medium text-slate-700">Subject code
+                <input value={editSubjectCode} onChange={(event) => setEditSubjectCode(event.target.value)} maxLength={40} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2.5 font-normal" />
+              </label>
+              <div className="flex items-end gap-2">
+                <button type="submit" disabled={savingSubject} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+                  {savingSubject ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
+                </button>
+                <button type="button" onClick={cancelEditSubject} disabled={savingSubject} className="rounded-lg border px-3 py-2.5 text-sm font-medium">Cancel</button>
+              </div>
+            </form>
+          </section>
+        )}
+
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-slate-500">Catalogue subjects</p>
@@ -1008,9 +1092,9 @@ export default function SubjectsPage({
                 );
 
                 return (
-                  <label
+                  <div
                     key={subject.id}
-                    className={`flex cursor-pointer items-start gap-3 px-5 py-4 transition hover:bg-emerald-50/50 sm:items-center sm:px-6 ${
+                    className={`flex items-start gap-3 px-5 py-4 transition hover:bg-emerald-50/50 sm:items-center sm:px-6 ${
                       isAssigned ? "bg-emerald-50/40" : "bg-white"
                     } ${isBusy ? "opacity-70" : ""}`}
                   >
@@ -1073,7 +1157,10 @@ export default function SubjectsPage({
                       {isAssigned && <Check className="h-3.5 w-3.5" />}
                       {isAssigned ? "Assigned" : "Not assigned"}
                     </span>
-                  </label>
+                    <button type="button" onClick={() => beginEditSubject(subject)} className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-200 bg-white px-2.5 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50" aria-label={`Edit ${subject.name}`}>
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </button>
+                  </div>
                 );
               })}
             </div>
