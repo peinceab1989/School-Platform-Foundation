@@ -181,6 +181,28 @@ declare
   cfg public.school_grading_configurations%rowtype;
   result_term public.student_term_results%rowtype;
 begin
+  -- Validate row identity on every insert and every update to its school,
+  -- student, subject or term link, including legacy combined-CA rows.
+  select * into result_term
+  from public.student_term_results
+  where id = new.term_result_id
+    and school_id = new.school_id;
+
+  if not found then
+    raise exception 'The linked term result does not belong to this school';
+  end if;
+
+  if result_term.student_id <> new.student_id then
+    raise exception 'The linked term result belongs to a different student';
+  end if;
+
+  if not exists (
+    select 1 from public.subjects
+    where id = new.subject_id and school_id = new.school_id
+  ) then
+    raise exception 'The selected subject does not belong to this school';
+  end if;
+
   if new.grading_configuration_id is null then
     if new.cat1_score is null and new.cat2_score is null and new.coursework_score is null then
       -- Preserve legacy combined-CA rows without inventing component marks.
@@ -199,15 +221,6 @@ begin
   end if;
 
   -- A result may only use a configuration created for its own session and term.
-  select * into result_term
-  from public.student_term_results
-  where id = new.term_result_id
-    and school_id = new.school_id;
-
-  if not found then
-    raise exception 'The linked term result does not belong to this school';
-  end if;
-
   if cfg.academic_session_id <> result_term.academic_session_id
     or cfg.term_id <> result_term.term_id then
     raise exception 'The grading configuration does not match this result session and term';
@@ -285,7 +298,8 @@ $$;
 
 drop trigger if exists trg_validate_resa_student_subject_result_grading on public.student_subject_results;
 create trigger trg_validate_resa_student_subject_result_grading
-before insert or update of cat1_score, cat2_score, ca_score, exam_score, coursework_score,
+before insert or update of school_id, term_result_id, student_id, subject_id,
+  cat1_score, cat2_score, ca_score, exam_score, coursework_score,
   notes_score, assignments_score, projects_score, grading_configuration_id, total_score
 on public.student_subject_results
 for each row execute function public.validate_resa_student_subject_result_grading();
