@@ -1,0 +1,55 @@
+name: RESA encrypted Supabase backup to Dropbox
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: resa-encrypted-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Export, encrypt and upload RESA backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      RESA_DB_URL: ${{ secrets.RESA_DB_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
+      DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
+      DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+      RESA_BACKUP_PASSPHRASE: ${{ secrets.RESA_BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check out the selected trusted branch
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client and GPG
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client gnupg
+
+      - name: Validate required secrets without displaying them
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in RESA_DB_URL SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY DROPBOX_APP_KEY DROPBOX_APP_SECRET DROPBOX_REFRESH_TOKEN RESA_BACKUP_PASSPHRASE; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Required repository secret is missing: ${name}"
+              exit 1
+            fi
+          done
+          case "$SUPABASE_URL" in
+            https://*.supabase.co) ;;
+            *) echo "::error::SUPABASE_URL must be the HTTPS project URL"; exit 1 ;;
+          esac
+          if [ "${#RESA_BACKUP_PASSPHRASE}" -lt 20 ]; then
+            echo "::error::RESA_BACKUP_PASSPHRASE must be at least 20 characters"
+            exit 1
+          fi
+
+      - name: Export database, Auth users and Storage objects; encrypt and upload
+        run: python3 scripts/resa_encrypted_dropbox_backup.py
