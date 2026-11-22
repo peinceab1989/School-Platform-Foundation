@@ -175,6 +175,21 @@ create table public.online_exam_answers (
   created_at timestamptz not null default now()
 );
 
+
+-- Existing transfer ledger from RESA's established CBT schema.
+create table public.cbt_result_transfers (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null,
+  attempt_id uuid not null unique,
+  term_result_id uuid not null,
+  subject_result_id uuid not null,
+  raw_score numeric not null,
+  raw_total numeric not null,
+  exam_score numeric not null,
+  transferred_by uuid not null references auth.users(id),
+  transferred_at timestamptz not null default now()
+);
+
 insert into auth.users (id)
 values ('20000000-0000-0000-0000-000000000001');
 
