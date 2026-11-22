@@ -33,3 +33,30 @@ No production deletion, bulk update, Auth-user removal, cascade operation, migra
 ## Current known limitation
 
 The repository's migration history does not yet reproduce the full live database from an empty baseline. Resolve the separately documented schema-baseline/history issue before relying on a full local database replay as the recovery test. Do not use production reset/push/repair commands as a shortcut.
+
+
+## Initial read-only production inventory — 22 November 2026
+
+The following counts were read from the live Supabase project using SELECT-only queries. No personal names, emails, phone numbers, credentials, or row contents were exported.
+
+| Inventory item | Count |
+|---|---:|
+| Staff records | 8 |
+| Staff records with a linked Auth user ID | 7 |
+| Parent/guardian records | 7 |
+| Parent portal account records | 3 |
+| Parent-to-student relationship rows | 10 |
+| School membership rows with teacher role | 7 |
+| School membership rows with parent role | 3 |
+
+### Dependency findings
+
+- Parent/guardian rows are referenced by multiple operational tables, including student-parent links, parent portal accounts, notification logs/preferences, QR credentials, access requests, child-collection authorizations/releases, and school access-event attendance.
+- Several parent references use ON DELETE CASCADE. A direct parent/guardian deletion could therefore remove related portal, notification, authorization, and relationship records.
+- Staff rows are referenced by teacher assignments, class form-teacher assignments, staff attendance, payroll, leave, documents, ID cards, movement records, and other modules.
+- Some staff references use ON DELETE RESTRICT, including attendance audit and staff movement records. A direct staff deletion may fail or require handling records that should be retained.
+- Parent/guardian records connect to people records; people records are also referenced by students and staff. Do not delete a people row merely because it is linked to a demo parent or teacher.
+
+### Inventory limitation and next safe step
+
+These counts are a baseline inventory, not a final deletion allowlist. The next step is to map the exact demo teacher and parent IDs to all linked rows and Auth identities, then produce a dry-run impact report. No production records have been deleted, deactivated, anonymized, or modified. The counts must be refreshed immediately before any future approved cleanup.
