@@ -133,7 +133,8 @@ create table public.online_exams (
   end_at timestamptz,
   status text not null default 'draft',
   created_by uuid,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  term_id uuid
 );
 
 create table public.online_exam_attempts (
