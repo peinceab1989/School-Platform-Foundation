@@ -270,3 +270,22 @@ The following is a design baseline for issue #140, not executable migration SQL.
 ### Environment constraint
 
 The Supabase project currently lists only its production `main` branch. Supabase development branches can incur additional hourly compute/usage charges; none was created. Until a no-cost isolated PostgreSQL/Supabase test environment is available, the migration and RLS/RPC implementation must remain unmerged and unapplied. GitHub's existing TypeScript/build checks do not prove database security correctness.
+
+
+## 11. Full migration-history drift recheck (24 Nov 2026)
+
+A fresh exact-version comparison was run against the current `main` commit `7dc67c9` and the live Supabase migration registry:
+
+| Measure | Current result |
+|---|---:|
+| Live Supabase migration versions | 127 |
+| SQL files in `supabase/migrations/` on main | 57 |
+| Exact version IDs present in both | 36 |
+| Live versions without an exact filename/version match in main | 91 |
+| Repository versions not recorded in live migration history | 21 |
+
+These are exact version-ID comparisons, not proof that every unmatched SQL operation is missing or unapplied. Some operations may have been applied under different version IDs, while some repository-only files may be pending or historical. The newly prepared PR #141 addresses one known timestamp mismatch: the applied `20261124063334` staff-classification migration is currently stored in main as `20261124120000`. If PR #141 is merged, the expected exact-ID counts would become 37 matches, 90 live versions without exact file matches, and 20 repository-only versions, assuming no concurrent changes. That still leaves substantial migration-history drift.
+
+The previously recorded recovery experiment in [the migration recovery plan](https://github.com/peinceab1989/School-Platform-Foundation/blob/improvement/editable-existing-classes/docs/RESA-DATABASE-MIGRATION-RECOVERY-PLAN-2026-11-22.md) found that a fresh local replay stops at the first migration because `public.online_exams` is absent from the repository baseline. Therefore neither a full `supabase db reset` nor a normal migration replay is currently a safe validation path.
+
+**Mandatory release restriction:** do not run `supabase db push`, `db pull`, `migration repair`, linked reset, or apply any new migration to production as a shortcut. A reviewed schema-only baseline and complete migration-history reconciliation are required before reliable full replay. The responsibility appointment migration remains blocked until this prerequisite and an isolated test database are available.
