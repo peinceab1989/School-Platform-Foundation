@@ -11,7 +11,7 @@ Create a **new** Cloudflare Pages project connected to this repository. Do not c
 
 Recommended settings:
 - Project name: `jetab-tech` (or another available name)
-- Production branch: `feature/jetab-tech-marketing-site-mainline`
+- Production branch: `main` (after the approved merge)
 - Root directory: `marketing-site`
 - Framework preset: `None` / `Static HTML`
 - Build command: leave empty
