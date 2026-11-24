@@ -367,7 +367,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
             if ("serviceWorker" in navigator) {
               void navigator.serviceWorker.ready
                 .then(registration => registration.showNotification(title, {
-                  body, icon: "/favicon.ico", badge: "/favicon.ico",
+                  body, icon: "/media/logo/resa-logo.jpg?v=20261124", badge: "/media/logo/resa-logo.jpg?v=20261124",
                   tag: id, data: { url: "/parent-dashboard" },
                 }))
                 .catch(() => { new Notification(title, { body, tag: id }); });
