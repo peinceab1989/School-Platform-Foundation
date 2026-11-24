@@ -122,3 +122,15 @@ Record tester, role, date/time, synthetic account label, expected result, actual
 | JETAB TECH delivery representative |  |  |  |
 
 **Status:** Controlled testing may continue. Final handover remains NO-GO until the critical gates above are evidenced and signed.
+
+
+## 6. Dropbox backup destination inspection
+
+A read-only listing of `/RESA MASTER BACKUP/` confirms that the seven planned top-level folders exist. However, this folder structure is not a completed backup:
+
+- `02 Supabase Database`: 128 files, all `.paper` documents with reported size 200 bytes; no database dump/archive file was found.
+- `03 Supabase Storage`: 14 files, all `.paper` documents with reported size 200 bytes; no Storage object archive was found.
+- `07 Historical Backups`: one `.paper` status document only; no encrypted historical backup archive was found.
+- `01 GitHub Source Code`: includes a 2,822,086-byte repository ZIP dated 20 November 2026, plus older Paper documentation pinned to commit `3e947089`.
+
+**Backup verdict: NOT COMPLETE / NOT RESTORE-VERIFIED.** The source ZIP is useful but does not protect the live database, Auth identities or Storage object bytes. The owner-triggered encrypted Dropbox workflow on main must be run after its required GitHub Actions secrets are configured privately. Verify the uploaded encrypted archive's byte count and hash, preserve its passphrase separately, and perform an isolated restore rehearsal before treating it as a recovery point. No Dropbox file was changed during this inspection.
