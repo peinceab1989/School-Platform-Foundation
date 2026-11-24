@@ -155,3 +155,38 @@ This is a high-priority Communication Centre acceptance item. No alert was ackno
 ### Customer Care recipient configuration check
 
 The 8,432 attendance-checkpoint messages have exactly **2 distinct recipients** and **1 sender**. The production recipient query currently finds 2 active admin memberships and **0 active staff users** whose department matches the configured HR/Customer Care audience. The eight staff records are currently distributed across `DEMO / ICT & Science` (3), `ICT` (4) and `Science` (1); none is in a Customer Care department. Therefore the current reminder function is reaching the two administrators, but there is no configured Customer Care staff login in its eligible audience. School management must nominate and activate the appropriate staff member, confirm their staff login and department, and then test recipient delivery. Do not reassign a real staff member or create an account without management approval.
+
+
+## 8. Administrator-controlled responsibility appointments (new requirement, 24 Nov 2026)
+
+School management has specified that special staff responsibilities must not be assigned through informal nomination, self-selection or direct role changes. The authorised school administrator must initiate each appointment and the required approval must be recorded before the responsibility becomes active. This requirement covers (at minimum) form teachers, Customer Care, attendance supervisor, examination officer, academic/non-academic coordinators, heads of department and any future school responsibility.
+
+### Required operating rules
+
+- The appointment directory must draw from verified, active school staff/person records. It must not be restricted to academic staff by default: eligible non-academic/support staff may be appointed to responsibilities appropriate to their duties.
+- Apply role-specific eligibility checks. For example, a form-teacher appointment requires an active staff record linked to an authorised teacher account and an appropriate teaching assignment/qualification where the school requires one. Customer Care and attendance support responsibilities may be assigned to other eligible staff.
+- An administrator selects the person, responsibility, scope (school-wide, department, class/session where applicable), effective date, optional end date and documented reason.
+- The appointment remains pending until the authorised approval step is completed. The approver, appointing administrator, timestamps, decision, reason and any later amendment/revocation must be auditable. If policy permits a one-admin approval, it must still be an explicit approval action with actor and timestamp; otherwise enforce a separate approver.
+- Only after approval may the portal activate the responsibility-specific capability. Never change school_memberships.role, profiles, or the user's base teacher/staff role to admin to implement a special appointment.
+- Apply least privilege by responsibility and scope. Multiple distinct appointments for one person are allowed where policy permits. Prevent conflicting active appointments for the same unique scope (for example, two form teachers for one class/session unless co-teaching is explicitly supported).
+- Notify the appointee after approval; expose current, pending, expired and revoked appointments to authorised administrators. A suspended, inactive or departed staff record must not retain active responsibility permissions.
+- Revocation/replacement must stop the old responsibility's access promptly, preserve history and require the same audit discipline as appointment.
+
+### Existing system evidence and implementation boundary
+
+- The live schema already contains class_form_teachers with school_id, staff_id, class_id, academic_session_id, assigned_by and creation timestamp. Its existing RLS policy permits school admins to manage assignments and assigned teachers to read their own assignments. The live table currently has zero rows.
+- staff has user_id, status, staff_category and a person_id; staff_qualifications stores qualification records. Existing school_memberships uses a separate base school_role and status. These are useful inputs but do not constitute a general appointment-and-approval workflow.
+- Current inspection found no existing general-purpose responsibility appointment, approval or responsibility-audit table among the relevant public tables. The HR page currently manages staff records and classification, not approved special-duty appointments.
+- No appointment table, permission policy, RPC, UI, notification, or production data was created or changed during this assessment.
+
+### Safe implementation sequence
+
+1. Reconcile the applied staff-classification migration (20261124063334_resa_staff_academic_classification) with its committed SQL source before creating any new migration. Do not guess or rewrite migration history.
+2. Design a dedicated appointment record and append-only decision/audit history, with school-scoped foreign keys, status transitions, effective dates, scope, actor identities and explicit approval metadata.
+3. Implement server-enforced RLS/RPC authorization. The browser must not be the security boundary. Only authorised school administrators may create/submit appointments; only authorised approvers may approve/reject/revoke; appointees may read their own approved appointments. Validate active staff, school membership, scope and responsibility-specific eligibility inside trusted database functions.
+4. Connect each approved responsibility to narrowly scoped permission checks in the relevant portal features. Do not grant generic admin access or rely on UI hiding.
+5. Integrate the management interface into HR & Staff Records, with a dedicated Responsibilities & Appointments panel, pending approval queue, appointment history and revocation/replacement workflow.
+6. Add automated database and application tests for cross-school access denial, unauthorised self-appointment, approval separation/policy, staff suspension, expiration, revocation, multiple responsibilities, class/session conflicts and preservation of base roles.
+7. Test against an isolated database and synthetic accounts; obtain review and explicit production approval before applying any migration or changing live appointments.
+
+**Status: REQUIREMENT RECORDED / NOT IMPLEMENTED.** The appointment and approval workflow is a mandatory handover gate. Do not ask school management to manually nominate staff through a workaround; the system must provide the controlled administrator appointment process first.
