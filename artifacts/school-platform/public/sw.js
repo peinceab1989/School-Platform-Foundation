@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resa-offline-v2';
+const CACHE_NAME = 'resa-offline-v3';
 const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', (event) => {
@@ -56,8 +56,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'RESA · School update';
   const options = {
     body: payload.body || payload.message || 'There is a new update in your parent portal.',
-    icon: payload.icon || '/favicon.ico',
-    badge: payload.badge || '/favicon.ico',
+    icon: payload.icon || '/media/logo/resa-logo.jpg?v=20261124',
+    badge: payload.badge || '/media/logo/resa-logo.jpg?v=20261124',
     tag: payload.tag || 'resa-school-update',
     data: { url: payload.url || '/parent-dashboard' },
     renotify: true,
