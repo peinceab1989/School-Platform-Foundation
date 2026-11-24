@@ -61,7 +61,7 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
 
   const submitAssignment = async (item: Assignment) => {
     if (!submissionText.trim() && !(item.assignment_type === "practical" && evidenceFile)) { setError(item.assignment_type === "practical" ? "Write a short explanation or attach photo, video or document evidence before submitting." : "Write your answer before submitting."); return; }
-    if (evidenceFile && evidenceFile.size > 100 * 1024 * 1024) { setError("Evidence files must be 100 MB or smaller."); return; }
+    if (evidenceFile && evidenceFile.size > 50 * 1024 * 1024) { setError("Evidence files must be 50 MB or smaller on the RESA Free storage plan."); return; }
     if (item.due_date && new Date(item.due_date).getTime() < Date.now()) { setError("The submission deadline has passed. Please contact your teacher."); return; }
     setSubmitting(true); setError(""); setNotice("");
     try {
