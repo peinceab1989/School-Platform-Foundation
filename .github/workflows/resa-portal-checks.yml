@@ -62,3 +62,6 @@ jobs:
 
       - name: Test RESA push audience authorization
         run: deno test --node-modules-dir=auto supabase/functions/resa-push-dispatch/parent-audience_test.ts
+
+      - name: Test RESA notification preference routing
+        run: deno test --node-modules-dir=auto supabase/functions/resa-push-dispatch/notification-preferences_test.ts
