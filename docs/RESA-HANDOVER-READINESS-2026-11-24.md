@@ -190,3 +190,6 @@ School management has specified that special staff responsibilities must not be 
 7. Test against an isolated database and synthetic accounts; obtain review and explicit production approval before applying any migration or changing live appointments.
 
 **Status: REQUIREMENT RECORDED / NOT IMPLEMENTED.** The appointment and approval workflow is a mandatory handover gate. Do not ask school management to manually nominate staff through a workaround; the system must provide the controlled administrator appointment process first.
+
+
+Implementation tracking: [GitHub issue #140 — Implement administrator-approved staff responsibility appointments](https://github.com/peinceab1989/School-Platform-Foundation/issues/140).
