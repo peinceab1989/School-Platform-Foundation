@@ -274,7 +274,7 @@ The Supabase project currently lists only its production `main` branch. Supabase
 
 ## 11. Full migration-history drift recheck (24 Nov 2026)
 
-A fresh exact-version comparison was run against the current `main` commit `7dc67c9` and the live Supabase migration registry:
+A fresh exact-version comparison was run against `main` commit `7dc67c9` and the live Supabase migration registry at assessment time:
 
 | Measure | Current result |
 |---|---:|
@@ -284,7 +284,7 @@ A fresh exact-version comparison was run against the current `main` commit `7dc6
 | Live versions without an exact filename/version match in main | 91 |
 | Repository versions not recorded in live migration history | 21 |
 
-These are exact version-ID comparisons, not proof that every unmatched SQL operation is missing or unapplied. Some operations may have been applied under different version IDs, while some repository-only files may be pending or historical. The newly prepared PR #141 addresses one known timestamp mismatch: the applied `20261124063334` staff-classification migration is currently stored in main as `20261124120000`. If PR #141 is merged, the expected exact-ID counts would become 37 matches, 90 live versions without exact file matches, and 20 repository-only versions, assuming no concurrent changes. That still leaves substantial migration-history drift.
+These are exact version-ID comparisons, not proof that every unmatched SQL operation is missing or unapplied. Some operations may have been applied under different version IDs, while some repository-only files may be pending or historical. PR #141 was subsequently merged as a rename-only change: the existing staff-classification SQL was moved to the exact applied version filename `20261124063334_resa_staff_academic_classification.sql`, with the SQL content unchanged. Based on that one-file rename and no other migration changes, the expected exact-ID counts are now 37 matches, 90 live versions without exact file matches, and 20 repository-only versions. A fresh registry/tree comparison should confirm these counts before any future migration rollout. This correction does not resolve the substantial remaining migration-history drift.
 
 The previously recorded recovery experiment in [the migration recovery plan](https://github.com/peinceab1989/School-Platform-Foundation/blob/improvement/editable-existing-classes/docs/RESA-DATABASE-MIGRATION-RECOVERY-PLAN-2026-11-22.md) found that a fresh local replay stops at the first migration because `public.online_exams` is absent from the repository baseline. Therefore neither a full `supabase db reset` nor a normal migration replay is currently a safe validation path.
 
