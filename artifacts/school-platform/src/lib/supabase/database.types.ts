@@ -155,6 +155,7 @@ export interface Database {
           school_id: string;
           person_id: string;
           staff_number: string | null;
+          staff_category: string;
           job_title: string | null;
           department: string | null;
           status: string;
@@ -166,6 +167,7 @@ export interface Database {
           school_id: string;
           person_id: string;
           staff_number?: string | null;
+          staff_category?: string;
           job_title?: string | null;
           department?: string | null;
           status?: string;
@@ -177,6 +179,7 @@ export interface Database {
           school_id?: string;
           person_id?: string;
           staff_number?: string | null;
+          staff_category?: string;
           job_title?: string | null;
           department?: string | null;
           status?: string;

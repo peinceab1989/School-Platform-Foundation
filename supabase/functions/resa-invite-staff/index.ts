@@ -326,6 +326,7 @@ Deno.serve(async (req: Request) => {
             staff_number: staffNumber,
             job_title: jobTitle || null,
             department: department || null,
+            staff_category: "academic",
             status: "pending",
           });
 
