@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 import { resolveEligibleParentUserIds } from "./parent-audience.ts";
+import { selectPushRecipients } from "./notification-preferences.ts";
 
 type PushRecord = Record<string, unknown>;
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -394,15 +395,29 @@ Deno.serve(async (request) => {
     if (!recipientIds.length) return json({ accepted: true, recipients: 0, sent: 0 });
 
     const schoolId = String(row.school_id || "");
-    const { data: preferences, error: preferenceError } = await admin
-      .from("resa_notification_preferences")
-      .select("user_id,enabled,phone_notifications_enabled")
-      .eq("school_id", schoolId)
-      .in("user_id", recipientIds)
-      .eq("enabled", true)
-      .eq("phone_notifications_enabled", true);
+    const preferenceQuery = eventType === "attendance"
+      ? admin.from("parent_attendance_notification_preferences")
+        .select("user_id,parent_guardian_id,enabled,phone_notifications_enabled")
+        .eq("school_id", schoolId)
+        .eq("parent_guardian_id", String(row.parent_guardian_id || ""))
+        .in("user_id", recipientIds)
+        .eq("enabled", true)
+        .eq("phone_notifications_enabled", true)
+      : admin.from("resa_notification_preferences")
+        .select("user_id,enabled,phone_notifications_enabled")
+        .eq("school_id", schoolId)
+        .in("user_id", recipientIds)
+        .eq("enabled", true)
+        .eq("phone_notifications_enabled", true);
+    const { data: preferences, error: preferenceError } = await preferenceQuery;
     if (preferenceError) throw preferenceError;
-    const optedIn = uniqueIds((preferences || []).map((item) => item.user_id));
+    const optedIn = selectPushRecipients({
+      eventType,
+      recipientIds,
+      parentGuardianId: String(row.parent_guardian_id || ""),
+      genericPreferences: eventType === "attendance" ? [] : (preferences || []),
+      parentAttendancePreferences: eventType === "attendance" ? (preferences || []) as Array<{ user_id: string; parent_guardian_id: string; enabled: boolean; phone_notifications_enabled: boolean }> : [],
+    });
     if (!optedIn.length) return json({ accepted: true, recipients: recipientIds.length, devices: 0, sent: 0 });
 
     const { data: subscriptions, error: subscriptionError } = await admin
