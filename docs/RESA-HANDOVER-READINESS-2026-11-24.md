@@ -1,3 +1,13 @@
+> **Verification amendment — 24 November 2026, 18:40 UTC:** This document's original evidence snapshot below was captured before the final handover-documentation and migration-filename PRs were merged. Current `main` is now `c55733c150bfaf78463fd09c12f99df49c3968d3`. Main push workflow [#1373](https://github.com/peinceab1989/School-Platform-Foundation/actions/runs/45449137171) completed successfully (TypeScript and production build job). PR #141 corrected the staff-classification migration filename to the exact applied version `20261124063334`; it did not change SQL. PR #139 added this handover-readiness record and was merged. The correction resolves one known filename mismatch only; it does not reconcile the broader migration history described below.
+>
+> The Cloudflare Pages root URL and public routes `/portal-options`, `/practice-drills` and `/admissions` were reachable in a fresh public fetch. The public practice-drills page currently explains that topic-only AI generation requires provider configuration and that users can paste lesson notes for source-based generation. These public checks do **not** establish which commit is currently aliased to the Cloudflare production root, and no authenticated student/teacher/parent/admin session or physical device acceptance was performed. The Cloudflare deployment commit therefore remains unverified.
+>
+> The backup workflow and exporter were reviewed at source level. They encrypt and verify the archive before upload, but the exporter excludes the entire `storage` schema from `pg_dump`; the Storage API export does not include Storage RLS policies, grants, functions or triggers. No backup was run and no isolated restore was performed. Treat the backup as incomplete for full recovery until that gap and the other exclusions are addressed and a restore rehearsal passes.
+>
+> An additional tracked defect is [issue #144](https://github.com/peinceab1989/School-Platform-Foundation/issues/144): checkpoint acknowledgement currently does not mark the associated reminder inbox messages read. No production SQL or message data was changed.
+
+---
+
 # RESA Digital Campus — Handover Readiness Snapshot
 
 **Assessment date:** 24 November 2026  
