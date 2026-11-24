@@ -101,7 +101,7 @@ function ResaInstallPrompt() {
     >
       <div className="flex items-start gap-3">
         <img
-          src="/icons/resa-app-192.svg"
+          src="/media/logo/resa-logo.jpg?v=20261124"
           alt=""
           className="h-12 w-12 shrink-0 rounded-xl"
         />
