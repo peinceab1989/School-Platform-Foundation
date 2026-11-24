@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, RefreshCw, PlusCircle, ReceiptText, Printer, Wallet } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import PaystackAdminSettings from "@/components/paystack-admin-settings";
 
 type FeeType = { id: string; name: string; description: string | null; amount: number; is_active: boolean };
 type StudentOption = { id: string; name: string; admission_number: string; className: string };
@@ -210,7 +211,8 @@ export default function FeesManagementPage({ schoolId, userId }: { schoolId: str
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs uppercase tracking-widest text-emerald-200">RESA · Administration</p><h1 className="text-2xl font-extrabold sm:text-3xl">Fees & Payments</h1><p className="mt-2 text-sm text-emerald-100">Create fee types, assign charges, record verified payments and issue receipts.</p></div><button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-white/30 px-3 py-2 text-sm font-semibold"><RefreshCw size={15}/> Refresh</button></div>
     </div></header>
     <div className="mx-auto max-w-7xl space-y-5 px-4 py-6">
-      <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950"><strong>Important:</strong> This page records payments that the school has already verified. It does not accept card or bank payments online. Never enter a payment until Finance has confirmed that funds were actually received.</div>
+      <PaystackAdminSettings schoolId={schoolId} />
+      <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-950"><strong>Important:</strong> This page records payments verified by RESA Finance. Paystack is an optional channel controlled by the administrator; it remains unavailable to parents until merchant setup, payment-clearance authorisation and end-to-end testing are complete. Never record an offline payment until Finance has confirmed that funds were actually received.</div>
       {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
       {printedReceipt && <section className="rounded-2xl border-2 border-emerald-900 bg-white p-5 print:mb-0 print:border-black" id="resa-fee-receipt">
