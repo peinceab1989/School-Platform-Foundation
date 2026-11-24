@@ -193,3 +193,43 @@ School management has specified that special staff responsibilities must not be 
 
 
 Implementation tracking: [GitHub issue #140 — Implement administrator-approved staff responsibility appointments](https://github.com/peinceab1989/School-Platform-Foundation/issues/140).
+
+
+## 9. Encrypted Dropbox backup workflow review (24 Nov 2026)
+
+The repository contains an owner-triggered GitHub Actions workflow at `.github/workflows/resa-encrypted-dropbox-backup.yml` and exporter `scripts/resa_encrypted_dropbox_backup.py`. The workflow is manual (`workflow_dispatch`), runs only from `main` when triggered by `peinceab1989`, and has a 90-minute job timeout. It does not run on every push.
+
+### Required GitHub Actions secrets
+
+Required in the repository's private Actions secrets (never commit or paste them into chat):
+
+- `RESA_DB_URL` — PostgreSQL connection URI for the RESA project; includes database credentials and must be treated as highly sensitive.
+- `SUPABASE_URL` — HTTPS project URL.
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service-role key; highly privileged.
+- `RESA_BACKUP_PASSPHRASE` — strong passphrase of at least 20 characters; retain separately from Dropbox and GitHub.
+- Dropbox authentication: either `DROPBOX_ACCESS_TOKEN` for a one-time/manual run, or the durable trio `DROPBOX_APP_KEY`, `DROPBOX_APP_SECRET`, `DROPBOX_REFRESH_TOKEN`. Prefer the refresh-token trio for repeatable runs because short-lived access tokens expire.
+
+The workflow validates that the mandatory values exist but does not print them. No secrets were inspected, created or changed in this assessment.
+
+### What the script actually exports
+
+- PostgreSQL custom-format application database dump, excluding Supabase-managed/internal schemas listed in the script.
+- Auth user records and selected metadata using an explicit allowlist. It intentionally excludes password hashes, active tokens, sessions, MFA factors and recovery codes.
+- Storage bucket configuration and downloaded Storage object bytes, plus an object manifest.
+- A safe PostgreSQL role inventory without role passwords.
+- A manifest of counts and excluded categories.
+
+The script encrypts the archive with GPG AES-256, verifies that it can decrypt the encrypted archive to `/dev/null`, deletes plaintext before upload, uploads to `/RESA MASTER BACKUP/07 Historical Backups/`, and verifies Dropbox-reported size and content hash plus a read-after-write metadata check. Temporary encrypted/plaintext files are removed at job end.
+
+**Recovery limitation:** this is not a complete point-in-time clone of the Supabase project. It does not preserve Auth passwords/sessions/MFA, database role passwords, Supabase project/API secrets, Edge Function secrets or Supabase-managed internal schemas. A restore rehearsal must explicitly document password resets/re-invitations, MFA re-enrolment, secret reconfiguration and Edge Function redeployment. The exporter also needs a controlled restore procedure for database roles and Storage metadata/policies before it can be called fully restore-verified.
+
+### Required completion evidence
+
+1. Configure the listed secrets privately in GitHub Actions; do not send their values in chat.
+2. Trigger the workflow manually from `main` only after verifying the exact selected branch and commit.
+3. Record run URL, commit SHA, encrypted archive path, encrypted byte count, database dump bytes, Auth record count, Storage bucket/object counts and Dropbox hash verification outcome.
+4. Verify the archive is present in Dropbox and retain its passphrase in a separate secure location.
+5. Perform an isolated restore rehearsal, including application schema/data, Storage objects, Auth account recovery and secret/Edge Function reconfiguration.
+6. Do not mark backup complete until restoration is proven and the recovery limitations are signed off.
+
+**Status: WORKFLOW CODE PRESENT / SECRETS AND SUCCESSFUL RUN NOT VERIFIED / RESTORE NOT TESTED.** No backup workflow was triggered and no Dropbox data was changed during this review.
