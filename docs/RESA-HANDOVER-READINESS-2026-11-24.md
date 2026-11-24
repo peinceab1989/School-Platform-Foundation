@@ -233,3 +233,40 @@ The script encrypts the archive with GPG AES-256, verifies that it can decrypt t
 6. Do not mark backup complete until restoration is proven and the recovery limitations are signed off.
 
 **Status: WORKFLOW CODE PRESENT / SECRETS AND SUCCESSFUL RUN NOT VERIFIED / RESTORE NOT TESTED.** No backup workflow was triggered and no Dropbox data was changed during this review.
+
+
+## 10. Responsibility appointment implementation design notes
+
+The following is a design baseline for issue #140, not executable migration SQL. It must be validated against the complete schema and tested before adoption.
+
+### Proposed records and lifecycle
+
+- `staff_responsibility_appointments`: one record per staff member, responsibility key, school and scope; include staff/person linkage, optional department/class/session scope, effective date range, reason, appointing actor, approval actor/time/note, lifecycle status, revocation actor/time/reason and created/updated timestamps.
+- `staff_responsibility_appointment_events`: append-only event history for submission, approval, rejection, revocation, replacement and expiry; capture actor, event time, previous/new state and a bounded note. Direct authenticated update/delete must be denied.
+- Responsibility catalogue: a controlled list of built-in responsibilities and scope/eligibility metadata, with a reviewed path for school-specific additions. Do not let an arbitrary free-text role create permissions.
+
+### Server-side authorization model
+
+- Submission, approval, rejection, revocation and replacement should be exposed through narrowly scoped database RPCs, not direct table writes from the browser.
+- Each RPC must validate `auth.uid()`, active admin membership for the same school, school/staff/class/session relationships, status transition, effective dates, and responsibility-specific eligibility. All SECURITY DEFINER functions must set an empty/fixed `search_path`, schema-qualify objects and revoke execution from `PUBLIC`/`anon`.
+- Read policy: school admins may read their school's appointments; an appointee may read only their own appointment summary. Qualification evidence and HR-only details remain admin-only.
+- Approval separation should be an explicit school policy. The safe default is a different authorised admin from the appointing actor; if management chooses a single-admin exception, record that it was a one-person approval and why.
+- An `has_active_staff_responsibility(...)` helper should check approved status, effective dates, active staff record and active school membership every time a protected feature is accessed. Revocation/suspension must therefore take effect immediately without relying on stale UI state.
+
+### Scope and conflict handling
+
+- Scope types should be explicit: school, department, class/session. Store foreign keys for class/session and validate that they belong to the same school.
+- A person may hold several compatible responsibilities. Prevent overlapping active appointments for the same responsibility and exact scope; use transactional locking/RPC checks so two concurrent administrators cannot create conflicting assignments.
+- A form-teacher appointment requires an active staff record linked to an active `teacher` membership for the same school, and class/session scope. Do not rely only on `staff_category='academic'`; that classification is an HR attribute, not proof of teacher access or qualification.
+- Customer Care, attendance supervision and administrative support can be assigned to other eligible active staff. Qualification checks should be responsibility-specific and based on verified school records, not a blanket academic-only filter.
+
+### Integration and tests
+
+- Keep the appointment register and approval queue inside HR & Staff Records. Reuse the existing staff directory; do not create a second employee directory.
+- Replace direct form-teacher assignment writes with the appointment approval flow, then synchronize/derive the existing `class_form_teachers` operational assignment only after approval, or migrate consumers to the shared responsibility helper after a complete dependency audit. Do not create two independent sources of truth.
+- Add server-side capability checks to every relevant data path (not merely menu visibility): attendance, class rosters, examinations, results, communications and Customer Care alerts.
+- Test unauthorised submission/approval, cross-school access, self-approval policy, inactive/suspended staff, expired/revoked appointments, concurrent conflicting appointments, teacher eligibility, non-academic support eligibility, multi-appointment compatibility and base-role immutability.
+
+### Environment constraint
+
+The Supabase project currently lists only its production `main` branch. Supabase development branches can incur additional hourly compute/usage charges; none was created. Until a no-cost isolated PostgreSQL/Supabase test environment is available, the migration and RLS/RPC implementation must remain unmerged and unapplied. GitHub's existing TypeScript/build checks do not prove database security correctness.
