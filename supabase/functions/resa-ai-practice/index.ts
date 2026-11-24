@@ -272,18 +272,20 @@ Deno.serve(async (req: Request) => {
 
     if (!response.ok) {
       console.error("OpenAI request failed with status:", response.status);
-      if (response.status === 401) {
-        return jsonResponse({ error: "The AI provider key is invalid. Please check the OPENAI_API_KEY secret." }, 502);
-      }
-      if ((response.status === 429 || response.status === 401) && sourceText.length >= 40) {
+      // A configured-but-invalid or temporarily rate-limited provider must not
+      // disable RESA's free source-based drill when usable lesson text exists.
+      if ((response.status === 401 || response.status === 429) && sourceText.length >= 40) {
         const questions = makeSourceQuestions(sourceText, count, level, subject, sourceLabel);
         if (questions.length) return jsonResponse({
           questions, count: questions.length, mode: "source_based_fallback", source_label: sourceLabel,
           message: "The AI provider was unavailable, so RESA generated a free source-based drill from published lesson notes.",
         });
       }
+      if (response.status === 401) {
+        return jsonResponse({ error: "The AI provider key is invalid. Please check the OPENAI_API_KEY secret, or paste lesson text to use RESA's free source-based generator." }, 502);
+      }
       if (response.status === 429) {
-        return jsonResponse({ error: "The AI provider is temporarily rate-limited or out of available quota. Please try later." }, 503);
+        return jsonResponse({ error: "The AI provider is temporarily rate-limited or out of available quota. Please try later, or paste lesson text to use RESA's free source-based generator." }, 503);
       }
       return jsonResponse({ error: "The AI provider could not generate questions right now. Please try again later." }, 502);
     }
