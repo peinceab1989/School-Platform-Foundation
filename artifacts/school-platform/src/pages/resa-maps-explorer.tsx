@@ -20,7 +20,7 @@ export default function ResaMapsExplorerPage() {
   const [origin, setOrigin] = useState("");
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
-  const mapSrc = useMemo(() => `https://www.google.com/maps?q=${encodeURIComponent(destination || SCHOOL_ADDRESS)}&output=embed`, [destination]);
+  const mapSrc = useMemo(() => { const query = destination === SCHOOL_ADDRESS ? `${SCHOOL_NAME}, ${SCHOOL_ADDRESS}` : destination; return `https://www.google.com/maps?q=${encodeURIComponent(query || `${SCHOOL_NAME}, ${SCHOOL_ADDRESS}`)}&output=embed`; }, [destination]);
 
   function ask() {
     const q = question.trim().toLowerCase();
@@ -49,8 +49,8 @@ export default function ResaMapsExplorerPage() {
             <div><h2 className="font-extrabold text-[#17452f]">Interactive map</h2><p className="text-xs text-slate-500">Search a place or explore the school location</p></div>
             <a href={mapsSearchUrl(destination || SCHOOL_ADDRESS)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[#174c35] px-3 py-2 text-sm font-bold text-white">Open full map <ExternalLink size={14}/></a>
           </div>
-          <iframe title="Interactive map for RESA and searched places" src={mapSrc} className="h-[420px] w-full border-0 sm:h-[540px]" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
-          <div className="p-4 text-xs leading-5 text-slate-500">Map imagery, place listings and route calculations are provided by Google Maps. Availability and accuracy depend on the map provider and the selected location.</div>
+          <iframe title={`Locate ${SCHOOL_NAME} on Google Maps`} src={mapSrc} className="h-[420px] w-full border-0 sm:h-[540px]" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+          <div className="border-t border-slate-100 bg-[#f8faf6] p-5"><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#9b762e]">Locate our school</p><h3 className="mt-2 text-lg font-black leading-snug text-[#17452f]">{SCHOOL_NAME}</h3><p className="mt-2 text-sm leading-6 text-slate-700">{SCHOOL_ADDRESS}</p><a href={mapsSearchUrl(`${SCHOOL_NAME}, ${SCHOOL_ADDRESS}`)} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#174c35] px-4 py-2.5 text-sm font-bold text-white">Open full school listing <ExternalLink size={14}/></a><p className="mt-3 text-xs leading-5 text-slate-500">Map imagery, place listings and route calculations are provided by Google Maps. Availability and accuracy depend on the map provider and the selected location.</p></div>
         </div>
 
         <aside className="space-y-5">
@@ -72,7 +72,7 @@ export default function ResaMapsExplorerPage() {
           <section className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5">
             <h2 className="font-extrabold text-emerald-950">{SCHOOL_NAME}</h2>
             <p className="mt-2 text-sm leading-6 text-emerald-900">{SCHOOL_ADDRESS}</p>
-            <a href={mapsSearchUrl(SCHOOL_ADDRESS)} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-emerald-900 underline underline-offset-4">View school on Google Maps <ExternalLink size={14}/></a>
+            <a href={mapsSearchUrl(`${SCHOOL_NAME}, ${SCHOOL_ADDRESS}`)} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-emerald-900 underline underline-offset-4">View {SCHOOL_NAME} on Google Maps <ExternalLink size={14}/></a>
           </section>
         </aside>
       </section>
