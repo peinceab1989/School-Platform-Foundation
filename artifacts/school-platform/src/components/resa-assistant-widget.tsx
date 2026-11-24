@@ -74,6 +74,20 @@ export default function ResaAssistantWidget() {
   }, []);
 
   useEffect(() => {
+    function keepAssistantInViewport() {
+      const bounds = containerRef.current?.getBoundingClientRect();
+      const width = bounds?.width ?? 72;
+      const height = bounds?.height ?? 56;
+      setPosition(current => current ? {
+        left: Math.max(8, Math.min(current.left, Math.max(8, window.innerWidth - width - 8))),
+        top: Math.max(8, Math.min(current.top, Math.max(8, window.innerHeight - height - 8))),
+      } : current);
+    }
+    window.addEventListener("resize", keepAssistantInViewport);
+    return () => window.removeEventListener("resize", keepAssistantInViewport);
+  }, []);
+
+  useEffect(() => {
     if (!position) return;
     try {
       localStorage.setItem("resa-assistant-position-v1", JSON.stringify(position));
