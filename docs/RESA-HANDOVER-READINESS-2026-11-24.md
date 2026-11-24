@@ -134,3 +134,19 @@ A read-only listing of `/RESA MASTER BACKUP/` confirms that the seven planned to
 - `01 GitHub Source Code`: includes a 2,822,086-byte repository ZIP dated 20 November 2026, plus older Paper documentation pinned to commit `3e947089`.
 
 **Backup verdict: NOT COMPLETE / NOT RESTORE-VERIFIED.** The source ZIP is useful but does not protect the live database, Auth identities or Storage object bytes. The owner-triggered encrypted Dropbox workflow on main must be run after its required GitHub Actions secrets are configured privately. Verify the uploaded encrypted archive's byte count and hash, preserve its passphrase separately, and perform an isolated restore rehearsal before treating it as a recovery point. No Dropbox file was changed during this inspection.
+
+
+## 7. Attendance reminder / communication inbox follow-up (24 Nov, 15:20 WAT)
+
+A second metadata-only query traced the large private-message volume to the attendance checkpoint reminder workflow; it is not evidence of 8,000 ordinary chat messages.
+
+- `school_messages` contains 8,432 rows with subject `Attendance checkpoint alert`, all in the private channel and with no chat-conversation ID. 8,431 are unread.
+- The cron job `resa-attendance-checkpoint-reminders` is active on `*/15 * * * *`; the last 24-hour job-run aggregate returned 96 successful runs.
+- The deployed `resa_process_attendance_checkpoints()` function only sends reminders during the Lagos 10:00–20:00 window and throttles each pending alert to one reminder every 30 minutes.
+- `attendance_checkpoint_alerts` currently has 266 pending alerts (109 staff, 157 students), with 4,188 reminders across those pending alerts; 7 alerts are resolved (3 staff, 4 students) with 28 reminders. The maximum reminder count on one alert is 17.
+- The message volume is consistent with the reminder function delivering each reminder to two authorised recipients. The repeated reminders are therefore active configured behaviour, not a confirmed accidental chat loop.
+- **Confirmed usability gap:** the live `resa_acknowledge_attendance_checkpoint(uuid,text)` RPC changes the alert to `acknowledged` and records who/when/note, but it does not mark the related `school_messages` rows as read. Thus acknowledging an alert does not clear its accumulated unread inbox entries. The UI calls this RPC and refreshes the alert list; no message-read cleanup is present in that RPC.
+
+**Required fix proposal (not applied):** introduce a safe, explicit relation between each reminder inbox entry and its `attendance_checkpoint_alerts.id` (for example, a dedicated nullable alert-reference column with an FK and appropriate index), populate it when reminders are emitted, and have the acknowledgement transaction mark only that alert's related inbox rows as read. Preserve the separate repeated push/portal reminder cadence while the alert remains pending. Backfill old messages only where a deterministic, verified mapping exists; do not bulk-mark the current inbox read. Implement and test on an isolated database branch first, then reconcile the production migration history and obtain explicit approval before production application.
+
+This is a high-priority Communication Centre acceptance item. No alert was acknowledged, no message was marked read, and no cron job or production function was changed during this investigation.
