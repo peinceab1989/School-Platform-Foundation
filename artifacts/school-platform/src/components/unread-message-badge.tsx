@@ -102,7 +102,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
         await registration.showNotification(title, {
           body,
           icon: "/media/logo/resa-logo.jpg",
-          badge: "/favicon.ico",
+          badge: "/media/logo/resa-logo.jpg?v=20261124",
           tag,
           data: { url },
         });
