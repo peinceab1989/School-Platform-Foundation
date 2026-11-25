@@ -21,11 +21,14 @@ Deno.serve(async (req) => {
     if (!token || token === authHeader) return json({ error: "Sign-in required" }, 401);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
+    const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get(secretKeys.default ?? "");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get(publishableKeys.default ?? "");
     const secretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
-    if (!supabaseUrl || !serviceKey || !secretKey) return json({ error: "Online payment is not configured yet." }, 503);
+    if (!supabaseUrl || !serviceKey || !anonKey || !secretKey) return json({ error: "Online payment is not configured yet." }, 503);
 
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+    const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
