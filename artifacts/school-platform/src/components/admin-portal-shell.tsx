@@ -51,6 +51,7 @@ const groups = [
     ["Reports", "/school-reports", ChartNoAxesCombined],
     ["Additional School Services", "/school-services", Database],
     ["Fees Management", "/fees-management", Wallet],
+    ["Payment Gateway Settings", "/payment-gateway-settings", ShieldCheck],
     ["Admissions & Applications", "/admissions-management", FileText],
     ["External CBT Candidates", "/external-cbt-management", ClipboardList],
     ["Publication Centre", "/publication-centre", ShieldCheck],
@@ -110,6 +111,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
             </button>
             {expanded && <div className="resa-nav-group-items">
               {group.items.map(([label, href, Icon]) => {
+                if (href === "/payment-gateway-settings" && userId !== "85bfff8f-72ee-49b8-bd80-213001468a0a") return null;
                 const active = location === href || (href === "/subjects" && location === "/subject-management") || (href === "/parent-management" && location === "/parents");
                 const ItemIcon = Icon as typeof LayoutDashboard;
                 return <Link key={href as string} href={href as string} aria-current={active ? "page" : undefined} className={`resa-nav-link ${active ? "active" : ""}`}>
