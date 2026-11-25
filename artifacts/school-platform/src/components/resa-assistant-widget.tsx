@@ -153,11 +153,25 @@ export default function ResaAssistantWidget() {
       if (error) throw error;
       if (typeof data?.answer !== "string" || !data.answer.trim()) throw new Error("The assistant returned no answer.");
       setMessages([...history, { role: "assistant" as const, content: data.answer.trim() }].slice(-8));
-    } catch {
+    } catch (caught) {
+      let serviceMessage = "";
+      const context = caught && typeof caught === "object" && "context" in caught
+        ? (caught as { context?: unknown }).context
+        : undefined;
+      if (context instanceof Response) {
+        try {
+          const payload = await context.clone().json() as { error?: unknown };
+          if (typeof payload?.error === "string" && payload.error.trim()) serviceMessage = payload.error.trim();
+        } catch {
+          // Keep the safe fallback if the response body is not readable JSON.
+        }
+      }
       const topic = findTopic(trimmed);
-      const answer = topic
-        ? `${topic.title}\n\n${topic.answer}\n\nVerified help-library fallback: the AI assistant is temporarily unavailable.`
-        : "The AI assistant is temporarily unavailable. Please try again later, use the verified Portal Navigation Guide, or contact RESA Customer Care. Do not share passwords or sensitive student information here.";
+      const answer = serviceMessage
+        ? `${serviceMessage}\n\nIf this continues, contact RESA Customer Care. Do not share passwords or sensitive student information here.`
+        : topic
+          ? `${topic.title}\n\n${topic.answer}\n\nVerified help-library fallback: the AI assistant is temporarily unavailable.`
+          : "The AI assistant is temporarily unavailable. Please try again later, use the verified Portal Navigation Guide, or contact RESA Customer Care. Do not share passwords or sensitive student information here.";
       setMessages([...history, { role: "assistant" as const, content: answer }].slice(-8));
       setFallbackNotice(true);
     } finally {
