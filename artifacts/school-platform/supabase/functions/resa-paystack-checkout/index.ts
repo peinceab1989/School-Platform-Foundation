@@ -7,6 +7,19 @@ const corsHeaders = {
   "Vary": "Origin",
 };
 
+const SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
+async function readVaultSecret(admin: any, provider: string, environment: string, kind: string): Promise<string | null> {
+  const { data: ref, error: refError } = await admin.from("school_payment_gateway_secret_refs")
+    .select("vault_secret_id").eq("school_id", SCHOOL_ID).eq("provider", provider)
+    .eq("environment", environment).eq("secret_kind", kind).maybeSingle();
+  if (refError) throw refError;
+  if (!ref?.vault_secret_id) return null;
+  const { data, error } = await admin.schema("vault").from("decrypted_secrets")
+    .select("decrypted_secret").eq("id", ref.vault_secret_id).maybeSingle();
+  if (error) throw error;
+  return typeof data?.decrypted_secret === "string" ? data.decrypted_secret : null;
+}
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { ...corsHeaders, "Content-Type": "application/json" },
 });
@@ -25,8 +38,7 @@ Deno.serve(async (req) => {
     const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? secretKeys.default;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? publishableKeys.default;
-    const secretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
-    if (!supabaseUrl || !serviceKey || !anonKey || !secretKey) return json({ error: "Online payment is not configured yet." }, 503);
+    if (!supabaseUrl || !serviceKey || !anonKey) return json({ error: "Online payment is not configured yet." }, 503);
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
@@ -68,6 +80,11 @@ Deno.serve(async (req) => {
     if (gatewayError) throw gatewayError;
     if (!gateway?.is_enabled || gateway.environment !== "test" && gateway.environment !== "live") {
       return json({ error: "Paystack checkout has not been enabled by school Finance." }, 503);
+    }
+    const secretKey = await readVaultSecret(admin, "paystack", gateway.environment, "api_secret_key");
+    const expectedKeyPrefix = gateway.environment === "test" ? "sk_test_" : "sk_live_";
+    if (!secretKey || !secretKey.startsWith(expectedKeyPrefix)) {
+      return json({ error: "The configured Paystack server credential is unavailable or does not match the active environment." }, 503);
     }
 
     const { data: existingPayments, error: paymentsError } = await admin.from("student_fee_payments")
