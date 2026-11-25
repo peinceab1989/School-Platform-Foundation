@@ -40,6 +40,9 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate encrypted backup exporter syntax
+        run: python3 -m py_compile scripts/resa_encrypted_dropbox_backup.py
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
