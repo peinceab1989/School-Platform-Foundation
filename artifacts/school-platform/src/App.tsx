@@ -289,6 +289,9 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [announcements, setAnnouncements] = useState<Array<Record<string, any>>>([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState("");
+  const [selectedOnlineFeeId, setSelectedOnlineFeeId] = useState("");
+  const [onlineCheckoutBusy, setOnlineCheckoutBusy] = useState(false);
+  const [onlineCheckoutError, setOnlineCheckoutError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -542,6 +545,24 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const totalBalance = feeRows.reduce((sum, row) => sum + Math.max(0, Number(row.amount_due || 0) - (paidByAssignment[String(row.id)] || 0)), 0);
   const money = (value: number) => "₦" + value.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Short, presentation-only identifier. The real Supabase user ID and login remain unchanged.
+  const payableFeeRows = feeRows.filter((row) => Math.max(0, Number(row.amount_due || 0) - (paidByAssignment[String(row.id)] || 0)) > 0);
+  const selectedOnlineFee = payableFeeRows.find((row) => String(row.id) === selectedOnlineFeeId);
+  async function startPaystackCheckout() {
+    if (!selectedOnlineFee || onlineCheckoutBusy) return;
+    setOnlineCheckoutBusy(true); setOnlineCheckoutError("");
+    try {
+      const db = getSupabaseClient() as any;
+      const { data, error } = await db.functions.invoke("resa-paystack-checkout", { body: { assignment_id: String(selectedOnlineFee.id) } });
+      if (error) throw error;
+      if (!data?.checkout_url || !/^https:\/\/checkout\.paystack\.com\//.test(String(data.checkout_url))) {
+        throw new Error(data?.error || "The payment provider did not return a valid checkout link.");
+      }
+      window.location.assign(String(data.checkout_url));
+    } catch (error) {
+      setOnlineCheckoutError(error instanceof Error ? error.message : "Online checkout is not available yet.");
+      setOnlineCheckoutBusy(false);
+    }
+  }
   const parentDisplayId = "RESA-PARENT-" + userId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase();
   const visibleAttendanceAlerts = attendanceAlerts.filter((alert: any) => {
     const alertDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(String(alert.created_at)));
@@ -655,25 +676,32 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
               <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">Optional online payment</span>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-center justify-between gap-2"><p className="font-extrabold text-slate-900">Paystack</p><span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">Activation pending</span></div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Secure online checkout for your learner's outstanding school fees. Checkout appears only after RESA Finance enables the verified merchant account.</p>
+                <label className="mt-3 block text-xs font-bold text-slate-700">Select outstanding fee
+                  <select value={selectedOnlineFeeId} onChange={(event) => { setSelectedOnlineFeeId(event.target.value); setOnlineCheckoutError(""); }} className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal">
+                    <option value="">Choose a fee</option>
+                    {payableFeeRows.map((row) => <option key={String(row.id)} value={String(row.id)}>{childName(String(row.student_id))} · {feeTypeNames[String(row.fee_type_id)] || "School fee"} · {money(Math.max(0, Number(row.amount_due || 0) - (paidByAssignment[String(row.id)] || 0)))}</option>)}
+                  </select>
+                </label>
+                {selectedOnlineFee && <p className="mt-2 text-xs text-slate-600">Amount payable: <strong>{money(Math.max(0, Number(selectedOnlineFee.amount_due || 0) - (paidByAssignment[String(selectedOnlineFee.id)] || 0)))}</strong></p>}
+                {onlineCheckoutError && <p role="alert" className="mt-2 rounded-lg bg-rose-50 p-2 text-xs text-rose-800">{onlineCheckoutError}</p>}
+                <button type="button" onClick={() => void startPaystackCheckout()} disabled={!selectedOnlineFee || onlineCheckoutBusy} className="mt-3 min-h-11 w-full rounded-xl bg-emerald-900 px-4 py-2.5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50">{onlineCheckoutBusy ? "Connecting securely…" : "Continue to Paystack"}</button>
+                <p className="mt-2 text-[11px] leading-5 text-slate-500">No receipt is created until Paystack independently confirms the exact payment and RESA records it.</p>
+              </div>
               {[
-                { name: "Paystack", detail: "Cards and supported local payment channels", status: "Setup pending" },
-                { name: "Monnify", detail: "Bank transfer and supported virtual-account channels", status: "Setup pending" },
-                { name: "Flutterwave", detail: "Cards, bank transfer and supported local channels", status: "Setup pending" },
+                { name: "Monnify", detail: "Bank transfer and supported virtual-account channels" },
+                { name: "Flutterwave", detail: "Cards, bank transfer and supported local channels" },
               ].map((provider) => (
                 <div key={provider.name} className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-extrabold text-slate-900">{provider.name}</p>
-                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">{provider.status}</span>
-                  </div>
+                  <div className="flex items-center justify-between gap-2"><p className="font-extrabold text-slate-900">{provider.name}</p><span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">Setup pending</span></div>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{provider.detail}.</p>
-                  <p className="mt-2 text-xs text-slate-500">Not available for collection yet. RESA must complete merchant onboarding, secure server configuration and test verification first.</p>
+                  <p className="mt-2 text-xs text-slate-500">Not enabled. RESA must complete provider onboarding, signed verification and end-to-end testing before accepting payments.</p>
                 </div>
               ))}
               <div className="rounded-xl border border-emerald-200 bg-white p-4">
-                <div className="flex items-center gap-2">
-                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">↗</span>
-                  <div><p className="font-extrabold text-emerald-950">Bank transfer or school office</p><p className="text-xs font-semibold text-emerald-700">Existing process · Finance verification</p></div>
-                </div>
+                <div className="flex items-center gap-2"><span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">↗</span><div><p className="font-extrabold text-emerald-950">Bank transfer or school office</p><p className="text-xs font-semibold text-emerald-700">Existing process · Finance verification</p></div></div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">Contact RESA through the official School Messages channel to confirm the school's approved account details or in-person payment procedure before sending money.</p>
                 <Link href="/school-communication" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-2.5 text-center text-sm font-extrabold text-white transition hover:bg-emerald-800">Contact RESA Finance</Link>
               </div>
