@@ -36,22 +36,25 @@ async function storeVaultSecret(admin: ReturnType<typeof backendClient>, provide
   const name = `resa_${SCHOOL_ID.replaceAll("-", "")}_${provider}_${environment}_${kind}`;
   const description = "RESA proprietor-managed payment credential; write-only from the portal.";
   const vault = admin.schema("vault") as any;
-  const created = await vault.rpc("create_secret", {
-    new_secret: value, new_name: name, new_description: description, new_key_id: null,
-  });
-  if (created.error || !created.data) throw new Error("Supabase Vault could not store the credential securely");
-  const newVaultId = String(created.data);
+  let vaultId: string;
+  if (refQuery.data?.vault_secret_id) {
+    const updated = await vault.rpc("update_secret", {
+      secret_id: refQuery.data.vault_secret_id, new_secret: value,
+      new_name: name, new_description: description, new_key_id: null,
+    });
+    if (updated.error || !updated.data) throw new Error("Supabase Vault could not rotate the credential securely");
+    vaultId = String(updated.data);
+  } else {
+    const created = await vault.rpc("create_secret", {
+      new_secret: value, new_name: name, new_description: description, new_key_id: null,
+    });
+    if (created.error || !created.data) throw new Error("Supabase Vault could not store the credential securely");
+    vaultId = String(created.data);
+  }
   const saved = await admin.from("school_payment_gateway_secret_refs").upsert({
-    school_id: SCHOOL_ID, provider, environment, secret_kind: kind, vault_secret_id: newVaultId, updated_at: new Date().toISOString(),
+    school_id: SCHOOL_ID, provider, environment, secret_kind: kind, vault_secret_id: vaultId, updated_at: new Date().toISOString(),
   }, { onConflict: "school_id,provider,environment,secret_kind" });
   if (saved.error) throw saved.error;
-  if (refQuery.data?.vault_secret_id) {
-    const oldId = String(refQuery.data.vault_secret_id);
-    if (oldId !== newVaultId) {
-      const removed = await admin.schema("vault").from("secrets").delete().eq("id", oldId);
-      if (removed.error) console.error("Old Vault credential cleanup needs review", removed.error.message);
-    }
-  }
 }
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
