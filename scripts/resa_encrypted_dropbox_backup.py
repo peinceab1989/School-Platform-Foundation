@@ -296,7 +296,7 @@ def export_database(root: pathlib.Path, db_url: str):
     except (subprocess.CalledProcessError, json.JSONDecodeError, ValueError):
         raise RuntimeError("Storage RLS policy export failed; backup stopped")
     (root / "storage-policies.json").write_text(
-        json.dumps(storage_policies, ensure_ascii=False, indent=2) + "\\n",
+        json.dumps(storage_policies, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
