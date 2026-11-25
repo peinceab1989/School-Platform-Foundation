@@ -13,6 +13,27 @@
 Live versions with no exact version match in root deployment directory: 96.
 Live versions with no exact version match in workspace directory: 125.
 
+## Important interpretation: exact versions versus migration names
+
+The exact-version comparison above is deliberately strict: it compares the numeric migration version in the live registry with the numeric prefix in each repository filename. A version mismatch **does not, by itself, prove that the SQL body is missing or different**. A migration may have been recorded under a different timestamp/version, renamed, applied manually, or recreated in another directory. Do not infer that it is safe to replay.
+
+A separate normalized-name cross-check was performed on 25 November 2026 (lowercase migration name suffix, excluding timestamp prefix):
+
+| Name comparison | Count |
+|---|---:|
+| Unique names in live registry | 131 |
+| Unique names in root migration directory | 48 |
+| Unique names in workspace migration directory | 54 |
+| Live names with a matching root filename suffix | 46 |
+| Live names with a matching workspace filename suffix | 33 |
+| Live names matching neither directory by suffix | 52 |
+| Unique root filename suffixes not present in live names | 2 |
+| Unique workspace filename suffixes not present in live names | 21 |
+
+There were no suffix names shared by both repository migration directories in this snapshot. This is further evidence that the two repository directories are not interchangeable. It is **not** a content-hash comparison: same-name SQL can still differ, and different-name SQL can contain equivalent statements. The exact SQL body and hash for each applied migration must still be recovered and compared before reconciliation.
+
+The lists below retain their literal meaning: they identify exact version-prefix matches or mismatches, not a definitive statement that a migration's SQL was never applied.
+
 ## Live versions missing from root deployment directory
 
 - 20261024051415 — add_secure_teacher_suspension
