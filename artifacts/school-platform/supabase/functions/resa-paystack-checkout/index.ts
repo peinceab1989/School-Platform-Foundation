@@ -23,8 +23,8 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
     const publishableKeys = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get(secretKeys.default ?? "");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get(publishableKeys.default ?? "");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? secretKeys.default;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? publishableKeys.default;
     const secretKey = Deno.env.get("PAYSTACK_SECRET_KEY");
     if (!supabaseUrl || !serviceKey || !anonKey || !secretKey) return json({ error: "Online payment is not configured yet." }, 503);
 
