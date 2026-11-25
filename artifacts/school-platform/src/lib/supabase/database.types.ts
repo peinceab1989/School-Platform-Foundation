@@ -356,6 +356,18 @@ export interface Database {
         Update: { id?: string; school_id?: string; assignment_id?: string; student_id?: string; submission_text?: string | null; attachment_url?: string | null; submitted_at?: string | null; score?: number | null; feedback?: string | null; status?: string; graded_by?: string | null; graded_at?: string | null; created_at?: string };
         Relationships: [];
       };
+      staff_appointments: {
+        Row: { id: string; school_id: string; staff_id: string; appointment_title: string; department: string | null; start_date: string; end_date: string | null; reference_number: string | null; notes: string | null; status: 'active' | 'ended' | 'revoked'; issued_by: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; school_id: string; staff_id: string; appointment_title: string; department?: string | null; start_date: string; end_date?: string | null; reference_number?: string | null; notes?: string | null; status?: 'active' | 'ended' | 'revoked'; issued_by?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; school_id?: string; staff_id?: string; appointment_title?: string; department?: string | null; start_date?: string; end_date?: string | null; reference_number?: string | null; notes?: string | null; status?: 'active' | 'ended' | 'revoked'; issued_by?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
+      staff_responsibility_assignments: {
+        Row: { id: string; school_id: string; staff_id: string; title: string; description: string | null; starts_on: string; ends_on: string | null; status: 'active' | 'completed' | 'revoked'; assigned_by: string | null; created_at: string; updated_at: string };
+        Insert: { id?: string; school_id: string; staff_id: string; title: string; description?: string | null; starts_on: string; ends_on?: string | null; status?: 'active' | 'completed' | 'revoked'; assigned_by?: string | null; created_at?: string; updated_at?: string };
+        Update: { id?: string; school_id?: string; staff_id?: string; title?: string; description?: string | null; starts_on?: string; ends_on?: string | null; status?: 'active' | 'completed' | 'revoked'; assigned_by?: string | null; created_at?: string; updated_at?: string };
+        Relationships: [];
+      };
       staff_document_permissions: {
         Row: { id: string; school_id: string; staff_id: string; document_type: string; can_print: boolean; granted_by: string | null; granted_at: string | null; updated_at: string };
         Insert: { id?: string; school_id: string; staff_id: string; document_type: string; can_print?: boolean; granted_by?: string | null; granted_at?: string | null; updated_at?: string };
