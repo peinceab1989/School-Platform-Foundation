@@ -18,7 +18,9 @@
 ## Required negative/security tests
 1. Unauthenticated caller, non-parent, inactive parent link and parent without fee visibility are denied.
 2. Unknown/forged reference, bad signature, stale modern signature timestamp, wrong provider transaction ID, non-success status, wrong currency and wrong amount are rejected.
-3. Expired intent is not fulfilled.
+3. Modern signature rotation accepts any valid signature matching an active configured signing secret; invalid signatures remain rejected.
+4. Temporary provider verification failures return a retryable error and do not permanently fail the payment intent.
+3. An expired checkout window cannot authorize a new checkout; a genuinely successful provider transaction whose webhook arrives after expiry is still reconciled exactly once.
 4. Concurrent successful intents for the same remaining balance cannot overpay the fee assignment.
 5. Browser callback or a fabricated client-side success response cannot issue a receipt.
 6. Existing cash, POS and bank-transfer Finance recording remains unchanged.
