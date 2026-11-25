@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight, LoaderCircle } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -55,6 +55,87 @@ export default function ResaAssistantWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState(false);
   const [fallbackNotice, setFallbackNotice] = useState(false);
+
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number; startX: number; startY: number; moved: boolean } | null>(null);
+  const suppressClick = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("resa-assistant-position-v1");
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as { left?: number; top?: number };
+      if (typeof parsed.left !== "number" || !Number.isFinite(parsed.left) ||
+          typeof parsed.top !== "number" || !Number.isFinite(parsed.top)) return;
+      setPosition({
+        left: Math.max(8, Math.min(parsed.left, Math.max(8, window.innerWidth - 80))),
+        top: Math.max(8, Math.min(parsed.top, Math.max(8, window.innerHeight - 80))),
+      });
+    } catch {
+      // Ignore invalid or unavailable saved positioning data.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!position) return;
+    try {
+      localStorage.setItem("resa-assistant-position-v1", JSON.stringify(position));
+    } catch {
+      // Positioning remains available for this session if storage is unavailable.
+    }
+  }, [position]);
+
+  useEffect(() => {
+    function keepAssistantInViewport() {
+      const bounds = containerRef.current?.getBoundingClientRect();
+      const width = bounds?.width ?? 72;
+      const height = bounds?.height ?? 56;
+      setPosition(current => current ? {
+        left: Math.max(8, Math.min(current.left, Math.max(8, window.innerWidth - width - 8))),
+        top: Math.max(8, Math.min(current.top, Math.max(8, window.innerHeight - height - 8))),
+      } : current);
+    }
+    window.addEventListener("resize", keepAssistantInViewport);
+    return () => window.removeEventListener("resize", keepAssistantInViewport);
+  }, []);
+
+  function startDrag(event: React.PointerEvent<HTMLElement>) {
+    if (event.button !== 0) return;
+    const bounds = containerRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - bounds.left,
+      offsetY: event.clientY - bounds.top,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveDrag(event: React.PointerEvent<HTMLElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (Math.abs(event.clientX - drag.startX) + Math.abs(event.clientY - drag.startY) > 6) drag.moved = true;
+    if (!drag.moved) return;
+    const bounds = containerRef.current?.getBoundingClientRect();
+    const width = bounds?.width ?? 72;
+    const height = bounds?.height ?? 56;
+    setPosition({
+      left: Math.max(8, Math.min(event.clientX - drag.offsetX, Math.max(8, window.innerWidth - width - 8))),
+      top: Math.max(8, Math.min(event.clientY - drag.offsetY, Math.max(8, window.innerHeight - height - 8))),
+    });
+  }
+
+  function endDrag(event: React.PointerEvent<HTMLElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    suppressClick.current = drag.moved;
+    dragRef.current = null;
+  }
+
   const activePage = useMemo(() => path.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "home", [path]);
 
   async function ask(value = question) {
@@ -84,11 +165,11 @@ export default function ResaAssistantWidget() {
     }
   }
 
-  return <div className="fixed bottom-4 right-4 z-[1200]">
+  return <div ref={containerRef} className={position ? "fixed z-[1200]" : "fixed bottom-4 right-4 z-[1200]"} style={position ? { left: position.left, top: position.top, right: "auto", bottom: "auto" } : undefined}>
     {open && <section role="dialog" aria-modal="false" aria-label="Ask RESA AI assistant" className="mb-3 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl">
-      <header className="flex items-center justify-between bg-[#103b2d] p-4 text-white">
+      <header onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} className="flex cursor-move touch-none select-none items-center justify-between bg-[#103b2d] p-4 text-white" title="Drag to move Ask RESA">
         <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">AI portal guidance • Page: {activePage}</p></div></div>
-        <button type="button" onClick={()=>setOpen(false)} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
+        <button type="button" onPointerDown={event=>event.stopPropagation()} onClick={()=>setOpen(false)} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
       </header>
       <div className="max-h-80 space-y-3 overflow-y-auto p-4" aria-live="polite">
         <p className="text-sm leading-6 text-slate-600">Hello! I can guide you through RESA's general portal features. I cannot view private school records or change account data. Please do not share passwords, payment details or sensitive personal information.</p>
@@ -104,7 +185,7 @@ export default function ResaAssistantWidget() {
       <footer className="flex justify-between gap-2 px-4 pb-3 text-xs"><a href="/portal-navigation-guide" className="font-semibold text-emerald-800 underline">Portal guide</a><a href="/maps" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MapPin size={12}/> Maps</a><a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MessageCircle size={12}/> Customer care</a></footer>
       <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">AI guidance is informational, may be inaccurate and cannot access private records or perform school actions.</p>
     </section>}
-    <button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open} aria-label={open ? "Close Ask RESA assistant" : "Open Ask RESA assistant"} className="ml-auto flex items-center gap-2 rounded-full bg-[#103b2d] px-4 py-3 font-bold text-white shadow-xl ring-2 ring-white transition hover:bg-[#1a5a3d]">
+    <button type="button" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={()=>{if(suppressClick.current){suppressClick.current=false;return;}setOpen(v=>!v);}} aria-expanded={open} aria-label={open ? "Close Ask RESA assistant" : "Open Ask RESA assistant"} className="ml-auto flex items-center gap-2 rounded-full bg-[#103b2d] px-4 py-3 font-bold text-white shadow-xl ring-2 ring-white transition hover:bg-[#1a5a3d]">
       {open ? <X size={19}/> : <MessageCircle size={19}/>}<span className="text-sm">Ask RESA</span>
     </button>
   </div>;
