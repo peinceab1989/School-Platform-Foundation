@@ -369,7 +369,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
             if ("serviceWorker" in navigator) {
               void navigator.serviceWorker.ready
                 .then(registration => registration.showNotification(title, {
-                  body, icon: "/favicon.ico", badge: "/favicon.ico",
+                  body, icon: "/media/logo/resa-logo.jpg?v=20261125", badge: "/media/logo/resa-logo.jpg?v=20261125",
                   tag: id, data: { url: "/parent-dashboard" },
                 }))
                 .catch(() => { new Notification(title, { body, tag: id }); });
@@ -2007,7 +2007,7 @@ function FoundationPage() {
 
     const showResaNotification = async (title: string, body: string, tag: string, url: string) => {
       if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
-      const options = { body, icon: '/favicon.ico', badge: '/favicon.ico', tag, data: { url } };
+      const options = { body, icon: '/media/logo/resa-logo.jpg?v=20261125', badge: '/media/logo/resa-logo.jpg?v=20261125', tag, data: { url } };
       try {
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.ready;
