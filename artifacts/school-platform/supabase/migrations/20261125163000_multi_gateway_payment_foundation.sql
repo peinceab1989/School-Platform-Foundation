@@ -106,3 +106,21 @@ create policy "parents and admins read own payment intents"
 
 -- No client INSERT/UPDATE/DELETE policies are intentionally created.
 -- Only trusted server-side functions using the service role may mutate these ledgers.
+
+
+-- Tighten the financial invariants and reserve mutation rights for trusted backend
+-- execution only. Browser roles remain read-only under the policies above.
+alter table public.student_fee_payment_intents
+  add constraint student_fee_intents_amount_minor_match
+  check (expected_amount_minor = round(expected_amount * 100)::bigint);
+
+create unique index if not exists student_fee_payment_intents_provider_txn_uidx
+  on public.student_fee_payment_intents (provider, provider_transaction_id)
+  where provider_transaction_id is not null;
+
+grant all privileges on public.school_payment_gateway_settings to service_role;
+grant all privileges on public.student_fee_payment_intents to service_role;
+grant all privileges on public.school_payment_webhook_events to service_role;
+
+-- The webhook ledger is intentionally invisible to browser sessions.
+revoke all on public.school_payment_webhook_events from public, anon, authenticated;
