@@ -259,7 +259,48 @@ def export_database(root: pathlib.Path, db_url: str):
             )
         except subprocess.CalledProcessError:
             raise RuntimeError("PostgreSQL role inventory failed; connection details suppressed")
-    return dump_file.stat().st_size
+    # Supabase-managed storage schema is excluded from pg_dump, so preserve
+    # its Row Level Security policy definitions separately for recovery review.
+    storage_policy_sql = """
+        SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'schema', schemaname,
+                    'table', tablename,
+                    'policy_name', policyname,
+                    'permissive', permissive,
+                    'roles', roles,
+                    'command', cmd,
+                    'using_expression', qual,
+                    'with_check_expression', with_check
+                )
+                ORDER BY tablename, policyname
+            ),
+            '[]'::json
+        )::text
+        FROM pg_policies
+        WHERE schemaname = 'storage';
+    """
+    try:
+        policy_export = subprocess.run(
+            ["psql", "--no-password", "--tuples-only", "--no-align", "-c", storage_policy_sql],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env=pg_env,
+        )
+        storage_policies = json.loads(policy_export.stdout.strip() or "[]")
+        if not isinstance(storage_policies, list):
+            raise ValueError("Storage policy export was not a JSON list")
+    except (subprocess.CalledProcessError, json.JSONDecodeError, ValueError):
+        raise RuntimeError("Storage RLS policy export failed; backup stopped")
+    (root / "storage-policies.json").write_text(
+        json.dumps(storage_policies, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    return dump_file.stat().st_size, len(storage_policies)
 
 
 def dropbox_access_token(app_key: str, app_secret: str, refresh_token: str) -> str:
@@ -383,7 +424,7 @@ def main():
     encrypted = pathlib.Path(tempfile.gettempdir()) / f"RESA-Supabase-Full-{timestamp}.tar.gz.gpg"
 
     try:
-        db_bytes = export_database(work, db_url)
+        db_bytes, storage_policy_count = export_database(work, db_url)
         auth_count = export_auth_users(work, supabase_url, service_key)
         bucket_count, object_count, storage_bytes = export_storage(
             work, supabase_url, service_key
@@ -396,10 +437,11 @@ def main():
             "storage_bucket_count": bucket_count,
             "storage_object_count": object_count,
             "storage_object_bytes": storage_bytes,
+            "storage_policy_count": storage_policy_count,
             "included": [
                 "application database schemas and data (excluding Supabase-managed schemas)",
                 "Auth user records and metadata (no passwords or active tokens)",
-                "Storage bucket configuration and downloaded object bytes",
+                "Storage bucket configuration, downloaded object bytes and storage RLS policy definitions",
                 "safe PostgreSQL role inventory (no role passwords)",
             ],
             "not_included": [
@@ -407,7 +449,7 @@ def main():
                 "Auth passwords, sessions, refresh tokens and MFA secrets",
                 "Supabase project secrets and API keys",
                 "Edge Function deployment secrets",
-                "Supabase-managed internal schemas",
+                "Supabase-managed internal schemas other than the separately exported Storage RLS policies",
             ],
         }
         (work / "backup-manifest.json").write_text(
