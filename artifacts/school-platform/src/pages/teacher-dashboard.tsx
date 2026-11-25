@@ -297,6 +297,10 @@ export default function TeacherDashboard({
     () => new Set(teachingAssignments.map((item) => item.subject_id)),
     [teachingAssignments],
   );
+  const currentAppointment = useMemo(
+    () => myAppointments.find((item) => item.status === 'active') ?? myAppointments[0] ?? null,
+    [myAppointments],
+  );
 
   // A subject is available for a class only when the signed-in teacher
   // has an assignment linking that exact class and subject.
@@ -1140,11 +1144,12 @@ export default function TeacherDashboard({
             <p style={{ margin: '5px 0 0', fontSize: 10 }}>1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria</p>
           </header>
           <p style={{ textAlign: 'right' }}>Date: {new Date().toLocaleDateString()}</p>
-          <h2 style={{ textAlign: 'center', textDecoration: 'underline', fontSize: 17 }}>STAFF ADMISSION LETTER</h2>
+          <h2 style={{ textAlign: 'center', textDecoration: 'underline', fontSize: 17 }}>STAFF APPOINTMENT LETTER</h2>
           <p>Dear {teacherName || 'Staff Member'},</p>
-          <p>We are pleased to confirm your admission to the staff of RESA in the position listed below. This staff admission confirmation is issued for your records by the school administration.</p>
-          <p><strong>Name:</strong> {teacherName || 'Staff member'}<br/><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}<br/><strong>Position:</strong> {staff.job_title || 'Not specified'}<br/><strong>Department:</strong> {staff.department || 'Not specified'}</p>
-          <p>Please retain this letter for your records. Detailed employment terms, reporting date, and any other conditions remain as stated in the separate official notice issued by Human Resources or the school administration.</p>
+          <p>We are pleased to confirm your appointment to the position recorded below. This letter reflects the formal appointment record issued by the school administration.</p>
+          <p><strong>Name:</strong> {teacherName || 'Staff member'}<br/><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}<br/><strong>Appointment:</strong> {currentAppointment?.appointment_title || 'Not specified'}<br/><strong>Department:</strong> {currentAppointment?.department || staff.department || 'Not specified'}<br/><strong>Effective date:</strong> {currentAppointment?.start_date || 'Not specified'}{currentAppointment?.end_date ? <><br/><strong>End date:</strong> {currentAppointment.end_date}</> : null}{currentAppointment?.reference_number ? <><br/><strong>Reference:</strong> {currentAppointment.reference_number}</> : null}</p>
+          {currentAppointment?.notes && <p><strong>Additional notes:</strong> {currentAppointment.notes}</p>}
+          <p>Please retain this letter for your records. Any further terms or conditions are governed by the separate official employment notice issued by Human Resources or the school administration.</p>
           <p style={{ marginTop: 48 }}>Yours faithfully,</p>
           <p style={{ marginTop: 28 }}><strong>Human Resources / School Administration</strong><br/>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p>
         </section>
@@ -1315,8 +1320,10 @@ export default function TeacherDashboard({
                   ) : (
                     <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>ID card printing awaits HR/admin approval</span>
                   )}
-                  {printPermissions.appointment_letter ? (
+                  {printPermissions.appointment_letter && currentAppointment ? (
                     <button type="button" style={buttonStyle} onClick={() => setPrintDocument('appointment_letter')}>Print appointment letter</button>
+                  ) : printPermissions.appointment_letter ? (
+                    <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>HR must record your formal appointment before a letter can be printed</span>
                   ) : (
                     <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>Appointment letter awaits HR/admin approval</span>
                   )}
