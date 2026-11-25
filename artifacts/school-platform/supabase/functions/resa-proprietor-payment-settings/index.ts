@@ -36,6 +36,14 @@ async function storeVaultSecret(admin: ReturnType<typeof backendClient>, provide
   });
   if (error) throw new Error("Supabase Vault could not store or rotate the credential securely");
 }
+
+async function readVaultSecret(admin: ReturnType<typeof backendClient>, provider: string, environment: string, kind: string): Promise<string | null> {
+  const { data, error } = await admin.rpc("resa_get_payment_gateway_secret", {
+    p_school_id: SCHOOL_ID, p_provider: provider, p_environment: environment, p_secret_kind: kind,
+  });
+  if (error) throw error;
+  return typeof data === "string" ? data : null;
+}
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -111,6 +119,11 @@ Deno.serve(async (req) => {
       if (refsError) throw refsError;
       const kinds = new Set((refs ?? []).map((x: any) => x.secret_kind));
       if (!kinds.has("api_secret_key") || !kinds.has("webhook_signing_secret")) return json({ error: "Save both the Paystack test API secret and webhook signing secret first." }, 409);
+      const testApiSecret = await readVaultSecret(admin, "paystack", "test", "api_secret_key");
+      if (!testApiSecret || !testApiSecret.startsWith("sk_test_")) return json({ error: "A valid Paystack test secret key is required." }, 409);
+      const validationResponse = await fetch("https://api.paystack.co/balance", { method: "GET", headers: { Authorization: `Bearer ${testApiSecret}` } });
+      const validationPayload = await validationResponse.json().catch(() => ({}));
+      if (!validationResponse.ok || validationPayload.status !== true) return json({ error: "Paystack rejected the test API key. Check the key in your Paystack dashboard and save it again." }, 409);
       const { error } = await admin.from("school_payment_gateway_settings").upsert({
         school_id: SCHOOL_ID, provider, environment: "test", is_enabled: true, activated_at: new Date().toISOString(), activated_by: auth.user.id, updated_at: new Date().toISOString(),
       }, { onConflict: "school_id,provider" });
