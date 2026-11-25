@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { validateMessages } from "./index.ts";
+import { validateMessages } from "./validation.ts";
 
 Deno.test("accepts a short user question", () => {
   assertEquals(validateMessages([{ role: "user", content: "How do I view published results?" }]), [
