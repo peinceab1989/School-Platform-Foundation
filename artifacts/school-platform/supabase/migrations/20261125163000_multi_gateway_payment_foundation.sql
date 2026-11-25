@@ -176,7 +176,7 @@ begin
       'receipt_number', v_receipt.receipt_number, 'payment_id', v_payment.id);
   end if;
 
-  if v_intent.status not in ('pending','processing') then
+  if v_intent.status not in ('pending','processing','expired') then
     raise exception 'Payment intent is not payable';
   end if;
   -- Do not reject a provider-confirmed successful charge merely because its
