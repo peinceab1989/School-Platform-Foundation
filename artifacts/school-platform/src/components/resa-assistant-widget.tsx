@@ -60,7 +60,7 @@ export default function ResaAssistantWidget() {
   async function ask(value = question) {
     const trimmed = value.trim();
     if (!trimmed || pending) return;
-    const history: ChatMessage[] = [...messages, { role: "user", content: trimmed }].slice(-8);
+    const history: ChatMessage[] = [...messages, { role: "user" as const, content: trimmed }].slice(-8);
     setMessages(history);
     setQuestion("");
     setPending(true);
