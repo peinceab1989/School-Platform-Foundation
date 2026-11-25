@@ -31,6 +31,8 @@ type MyStaffAttendance = {
   check_out_time: string | null;
   remarks: string | null;
 };
+type MyAppointment = { id: string; appointment_title: string; department: string | null; start_date: string; end_date: string | null; reference_number: string | null; notes: string | null; status: string };
+type MyResponsibility = { id: string; title: string; description: string | null; starts_on: string; ends_on: string | null; status: string };
 
 type TeachingAssignment = {
   id: string;
@@ -215,6 +217,9 @@ export default function TeacherDashboard({
   const [staff, setStaff] = useState<TeacherStaff | null>(null);
   const [myAttendance, setMyAttendance] = useState<MyStaffAttendance | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [myAppointments, setMyAppointments] = useState<MyAppointment[]>([]);
+  const [myResponsibilities, setMyResponsibilities] = useState<MyResponsibility[]>([]);
+  const [staffRecordsLoading, setStaffRecordsLoading] = useState(false);
   const [printPermissions, setPrintPermissions] = useState({ id_card: false, appointment_letter: false });
   const [printDocument, setPrintDocument] = useState<'id_card' | 'appointment_letter' | null>(null);
   const [staffQrPayload, setStaffQrPayload] = useState('');
@@ -292,6 +297,10 @@ export default function TeacherDashboard({
     () => new Set(teachingAssignments.map((item) => item.subject_id)),
     [teachingAssignments],
   );
+  const currentAppointment = useMemo(
+    () => myAppointments.find((item) => item.status === 'active') ?? myAppointments[0] ?? null,
+    [myAppointments],
+  );
 
   // A subject is available for a class only when the signed-in teacher
   // has an assignment linking that exact class and subject.
@@ -330,6 +339,25 @@ export default function TeacherDashboard({
       console.error('Could not load own staff attendance:', error);
     } finally {
       setAttendanceLoading(false);
+    }
+  }, [schoolId]);
+
+  const loadMyStaffRecords = useCallback(async (staffId: string) => {
+    setStaffRecordsLoading(true);
+    try {
+      const client = getSupabaseClient();
+      const [appointmentsResult, responsibilitiesResult] = await Promise.all([
+        client.from('staff_appointments').select('id, appointment_title, department, start_date, end_date, reference_number, notes, status').eq('school_id', schoolId).eq('staff_id', staffId).order('start_date', { ascending: false }),
+        client.from('staff_responsibility_assignments').select('id, title, description, starts_on, ends_on, status').eq('school_id', schoolId).eq('staff_id', staffId).order('starts_on', { ascending: false }),
+      ]);
+      if (appointmentsResult.error) throw appointmentsResult.error;
+      if (responsibilitiesResult.error) throw responsibilitiesResult.error;
+      setMyAppointments((appointmentsResult.data ?? []) as MyAppointment[]);
+      setMyResponsibilities((responsibilitiesResult.data ?? []) as MyResponsibility[]);
+    } catch (error) {
+      console.error('Could not load own staff appointments and responsibilities:', error);
+    } finally {
+      setStaffRecordsLoading(false);
     }
   }, [schoolId]);
 
@@ -383,6 +411,8 @@ export default function TeacherDashboard({
 
       if (!staffRecord) {
         setStaff(null);
+        setMyAppointments([]);
+        setMyResponsibilities([]);
         setTeachingAssignments([]);
         setClasses([]);
         setSubjects([]);
@@ -404,6 +434,7 @@ export default function TeacherDashboard({
       if (activeQrError) throw activeQrError;
       setStaffQrPayload(activeQrId ? 'RESA-ID:' + activeQrId : '');
       await loadMyAttendance(staffRecord.id);
+      await loadMyStaffRecords(staffRecord.id);
 
       const { data: permissionRows, error: permissionError } = await client
         .from('staff_document_permissions')
@@ -686,7 +717,7 @@ export default function TeacherDashboard({
     } finally {
       setLoading(false);
     }
-  }, [schoolId, userId, loadMyAttendance]);
+  }, [schoolId, userId, loadMyAttendance, loadMyStaffRecords]);
 
   useEffect(() => {
     void loadDashboard();
@@ -1113,11 +1144,12 @@ export default function TeacherDashboard({
             <p style={{ margin: '5px 0 0', fontSize: 10 }}>1, Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria</p>
           </header>
           <p style={{ textAlign: 'right' }}>Date: {new Date().toLocaleDateString()}</p>
-          <h2 style={{ textAlign: 'center', textDecoration: 'underline', fontSize: 17 }}>STAFF ADMISSION LETTER</h2>
+          <h2 style={{ textAlign: 'center', textDecoration: 'underline', fontSize: 17 }}>STAFF APPOINTMENT LETTER</h2>
           <p>Dear {teacherName || 'Staff Member'},</p>
-          <p>We are pleased to confirm your admission to the staff of RESA in the position listed below. This staff admission confirmation is issued for your records by the school administration.</p>
-          <p><strong>Name:</strong> {teacherName || 'Staff member'}<br/><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}<br/><strong>Position:</strong> {staff.job_title || 'Not specified'}<br/><strong>Department:</strong> {staff.department || 'Not specified'}</p>
-          <p>Please retain this letter for your records. Detailed employment terms, reporting date, and any other conditions remain as stated in the separate official notice issued by Human Resources or the school administration.</p>
+          <p>We are pleased to confirm your appointment to the position recorded below. This letter reflects the formal appointment record issued by the school administration.</p>
+          <p><strong>Name:</strong> {teacherName || 'Staff member'}<br/><strong>Staff ID:</strong> {staff.staff_number || 'Not assigned'}<br/><strong>Appointment:</strong> {currentAppointment?.appointment_title || 'Not specified'}<br/><strong>Department:</strong> {currentAppointment?.department || staff.department || 'Not specified'}<br/><strong>Effective date:</strong> {currentAppointment?.start_date || 'Not specified'}{currentAppointment?.end_date ? <><br/><strong>End date:</strong> {currentAppointment.end_date}</> : null}{currentAppointment?.reference_number ? <><br/><strong>Reference:</strong> {currentAppointment.reference_number}</> : null}</p>
+          {currentAppointment?.notes && <p><strong>Additional notes:</strong> {currentAppointment.notes}</p>}
+          <p>Please retain this letter for your records. Any further terms or conditions are governed by the separate official employment notice issued by Human Resources or the school administration.</p>
           <p style={{ marginTop: 48 }}>Yours faithfully,</p>
           <p style={{ marginTop: 28 }}><strong>Human Resources / School Administration</strong><br/>RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p>
         </section>
@@ -1288,8 +1320,10 @@ export default function TeacherDashboard({
                   ) : (
                     <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>ID card printing awaits HR/admin approval</span>
                   )}
-                  {printPermissions.appointment_letter ? (
+                  {printPermissions.appointment_letter && currentAppointment ? (
                     <button type="button" style={buttonStyle} onClick={() => setPrintDocument('appointment_letter')}>Print appointment letter</button>
+                  ) : printPermissions.appointment_letter ? (
+                    <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>HR must record your formal appointment before a letter can be printed</span>
                   ) : (
                     <span style={{ ...secondaryButtonStyle, display: 'inline-block' }}>Appointment letter awaits HR/admin approval</span>
                   )}
@@ -1326,6 +1360,34 @@ export default function TeacherDashboard({
                 </div>
               ) : (
                 <p>No linked staff profile is available.</p>
+              )}
+            </section>
+
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>My appointments & delegated duties</h2>
+              <p style={{ color: '#536456', lineHeight: 1.5, marginTop: 0 }}>View formal appointments and additional responsibilities assigned to you by RESA administrators.</p>
+              {staffRecordsLoading ? <p>Loading your staff records…</p> : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
+                  <div style={{ border: '1px solid #e0e7e0', borderRadius: 10, padding: 12 }}>
+                    <strong>Appointments</strong>
+                    {myAppointments.length === 0 ? <p style={{ color: '#64748b', fontSize: 13 }}>No appointment records have been issued to you yet.</p> : myAppointments.map(item => <article key={item.id} style={{ borderTop: '1px solid #e5e7eb', marginTop: 9, paddingTop: 9 }}>
+                      <strong>{item.appointment_title}</strong>
+                      <p style={{ margin: '4px 0', fontSize: 12, color: '#536456' }}>{item.department || 'RESA'} · {item.status}</p>
+                      <p style={{ margin: 0, fontSize: 12 }}>From {item.start_date}{item.end_date ? ' to ' + item.end_date : ''}</p>
+                      {item.reference_number && <p style={{ margin: '3px 0', fontSize: 12 }}>Reference: {item.reference_number}</p>}
+                      {item.notes && <p style={{ margin: '4px 0', fontSize: 13 }}>{item.notes}</p>}
+                    </article>)}
+                  </div>
+                  <div style={{ border: '1px solid #e0e7e0', borderRadius: 10, padding: 12 }}>
+                    <strong>Delegated responsibilities</strong>
+                    {myResponsibilities.length === 0 ? <p style={{ color: '#64748b', fontSize: 13 }}>No additional responsibilities have been assigned to you.</p> : myResponsibilities.map(item => <article key={item.id} style={{ borderTop: '1px solid #e5e7eb', marginTop: 9, paddingTop: 9 }}>
+                      <strong>{item.title}</strong>
+                      <p style={{ margin: '4px 0', fontSize: 12, color: '#536456' }}>{item.status}</p>
+                      <p style={{ margin: 0, fontSize: 12 }}>From {item.starts_on}{item.ends_on ? ' to ' + item.ends_on : ''}</p>
+                      {item.description && <p style={{ margin: '4px 0', fontSize: 13 }}>{item.description}</p>}
+                    </article>)}
+                  </div>
+                </div>
               )}
             </section>
 
