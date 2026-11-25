@@ -31,6 +31,8 @@ type MyStaffAttendance = {
   check_out_time: string | null;
   remarks: string | null;
 };
+type MyAppointment = { id: string; appointment_title: string; department: string | null; start_date: string; end_date: string | null; reference_number: string | null; notes: string | null; status: string };
+type MyResponsibility = { id: string; title: string; description: string | null; starts_on: string; ends_on: string | null; status: string };
 
 type TeachingAssignment = {
   id: string;
@@ -215,6 +217,9 @@ export default function TeacherDashboard({
   const [staff, setStaff] = useState<TeacherStaff | null>(null);
   const [myAttendance, setMyAttendance] = useState<MyStaffAttendance | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [myAppointments, setMyAppointments] = useState<MyAppointment[]>([]);
+  const [myResponsibilities, setMyResponsibilities] = useState<MyResponsibility[]>([]);
+  const [staffRecordsLoading, setStaffRecordsLoading] = useState(false);
   const [printPermissions, setPrintPermissions] = useState({ id_card: false, appointment_letter: false });
   const [printDocument, setPrintDocument] = useState<'id_card' | 'appointment_letter' | null>(null);
   const [staffQrPayload, setStaffQrPayload] = useState('');
@@ -333,6 +338,25 @@ export default function TeacherDashboard({
     }
   }, [schoolId]);
 
+  const loadMyStaffRecords = useCallback(async (staffId: string) => {
+    setStaffRecordsLoading(true);
+    try {
+      const client = getSupabaseClient();
+      const [appointmentsResult, responsibilitiesResult] = await Promise.all([
+        client.from('staff_appointments').select('id, appointment_title, department, start_date, end_date, reference_number, notes, status').eq('school_id', schoolId).eq('staff_id', staffId).order('start_date', { ascending: false }),
+        client.from('staff_responsibility_assignments').select('id, title, description, starts_on, ends_on, status').eq('school_id', schoolId).eq('staff_id', staffId).order('starts_on', { ascending: false }),
+      ]);
+      if (appointmentsResult.error) throw appointmentsResult.error;
+      if (responsibilitiesResult.error) throw responsibilitiesResult.error;
+      setMyAppointments((appointmentsResult.data ?? []) as MyAppointment[]);
+      setMyResponsibilities((responsibilitiesResult.data ?? []) as MyResponsibility[]);
+    } catch (error) {
+      console.error('Could not load own staff appointments and responsibilities:', error);
+    } finally {
+      setStaffRecordsLoading(false);
+    }
+  }, [schoolId]);
+
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setErrorText(null);
@@ -404,6 +428,7 @@ export default function TeacherDashboard({
       if (activeQrError) throw activeQrError;
       setStaffQrPayload(activeQrId ? 'RESA-ID:' + activeQrId : '');
       await loadMyAttendance(staffRecord.id);
+      await loadMyStaffRecords(staffRecord.id);
 
       const { data: permissionRows, error: permissionError } = await client
         .from('staff_document_permissions')
@@ -1326,6 +1351,34 @@ export default function TeacherDashboard({
                 </div>
               ) : (
                 <p>No linked staff profile is available.</p>
+              )}
+            </section>
+
+            <section style={panelStyle}>
+              <h2 style={sectionTitleStyle}>My appointments & delegated duties</h2>
+              <p style={{ color: '#536456', lineHeight: 1.5, marginTop: 0 }}>View formal appointments and additional responsibilities assigned to you by RESA administrators.</p>
+              {staffRecordsLoading ? <p>Loading your staff records…</p> : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
+                  <div style={{ border: '1px solid #e0e7e0', borderRadius: 10, padding: 12 }}>
+                    <strong>Appointments</strong>
+                    {myAppointments.length === 0 ? <p style={{ color: '#64748b', fontSize: 13 }}>No appointment records have been issued to you yet.</p> : myAppointments.map(item => <article key={item.id} style={{ borderTop: '1px solid #e5e7eb', marginTop: 9, paddingTop: 9 }}>
+                      <strong>{item.appointment_title}</strong>
+                      <p style={{ margin: '4px 0', fontSize: 12, color: '#536456' }}>{item.department || 'RESA'} · {item.status}</p>
+                      <p style={{ margin: 0, fontSize: 12 }}>From {item.start_date}{item.end_date ? ' to ' + item.end_date : ''}</p>
+                      {item.reference_number && <p style={{ margin: '3px 0', fontSize: 12 }}>Reference: {item.reference_number}</p>}
+                      {item.notes && <p style={{ margin: '4px 0', fontSize: 13 }}>{item.notes}</p>}
+                    </article>)}
+                  </div>
+                  <div style={{ border: '1px solid #e0e7e0', borderRadius: 10, padding: 12 }}>
+                    <strong>Delegated responsibilities</strong>
+                    {myResponsibilities.length === 0 ? <p style={{ color: '#64748b', fontSize: 13 }}>No additional responsibilities have been assigned to you.</p> : myResponsibilities.map(item => <article key={item.id} style={{ borderTop: '1px solid #e5e7eb', marginTop: 9, paddingTop: 9 }}>
+                      <strong>{item.title}</strong>
+                      <p style={{ margin: '4px 0', fontSize: 12, color: '#536456' }}>{item.status}</p>
+                      <p style={{ margin: 0, fontSize: 12 }}>From {item.starts_on}{item.ends_on ? ' to ' + item.ends_on : ''}</p>
+                      {item.description && <p style={{ margin: '4px 0', fontSize: 13 }}>{item.description}</p>}
+                    </article>)}
+                  </div>
+                </div>
               )}
             </section>
 
