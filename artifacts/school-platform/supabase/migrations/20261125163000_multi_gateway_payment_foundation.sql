@@ -179,11 +179,9 @@ begin
   if v_intent.status not in ('pending','processing') then
     raise exception 'Payment intent is not payable';
   end if;
-  if v_intent.expires_at is not null and v_intent.expires_at < now() then
-    update public.student_fee_payment_intents set status = 'expired', updated_at = now()
-      where id = v_intent.id;
-    raise exception 'Payment intent has expired';
-  end if;
+  -- Do not reject a provider-confirmed successful charge merely because its
+  -- checkout window elapsed before the webhook arrived. Expiry limits starting
+  -- checkout; independently verified settlement must still be reconciled.
   if p_verified_currency <> 'NGN'
     or p_verified_amount_minor <> v_intent.expected_amount_minor
     or v_intent.currency <> 'NGN'
