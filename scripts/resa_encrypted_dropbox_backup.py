@@ -436,7 +436,8 @@ def main():
             "auth_user_records": auth_count,
             "storage_bucket_count": bucket_count,
             "storage_object_count": object_count,
-            "storage_object_bytes": storage_bytes,\n            "storage_policy_count": storage_policy_count,
+            "storage_object_bytes": storage_bytes,
+            "storage_policy_count": storage_policy_count,
             "included": [
                 "application database schemas and data (excluding Supabase-managed schemas)",
                 "Auth user records and metadata (no passwords or active tokens)",
