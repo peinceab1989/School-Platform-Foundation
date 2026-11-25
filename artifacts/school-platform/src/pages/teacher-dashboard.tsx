@@ -407,6 +407,8 @@ export default function TeacherDashboard({
 
       if (!staffRecord) {
         setStaff(null);
+        setMyAppointments([]);
+        setMyResponsibilities([]);
         setTeachingAssignments([]);
         setClasses([]);
         setSubjects([]);
@@ -711,7 +713,7 @@ export default function TeacherDashboard({
     } finally {
       setLoading(false);
     }
-  }, [schoolId, userId, loadMyAttendance]);
+  }, [schoolId, userId, loadMyAttendance, loadMyStaffRecords]);
 
   useEffect(() => {
     void loadDashboard();
