@@ -18,5 +18,14 @@ The gateway processes a parent payment; the provider settles funds according to 
 ## Migration
 `20261125163000_multi_gateway_payment_foundation.sql` adds only provider metadata, pending payment intents and minimal webhook idempotency records. It does not alter or backfill existing fee/payment/receipt records, and it does not enable checkout.
 
+## Paystack implementation status
+The development branch now contains:
+- resa-paystack-checkout: authenticated parent checkout initiation, parent-child and fee-visibility checks, server-calculated balance, NGN amount conversion and server-side Paystack initialization.
+- resa-paystack-webhook: raw-body signature validation (modern timestamped Paystack-Signature and legacy x-paystack-signature), independent Paystack transaction verification and exact amount/currency/reference checks.
+- record_gateway_verified_school_fee_payment: service-role-only atomic transaction that records the verified online payment, creates one existing RESA receipt and updates the fee assignment.
+- Parent dashboard fee selector and Paystack checkout action.
+
+Monnify and Flutterwave remain planned adapters; their provider-specific checkout and webhook implementations are not yet complete. They must not be presented as active providers.
+
 ## Current deployment gate
-No provider is active until provider-specific Edge Functions, signed webhook verification, integration tests, secure Edge Function secrets and proprietor onboarding are complete. Existing offline Finance verification remains the supported collection process.
+The migration and Edge Functions are committed to the feature branch only. They have not been applied or deployed to production. No Paystack credentials, webhook signing secret or merchant settlement account have been configured. The Paystack gateway setting remains disabled by default. Existing offline Finance verification remains the supported collection process until the complete test and onboarding gates are passed.
