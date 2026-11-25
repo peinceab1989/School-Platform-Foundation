@@ -40,7 +40,9 @@ Deno.serve(async (req) => {
     if (event.event !== "charge.success" || !event.data?.reference) return new Response("Event ignored", { status: 200 });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get(secretKeys.default ?? "");
+    if (!serviceKey) throw new Error("Supabase server secret is not configured");
     const secretKey = Deno.env.get("PAYSTACK_SECRET_KEY")!;
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const reference = String(event.data.reference);
