@@ -654,19 +654,25 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
               </div>
               <span className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">Optional online payment</span>
             </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="flex items-center gap-2">
-                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-lg font-bold text-slate-700">₦</span>
-                  <div><p className="font-extrabold text-slate-900">Pay online with Paystack</p><p className="text-xs font-semibold text-amber-700">Coming soon · not activated</p></div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {[
+                { name: "Paystack", detail: "Cards and supported local payment channels", status: "Setup pending" },
+                { name: "Monnify", detail: "Bank transfer and supported virtual-account channels", status: "Setup pending" },
+                { name: "Flutterwave", detail: "Cards, bank transfer and supported local channels", status: "Setup pending" },
+              ].map((provider) => (
+                <div key={provider.name} className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-extrabold text-slate-900">{provider.name}</p>
+                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800">{provider.status}</span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{provider.detail}.</p>
+                  <p className="mt-2 text-xs text-slate-500">Not available for collection yet. RESA must complete merchant onboarding, secure server configuration and test verification first.</p>
                 </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">Secure online checkout will become available after RESA completes merchant onboarding, server-side verification and payment testing. Supported channels will depend on the school's approved Paystack configuration.</p>
-                <p className="mt-2 text-xs text-slate-500">No payment is taken from this option while it is inactive.</p>
-              </div>
+              ))}
               <div className="rounded-xl border border-emerald-200 bg-white p-4">
                 <div className="flex items-center gap-2">
                   <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800">↗</span>
-                  <div><p className="font-extrabold text-emerald-950">Bank transfer or school office</p><p className="text-xs font-semibold text-emerald-700">Ask Finance for verified instructions</p></div>
+                  <div><p className="font-extrabold text-emerald-950">Bank transfer or school office</p><p className="text-xs font-semibold text-emerald-700">Existing process · Finance verification</p></div>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">Contact RESA through the official School Messages channel to confirm the school's approved account details or in-person payment procedure before sending money.</p>
                 <Link href="/school-communication" className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-2.5 text-center text-sm font-extrabold text-white transition hover:bg-emerald-800">Contact RESA Finance</Link>
