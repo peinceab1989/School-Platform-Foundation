@@ -124,3 +124,130 @@ grant all privileges on public.school_payment_webhook_events to service_role;
 
 -- The webhook ledger is intentionally invisible to browser sessions.
 revoke all on public.school_payment_webhook_events from public, anon, authenticated;
+
+
+-- A server-only transaction that turns one independently verified Paystack intent
+-- into one existing RESA payment and one receipt, atomically.
+create or replace function public.record_gateway_verified_school_fee_payment(
+  p_intent_id uuid,
+  p_provider_transaction_id text,
+  p_verified_amount_minor bigint,
+  p_verified_currency text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_intent public.student_fee_payment_intents%rowtype;
+  v_assignment public.student_fee_assignments%rowtype;
+  v_payment public.student_fee_payments%rowtype;
+  v_receipt public.student_payment_receipts%rowtype;
+  v_paid numeric(12,2);
+  v_today date := (now() at time zone 'Africa/Lagos')::date;
+  v_receipt_number text;
+  v_payment_id uuid;
+  v_receipt_id uuid;
+begin
+  if coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' then
+    raise exception 'Trusted payment backend required' using errcode = '42501';
+  end if;
+
+  if p_intent_id is null or nullif(trim(coalesce(p_provider_transaction_id, '')), '') is null then
+    raise exception 'Verified payment identifiers are required';
+  end if;
+
+  select * into v_intent
+  from public.student_fee_payment_intents
+  where id = p_intent_id and provider = 'paystack'
+  for update;
+
+  if not found then raise exception 'Payment intent not found'; end if;
+
+  if v_intent.status = 'paid' then
+    select * into v_payment from public.student_fee_payments
+    where school_id = v_intent.school_id and idempotency_key = v_intent.id;
+    if not found then raise exception 'Paid intent has no matching payment; contact Finance'; end if;
+    select * into v_receipt from public.student_payment_receipts
+    where school_id = v_intent.school_id and payment_id = v_payment.id;
+    if not found then raise exception 'Paid intent has no matching receipt; contact Finance'; end if;
+    return jsonb_build_object('success', true, 'already_processed', true,
+      'receipt_number', v_receipt.receipt_number, 'payment_id', v_payment.id);
+  end if;
+
+  if v_intent.status not in ('pending','processing') then
+    raise exception 'Payment intent is not payable';
+  end if;
+  if v_intent.expires_at is not null and v_intent.expires_at < now() then
+    update public.student_fee_payment_intents set status = 'expired', updated_at = now()
+      where id = v_intent.id;
+    raise exception 'Payment intent has expired';
+  end if;
+  if p_verified_currency <> 'NGN'
+    or p_verified_amount_minor <> v_intent.expected_amount_minor
+    or v_intent.currency <> 'NGN'
+    or v_intent.expected_amount_minor <> round(v_intent.expected_amount * 100)::bigint then
+    raise exception 'Verified amount or currency does not match the payment intent';
+  end if;
+
+  select * into v_assignment
+  from public.student_fee_assignments
+  where id = v_intent.student_fee_assignment_id
+    and school_id = v_intent.school_id
+    and student_id = v_intent.student_id
+  for update;
+  if not found then raise exception 'Fee assignment no longer exists'; end if;
+
+  select coalesce(sum(amount_paid), 0) into v_paid
+  from public.student_fee_payments
+  where school_id = v_intent.school_id
+    and student_fee_assignment_id = v_assignment.id;
+
+  if v_intent.expected_amount > greatest(v_assignment.amount_due - v_paid, 0) then
+    raise exception 'Verified payment exceeds the remaining fee balance; manual Finance review required';
+  end if;
+
+  v_receipt_number := 'RESA-' || to_char(v_today, 'YYYYMMDD') || '-' ||
+    upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+
+  insert into public.student_fee_payments
+    (school_id, student_fee_assignment_id, student_id, amount_paid, payment_date,
+     payment_method, reference_number, remarks, receipt_number, idempotency_key)
+  values
+    (v_intent.school_id, v_assignment.id, v_assignment.student_id, v_intent.expected_amount,
+     v_today, 'online_paystack', 'PAYSTACK:' || v_intent.provider_reference,
+     'Paystack verified transaction ' || p_provider_transaction_id,
+     v_receipt_number, v_intent.id)
+  returning id into v_payment_id;
+
+  insert into public.student_payment_receipts
+    (school_id, payment_id, receipt_number, receipt_date, issued_to_student_id,
+     amount, payment_method, description, issued_by)
+  values
+    (v_intent.school_id, v_payment_id, v_receipt_number, v_today, v_assignment.student_id,
+     v_intent.expected_amount, 'online_paystack',
+     'Online school-fee payment verified by Paystack',
+     v_intent.initiated_by)
+  returning id into v_receipt_id;
+
+  update public.student_fee_assignments
+  set status = case when v_paid + v_intent.expected_amount >= v_assignment.amount_due
+    then 'paid' else 'partial' end
+  where id = v_assignment.id and school_id = v_intent.school_id;
+
+  update public.student_fee_payment_intents
+  set status = 'paid', provider_transaction_id = p_provider_transaction_id,
+      verified_amount_minor = p_verified_amount_minor, verified_currency = p_verified_currency,
+      verified_at = now(), updated_at = now()
+  where id = v_intent.id;
+
+  return jsonb_build_object('success', true, 'already_processed', false,
+    'receipt_number', v_receipt_number, 'payment_id', v_payment_id, 'receipt_id', v_receipt_id);
+end;
+$function$;
+
+revoke all on function public.record_gateway_verified_school_fee_payment(uuid, text, bigint, text)
+  from public, anon, authenticated;
+grant execute on function public.record_gateway_verified_school_fee_payment(uuid, text, bigint, text)
+  to service_role;
