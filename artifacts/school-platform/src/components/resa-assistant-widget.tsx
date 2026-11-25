@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight } from "lucide-react";
+import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight, LoaderCircle } from "lucide-react";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 type HelpTopic = {
   keys: string[];
@@ -8,6 +9,7 @@ type HelpTopic = {
   answer: string;
   href: string;
 };
+type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const helpTopics: HelpTopic[] = [
   { keys: ["attendance", "clock in", "clock out", "biometric", "check in", "check out"], title: "Attendance", answer: "Administrators can review daily attendance and manage registered devices in Smart Attendance Centre. Teachers and other users should use the attendance options available to their assigned role. If a device or scan fails, do not create a duplicate record; ask an authorised administrator to review it.", href: "/attendance" },
@@ -50,38 +52,57 @@ export default function ResaAssistantWidget() {
   const [path] = useLocation();
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [reply, setReply] = useState<HelpTopic | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [pending, setPending] = useState(false);
+  const [fallbackNotice, setFallbackNotice] = useState(false);
   const activePage = useMemo(() => path.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "home", [path]);
 
-  function ask(value = question) {
+  async function ask(value = question) {
     const trimmed = value.trim();
-    if (!trimmed) return;
-    setReply(findTopic(trimmed) ?? {
-      title: "I couldn't verify that answer",
-      answer: "I could not find a verified answer in the current RESA help library. Please try a shorter keyword, open the Portal Navigation Guide, or contact RESA Customer Care. I will not guess about school procedures or account permissions.",
-      href: "/portal-navigation-guide",
-      keys: [],
-    });
-    setQuestion(value);
+    if (!trimmed || pending) return;
+    const history: ChatMessage[] = [...messages, { role: "user" as const, content: trimmed }].slice(-8);
+    setMessages(history);
+    setQuestion("");
+    setPending(true);
+    setFallbackNotice(false);
+    try {
+      const { data, error } = await getSupabaseClient().functions.invoke<{ answer?: string }>("resa-ai-assistant", {
+        body: { messages: history, currentPage: activePage },
+      });
+      if (error) throw error;
+      if (typeof data?.answer !== "string" || !data.answer.trim()) throw new Error("The assistant returned no answer.");
+      setMessages([...history, { role: "assistant" as const, content: data.answer.trim() }].slice(-8));
+    } catch {
+      const topic = findTopic(trimmed);
+      const answer = topic
+        ? `${topic.title}\n\n${topic.answer}\n\nVerified help-library fallback: the AI assistant is temporarily unavailable.`
+        : "The AI assistant is temporarily unavailable. Please try again later, use the verified Portal Navigation Guide, or contact RESA Customer Care. Do not share passwords or sensitive student information here.";
+      setMessages([...history, { role: "assistant" as const, content: answer }].slice(-8));
+      setFallbackNotice(true);
+    } finally {
+      setPending(false);
+    }
   }
 
   return <div className="fixed bottom-4 right-4 z-[1200]">
-    {open && <section role="dialog" aria-modal="false" aria-label="RESA help assistant" className="mb-3 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl">
+    {open && <section role="dialog" aria-modal="false" aria-label="Ask RESA AI assistant" className="mb-3 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl">
       <header className="flex items-center justify-between bg-[#103b2d] p-4 text-white">
-        <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">Verified quick help • Page: {activePage}</p></div></div>
+        <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">AI portal guidance • Page: {activePage}</p></div></div>
         <button type="button" onClick={()=>setOpen(false)} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
       </header>
       <div className="max-h-80 space-y-3 overflow-y-auto p-4" aria-live="polite">
-        <p className="text-sm leading-6 text-slate-600">Hello! Ask about attendance, results, fees, assignments, admissions, staff accounts, examinations, school communication or directions.</p>
-        <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","Find RESA on the map"].map(q=><button type="button" key={q} onClick={()=>ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50">{q}</button>)}</div>
-        {reply && <div className="rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"><p className="font-bold text-slate-900">{reply.title}</p><p className="mt-1">{reply.answer}</p><a href={reply.href} className="mt-3 inline-flex items-center gap-1 font-bold text-emerald-800 underline underline-offset-4">Open relevant section <ArrowUpRight size={14}/></a></div>}
+        <p className="text-sm leading-6 text-slate-600">Hello! I can guide you through RESA's general portal features. I cannot view private school records or change account data. Please do not share passwords, payment details or sensitive personal information.</p>
+        <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","How do I use school fees?"].map(q=><button type="button" key={q} disabled={pending} onClick={()=>void ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50">{q}</button>)}</div>
+        {messages.map((message, index)=><div key={index} className={message.role==="user"?"ml-7 rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-emerald-950":"mr-3 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"}><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{message.role==="user"?"You":"Ask RESA"}</p><p className="whitespace-pre-wrap">{message.content}</p></div>)}
+        {pending && <div className="flex items-center gap-2 text-sm text-slate-500" role="status"><LoaderCircle size={16} className="animate-spin"/> Ask RESA is preparing a reply…</div>}
+        {fallbackNotice && <p className="text-[10px] text-amber-700">AI service unavailable; a verified help-library fallback may be shown.</p>}
       </div>
-      <form onSubmit={e=>{e.preventDefault();ask();}} className="flex gap-2 border-t border-slate-100 p-3">
-        <input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Type your question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700" aria-label="Ask RESA a question"/>
-        <button type="submit" aria-label="Send question" className="rounded-xl bg-[#174c35] px-3 text-white"><Send size={17}/></button>
+      <form onSubmit={e=>{e.preventDefault();void ask();}} className="flex gap-2 border-t border-slate-100 p-3">
+        <input value={question} onChange={e=>setQuestion(e.target.value)} maxLength={1200} disabled={pending} placeholder="Ask a portal question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 disabled:bg-slate-50" aria-label="Ask RESA a question"/>
+        <button type="submit" aria-label="Send question" disabled={pending || !question.trim()} className="rounded-xl bg-[#174c35] px-3 text-white disabled:opacity-50">{pending?<LoaderCircle size={17} className="animate-spin"/>:<Send size={17}/>}</button>
       </form>
       <footer className="flex justify-between gap-2 px-4 pb-3 text-xs"><a href="/portal-navigation-guide" className="font-semibold text-emerald-800 underline">Portal guide</a><a href="/maps" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MapPin size={12}/> Maps</a><a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MessageCircle size={12}/> Customer care</a></footer>
-      <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">This version uses a curated help library, not generative AI. It cannot see private records or change account data.</p>
+      <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">AI guidance is informational, may be inaccurate and cannot access private records or perform school actions.</p>
     </section>}
     <button type="button" onClick={()=>setOpen(v=>!v)} aria-expanded={open} aria-label={open ? "Close Ask RESA assistant" : "Open Ask RESA assistant"} className="ml-auto flex items-center gap-2 rounded-full bg-[#103b2d] px-4 py-3 font-bold text-white shadow-xl ring-2 ring-white transition hover:bg-[#1a5a3d]">
       {open ? <X size={19}/> : <MessageCircle size={19}/>}<span className="text-sm">Ask RESA</span>
