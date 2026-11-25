@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
     const authorization = req.headers.get("Authorization") ?? "";
     if (authorization.startsWith("Bearer ")) {
       const token = authorization.slice(7).trim();
-      if (token && !token.startsWith("sb_publishable_")) {
+      if (token && token !== SUPABASE_ANON_KEY && !token.startsWith("sb_publishable_")) {
         const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
           auth: { persistSession: false, autoRefreshToken: false },
           global: { headers: { Authorization: authorization } },
