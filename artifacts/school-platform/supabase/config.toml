@@ -1,0 +1,11 @@
+# RESA Edge Function JWT policy.
+[functions.resa-paystack-checkout]
+verify_jwt = true
+
+[functions.resa-proprietor-payment-settings]
+verify_jwt = true
+
+# Paystack does not send a Supabase JWT. The handler verifies the raw-body
+# Paystack HMAC signature before processing any event.
+[functions.resa-paystack-webhook]
+verify_jwt = false
