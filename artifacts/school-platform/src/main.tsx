@@ -64,7 +64,7 @@ function ResaInstallPrompt() {
     try {
       window.localStorage.setItem('resa-install-prompt-dismissed', '1');
     } catch {
-      // Dismissing the prompt should not fail in private browsing.
+      // Dismissing the prompt should not fail when browser storage is unavailable.
     }
   };
 
@@ -167,6 +167,20 @@ window.addEventListener('vite:preloadError', (event: Event) => {
   }
   console.error('RESA could not load a page module after its one automatic recovery attempt.', event);
 });
+
+// Remove the invisible WORD JOINER that can be introduced when a URL is
+// copied from formatted chat text. It is not a valid RESA route and would
+// otherwise fall through to the router's 404 page.
+const currentUrl = new URL(window.location.href);
+const normalizedPathname = currentUrl.pathname.replace(/\u2060/g, '');
+if (normalizedPathname !== currentUrl.pathname) {
+  currentUrl.pathname = normalizedPathname;
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`,
+  );
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('RESA app root element was not found.');
