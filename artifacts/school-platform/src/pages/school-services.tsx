@@ -163,7 +163,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setError("Your file selection was not retained. Please choose it again, wait for its name to appear, then upload.");
       return;
     }
-    if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 100 MB limit on the current Supabase Free plan. Compress it or choose a smaller file."); return; }
+    if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 50 MB per-file limit supported by the current Supabase Free plan. Compress it or choose a smaller file."); return; }
     setUploading(true); setError(""); setNotice(""); setUploadStage("Checking your school account");
     const db = getSupabaseClient() as any;
     let uploadedPath = "";
