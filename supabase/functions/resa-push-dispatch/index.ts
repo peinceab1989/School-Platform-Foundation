@@ -349,7 +349,7 @@ Deno.serve(async (request) => {
         url: "/notifications",
         tag: "resa-push-test-" + crypto.randomUUID(),
         icon: "/media/logo/resa-logo.jpg",
-        badge: "/favicon.ico",
+        badge: "/media/logo/resa-logo.jpg?v=20261125",
         vibrate: [180, 90, 180],
       });
       let sent = 0;
@@ -433,7 +433,7 @@ Deno.serve(async (request) => {
     const payload = JSON.stringify({
       ...notice,
       icon: "/media/logo/resa-logo.jpg",
-      badge: "/favicon.ico",
+      badge: "/media/logo/resa-logo.jpg?v=20261125",
       vibrate: [180, 90, 180],
     });
 
