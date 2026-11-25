@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.resa-external-cbt]
 verify_jwt = true
+
+[functions.resa-ai-assistant]
+verify_jwt = true
