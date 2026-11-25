@@ -11,22 +11,9 @@ async function hmac(secret: string, message: Uint8Array): Promise<string> {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
   return hex(await crypto.subtle.sign("HMAC", key, message));
 }
-async function verifySignature(raw: Uint8Array, request: Request): Promise<boolean> {
-  const legacySecret = Deno.env.get("PAYSTACK_SECRET_KEY");
+async function verifySignature(raw: Uint8Array, request: Request, signingSecrets: string[]): Promise<boolean> {
   const modern = request.headers.get("paystack-signature");
   if (modern) {
-    const configured = Deno.env.get("PAYSTACK_WEBHOOK_SECRETS");
-    const single = Deno.env.get("PAYSTACK_WEBHOOK_SECRET");
-    let signingSecrets: string[] = [];
-    if (configured) {
-      try {
-        const parsed = JSON.parse(configured);
-        if (Array.isArray(parsed)) signingSecrets = parsed.filter((value): value is string => typeof value === "string" && value.length > 0);
-      } catch {
-        return false;
-      }
-    }
-    if (single && !signingSecrets.includes(single)) signingSecrets.push(single);
     if (!signingSecrets.length) return false;
     const parts = modern.split(",");
     const timestamp = parts.find((p) => p.trim().startsWith("t="))?.trim().slice(2);
@@ -43,24 +30,48 @@ async function verifySignature(raw: Uint8Array, request: Request): Promise<boole
     return false;
   }
   const legacy = request.headers.get("x-paystack-signature");
-  if (legacy && legacySecret && /^[0-9a-f]{128}$/.test(legacy)) return equal(await hmac(legacySecret, raw), legacy);
+  if (legacy && /^[0-9a-f]{128}$/.test(legacy)) {
+    for (const secret of signingSecrets) if (equal(await hmac(secret, raw), legacy)) return true;
+  }
   return false;
+}
+const SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
+async function readVaultSecret(admin: any, environment: string, kind: string): Promise<string | null> {
+  const { data: ref, error: refError } = await admin.from("school_payment_gateway_secret_refs")
+    .select("vault_secret_id").eq("school_id", SCHOOL_ID).eq("provider", "paystack")
+    .eq("environment", environment).eq("secret_kind", kind).maybeSingle();
+  if (refError) throw refError;
+  if (!ref?.vault_secret_id) return null;
+  const { data, error } = await admin.schema("vault").from("decrypted_secrets")
+    .select("decrypted_secret").eq("id", ref.vault_secret_id).maybeSingle();
+  if (error) throw error;
+  return typeof data?.decrypted_secret === "string" ? data.decrypted_secret : null;
 }
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   try {
-    const raw = new Uint8Array(await req.arrayBuffer());
-    if (!(await verifySignature(raw, req))) return new Response("Invalid signature", { status: 401 });
-    const event = JSON.parse(new TextDecoder().decode(raw));
-    if (event.event !== "charge.success" || !event.data?.reference) return new Response("Event ignored", { status: 200 });
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? secretKeys.default;
-    if (!serviceKey) throw new Error("Supabase server secret is not configured");
-    const secretKey = Deno.env.get("PAYSTACK_SECRET_KEY")!;
+    if (!supabaseUrl || !serviceKey) throw new Error("Supabase server secret is not configured");
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: webhookRefs, error: webhookRefsError } = await admin.from("school_payment_gateway_secret_refs")
+      .select("vault_secret_id").eq("school_id", SCHOOL_ID).eq("provider", "paystack")
+      .eq("secret_kind", "webhook_signing_secret");
+    if (webhookRefsError) throw webhookRefsError;
+    const signingSecrets: string[] = [];
+    for (const ref of webhookRefs ?? []) {
+      const { data, error } = await admin.schema("vault").from("decrypted_secrets")
+        .select("decrypted_secret").eq("id", ref.vault_secret_id).maybeSingle();
+      if (error) throw error;
+      if (typeof data?.decrypted_secret === "string" && data.decrypted_secret.length) signingSecrets.push(data.decrypted_secret);
+    }
+    const raw = new Uint8Array(await req.arrayBuffer());
+    if (!(await verifySignature(raw, req, signingSecrets))) return new Response("Invalid signature", { status: 401 });
+    const event = JSON.parse(new TextDecoder().decode(raw));
+    if (event.event !== "charge.success" || !event.data?.reference) return new Response("Event ignored", { status: 200 });
+
     const reference = String(event.data.reference);
     const { data: intent, error: intentError } = await admin.from("student_fee_payment_intents")
       .select("id,expected_amount_minor,currency,status,provider").eq("provider", "paystack")
@@ -68,6 +79,16 @@ Deno.serve(async (req) => {
     if (intentError) throw intentError;
     if (!intent) return new Response("Unknown reference", { status: 200 });
     if (intent.status === "paid") return new Response("Already processed", { status: 200 });
+    const { data: gateway, error: gatewayError } = await admin.from("school_payment_gateway_settings")
+      .select("environment").eq("school_id", SCHOOL_ID).eq("provider", "paystack").maybeSingle();
+    if (gatewayError) throw gatewayError;
+    const environment = gateway?.environment === "live" ? "live" : "test";
+    const secretKey = await readVaultSecret(admin, environment, "api_secret_key");
+    const expectedPrefix = environment === "live" ? "sk_live_" : "sk_test_";
+    if (!secretKey || !secretKey.startsWith(expectedPrefix)) {
+      console.error("RESA Paystack verification credential is unavailable for the active environment");
+      return new Response("Payment verification is temporarily unavailable", { status: 500 });
+    }
 
     const verifyResponse = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: { Authorization: `Bearer ${secretKey}` },
