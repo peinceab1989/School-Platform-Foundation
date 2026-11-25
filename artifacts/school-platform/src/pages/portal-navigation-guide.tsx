@@ -14,6 +14,7 @@ const sections = [
       ["Parents & Guardians", "/parent-management", "Manage parent records and approved learner links."],
       ["Classes & Subjects", "/classes", "Maintain classes, subjects and academic sessions."],
       ["Attendance", "/attendance", "Review daily learner attendance."],
+      ["Form Teacher & Attendance", "/form-teacher-attendance", "Assign an existing form-teacher operational link for a class and academic session. This is not the wider responsibility appointment and approval workflow."],
       ["Teaching Assignments", "/teaching-assignments", "Assign each teacher to the correct class, subject and academic session."],
       ["Examinations & CBT", "/examinations", "Manage online examinations and attempts."],
       ["Results Management", "/results-management", "Enter, review and publish academic results."],
@@ -93,6 +94,20 @@ const taskGuides: TaskGuide[] = [
     ],
     href: "/teaching-assignments",
     linkLabel: "Open Teaching Assignments",
+  },
+  {
+    title: "Assign a form teacher for a class",
+    role: "Administrator",
+    keywords: ["form teacher", "class teacher", "form tutor", "assign form teacher", "class attendance teacher"],
+    steps: [
+      "Confirm the teacher is an active, verified staff member and that the correct class and academic session already exist.",
+      "Open Form Teacher & Attendance and select the intended teacher, class and academic session.",
+      "Review the selection carefully before saving. Do not assign a teacher to a class or session without school management approval.",
+      "Confirm the saved assignment appears in the current assignment list, then ask the teacher to verify the correct class and session in their attendance workspace.",
+      "Important: this page manages the existing form-teacher attendance assignment only. It does not appoint Customer Care, Attendance Supervisor, Examination Officer, HOD or other delegated responsibilities. Those require the separate administrator-initiated appointment and approval workflow, which is still pending implementation.",
+    ],
+    href: "/form-teacher-attendance",
+    linkLabel: "Open Form Teacher & Attendance",
   },
   {
     title: "Take and review daily attendance",
