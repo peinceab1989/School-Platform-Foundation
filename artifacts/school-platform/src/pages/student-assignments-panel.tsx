@@ -9,13 +9,14 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [submissionStatusUnavailable, setSubmissionStatusUnavailable] = useState(false);
   const [emptyReason, setEmptyReason] = useState("No published assignments are available for your current enrolment yet.");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [submissionText, setSubmissionText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const load = useCallback(async () => {
-    setLoading(true); setError(""); setNotice("");
+    setLoading(true); setError(""); setNotice(""); setSubmissionStatusUnavailable(false);
     try {
       const db = getSupabaseClient() as any;
       const student = await db.from("students").select("id").eq("school_id", schoolId).eq("user_id", userId).maybeSingle();
@@ -40,7 +41,10 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
         db.from("assignment_submissions").select("assignment_id,status,submission_text,attachment_url,submitted_at,score,feedback").eq("school_id", schoolId).eq("student_id", student.data.id).in("assignment_id", assignmentIds),
       ]);
       if (subjectResult.error) throw subjectResult.error;
-      if (submissionResult.error) setNotice("Assignments are loaded, but submission status is temporarily unavailable.");
+      if (submissionResult.error) {
+        setSubmissionStatusUnavailable(true);
+        setNotice("Assignments are visible, but submission status could not be verified. Submitting is temporarily disabled to prevent duplicate work. Refresh or contact the school administrator.");
+      }
       const subjectNames = new Map((subjectResult.data ?? []).map((item: any) => [item.id, item.name]));
       const submissions = new Map((submissionResult.data ?? []).map((item: any) => [item.assignment_id, item]));
       setItems(assignments.map((item: any) => {
@@ -60,6 +64,7 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
   };
 
   const submitAssignment = async (item: Assignment) => {
+    if (submissionStatusUnavailable) { setError("Submission status could not be verified. Refresh the assignments before submitting."); return; }
     if (!submissionText.trim() && !(item.assignment_type === "practical" && evidenceFile)) { setError(item.assignment_type === "practical" ? "Write a short explanation or attach photo, video or document evidence before submitting." : "Write your answer before submitting."); return; }
     if (evidenceFile && evidenceFile.size > 50 * 1024 * 1024) { setError("Evidence files must be 50 MB or smaller on the RESA Free storage plan."); return; }
     if (item.due_date && new Date(item.due_date).getTime() < Date.now()) { setError("The submission deadline has passed. Please contact your teacher."); return; }
@@ -128,7 +133,7 @@ export default function StudentAssignmentsPanel({ schoolId, userId }: { schoolId
               <textarea id={`assignment-answer-${item.id}`} value={submissionText} onChange={event => setSubmissionText(event.target.value)} rows={7} maxLength={20000} required={item.assignment_type !== "practical" || !evidenceFile} placeholder={item.assignment_type === "practical" ? "Describe what you did, your observations and your conclusion (or attach evidence below)…" : "Type your answer here…"} style={{ display: "block", width: "100%", boxSizing: "border-box", marginTop: 8, border: "1px solid #cbd5cb", borderRadius: 8, padding: 12, font: "inherit", resize: "vertical" }} />
               {item.assignment_type === "practical" && <label style={{ display: "block", marginTop: 12, fontSize: 13, fontWeight: 700 }}>Attach practical evidence (photo, video or document; max 50 MB)<input type="file" accept="image/*,video/*,.pdf,.doc,.docx,.txt" onChange={event=>setEvidenceFile(event.target.files?.[0] ?? null)} style={{ display: "block", width: "100%", marginTop: 7, border: "1px solid #cbd5cb", borderRadius: 8, padding: 9, background: "#fff" }} /></label>}
               {evidenceFile && <p style={{ margin: "7px 0 0", fontSize: 12, color: "#536456", overflowWrap: "anywhere" }}>Selected evidence: {evidenceFile.name} · {(evidenceFile.size / (1024 * 1024)).toFixed(1)} MB</p>}
-              <button type="submit" disabled={submitting} style={{ marginTop: 10, border: 0, borderRadius: 8, padding: "11px 16px", background: "#17623d", color: "#fff", fontWeight: 700, cursor: submitting ? "wait" : "pointer", opacity: submitting ? 0.65 : 1 }}>{submitting ? "Submitting…" : item.submission_status ? "Update submission" : "Submit assignment"}</button>
+              <button type="submit" disabled={submitting || submissionStatusUnavailable} style={{ marginTop: 10, border: 0, borderRadius: 8, padding: "11px 16px", background: "#17623d", color: "#fff", fontWeight: 700, cursor: submitting ? "wait" : "pointer", opacity: submitting ? 0.65 : 1 }}>{submitting ? "Submitting…" : submissionStatusUnavailable ? "Submission temporarily unavailable" : item.submission_status ? "Update submission" : "Submit assignment"}</button>
             </form>}
           </div>}
         </article>)}
