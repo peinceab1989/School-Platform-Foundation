@@ -8,7 +8,6 @@ const corsHeaders = {
 };
 
 const SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
-const SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
 async function readVaultSecret(admin: any, provider: string, environment: string, kind: string): Promise<string | null> {
   const { data, error } = await admin.rpc("resa_get_payment_gateway_secret", {
     p_school_id: SCHOOL_ID, p_provider: provider, p_environment: environment, p_secret_kind: kind,
