@@ -4,6 +4,8 @@ import { ArrowLeft, BriefcaseBusiness, RefreshCw, Search, UserPlus, Users, X } f
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 type DocumentPermission = { staff_id: string; document_type: "id_card" | "appointment_letter"; can_print: boolean };
+type StaffAppointment = { id: string; staff_id: string; appointment_title: string; department: string | null; start_date: string; end_date: string | null; reference_number: string | null; notes: string | null; status: "active" | "ended" | "revoked" };
+type StaffResponsibility = { id: string; staff_id: string; title: string; description: string | null; starts_on: string; ends_on: string | null; status: "active" | "completed" | "revoked" };
 
 type Employee = {
   id: string; person_id: string; user_id: string | null; staff_number: string | null;
@@ -25,6 +27,20 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [documentPermissions, setDocumentPermissions] = useState<Record<string, { id_card: boolean; appointment_letter: boolean }>>({});
+  const [appointments, setAppointments] = useState<StaffAppointment[]>([]);
+  const [responsibilities, setResponsibilities] = useState<StaffResponsibility[]>([]);
+  const [appointmentStaffId, setAppointmentStaffId] = useState("");
+  const [appointmentTitle, setAppointmentTitle] = useState("");
+  const [appointmentDepartment, setAppointmentDepartment] = useState("");
+  const [appointmentStart, setAppointmentStart] = useState(new Date().toISOString().slice(0, 10));
+  const [appointmentEnd, setAppointmentEnd] = useState("");
+  const [appointmentReference, setAppointmentReference] = useState("");
+  const [appointmentNotes, setAppointmentNotes] = useState("");
+  const [responsibilityStaffId, setResponsibilityStaffId] = useState("");
+  const [responsibilityTitle, setResponsibilityTitle] = useState("");
+  const [responsibilityDescription, setResponsibilityDescription] = useState("");
+  const [responsibilityStart, setResponsibilityStart] = useState(new Date().toISOString().slice(0, 10));
+  const [responsibilityEnd, setResponsibilityEnd] = useState("");
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -45,7 +61,7 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
         .eq("school_id", schoolId).order("created_at", { ascending: false });
       if (staffError) throw staffError;
       const rows = staffRows ?? [];
-      if (!rows.length) { setEmployees([]); setDocumentPermissions({}); return; }
+      if (!rows.length) { setEmployees([]); setDocumentPermissions({}); setAppointments([]); setResponsibilities([]); return; }
       const { data: permissionRows, error: permissionError } = await client.from("staff_document_permissions")
         .select("staff_id,document_type,can_print").eq("school_id", schoolId);
       if (permissionError) throw permissionError;
@@ -67,6 +83,14 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
         return [{ ...r, first_name: p.first_name, middle_name: p.middle_name, last_name: p.last_name,
           email: p.email, phone: p.phone, address: p.address }] as Employee[];
       }));
+      const [{ data: appointmentRows, error: appointmentError }, { data: responsibilityRows, error: responsibilityError }] = await Promise.all([
+        client.from("staff_appointments").select("id,staff_id,appointment_title,department,start_date,end_date,reference_number,notes,status").eq("school_id", schoolId).order("start_date", { ascending: false }),
+        client.from("staff_responsibility_assignments").select("id,staff_id,title,description,starts_on,ends_on,status").eq("school_id", schoolId).order("starts_on", { ascending: false }),
+      ]);
+      if (appointmentError) throw appointmentError;
+      if (responsibilityError) throw responsibilityError;
+      setAppointments((appointmentRows ?? []) as StaffAppointment[]);
+      setResponsibilities((responsibilityRows ?? []) as StaffResponsibility[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load staff records. Check the staff/people table permissions.");
     } finally { setLoading(false); }
@@ -104,6 +128,57 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update staff document permission.");
     } finally { setSaving(false); }
+  }
+
+  async function createAppointment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    try {
+      const { data: { user }, error: userError } = await getSupabaseClient().auth.getUser();
+      if (userError || !user) throw userError ?? new Error("Please sign in again.");
+      const { error: insertError } = await getSupabaseClient().from("staff_appointments").insert({
+        school_id: schoolId, staff_id: appointmentStaffId, appointment_title: appointmentTitle.trim(),
+        department: appointmentDepartment.trim() || null, start_date: appointmentStart,
+        end_date: appointmentEnd || null, reference_number: appointmentReference.trim() || null,
+        notes: appointmentNotes.trim() || null, issued_by: user.id,
+      });
+      if (insertError) throw insertError;
+      setNotice("Staff appointment recorded successfully.");
+      setAppointmentTitle(""); setAppointmentDepartment(""); setAppointmentEnd(""); setAppointmentReference(""); setAppointmentNotes("");
+      await loadEmployees();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not record staff appointment."); }
+    finally { setSaving(false); }
+  }
+
+  async function createResponsibility(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError(""); setNotice("");
+    try {
+      const { data: { user }, error: userError } = await getSupabaseClient().auth.getUser();
+      if (userError || !user) throw userError ?? new Error("Please sign in again.");
+      const { error: insertError } = await getSupabaseClient().from("staff_responsibility_assignments").insert({
+        school_id: schoolId, staff_id: responsibilityStaffId, title: responsibilityTitle.trim(),
+        description: responsibilityDescription.trim() || null, starts_on: responsibilityStart,
+        ends_on: responsibilityEnd || null, assigned_by: user.id,
+      });
+      if (insertError) throw insertError;
+      setNotice("Delegated responsibility assigned successfully.");
+      setResponsibilityTitle(""); setResponsibilityDescription(""); setResponsibilityEnd("");
+      await loadEmployees();
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not assign responsibility."); }
+    finally { setSaving(false); }
+  }
+
+  async function updateAppointmentStatus(item: StaffAppointment, status: StaffAppointment["status"]) {
+    setSaving(true); setError(""); setNotice("");
+    const { error: updateError } = await getSupabaseClient().from("staff_appointments").update({ status, updated_at: new Date().toISOString() }).eq("id", item.id).eq("school_id", schoolId);
+    if (updateError) setError(updateError.message); else setNotice("Appointment status updated.");
+    await loadEmployees(); setSaving(false);
+  }
+
+  async function updateResponsibilityStatus(item: StaffResponsibility, status: StaffResponsibility["status"]) {
+    setSaving(true); setError(""); setNotice("");
+    const { error: updateError } = await getSupabaseClient().from("staff_responsibility_assignments").update({ status, updated_at: new Date().toISOString() }).eq("id", item.id).eq("school_id", schoolId);
+    if (updateError) setError(updateError.message); else setNotice("Delegated responsibility status updated.");
+    await loadEmployees(); setSaving(false);
   }
 
   async function addEmployee(event: FormEvent<HTMLFormElement>) {
@@ -166,6 +241,75 @@ export default function HrManagementPage({ schoolId }: { schoolId: string }) {
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[{label:"Total staff",value:employees.length},{label:"Active",value:active},{label:"Suspended",value:suspended},{label:"Left / inactive",value:left}].map((s) => <div key={s.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-sm text-slate-500">{s.label}</p><p className="mt-2 text-3xl font-extrabold text-green-950">{s.value}</p></div>)}
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <h2 className="text-lg font-bold">Staff appointments</h2>
+          <p className="mt-1 text-sm text-slate-500">Record formal appointments, effective dates and appointment references. Existing staff records and access are not changed.</p>
+          <form onSubmit={createAppointment} className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="text-sm font-semibold sm:col-span-2">Staff member *
+              <select required value={appointmentStaffId} onChange={e=>setAppointmentStaffId(e.target.value)} className={fieldClass}><option value="">Select staff member</option>{employees.map(e=><option key={e.id} value={e.id}>{e.first_name} {e.last_name} — {e.staff_number || e.job_title || "Staff"}</option>)}</select>
+            </label>
+            <label className="text-sm font-semibold sm:col-span-2">Appointment / position title *
+              <input required value={appointmentTitle} onChange={e=>setAppointmentTitle(e.target.value)} className={fieldClass} placeholder="e.g. Head of Department"/>
+            </label>
+            <label className="text-sm font-semibold">Department
+              <input value={appointmentDepartment} onChange={e=>setAppointmentDepartment(e.target.value)} className={fieldClass}/>
+            </label>
+            <label className="text-sm font-semibold">Reference number
+              <input value={appointmentReference} onChange={e=>setAppointmentReference(e.target.value)} className={fieldClass} placeholder="Optional"/>
+            </label>
+            <label className="text-sm font-semibold">Effective from *
+              <input required type="date" value={appointmentStart} onChange={e=>setAppointmentStart(e.target.value)} className={fieldClass}/>
+            </label>
+            <label className="text-sm font-semibold">End date
+              <input type="date" min={appointmentStart} value={appointmentEnd} onChange={e=>setAppointmentEnd(e.target.value)} className={fieldClass}/>
+            </label>
+            <label className="text-sm font-semibold sm:col-span-2">Notes
+              <textarea rows={2} value={appointmentNotes} onChange={e=>setAppointmentNotes(e.target.value)} className={fieldClass}/>
+            </label>
+            <button disabled={saving || !employees.length} className={buttonClass}>Record appointment</button>
+          </form>
+          <div className="mt-5 space-y-3">
+            {appointments.length === 0 ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No appointments recorded yet.</p> : appointments.map(item=><article key={item.id} className="rounded-xl border border-slate-200 p-3">
+              <div className="flex flex-wrap justify-between gap-2"><div><p className="font-bold">{item.appointment_title}</p><p className="text-xs text-slate-500">{employees.find(e=>e.id===item.staff_id)?.first_name || "Staff"} {employees.find(e=>e.id===item.staff_id)?.last_name || ""} · {item.department || "No department"}</p></div><span className="rounded-full bg-green-50 px-2 py-1 text-xs font-bold text-green-800">{item.status}</span></div>
+              <p className="mt-2 text-xs text-slate-600">From {item.start_date}{item.end_date ? " to "+item.end_date : ""}{item.reference_number ? " · Ref: "+item.reference_number : ""}</p>
+              {item.notes && <p className="mt-1 text-sm text-slate-600">{item.notes}</p>}
+              {item.status==="active" && <div className="mt-3 flex gap-2"><button type="button" disabled={saving} onClick={()=>void updateAppointmentStatus(item,"ended")} className="rounded-lg border px-3 py-2 text-xs font-semibold">Mark ended</button><button type="button" disabled={saving} onClick={()=>void updateAppointmentStatus(item,"revoked")} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-800">Revoke</button></div>}
+            </article>)}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <h2 className="text-lg font-bold">Delegated responsibilities</h2>
+          <p className="mt-1 text-sm text-slate-500">Assign and track additional duties without changing a staff member's account role or existing class/subject assignments.</p>
+          <form onSubmit={createResponsibility} className="mt-4 grid gap-3 sm:grid-cols-2">
+            <label className="text-sm font-semibold sm:col-span-2">Staff member *
+              <select required value={responsibilityStaffId} onChange={e=>setResponsibilityStaffId(e.target.value)} className={fieldClass}><option value="">Select staff member</option>{employees.map(e=><option key={e.id} value={e.id}>{e.first_name} {e.last_name} — {e.staff_number || e.job_title || "Staff"}</option>)}</select>
+            </label>
+            <label className="text-sm font-semibold sm:col-span-2">Responsibility *
+              <input required value={responsibilityTitle} onChange={e=>setResponsibilityTitle(e.target.value)} className={fieldClass} placeholder="e.g. Examination Officer"/>
+            </label>
+            <label className="text-sm font-semibold">Start date *
+              <input required type="date" value={responsibilityStart} onChange={e=>setResponsibilityStart(e.target.value)} className={fieldClass}/>
+            </label>
+            <label className="text-sm font-semibold">End date
+              <input type="date" min={responsibilityStart} value={responsibilityEnd} onChange={e=>setResponsibilityEnd(e.target.value)} className={fieldClass}/>
+            </label>
+            <label className="text-sm font-semibold sm:col-span-2">Scope / instructions
+              <textarea rows={3} value={responsibilityDescription} onChange={e=>setResponsibilityDescription(e.target.value)} className={fieldClass} placeholder="Describe the delegated duties and limits of authority."/>
+            </label>
+            <button disabled={saving || !employees.length} className={buttonClass}>Assign responsibility</button>
+          </form>
+          <div className="mt-5 space-y-3">
+            {responsibilities.length === 0 ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No delegated responsibilities recorded yet.</p> : responsibilities.map(item=><article key={item.id} className="rounded-xl border border-slate-200 p-3">
+              <div className="flex flex-wrap justify-between gap-2"><div><p className="font-bold">{item.title}</p><p className="text-xs text-slate-500">{employees.find(e=>e.id===item.staff_id)?.first_name || "Staff"} {employees.find(e=>e.id===item.staff_id)?.last_name || ""}</p></div><span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-bold text-blue-800">{item.status}</span></div>
+              <p className="mt-2 text-xs text-slate-600">From {item.starts_on}{item.ends_on ? " to "+item.ends_on : ""}</p>
+              {item.description && <p className="mt-1 text-sm text-slate-600">{item.description}</p>}
+              {item.status==="active" && <div className="mt-3 flex gap-2"><button type="button" disabled={saving} onClick={()=>void updateResponsibilityStatus(item,"completed")} className="rounded-lg border px-3 py-2 text-xs font-semibold">Mark completed</button><button type="button" disabled={saving} onClick={()=>void updateResponsibilityStatus(item,"revoked")} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-800">Revoke</button></div>}
+            </article>)}
+          </div>
+        </div>
       </section>
 
       {showForm && <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
