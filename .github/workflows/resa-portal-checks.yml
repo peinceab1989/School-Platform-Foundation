@@ -59,6 +59,7 @@ jobs:
           supabase/functions/resa-external-cbt/index.ts
           supabase/functions/resa-admission-application-submit/index.ts
           supabase/functions/resa-push-dispatch/index.ts
+          supabase/functions/resa-ai-practice/index.ts
 
       - name: Test RESA push audience authorization
         run: deno test --node-modules-dir=auto supabase/functions/resa-push-dispatch/parent-audience_test.ts
