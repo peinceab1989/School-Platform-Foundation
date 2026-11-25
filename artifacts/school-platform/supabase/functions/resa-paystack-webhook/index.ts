@@ -12,19 +12,35 @@ async function hmac(secret: string, message: Uint8Array): Promise<string> {
   return hex(await crypto.subtle.sign("HMAC", key, message));
 }
 async function verifySignature(raw: Uint8Array, request: Request): Promise<boolean> {
-  const signingSecret = Deno.env.get("PAYSTACK_WEBHOOK_SECRET");
   const legacySecret = Deno.env.get("PAYSTACK_SECRET_KEY");
   const modern = request.headers.get("paystack-signature");
-  if (modern && signingSecret) {
+  if (modern) {
+    const configured = Deno.env.get("PAYSTACK_WEBHOOK_SECRETS");
+    const single = Deno.env.get("PAYSTACK_WEBHOOK_SECRET");
+    let signingSecrets: string[] = [];
+    if (configured) {
+      try {
+        const parsed = JSON.parse(configured);
+        if (Array.isArray(parsed)) signingSecrets = parsed.filter((value): value is string => typeof value === "string" && value.length > 0);
+      } catch {
+        return false;
+      }
+    }
+    if (single && !signingSecrets.includes(single)) signingSecrets.push(single);
+    if (!signingSecrets.length) return false;
     const parts = modern.split(",");
     const timestamp = parts.find((p) => p.trim().startsWith("t="))?.trim().slice(2);
     if (!timestamp || !/^\d+$/.test(timestamp) || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
     const signatures = parts.filter((p) => p.trim().startsWith("v1=")).map((p) => p.trim().slice(3).split(":").at(-1) ?? "");
+    if (!signatures.length) return false;
     const prefix = new TextEncoder().encode(`${timestamp}.`);
     const message = new Uint8Array(prefix.length + raw.length);
     message.set(prefix); message.set(raw, prefix.length);
-    const expected = await hmac(signingSecret, message);
-    return signatures.some((sig) => /^[0-9a-f]{128}$/.test(sig) && equal(expected, sig));
+    for (const secret of signingSecrets) {
+      const expected = await hmac(secret, message);
+      if (signatures.some((sig) => /^[0-9a-f]{128}$/.test(sig) && equal(expected, sig))) return true;
+    }
+    return false;
   }
   const legacy = request.headers.get("x-paystack-signature");
   if (legacy && legacySecret && /^[0-9a-f]{128}$/.test(legacy)) return equal(await hmac(legacySecret, raw), legacy);
@@ -58,12 +74,17 @@ Deno.serve(async (req) => {
     });
     const verified = await verifyResponse.json().catch(() => ({}));
     const tx = verified.data;
-    if (!verifyResponse.ok || verified.status !== true || tx?.status !== "success" ||
-        tx.reference !== reference || tx.currency !== "NGN" ||
-        Number(tx.amount) !== Number(intent.expected_amount_minor)) {
+    // Provider/API delays and not-yet-final verification are retryable. Do not
+    // permanently fail a legitimate intent because Paystack is temporarily unavailable.
+    if (!verifyResponse.ok || verified.status !== true || tx?.status !== "success") {
+      return new Response("Provider verification is not final; retry webhook", { status: 500 });
+    }
+    if (tx.reference !== reference || tx.currency !== "NGN" ||
+        Number(tx.amount) !== Number(intent.expected_amount_minor) ||
+        (event.data.id != null && String(tx.id) !== String(event.data.id))) {
       await admin.from("student_fee_payment_intents").update({ status: "failed", failure_code: "provider_verification_mismatch" })
         .eq("id", intent.id).neq("status", "paid");
-      return new Response("Transaction not verified", { status: 200 });
+      return new Response("Verified transaction does not match the RESA payment intent", { status: 200 });
     }
 
     const { error: rpcError } = await admin.rpc("record_gateway_verified_school_fee_payment", {
