@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     if (intentError) throw intentError;
     if (!intent) {
       const { data: admissionIntent, error: admissionIntentError } = await admin.from("admission_form_payment_intents")
-        .select("id,school_id,amount_minor,currency,status,provider_reference").eq("provider", "paystack")
+        .select("id,school_id,amount_minor,currency,status,provider_reference,payment_environment").eq("provider", "paystack")
         .eq("provider_reference", reference).maybeSingle();
       if (admissionIntentError) throw admissionIntentError;
       if (!admissionIntent) return new Response("Unknown reference", { status: 200 });
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       const { data: admissionGateway, error: admissionGatewayError } = await admin.from("school_payment_gateway_settings")
         .select("environment").eq("school_id", admissionIntent.school_id).eq("provider", "paystack").maybeSingle();
       if (admissionGatewayError) throw admissionGatewayError;
-      const admissionEnvironment = admissionGateway?.environment === "live" ? "live" : "test";
+      const admissionEnvironment = admissionIntent.payment_environment === "live" ? "live" : "test";
       const admissionSecret = await readVaultSecret(admin, admissionEnvironment, "api_secret_key");
       const admissionPrefix = admissionEnvironment === "live" ? "sk_live_" : "sk_test_";
       if (!admissionSecret || !admissionSecret.startsWith(admissionPrefix)) {
