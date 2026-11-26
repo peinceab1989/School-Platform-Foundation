@@ -36,7 +36,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const [selectedContact, setSelectedContact] = useState("");
-  const [subject, setSubject] = useState("Chat");
+  const [subject, setSubject] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("channel") === "customer_care" ? "Customer Care" : "Chat");
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
   const [readCounts, setReadCounts] = useState<Record<string, number>>({});
@@ -210,7 +210,8 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     if (!selectedRoleAllowed) { setError("This recipient group is not enabled for your role. Contact the school administrator for access."); return; }
     if (!selectedContact || !roleContacts.some(contact => contact.user_id === selectedContact)) { setError("Choose a person from the selected, authorised recipient group."); return; }
     if (customerCareMode && !isAdmin && !roleContacts.some(contact => contact.user_id === selectedContact && contact.role === "admin")) { setError("Customer Care requests must be sent to an authorised school administrator."); return; }
-    const existing = conversations.find(c => c.conversation_type !== "group" && [c.participant_one,c.participant_two].includes(userId) && [c.participant_one,c.participant_two].includes(selectedContact));
+    const desiredType = customerCareMode && !isAdmin ? "admin_support" : (!isAdmin && contacts.find(contact => contact.user_id === selectedContact)?.role === "admin" ? "admin_support" : "direct");
+    const existing = conversations.find(c => c.conversation_type === desiredType && [c.participant_one,c.participant_two].includes(userId) && [c.participant_one,c.participant_two].includes(selectedContact));
     if (existing) { setActiveId(existing.id); return; }
     const target = contacts.find(c => c.user_id === selectedContact);
     const result = await (db as any).from("resa_chat_conversations").insert({
