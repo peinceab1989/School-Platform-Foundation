@@ -139,6 +139,9 @@ as $function$
             join public.parents_guardians pg
               on pg.id = spg.parent_guardian_id and pg.school_id = spg.school_id
              and pg.portal_enabled = true
+            join public.parent_student_portal_access psa
+              on psa.parent_guardian_id = pg.id and psa.school_id = pg.school_id
+             and psa.student_id = se.student_id and psa.is_active = true
             join public.parent_portal_accounts ppa
               on ppa.parent_guardian_id = pg.id and ppa.school_id = pg.school_id
              and ppa.is_active = true
@@ -182,6 +185,9 @@ as $function$
             join public.parents_guardians pg
               on pg.id = spg.parent_guardian_id and pg.school_id = spg.school_id
              and pg.portal_enabled = true
+            join public.parent_student_portal_access psa
+              on psa.parent_guardian_id = pg.id and psa.school_id = pg.school_id
+             and psa.student_id = mine.id and psa.is_active = true
             join public.parent_portal_accounts ppa
               on ppa.parent_guardian_id = pg.id and ppa.school_id = pg.school_id
              and ppa.is_active = true
