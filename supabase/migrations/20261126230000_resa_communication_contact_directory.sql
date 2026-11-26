@@ -11,8 +11,9 @@ where recipient_policy is null or recipient_policy = '{}'::jsonb;
 
 -- Check the current sender's role and the selected recipient's role against
 -- the administrator-managed policy. Administrators retain directory access.
-drop function if exists public.resa_chat_recipient_allowed(uuid, uuid);
-create or replace function public.resa_chat_recipient_allowed(
+drop function if exists private.resa_chat_recipient_allowed(uuid, uuid);
+drop function if exists private.resa_chat_recipient_allowed(uuid, uuid, text);
+create or replace function private.resa_chat_recipient_allowed(
   p_school_id uuid,
   p_recipient_id uuid,
   p_channel_key text default 'private_messages'
@@ -57,8 +58,8 @@ as $function$
   );
 $function$;
 
-revoke all on function public.resa_chat_recipient_allowed(uuid, uuid, text) from public, anon;
-grant execute on function public.resa_chat_recipient_allowed(uuid, uuid, text) to authenticated;
+revoke all on function private.resa_chat_recipient_allowed(uuid, uuid, text) from public, anon;
+grant execute on function private.resa_chat_recipient_allowed(uuid, uuid, text) to authenticated;
 
 create or replace function public.get_school_message_contacts(p_school_id uuid)
 returns table(user_id uuid, role public.school_role, display_name text)
@@ -99,10 +100,10 @@ as $function$
     and m.user_id <> auth.uid()
     and (
       c.role = 'admin'::public.school_role
-      or public.resa_chat_recipient_allowed(p_school_id, m.user_id, 'private_messages')
+      or private.resa_chat_recipient_allowed(p_school_id, m.user_id, 'private_messages')
       or (
         m.role = 'admin'::public.school_role
-        and public.resa_chat_recipient_allowed(p_school_id, m.user_id, 'customer_care')
+        and private.resa_chat_recipient_allowed(p_school_id, m.user_id, 'customer_care')
       )
     )
   order by display_name, m.role;
@@ -127,7 +128,7 @@ with check (
   and created_by = (select auth.uid())
   and participant_one = (select auth.uid())
   and participant_one <> participant_two
-  and public.resa_chat_recipient_allowed(school_id, participant_two, 'private_messages')
+  and private.resa_chat_recipient_allowed(school_id, participant_two, 'private_messages')
   and (
     not public.has_school_role(school_id, array['student'::public.school_role])
     or public.student_messaging_access_enabled(school_id, (select auth.uid()))
@@ -147,7 +148,7 @@ for insert
 to authenticated
 with check (
   conversation_type = 'group'
-  or public.resa_chat_recipient_allowed(
+  or private.resa_chat_recipient_allowed(
     school_id,
     case when participant_one = (select auth.uid()) then participant_two else participant_one end,
     case when conversation_type = 'admin_support' then 'customer_care' else 'private_messages' end
@@ -168,7 +169,7 @@ with check (
       and c.school_id = resa_chat_messages.school_id
       and (
         c.conversation_type = 'group'
-        or public.resa_chat_recipient_allowed(
+        or private.resa_chat_recipient_allowed(
           c.school_id,
           case when c.participant_one = (select auth.uid()) then c.participant_two else c.participant_one end,
           case when c.conversation_type = 'admin_support' then 'customer_care' else 'private_messages' end
