@@ -197,3 +197,8 @@ grant execute on function public.record_verified_admission_form_purchase(uuid,te
 
 comment on table public.school_admission_settings is 'Administrator-controlled admission form price and online checkout switch. Price remains unset until confirmed by RESA.';
 comment on table public.admission_form_payment_intents is 'Private, short-lived Paystack admission checkout intents. A form number is issued only by the verified-payment RPC.';
+
+drop trigger if exists admission_form_payment_intents_nexus_audit on public.admission_form_payment_intents;
+create trigger admission_form_payment_intents_nexus_audit
+  after insert or update or delete on public.admission_form_payment_intents
+  for each row execute function public.nexus_audit_row_change();
