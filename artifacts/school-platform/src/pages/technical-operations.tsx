@@ -52,7 +52,8 @@ export default function TechnicalOperationsPage(){
    db.from("school_memberships").select("user_id,role").eq("school_id",adminMembership.school_id).eq("status","active").in("role",["admin","teacher"])
   ]);
   for(const result of [ticketResult,replyResult,assetResult,scheduleResult,eventResult,staffResult])if(result.error)throw result.error;
-  const staffIds=(staffResult.data||[]).map((m:any)=>m.user_id);\n  setAdminUserIds((staffResult.data||[]).filter((m:any)=>m.role==="admin").map((m:any)=>m.user_id));
+  const staffIds=(staffResult.data||[]).map((m:any)=>m.user_id);
+  setAdminUserIds((staffResult.data||[]).filter((m:any)=>m.role==="admin").map((m:any)=>m.user_id));
   const peopleResult=staffIds.length?await db.from("people").select("user_id,first_name,middle_name,last_name").eq("school_id",adminMembership.school_id).in("user_id",staffIds):{data:[],error:null};
   if(peopleResult.error)throw peopleResult.error;
   const names=new Map((peopleResult.data||[]).map((p:any)=>[p.user_id,[p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
