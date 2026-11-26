@@ -75,9 +75,6 @@ Deno.serve(async (req) => {
       if (!admissionIntent) return new Response("Unknown reference", { status: 200 });
       if (admissionIntent.status === "paid") return new Response("Admission form already issued", { status: 200 });
 
-      const { data: admissionGateway, error: admissionGatewayError } = await admin.from("school_payment_gateway_settings")
-        .select("environment").eq("school_id", admissionIntent.school_id).eq("provider", "paystack").maybeSingle();
-      if (admissionGatewayError) throw admissionGatewayError;
       const admissionEnvironment = admissionIntent.payment_environment === "live" ? "live" : "test";
       const admissionSecret = await readVaultSecret(admin, admissionEnvironment, "api_secret_key");
       const admissionPrefix = admissionEnvironment === "live" ? "sk_live_" : "sk_test_";
