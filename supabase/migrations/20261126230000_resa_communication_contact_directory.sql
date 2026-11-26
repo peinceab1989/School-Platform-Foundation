@@ -55,6 +55,142 @@ as $function$
           )
         )
       )
+      and (
+        sender.role = 'admin'::public.school_role
+        or recipient.role = 'admin'::public.school_role
+        or sender.role = recipient.role
+        or (
+          sender.role = 'teacher'::public.school_role
+          and recipient.role = 'student'::public.school_role
+          and exists (
+            select 1
+            from public.staff mine
+            join public.teacher_assignments ta
+              on ta.staff_id = mine.id and ta.school_id = mine.school_id
+            join public.student_enrollments se
+              on se.class_id = ta.class_id and se.school_id = ta.school_id
+             and se.status = 'active'
+            join public.students target
+              on target.id = se.student_id and target.school_id = se.school_id
+            where mine.school_id = p_school_id
+              and mine.user_id = sender.user_id
+              and mine.status = 'active'
+              and target.user_id = recipient.user_id
+          )
+        )
+        or (
+          sender.role = 'student'::public.school_role
+          and recipient.role = 'teacher'::public.school_role
+          and exists (
+            select 1
+            from public.students mine
+            join public.student_enrollments se
+              on se.student_id = mine.id and se.school_id = mine.school_id
+             and se.status = 'active'
+            join public.teacher_assignments ta
+              on ta.class_id = se.class_id and ta.school_id = se.school_id
+            join public.staff target
+              on target.id = ta.staff_id and target.school_id = ta.school_id
+             and target.status = 'active'
+            where mine.school_id = p_school_id
+              and mine.user_id = sender.user_id
+              and target.user_id = recipient.user_id
+          )
+        )
+        or (
+          sender.role = 'parent'::public.school_role
+          and recipient.role = 'teacher'::public.school_role
+          and exists (
+            select 1
+            from public.parent_portal_accounts ppa
+            join public.parents_guardians pg
+              on pg.id = ppa.parent_guardian_id and pg.school_id = ppa.school_id
+             and pg.portal_enabled = true
+            join public.parent_student_portal_access psa
+              on psa.parent_guardian_id = ppa.parent_guardian_id and psa.school_id = ppa.school_id
+             and psa.is_active = true
+            join public.student_enrollments se
+              on se.student_id = psa.student_id and se.school_id = psa.school_id
+             and se.status = 'active'
+            join public.teacher_assignments ta
+              on ta.class_id = se.class_id and ta.school_id = se.school_id
+            join public.staff target
+              on target.id = ta.staff_id and target.school_id = ta.school_id
+             and target.status = 'active'
+            where ppa.school_id = p_school_id
+              and ppa.user_id = sender.user_id
+              and ppa.is_active = true
+              and target.user_id = recipient.user_id
+          )
+        )
+        or (
+          sender.role = 'teacher'::public.school_role
+          and recipient.role = 'parent'::public.school_role
+          and exists (
+            select 1
+            from public.staff mine
+            join public.teacher_assignments ta
+              on ta.staff_id = mine.id and ta.school_id = mine.school_id
+            join public.student_enrollments se
+              on se.class_id = ta.class_id and se.school_id = ta.school_id
+             and se.status = 'active'
+            join public.student_parent_guardians spg
+              on spg.student_id = se.student_id and spg.school_id = se.school_id
+            join public.parents_guardians pg
+              on pg.id = spg.parent_guardian_id and pg.school_id = spg.school_id
+             and pg.portal_enabled = true
+            join public.parent_portal_accounts ppa
+              on ppa.parent_guardian_id = pg.id and ppa.school_id = pg.school_id
+             and ppa.is_active = true
+            where mine.school_id = p_school_id
+              and mine.user_id = sender.user_id
+              and mine.status = 'active'
+              and ppa.user_id = recipient.user_id
+          )
+        )
+        or (
+          sender.role = 'parent'::public.school_role
+          and recipient.role = 'student'::public.school_role
+          and exists (
+            select 1
+            from public.parent_portal_accounts ppa
+            join public.parents_guardians pg
+              on pg.id = ppa.parent_guardian_id and pg.school_id = ppa.school_id
+             and pg.portal_enabled = true
+            join public.parent_student_portal_access psa
+              on psa.parent_guardian_id = ppa.parent_guardian_id and psa.school_id = ppa.school_id
+             and psa.is_active = true
+            join public.student_enrollments se
+              on se.student_id = psa.student_id and se.school_id = psa.school_id
+             and se.status = 'active'
+            join public.students target
+              on target.id = se.student_id and target.school_id = se.school_id
+            where ppa.school_id = p_school_id
+              and ppa.user_id = sender.user_id
+              and ppa.is_active = true
+              and target.user_id = recipient.user_id
+          )
+        )
+        or (
+          sender.role = 'student'::public.school_role
+          and recipient.role = 'parent'::public.school_role
+          and exists (
+            select 1
+            from public.students mine
+            join public.student_parent_guardians spg
+              on spg.student_id = mine.id and spg.school_id = mine.school_id
+            join public.parents_guardians pg
+              on pg.id = spg.parent_guardian_id and pg.school_id = spg.school_id
+             and pg.portal_enabled = true
+            join public.parent_portal_accounts ppa
+              on ppa.parent_guardian_id = pg.id and ppa.school_id = pg.school_id
+             and ppa.is_active = true
+            where mine.school_id = p_school_id
+              and mine.user_id = sender.user_id
+              and ppa.user_id = recipient.user_id
+          )
+        )
+      )
   );
 $function$;
 
