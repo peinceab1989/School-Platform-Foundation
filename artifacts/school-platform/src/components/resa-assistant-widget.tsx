@@ -302,7 +302,7 @@ export default function ResaAssistantWidget() {
       const data=result.data as {conversation_id:string;token:string};
       setCareId(data.conversation_id);setCareToken(data.token);setCareStatus("open");
       try{localStorage.setItem("resa-public-care-id",data.conversation_id);localStorage.setItem("resa-public-care-token",data.token);}catch{/* Active session remains usable. */}
-      setCareDraft("");await pollPublicCare(data.conversation_id,data.token);
+      setCareDraft("");
     } catch(error) {setCareError(error instanceof Error?error.message:"Could not start Customer Care chat. Try again.");}
     finally {setCareBusy(false);}
   }
@@ -312,7 +312,10 @@ export default function ResaAssistantWidget() {
     try {
       const result=await getSupabaseClient().functions.invoke("resa-public-customer-care",{body:{action:"visitor_send",conversation_id:careId,token:careToken,message:careDraft}});
       if(result.error)throw result.error;
-      setCareDraft("");await pollPublicCare();
+      const data=result.data as {messages?:Array<{id:string;sender_kind:string;body:string;created_at:string}>;status?:string};
+      if(data?.messages)setCareMessages(data.messages);
+      if(data?.status==="open"||data?.status==="waiting"||data?.status==="closed")setCareStatus(data.status);
+      setCareDraft("");
     } catch(error) {setCareError(error instanceof Error?error.message:"Message could not be sent. Try again.");}
     finally {setCareBusy(false);}
   }
