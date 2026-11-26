@@ -6,7 +6,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 type Row = Record<string, any>;
 type Day = { enabled: boolean; opens_at: string; closes_at: string };
 const DAYS = [{id:1,name:"Monday"},{id:2,name:"Tuesday"},{id:3,name:"Wednesday"},{id:4,name:"Thursday"},{id:5,name:"Friday"},{id:6,name:"Saturday"},{id:7,name:"Sunday"}];
-const DEFAULT_DAY: Day = { enabled:false, opens_at:"08:00", closes_at:"15:00" };
+const DEFAULT_DAY: Day = { enabled:false, opens_at:"08:00", closes_at:"16:00" };
 const formatDate = (v:string) => v ? new Date(v).toLocaleString("en-GB",{timeZone:"Africa/Lagos"}) : "—";
 const errorText = (e:unknown) => e instanceof Error ? e.message : "The calendar request could not be completed.";
 
@@ -23,8 +23,8 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
   const [notice,setNotice] = useState("");
-  const [rule,setRule] = useState({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"15:00",scope:"all",attendanceAllowed:false,allDay:false,overrideRuleId:"",overrideReason:""});
-  const [staffForm,setStaffForm] = useState({userId:"",day:"1",start:"08:00",end:"15:00",from:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),until:"",notes:""});
+  const [rule,setRule] = useState({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"16:00",scope:"all",attendanceAllowed:false,allDay:false,overrideRuleId:"",overrideReason:""});
+  const [staffForm,setStaffForm] = useState({userId:"",day:"1",start:"08:00",end:"16:00",from:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),until:"",notes:""});
   const [exceptionForm,setExceptionForm] = useState({userId:"",type:"leave",start:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),end:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),reason:""});
 
   const load = useCallback(async () => {
