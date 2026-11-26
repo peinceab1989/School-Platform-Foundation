@@ -66,3 +66,11 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Verified policy evaluation with active admin, teacher and student membership contexts, including temporary policy overrides that were rolled back. Existing record counts remained unchanged during policy verification.
 - Added a private-schema membership verifier for starting Customer Care chat. It checks the caller's active school membership and the recipient's active administrator membership without exposing the school membership directory through the public API. Student Customer Care chat also checks the existing student-messaging entitlement.
 - Verified a parent-to-administrator Customer Care chat insert under the authenticated RLS role inside a transaction that was rolled back; no test conversation was retained.
+
+
+## Final notification preference hardening and preview refresh (26 November 2026)
+- Server-side push applies the global notification master switch to attendance events in addition to the dedicated guardian attendance opt-in and Attendance category preference.
+- Direct and Customer Care chat pushes use the Private Messages preference; group chat pushes use Group Messages, with the category selected from the verified conversation record.
+- Foreground OS notification handling loads the phone-push opt-in field and respects it independently of in-page sound.
+- The project owner confirms that the two Supabase public client settings have already been added to Cloudflare Pages Preview. A fresh preview build is required: the currently served preview still renders the SETUP REQUIRED fallback on /portal. Do not request the same keys again; verify the next preview deployment before authenticated acceptance testing.
+- Latest CI passed for the notification hardening changes. Production frontend deployment remains gated on authenticated role and Android device acceptance tests.
