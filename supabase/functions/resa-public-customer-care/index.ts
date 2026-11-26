@@ -124,21 +124,26 @@ Deno.serve(async (req: Request) => {
       if (error) throw error;
       return reply(200, { messages, status: conversation.status }, origin);
     }
-    if (action === "admin_list" || action === "admin_reply" || action === "admin_close") {
+    if (action === "admin_list" || action === "admin_view" || action === "admin_reply" || action === "admin_close") {
       const adminId = await adminFrom(req);
       if (!adminId) return reply(401, { error: "An active RESA administrator account is required." }, origin);
       if (action === "admin_list") {
-        const { data, error } = await service.from("resa_public_care_conversations")
-          .select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at")
-          .eq("school_id", SCHOOL_ID).eq("assigned_admin_id", adminId).neq("status", "closed")
-          .order("last_message_at", { ascending: false }).limit(100);
+        const { data: settings } = await service.from("resa_customer_care_settings").select("chief_admin_user_id").eq("school_id",SCHOOL_ID).maybeSingle();
+        let query = service.from("resa_public_care_conversations").select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at").eq("school_id",SCHOOL_ID).neq("status","closed");
+        if (settings?.chief_admin_user_id !== adminId) query = query.eq("assigned_admin_id",adminId);
+        const { data, error } = await query.order("last_message_at",{ascending:false}).limit(100);
         if (error) throw error;
-        return reply(200, { conversations: data }, origin);
+        return reply(200,{conversations:data},origin);
       }
       const id = cleanText(body.conversation_id, 100);
       const { data: conversation } = await service.from("resa_public_care_conversations")
         .select("id").eq("id", id).eq("assigned_admin_id", adminId).maybeSingle();
       if (!conversation) return reply(404, { error: "Assigned visitor conversation not found." }, origin);
+      if (action === "admin_view") {
+        const { data, error } = await service.from("resa_public_care_messages").select("id,sender_kind,sender_admin_id,body,created_at").eq("conversation_id",id).order("created_at").limit(100);
+        if (error) throw error;
+        return reply(200,{messages:data},origin);
+      }
       if (action === "admin_close") {
         await service.from("resa_public_care_conversations").update({ status: "closed", updated_at: new Date().toISOString() }).eq("id", id);
         return reply(200, { ok: true }, origin);
