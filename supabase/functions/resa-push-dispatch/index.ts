@@ -522,10 +522,18 @@ Deno.serve(async (request) => {
         const userSound = category ? String(userPreference?.category_sounds?.[category] || "resa_chime") : "resa_chime";
         const showPreview = userPreference?.show_notification_preview !== false;
         const vibrationEnabled = userPreference?.vibration_enabled !== false;
+        const groupedMessage = eventType === "school_message" || eventType === "chat_message";
+        const recipientTag = groupedMessage
+          ? "resa-inbox-" + schoolId + "-" + subscription.user_id
+          : notice.tag;
         const recipientPayload = JSON.stringify({
           ...notice,
           title: showPreview ? notice.title : "RESA · New school update",
           body: showPreview ? notice.body : "You have a new RESA school update. Sign in to view it.",
+          sender: showPreview ? String(row.__resa_sender_name || "RESA member") : "RESA member",
+          preview: showPreview ? String(row.body || row.message || row.subject || "").slice(0, 100) : "",
+          tag: recipientTag,
+          grouped: groupedMessage,
           icon: "/media/logo/resa-logo.jpg",
           badge: "/media/logo/resa-logo.jpg?v=20261125",
           silent: userSound === "silent",
