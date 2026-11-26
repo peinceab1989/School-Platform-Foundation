@@ -413,6 +413,7 @@ Deno.serve(async (request) => {
     if (preferenceError) throw preferenceError;
     const categoryByEvent: Record<string, string> = {
       school_message: "messages",
+      attendance: "attendance",
       chat_message: "group_messages",
       announcement: "announcements",
       result_published: "results",
@@ -425,6 +426,11 @@ Deno.serve(async (request) => {
       admission_admin: "admissions",
     };
     const category = categoryByEvent[eventType];
+    const categoryPreferenceRows = eventType === "attendance"
+      ? (await admin.from("resa_notification_preferences")
+          .select("user_id,category_preferences,category_sounds,vibration_enabled,show_notification_preview,quiet_hours_enabled,quiet_hours_start,quiet_hours_end")
+          .eq("school_id", schoolId).in("user_id", recipientIds)).data || []
+      : (preferences || []);
     const optedIn = selectPushRecipients({
       eventType,
       recipientIds,
@@ -438,11 +444,11 @@ Deno.serve(async (request) => {
     const clockMinutes = Number(lagosClock.slice(0, 2)) * 60 + Number(lagosClock.slice(3, 5));
     const categoryOptedIn = category
       ? optedIn.filter((userId) => {
-          const preference = (preferences || []).find((item: any) => item.user_id === userId);
+          const preference = categoryPreferenceRows.find((item: any) => item.user_id === userId);
           const categories = preference?.category_preferences;
           // Missing legacy category keys default to enabled to preserve delivery.
           if (categories && categories[category] === false) return false;
-          if (preference?.quiet_hours_enabled === true) {
+          if (eventType !== "attendance" && preference?.quiet_hours_enabled === true) {
             const startText = String(preference.quiet_hours_start || "21:00").slice(0, 5);
             const endText = String(preference.quiet_hours_end || "07:00").slice(0, 5);
             const [startHour, startMinute] = startText.split(":").map(Number);
@@ -474,7 +480,7 @@ Deno.serve(async (request) => {
     let expired = 0;
     const results = await Promise.allSettled(subscriptions.map(async (subscription) => {
       try {
-        const userPreference = (preferences || []).find((item: any) => item.user_id === subscription.user_id);
+        const userPreference = categoryPreferenceRows.find((item: any) => item.user_id === subscription.user_id);
         const userSound = category ? String(userPreference?.category_sounds?.[category] || "resa_chime") : "resa_chime";
         const showPreview = userPreference?.show_notification_preview !== false;
         const vibrationEnabled = userPreference?.vibration_enabled !== false;
