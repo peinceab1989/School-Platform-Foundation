@@ -404,7 +404,7 @@ Deno.serve(async (request) => {
         .eq("enabled", true)
         .eq("phone_notifications_enabled", true)
       : admin.from("resa_notification_preferences")
-        .select("user_id,enabled,phone_notifications_enabled,category_preferences,category_sounds,vibration_enabled,show_notification_preview")
+        .select("user_id,enabled,phone_notifications_enabled,category_preferences,category_sounds,vibration_enabled,show_notification_preview,quiet_hours_enabled,quiet_hours_start,quiet_hours_end")
         .eq("school_id", schoolId)
         .in("user_id", recipientIds)
         .eq("enabled", true)
@@ -432,12 +432,29 @@ Deno.serve(async (request) => {
       genericPreferences: eventType === "attendance" ? [] : (preferences || []),
       parentAttendancePreferences: eventType === "attendance" ? (preferences || []) as Array<{ user_id: string; parent_guardian_id: string; enabled: boolean; phone_notifications_enabled: boolean }> : [],
     });
+    const lagosClock = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).format(new Date());
+    const clockMinutes = Number(lagosClock.slice(0, 2)) * 60 + Number(lagosClock.slice(3, 5));
     const categoryOptedIn = category
       ? optedIn.filter((userId) => {
           const preference = (preferences || []).find((item: any) => item.user_id === userId);
           const categories = preference?.category_preferences;
           // Missing legacy category keys default to enabled to preserve delivery.
-          return !categories || categories[category] !== false;
+          if (categories && categories[category] === false) return false;
+          if (preference?.quiet_hours_enabled === true) {
+            const startText = String(preference.quiet_hours_start || "21:00").slice(0, 5);
+            const endText = String(preference.quiet_hours_end || "07:00").slice(0, 5);
+            const [startHour, startMinute] = startText.split(":").map(Number);
+            const [endHour, endMinute] = endText.split(":").map(Number);
+            const start = startHour * 60 + startMinute;
+            const end = endHour * 60 + endMinute;
+            const inQuietHours = start === end ? false : start < end
+              ? clockMinutes >= start && clockMinutes < end
+              : clockMinutes >= start || clockMinutes < end;
+            if (inQuietHours) return false;
+          }
+          return true;
         })
       : optedIn;
     if (!categoryOptedIn.length) return json({ accepted: true, recipients: recipientIds.length, devices: 0, sent: 0, skipped_by_preference: optedIn.length });
