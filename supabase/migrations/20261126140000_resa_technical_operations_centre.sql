@@ -95,6 +95,7 @@ using (
   or exists (
     select 1 from public.resa_support_tickets t
     where t.id = resa_technical_operations_events.ticket_id
+      and t.school_id = resa_technical_operations_events.school_id
       and t.reporter_user_id = (select auth.uid())
   )
 );
@@ -225,6 +226,17 @@ with check (
       and sm.user_id = (select auth.uid())
       and sm.status = 'active' and sm.role = 'admin'
   )
+  and (asset_id is null or exists (
+    select 1 from public.resa_technical_assets a
+    where a.id = resa_maintenance_schedules.asset_id
+      and a.school_id = resa_maintenance_schedules.school_id
+  ))
+  and (assigned_to is null or exists (
+    select 1 from public.school_memberships assignee
+    where assignee.school_id = resa_maintenance_schedules.school_id
+      and assignee.user_id = resa_maintenance_schedules.assigned_to
+      and assignee.status = 'active' and assignee.role in ('admin','teacher')
+  ))
 );
 
 -- Automatic first-line SLA escalation. It flags overdue tickets and records a
