@@ -36,11 +36,11 @@ as $function$
       and sender.status = 'active'::public.membership_status
       and p_recipient_id <> (select auth.uid())
       and p_channel_key in ('private_messages', 'customer_care')
+      and coalesce(settings.channel_policy ->> p_channel_key, 'true') = 'true'
       and (
         sender.role = 'admin'::public.school_role
         or (
-          coalesce(settings.channel_policy ->> p_channel_key, 'true') = 'true'
-          and coalesce(settings.role_policy -> sender.role::text ->> p_channel_key, 'true') = 'true'
+          coalesce(settings.role_policy -> sender.role::text ->> p_channel_key, 'true') = 'true'
           and (
             (p_channel_key = 'customer_care' and recipient.role = 'admin'::public.school_role)
             or (
