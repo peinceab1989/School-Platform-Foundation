@@ -2,7 +2,17 @@
 -- Private storage remains private. Existing files and message history are preserved.
 update storage.buckets
 set file_size_limit = 104857600,
-    allowed_mime_types = null
+    allowed_mime_types = array[
+      'image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif',
+      'video/mp4','video/webm','video/quicktime','video/3gpp',
+      'audio/webm','audio/ogg','audio/mpeg','audio/mp4','audio/aac','audio/wav','audio/x-wav','audio/3gpp',
+      'application/pdf','text/plain','text/csv','application/rtf',
+      'application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/zip','application/x-zip-compressed','application/x-7z-compressed','application/vnd.rar',
+      'application/octet-stream'
+    ]
 where id = 'resa-chat-media';
 
 -- Even if a client bypasses the upload control, the administrator's global
