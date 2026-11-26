@@ -64,3 +64,5 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Updated the group-creation SECURITY DEFINER RPC to check the administrator's group channel setting before creating a conversation.
 - Added Customer Care to the role matrix. Administrators can independently allow or deny private messages, group messages, announcements and Customer Care for teachers, parents and students.
 - Verified policy evaluation with active admin, teacher and student membership contexts, including temporary policy overrides that were rolled back. Existing record counts remained unchanged during policy verification.
+- Added a private-schema membership verifier for starting Customer Care chat. It checks the caller's active school membership and the recipient's active administrator membership without exposing the school membership directory through the public API. Student Customer Care chat also checks the existing student-messaging entitlement.
+- Verified a parent-to-administrator Customer Care chat insert under the authenticated RLS role inside a transaction that was rolled back; no test conversation was retained.
