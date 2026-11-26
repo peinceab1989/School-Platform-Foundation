@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { validateMessages } from "./validation.ts";
+import { getLocalHelpAnswer } from "./local-help.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -71,10 +72,6 @@ Deno.serve(async (req: Request) => {
 
     const messages = validateMessages(body.messages);
     if (!messages) return jsonResponse({ error: "Send up to eight short chat messages, ending with your question." }, 400, origin);
-    if (!OPENAI_API_KEY) {
-      return jsonResponse({ error: "The RESA AI provider is not configured yet. Please contact the school administrator." }, 503, origin);
-    }
-
     // Public visitors may ask general educational and public-school questions.
     // A valid Supabase user session enables portal-navigation guidance, never private-record access.
     let userId: string | null = null;
@@ -132,6 +129,15 @@ Deno.serve(async (req: Request) => {
     const rateKey = userId ? `user:${userId}` : `public:${ip}`;
     if (!allowRequest(rateKey)) {
       return jsonResponse({ error: "You have reached the assistant's short-term request limit. Please wait a minute and try again." }, 429, origin);
+    }
+
+    if (!OPENAI_API_KEY) {
+      const question = messages[messages.length - 1]?.content ?? "";
+      const localHelp = getLocalHelpAnswer(question);
+      if (!localHelp) {
+        return jsonResponse({ error: "Please enter a short question about RESA." }, 400, origin);
+      }
+      return jsonResponse({ answer: localHelp.answer, mode: "local_help", topic: localHelp.topic }, 200, origin);
     }
 
     const page = isResaMember && typeof body.currentPage === "string"
