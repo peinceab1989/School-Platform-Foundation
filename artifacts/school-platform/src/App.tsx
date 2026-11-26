@@ -2083,7 +2083,9 @@ function FoundationPage() {
           }
         } catch { /* Autoplay restrictions or device settings may block in-app audio. */ }
       }
-      const safeBody = prefs?.show_notification_preview === false ? 'You have a new RESA school update. Sign in to view it.' : body;
+      const hidePreview = prefs?.show_notification_preview === false;
+      const safeTitle = hidePreview ? 'RESA · New school update' : title;
+      const safeBody = hidePreview ? 'You have a new RESA school update. Sign in to view it.' : body;
       const options = {
         body: safeBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
         badge: '/media/logo/resa-logo.jpg?v=20261125', tag, data: { url },
@@ -2092,9 +2094,9 @@ function FoundationPage() {
       try {
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.ready;
-          if (alive) await registration.showNotification(title, options);
+          if (alive) await registration.showNotification(safeTitle, options);
         } else if (alive) {
-          new Notification(title, options);
+          new Notification(safeTitle, options);
         }
       } catch {
         if (alive) new Notification(title, options);
