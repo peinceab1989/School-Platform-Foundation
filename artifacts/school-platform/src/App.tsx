@@ -41,6 +41,7 @@ const FeesManagementPage = lazy(() => import('@/pages/fees-management'));
 const PaymentGatewaySettingsPage = lazy(() => import('@/pages/payment-gateway-settings'));
 const AdmissionsApplicationPage = lazy(() => import('@/pages/admissions-application'));
 const AdmissionsManagementPage = lazy(() => import('@/pages/admissions-management'));
+const SchoolCalendarPage = lazy(() => import('@/pages/school-calendar'));
 const ExternalCbtRegistrationPage = lazy(() => import('@/pages/external-cbt-registration'));
 const ExternalCbtPage = lazy(() => import('@/pages/external-cbt'));
 const ExternalCbtManagementPage = lazy(() => import('@/pages/external-cbt-management'));
@@ -3016,6 +3017,10 @@ function FoundationPage() {
       return withAdminShell(<FeesManagementPage schoolId={adminMembership.schoolId} userId={session?.user.id ?? ''} />);
     }
 
+    if (currentPath === '/school-calendar' && session && adminMembership) {
+      return withAdminShell(<SchoolCalendarPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
+    }
+
     if (currentPath === '/admissions-management' && session) {
       return withAdminShell(<AdmissionsManagementPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
     }
@@ -3467,6 +3472,7 @@ function AppRoutes() {
         <Route path="/results-management" component={FoundationPage} />
         <Route path="/examinations" component={FoundationPage} />
         <Route path="/school-settings" component={FoundationPage} />
+        <Route path="/school-calendar" component={FoundationPage} />
         <Route path="/classes" component={FoundationPage} />
         <Route path="/subjects" component={FoundationPage} />
         <Route path="/subject-management" component={FoundationPage} />
