@@ -7,7 +7,14 @@ import {
   Laptop,
   ShieldCheck,
   MessageCircle,
+  Globe,
+  X,
+  Code2,
+  Smartphone,
+  Palette,
+  Headset,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { SchoolLogo } from "@/components/school-logo";
 
@@ -39,6 +46,17 @@ const toneClasses: Record<string, string> = {
 
 
 export default function PortalOptionsPage() {
+  const [jetabOpen, setJetabOpen] = useState(false);
+
+  useEffect(() => {
+    if (!jetabOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setJetabOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [jetabOpen]);
+
   return (
     <main className="min-h-screen bg-[#f5f7f2] text-slate-900">
       <header className="border-b border-emerald-950/10 bg-white">
@@ -122,7 +140,9 @@ export default function PortalOptionsPage() {
 
       </section>
 
-      <footer className="border-t border-emerald-950/10 bg-white px-4 py-6 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3 text-[10px]">Designed &amp; Powered by <a href="https://wa.me/2347054078988" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 underline underline-offset-2">JETAB TECH</a></p><Link href="/" className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-800/20 bg-emerald-50 px-5 py-3 text-sm font-extrabold text-emerald-950 transition hover:border-emerald-800 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"><ArrowUpRight size={17} aria-hidden="true" className="rotate-[-135deg]" /> Back to Official RESA Website</Link></footer>
+      <footer className="border-t border-emerald-950/10 bg-white px-4 py-6 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3 text-[10px]">Designed &amp; Powered by <button type="button" onClick={() => setJetabOpen(true)} aria-haspopup="dialog" aria-expanded={jetabOpen} className="font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 rounded-sm">JETAB TECH</button></p><Link href="/" className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-800/20 bg-emerald-50 px-5 py-3 text-sm font-extrabold text-emerald-950 transition hover:border-emerald-800 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"><ArrowUpRight size={17} aria-hidden="true" className="rotate-[-135deg]" /> Back to Official RESA Website</Link></footer>
+      {jetabOpen && <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) setJetabOpen(false); }}><section role="dialog" aria-modal="true" aria-labelledby="jetab-profile-title" aria-describedby="jetab-profile-description" className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-t-3xl border border-emerald-900/10 bg-white p-5 shadow-2xl sm:rounded-3xl sm:p-7"><button type="button" onClick={() => setJetabOpen(false)} aria-label="Close JETAB TECH information" className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"><X size={19}/></button><div className="flex items-center gap-3 pr-12"><span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-950 text-amber-200 shadow-sm"><Code2 size={28}/></span><div><p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-amber-700">Digital solutions &amp; technology</p><h2 id="jetab-profile-title" className="mt-1 text-2xl font-black tracking-tight text-emerald-950">JETAB TECH</h2></div></div><p id="jetab-profile-description" className="mt-5 text-sm leading-7 text-slate-600">JETAB TECH creates practical digital solutions that help schools, organisations and growing businesses work smarter, serve people better and grow with confidence.</p><div className="mt-5"><h3 className="text-sm font-extrabold text-slate-900">What we do</h3><div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2"><div className="flex items-start gap-3 rounded-xl bg-emerald-50/80 p-3"><Globe size={19} className="mt-0.5 shrink-0 text-emerald-800"/><span><strong className="block text-sm text-slate-900">Websites &amp; web platforms</strong><span className="text-xs leading-5 text-slate-600">Professional websites and online portals.</span></span></div><div className="flex items-start gap-3 rounded-xl bg-emerald-50/80 p-3"><Smartphone size={19} className="mt-0.5 shrink-0 text-emerald-800"/><span><strong className="block text-sm text-slate-900">Apps &amp; custom software</strong><span className="text-xs leading-5 text-slate-600">Purpose-built applications and business tools.</span></span></div><div className="flex items-start gap-3 rounded-xl bg-emerald-50/80 p-3"><Palette size={19} className="mt-0.5 shrink-0 text-emerald-800"/><span><strong className="block text-sm text-slate-900">Graphics &amp; branding</strong><span className="text-xs leading-5 text-slate-600">Digital design and brand communication.</span></span></div><div className="flex items-start gap-3 rounded-xl bg-emerald-50/80 p-3"><Headset size={19} className="mt-0.5 shrink-0 text-emerald-800"/><span><strong className="block text-sm text-slate-900">IT support &amp; training</strong><span className="text-xs leading-5 text-slate-600">Technology support, guidance and skills development.</span></span></div></div><p className="mt-3 text-xs leading-5 text-slate-500">Also: school management systems, attendance solutions, business automation and tailored digital projects.</p></div><div className="mt-6 grid gap-3 sm:grid-cols-2"><a href="https://jetab-tech.pages.dev" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-950 px-4 py-3 text-sm font-extrabold text-white transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"><Globe size={17}/> Visit JETAB TECH Website <ArrowUpRight size={16}/></a><a href="https://wa.me/2347054078988?text=Hello%20JETAB%20TECH.%20I%20would%20like%20to%20make%20an%20enquiry%20about%20your%20digital%20services." target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-900/20 bg-white px-4 py-3 text-sm font-extrabold text-emerald-950 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"><MessageCircle size={17}/> Chat on WhatsApp <ArrowUpRight size={16}/></a></div><p className="mt-4 text-center text-xs text-slate-400">JETAB TECH · Designed to make technology work for you.</p></section></div>}
+
     </main>
   );
 }
