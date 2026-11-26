@@ -28,6 +28,7 @@ import ResaAssistantWidget from '@/components/resa-assistant-widget';
 import TechnicalSupportLauncher from '@/components/technical-support-launcher';
 const TechnicalSupportPage = lazy(() => import('@/pages/technical-support'));
 const TechnicalOperationsPage = lazy(() => import('@/pages/technical-operations'));
+const TechnicalAssignmentsPage = lazy(() => import('@/pages/technical-assignments'));
 const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
 import PeopleStatusNotices from '@/components/people-status-notices';
@@ -213,6 +214,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/school-cctv',
   '/technical-support',
   '/technical-operations',
+  '/technical-assignments',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -2840,6 +2842,7 @@ function FoundationPage() {
     (currentPath === '/technical-support' || currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/resa-chat' || currentPath === '/my-results' || currentPath === '/parent-authorizations' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
     if (currentPath === '/technical-support') return <TechnicalSupportPage />;
+    if (currentPath === '/technical-assignments') return <TechnicalAssignmentsPage />;
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/parent-authorizations' && session) return <ParentAuthorizationsPage schoolId={parentMembership.schoolId} userId={session.user.id} />;
@@ -3025,6 +3028,7 @@ function FoundationPage() {
       '/teaching-materials',
       '/resa-chat',
       '/technical-support',
+      '/technical-assignments',
     ].includes(currentPath)
   ) {
     if (currentPath === '/technical-support') return <TechnicalSupportPage />;
@@ -3441,6 +3445,7 @@ function AppRoutes() {
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/technical-support" component={FoundationPage} />
         <Route path="/technical-operations" component={FoundationPage} />
+        <Route path="/technical-assignments" component={FoundationPage} />
         <Route path="/my-compliance" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
