@@ -239,9 +239,11 @@ export default function ResaAssistantWidget() {
   }
 
   function openCustomerCare() {
+    // Public visitors must remain in the public Ask RESA widget. The protected
+    // in-app chat route is only for authenticated school members.
     setOpen(true);
+    setCareMode(true);
     setShowAvailabilityPrompt(false);
-    window.location.href = "/resa-chat?channel=customer_care";
   }
 
   async function pollPublicCare(id=careId,token=careToken) {
