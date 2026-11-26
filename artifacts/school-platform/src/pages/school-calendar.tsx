@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, Plus, RefreshCw, Save, ShieldCheck, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarDays, Clock3, Plus, RefreshCw, Save, ShieldCheck, XCircle } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
