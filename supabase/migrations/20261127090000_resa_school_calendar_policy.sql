@@ -248,6 +248,56 @@ comment on table public.school_operating_schedules is 'Authoritative weekly scho
 comment on table public.school_calendar_rules is 'Dated closures, special openings and explicit audited overrides for school operating policy.';
 comment on table public.school_staff_work_schedules is 'Effective-dated individual staff work schedules; visible to the staff member and school administrators.';
 
+-- Attribute calendar writes to the authenticated administrator, not client-supplied ids.
+create or replace function public.set_school_calendar_actor()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+begin
+  if auth.uid() is not null then
+    if tg_op = 'INSERT' then
+      new.created_by := auth.uid();
+    end if;
+    new.updated_by := auth.uid();
+  end if;
+  return new;
+end;
+$function$;
+
+create or replace function public.set_school_calendar_schedule_actor()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+begin
+  if auth.uid() is not null then
+    new.updated_by := auth.uid();
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists school_calendar_rules_set_actor on public.school_calendar_rules;
+create trigger school_calendar_rules_set_actor
+  before insert or update on public.school_calendar_rules
+  for each row execute function public.set_school_calendar_actor();
+
+drop trigger if exists school_staff_work_schedules_set_actor on public.school_staff_work_schedules;
+create trigger school_staff_work_schedules_set_actor
+  before insert or update on public.school_staff_work_schedules
+  for each row execute function public.set_school_calendar_actor();
+
+drop trigger if exists school_operating_schedules_set_actor on public.school_operating_schedules;
+create trigger school_operating_schedules_set_actor
+  before insert or update on public.school_operating_schedules
+  for each row execute function public.set_school_calendar_schedule_actor();
+
+revoke all on function public.set_school_calendar_actor() from public, anon, authenticated;
+revoke all on function public.set_school_calendar_schedule_actor() from public, anon, authenticated;
+
 -- Reuse the existing immutable Engine Room audit trigger for calendar changes.
 drop trigger if exists school_operating_schedules_nexus_audit on public.school_operating_schedules;
 create trigger school_operating_schedules_nexus_audit
