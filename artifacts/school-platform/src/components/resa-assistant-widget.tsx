@@ -316,12 +316,6 @@ export default function ResaAssistantWidget() {
     } catch(error) {setCareError(error instanceof Error?error.message:"Message could not be sent. Try again.");}
     finally {setCareBusy(false);}
   }
-  useEffect(()=>{
-    if(!open||!careMode||!careId||!careToken)return;
-    void pollPublicCare();const timer=window.setInterval(()=>void pollPublicCare(),5000);
-    return()=>window.clearInterval(timer);
-  },[open,careMode,careId,careToken]);
-
   function ask(value = question) {
     const trimmed = value.trim();
     if (!trimmed) return;
