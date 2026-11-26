@@ -15,6 +15,7 @@ type Notice = {
   senderName?: string;
   channel?: string;
   targetUrl?: string;
+  category: string;
 };
 
 export default function NotificationsPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
@@ -27,6 +28,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [pushStatus, setPushStatus] = useState({ registered: false, supported: typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, detail: "Checking this device…" });
   const [testBusy, setTestBusy] = useState(false);
   const notificationCategories = [
@@ -105,8 +107,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const readResult = chatIds.length ? await db.from("resa_chat_message_reads").select("message_id").eq("user_id", uid).in("message_id", chatIds) : { data: [] };
       const readIds = new Set((readResult.data ?? []).map((r: any) => r.message_id));
       const conversationIds = [...new Set(chatRows.map((m: any) => m.conversation_id).filter(Boolean))];
-      const conversationResult = conversationIds.length ? await db.from("resa_chat_conversations").select("id,subject").in("id", conversationIds) : { data: [] };
+      const conversationResult = conversationIds.length ? await db.from("resa_chat_conversations").select("id,subject,conversation_type,customer_care_duty").in("id", conversationIds) : { data: [] };
       const conversationNames = new Map((conversationResult.data ?? []).map((row: any) => [row.id, row.subject]));
+      const conversationDetails = new Map((conversationResult.data ?? []).map((row: any) => [row.id, row]));
       const senderIds = [...new Set([...(messageResult.data ?? []).map((m: any) => m.sender_id), ...chatRows.map((m: any) => m.sender_id)].filter(Boolean))];
       const senderProfiles = senderIds.length ? await db.from("profiles").select("id,display_name").in("id", senderIds) : { data: [], error: null };
       const senderNames = new Map((senderProfiles.data ?? []).map((profile: any) => [profile.id, profile.display_name || "School member"]));
@@ -115,6 +118,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         id: m.id, kind: "message", title: m.subject, body: m.message, createdAt: m.sent_at,
         unread: !m.is_read, sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member",
         channel: m.channel, targetUrl: "/school-communication?message_id=" + encodeURIComponent(m.id),
+        category: m.channel === "customer_care" ? "customer_care" : m.channel === "announcement" ? "announcements" : m.channel === "attendance" ? "attendance" : m.channel === "fees" ? "fees" : m.channel === "admissions" ? "admissions" : m.channel === "cbt" ? "cbt" : m.channel === "results" ? "results" : m.channel === "admin" ? "administration" : "messages",
       }));
       const announcements: Notice[] = (announcementResult.data ?? [])
         .filter((a: any) => {
@@ -125,9 +129,16 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         })
         .map((a: any) => ({
           id: a.id, kind: "announcement", title: a.title, body: a.content,
-          createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type,
+          createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type, category: "announcements",
         }));
-      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member", channel: "chat", targetUrl: "/resa-chat?conversation_id=" + encodeURIComponent(m.conversation_id) + "&message_id=" + encodeURIComponent(m.id) }));
+      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => {
+        const conversation = conversationDetails.get(m.conversation_id) as any;
+        const duty = String(conversation?.customer_care_duty || "general");
+        const category = conversation?.conversation_type === "admin_support"
+          ? (["fees","admissions","cbt","results","attendance","technical"].includes(duty) ? duty : "customer_care")
+          : conversation?.conversation_type === "group" ? "group_messages" : "messages";
+        return { id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member", channel: "chat", category, targetUrl: "/resa-chat?conversation_id=" + encodeURIComponent(m.conversation_id) + "&message_id=" + encodeURIComponent(m.id) };
+      });
       setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); setPreferencesLoading(false); }
     finally { if (!quiet) setLoading(false); }
@@ -294,14 +305,17 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     }
   }
 
+  const categoryLabels: Record<string,string> = { all:"All categories", attendance:"Attendance", administration:"Administration", customer_care:"Customer Care", fees:"Fees & payments", admissions:"Admissions", cbt:"CBT & examinations", results:"Results", academics:"Academics", announcements:"Announcements", messages:"Private messages", group_messages:"Group chats", technical:"Technical support" };
+  const categoryCounts = useMemo(() => items.reduce<Record<string,{total:number;unread:number}>>((counts,item) => { const key=item.category || "messages"; counts[key] ||= {total:0,unread:0}; counts[key].total++; if(item.unread) counts[key].unread++; return counts; },{}),[items]);
   const filteredItems = useMemo(() => items.filter(item => {
     const itemDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.createdAt));
     const matchesDate = itemDate === selectedDate;
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
     const matchesUnread = filter === "all" || (item.kind !== "announcement" && item.unread);
     const query = search.trim().toLocaleLowerCase();
     const matchesSearch = !query || `${item.title} ${item.body} ${item.kind} ${item.channel ?? ""}`.toLocaleLowerCase().includes(query);
-    return matchesDate && matchesUnread && matchesSearch;
-  }), [items, selectedDate, filter, search]);
+    return matchesDate && matchesUnread && matchesSearch && matchesCategory;
+  }), [items, selectedDate, filter, search, categoryFilter]);
   const back = role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "student" ? "/student-dashboard" : "/parent-dashboard";
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
