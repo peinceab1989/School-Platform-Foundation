@@ -75,9 +75,12 @@ revoke all on public.resa_technical_operations_events from anon, authenticated, 
 revoke all on public.resa_technical_assets from anon, authenticated, public;
 revoke all on public.resa_maintenance_schedules from anon, authenticated, public;
 
-grant select, insert on public.resa_technical_operations_events to authenticated;
-grant select, insert, update on public.resa_technical_assets to authenticated;
-grant select, insert, update on public.resa_maintenance_schedules to authenticated;
+grant select on public.resa_technical_operations_events to authenticated;
+grant insert (school_id, ticket_id, actor_user_id, event_type, summary, details) on public.resa_technical_operations_events to authenticated;
+grant select, insert on public.resa_technical_assets to authenticated;
+grant update (condition, updated_at) on public.resa_technical_assets to authenticated;
+grant select, insert on public.resa_maintenance_schedules to authenticated;
+grant update (asset_id, title, description, maintenance_type, location, scheduled_start, scheduled_end, assigned_to, status, completion_notes, completed_at, updated_at) on public.resa_maintenance_schedules to authenticated;
 
 drop policy if exists resa_tech_events_admin_read on public.resa_technical_operations_events;
 create policy resa_tech_events_admin_read on public.resa_technical_operations_events
@@ -107,6 +110,11 @@ with check (
       and sm.user_id = (select auth.uid())
       and sm.status = 'active' and sm.role = 'admin'
   )
+  and (ticket_id is null or exists (
+    select 1 from public.resa_support_tickets t
+    where t.id = resa_technical_operations_events.ticket_id
+      and t.school_id = resa_technical_operations_events.school_id
+  ))
 );
 
 drop policy if exists resa_tech_assets_admin_read on public.resa_technical_assets;
@@ -186,6 +194,17 @@ with check (
       and sm.user_id = (select auth.uid())
       and sm.status = 'active' and sm.role = 'admin'
   )
+  and (asset_id is null or exists (
+    select 1 from public.resa_technical_assets a
+    where a.id = resa_maintenance_schedules.asset_id
+      and a.school_id = resa_maintenance_schedules.school_id
+  ))
+  and (assigned_to is null or exists (
+    select 1 from public.school_memberships assignee
+    where assignee.school_id = resa_maintenance_schedules.school_id
+      and assignee.user_id = resa_maintenance_schedules.assigned_to
+      and assignee.status = 'active' and assignee.role in ('admin','teacher')
+  ))
 );
 
 drop policy if exists resa_maintenance_admin_update on public.resa_maintenance_schedules;
