@@ -130,6 +130,7 @@ returns table (
   opens_at time,
   closes_at time,
   timezone text,
+  attendance_allowed boolean,
   source_rule_id uuid
 )
 language plpgsql
@@ -160,7 +161,7 @@ begin
   if not found or v_schedule.configured_at is null then
     return query select 'unconfigured'::text,
       'The school has not configured its operating schedule yet.'::text,
-      null::time, null::time, 'Africa/Lagos'::text, null::uuid;
+      null::time, null::time, 'Africa/Lagos'::text, false, null::uuid;
     return;
   end if;
 
@@ -186,7 +187,7 @@ begin
         coalesce(v_override.override_reason, 'Explicit administrator override')::text,
         (p_at at time zone 'Africa/Lagos')::time,
         (v_override.ends_at at time zone 'Africa/Lagos')::time,
-        'Africa/Lagos'::text, v_override.id;
+        'Africa/Lagos'::text, true, v_override.id;
       return;
     end if;
 
@@ -200,12 +201,12 @@ begin
     if found then
       return query select 'conflict'::text,
         'An active closure overlaps a special opening. An administrator must explicitly resolve the conflict.'::text,
-        null::time, null::time, 'Africa/Lagos'::text, v_closure.id;
+        null::time, null::time, 'Africa/Lagos'::text, false, v_closure.id;
       return;
     end if;
 
     return query select 'closed'::text, v_closure.title,
-      null::time, null::time, 'Africa/Lagos'::text, v_closure.id;
+      null::time, null::time, 'Africa/Lagos'::text, false, v_closure.id;
     return;
   end if;
 
@@ -220,7 +221,7 @@ begin
     return query select 'special_activity'::text, v_opening.title,
       (v_opening.starts_at at time zone 'Africa/Lagos')::time,
       (v_opening.ends_at at time zone 'Africa/Lagos')::time,
-      'Africa/Lagos'::text, v_opening.id;
+      'Africa/Lagos'::text, v_opening.attendance_allowed, v_opening.id;
     return;
   end if;
 
@@ -232,10 +233,10 @@ begin
     and coalesce((v_day ->> 'closes_at')::time, '00:00'::time) > v_local_time then
     return query select 'open'::text, 'Configured weekly operating hours'::text,
       (v_day ->> 'opens_at')::time, (v_day ->> 'closes_at')::time,
-      'Africa/Lagos'::text, null::uuid;
+      'Africa/Lagos'::text, true, null::uuid;
   else
     return query select 'closed'::text, 'Outside configured weekly operating hours'::text,
-      null::time, null::time, 'Africa/Lagos'::text, null::uuid;
+      null::time, null::time, 'Africa/Lagos'::text, false, null::uuid;
   end if;
 end;
 $function$;
@@ -262,3 +263,46 @@ drop trigger if exists school_staff_work_schedules_nexus_audit on public.school_
 create trigger school_staff_work_schedules_nexus_audit
   after insert or update or delete on public.school_staff_work_schedules
   for each row execute function public.nexus_audit_row_change();
+
+-- Block ordinary same-day student attendance on configured closures.
+-- Historical corrections remain possible; privileged service-role writes are
+-- trusted server operations and must independently validate the signed-in actor.
+create or replace function public.enforce_school_calendar_student_attendance()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+declare
+  v_status record;
+begin
+  if auth.uid() is null then
+    return new;
+  end if;
+  if new.attendance_date <> (now() at time zone 'Africa/Lagos')::date then
+    return new;
+  end if;
+
+  select * into v_status
+  from public.school_calendar_effective_status(new.school_id, now(), 'attendance');
+
+  if v_status.status = 'unconfigured' then
+    return new;
+  end if;
+  if v_status.status in ('closed','conflict') then
+    raise exception 'Student attendance is unavailable: %', v_status.reason;
+  end if;
+  if v_status.status = 'special_activity' and not coalesce(v_status.attendance_allowed,false) then
+    raise exception 'Attendance is not enabled for this special activity.';
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists student_attendance_school_calendar_guard on public.student_attendance;
+create trigger student_attendance_school_calendar_guard
+  before insert or update of attendance_date, school_id, status
+  on public.student_attendance
+  for each row execute function public.enforce_school_calendar_student_attendance();
+
+revoke all on function public.enforce_school_calendar_student_attendance() from public, anon, authenticated;
