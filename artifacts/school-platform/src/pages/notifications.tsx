@@ -123,7 +123,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         }));
       const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, channel: "chat" }));
       setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); setPreferencesLoading(false); }
     finally { if (!quiet) setLoading(false); }
   }, [schoolId]);
 
