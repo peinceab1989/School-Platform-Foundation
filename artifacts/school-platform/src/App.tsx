@@ -280,7 +280,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [children, setChildren] = useState<Array<{ id: string; name: string }>>([]);
   const [attendanceRows, setAttendanceRows] = useState<Array<Record<string, any>>>([]);
   const [attendanceAlerts, setAttendanceAlerts] = useState<Array<Record<string, any>>>([]);
-  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(false);
+  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(true);
   const [soundChoice, setSoundChoice] = useState<"chime" | "bell" | "soft" | "none">("chime");
   const [phoneNotificationsEnabled, setPhoneNotificationsEnabled] = useState(false);
   const [phoneDeviceRegistered, setPhoneDeviceRegistered] = useState(false);
@@ -292,7 +292,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
   const [notificationFilter, setNotificationFilter] = useState<"all" | "unread">("all");
   const [notificationDate, setNotificationDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
   const [notificationSearch, setNotificationSearch] = useState("");
-  const soundAlertsRef = useRef(false);
+  const soundAlertsRef = useRef(true);
   const soundChoiceRef = useRef<"chime" | "bell" | "soft" | "none">("chime");
   useEffect(() => { soundAlertsRef.current = soundAlertsEnabled; }, [soundAlertsEnabled]);
   useEffect(() => { soundChoiceRef.current = soundChoice; }, [soundChoice]);
