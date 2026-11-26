@@ -5,7 +5,7 @@ import { MessageCircle, RefreshCw, Send, CheckCircle2, RotateCcw, Inbox } from "
 type Thread = {
   id:string; visitor_name:string; visitor_email:string|null; duty_key:string;
   status:"open"|"waiting"|"closed"; created_at:string; last_message_at:string;
-  last_message_sender_kind:"visitor"|"admin"; last_admin_read_at:string|null;
+  last_message_sender_kind:"visitor"|"admin"; last_admin_read_at:string|null; unread_visitor_count:number;
 };
 type Message = {id:string;sender_kind:"visitor"|"admin";sender_admin_id?:string|null;body:string;created_at:string};
 
@@ -88,7 +88,7 @@ export default function PublicVisitorCareInbox() {
     finally{setBusy(false);}
   }
 
-  const unread=threads.filter(t=>t.status!=="closed"&&t.last_message_sender_kind==="visitor"&&(!t.last_admin_read_at||new Date(t.last_message_at)>new Date(t.last_admin_read_at))).length;
+  const unread=threads.filter(t=>t.status!=="closed"&&t.last_message_sender_kind==="visitor"&&(!t.last_admin_read_at||new Date(t.last_message_at)>new Date(t.last_admin_read_at))).reduce((total,t)=>total+Number(t.unread_visitor_count||0),0);
 
   return <section className="mt-5 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -109,7 +109,7 @@ export default function PublicVisitorCareInbox() {
         {loading?<p className="text-sm text-slate-500">Loading enquiries…</p>:threads.length===0?<p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">{showClosed?"No closed conversations are available.":"No open public enquiries assigned to you."}</p>:threads.map(thread=>{
           const needsReply=thread.status!=="closed"&&thread.last_message_sender_kind==="visitor"&&(!thread.last_admin_read_at||new Date(thread.last_message_at)>new Date(thread.last_admin_read_at));
           return <button key={thread.id} type="button" onClick={()=>setActiveId(thread.id)} className={"w-full rounded-xl border p-3 text-left "+(activeId===thread.id?"border-emerald-800 bg-emerald-50":"border-slate-200")}>
-            <span className="flex items-center justify-between gap-2"><strong className="text-slate-900">{thread.visitor_name}</strong>{needsReply&&<span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">New</span>}</span>
+            <span className="flex items-center justify-between gap-2"><strong className="text-slate-900">{thread.visitor_name}</strong>{needsReply&&<span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">{thread.unread_visitor_count||"New"} new</span>}</span>
             <span className="mt-1 block text-xs text-slate-500">{thread.duty_key.replaceAll("_"," ")} · {thread.status}</span>
             <span className="mt-1 block text-[10px] text-slate-400">{new Date(thread.last_message_at).toLocaleString()}</span>
           </button>;
