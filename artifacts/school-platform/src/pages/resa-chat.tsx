@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import PublicVisitorCareInbox from "@/components/public-visitor-care-inbox";
 import { ArrowLeft, MessageCircle, Send, RefreshCw, ShieldCheck, Users, LockKeyhole, Paperclip, FileText, Mic, Square, Download, Smile } from "lucide-react";
 
 type Role = "admin" | "teacher" | "student" | "parent";
@@ -416,6 +417,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
 
   return <main className="min-h-screen bg-[#f4f7f1] px-4 py-5 text-slate-900 sm:px-6"><div className="mx-auto max-w-6xl">
     <Link href={role === "student" ? "/student-dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "parent" ? "/parent-dashboard" : "/dashboard"} className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-900"><ArrowLeft size={16}/> Back to dashboard</Link>
+    {isAdmin && <PublicVisitorCareInbox/>}
     <header className="mt-4 rounded-2xl bg-gradient-to-br from-emerald-950 to-emerald-700 p-5 text-white sm:p-7"><p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">RESA communication</p><h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("channel")==="customer_care"?"RESA Customer Care":"RESA Communication Centre"}</h1><p className="mt-2 text-sm leading-6 text-emerald-50">Private conversations, administrator-approved role-to-role messaging, Customer Care and school groups—with instant portal alerts and administrator-managed access.</p><div className="mt-4 flex flex-wrap items-center gap-2"><span className={"rounded-full px-3 py-1 text-xs font-bold "+(enabled?"bg-emerald-100 text-emerald-950":"bg-amber-100 text-amber-950")}>{enabled?"Chat enabled":"Chat deactivated"}</span>{isAdmin&&<button onClick={()=>void toggleChat()} className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-emerald-950">{enabled?"Deactivate chat":"Activate chat"}</button>}</div></header>
     {error&&<p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}{notice&&<p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
     {!enabled&&<div className="mt-5 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><LockKeyhole size={20}/><div><strong>Messaging is currently disabled.</strong><p className="mt-1">An administrator must activate chat before anyone can start or send messages. Existing messages are preserved.</p></div></div>}
