@@ -237,6 +237,29 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     } catch { setPreferencesError("This device or browser blocked the sound preview."); }
   }
 
+  async function markAllRead() {
+    setError("");
+    try {
+      const db = getSupabaseClient() as any;
+      const directIds = items.filter(item => item.kind === "message" && item.unread).map(item => item.id);
+      const chatIds = items.filter(item => item.kind === "chat" && item.unread).map(item => item.id.replace(/^chat-/, ""));
+      if (directIds.length) {
+        const { error: directError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).in("id", directIds).eq("recipient_id", userId);
+        if (directError) throw directError;
+      }
+      if (chatIds.length) {
+        const { error: chatError } = await db.from("resa_chat_message_reads").upsert(
+          chatIds.map(message_id => ({ message_id, school_id: schoolId, user_id: userId })),
+          { onConflict: "message_id,user_id", ignoreDuplicates: true },
+        );
+        if (chatError) throw chatError;
+      }
+      setItems(previous => previous.map(item => ({ ...item, unread: false })));
+      setUnreadCount(0);
+      setNotice("All currently loaded private and group messages have been marked as read.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not mark all messages as read."); }
+  }
+
   async function enableBrowserAlerts() {
     setError("");
     try {
@@ -331,7 +354,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         </div>
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <div className="flex gap-2"><button type="button" onClick={()=>setFilter("all")} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filter==="all"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>All</button><button type="button" onClick={()=>setFilter("unread")} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filter==="unread"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>Unread</button></div>
-          <span className="text-xs text-slate-500">{filteredItems.length} shown · {items.length} loaded</span>
+          <div className="flex items-center gap-2"><span className="text-xs text-slate-500">{filteredItems.length} shown · {items.length} loaded</span>{unreadCount > 0 && <button type="button" onClick={()=>void markAllRead()} className="rounded-lg border px-2.5 py-1.5 text-xs font-bold text-emerald-900">Mark all read</button>}</div>
         </div>
       </section>
       {!loading && filteredItems.length===0 && items.length>0 && <p className="rounded-xl border border-dashed bg-white p-4 text-sm text-slate-600">No notifications match this date and search. Choose another date or clear the search to find older items.</p>}
