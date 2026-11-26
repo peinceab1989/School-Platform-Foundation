@@ -42,7 +42,7 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Foreground school messages, announcements and account/security alerts apply the same personal category, quiet-hours and privacy choices.
 - Web Push dispatch enforces category opt-outs, quiet hours in Africa/Lagos, preview privacy, vibration and the Silent choice for non-attendance event categories.
 - Parent attendance continues to use its dedicated guardian opt-in and event routing, separate from ordinary quiet-hour preferences.
-- The additive schema was applied to the linked Supabase project and the push dispatcher was deployed as version 10.
+- The additive schema was applied to the linked Supabase project and the push dispatcher was deployed as version 11.
 
 ## Explicit platform boundaries and remaining work
 - Android/browser notification-channel settings determine actual background sound; a web page cannot guarantee a custom sound file or override device DND.
