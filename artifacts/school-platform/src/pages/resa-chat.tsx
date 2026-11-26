@@ -308,8 +308,6 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     let uploadedPath: string | null = null;
     try {
       if (attachment) {
-        const allowed = ["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","audio/webm","audio/ogg","audio/mpeg","application/pdf","text/plain","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-        if (!allowed.includes(attachment.type)) throw new Error("Unsupported attachment type. Choose an image, video, audio file, PDF, text or Word document.");
         if (attachment.size <= 0 || attachment.size > 100 * 1024 * 1024) throw new Error("Chat attachments must be 100 MB or smaller.");
         const blockedExtension = /\.(exe|dll|com|bat|cmd|msi|msp|ps1|sh|bash|zsh|js|mjs|cjs|html|htm|xhtml|svg|jar|apk|ipa|app|deb|rpm|php|py|rb|pl|wasm|scr|vbs|hta)$/i;
         const blockedMime = /^(text\/html|image\/svg\+xml|application\/javascript|text\/javascript|application\/x-msdownload|application\/x-dosexec|application\/x-executable|application\/x-sh)$/i;
