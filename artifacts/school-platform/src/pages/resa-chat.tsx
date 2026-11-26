@@ -264,15 +264,16 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       recordingChunks.current = [];
-      const preferred = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "";
+      const supportedTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+      const preferred = supportedTypes.find(type => MediaRecorder.isTypeSupported(type)) || "";
       const recorder = new MediaRecorder(stream, preferred ? { mimeType: preferred } : undefined);
       recorderRef.current = recorder;
       recorder.ondataavailable = event => { if (event.data.size) recordingChunks.current.push(event.data); };
       recorder.onstop = () => {
-        const type = recorder.mimeType?.startsWith("audio/webm") ? "audio/webm" : recorder.mimeType || "audio/webm";
+        const type = recorder.mimeType || recordingChunks.current[0]?.type || "audio/webm";
+        const ext = type.includes("ogg") ? "ogg" : type.includes("mp4") ? "m4a" : type.includes("mpeg") ? "mp3" : "webm";
         const blob = new Blob(recordingChunks.current, { type });
         if (blob.size > 0) {
-          const ext = type.includes("ogg") ? "ogg" : "webm";
           setAttachment(new File([blob], "RESA-voice-note-" + new Date().toISOString().replace(/[:.]/g,"-") + "." + ext, { type }));
         }
         stream.getTracks().forEach(track => track.stop());
