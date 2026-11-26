@@ -37,7 +37,9 @@ alter table public.resa_support_tickets enable row level security;
 alter table public.resa_support_ticket_replies enable row level security;
 revoke all on public.resa_support_tickets from anon;
 revoke all on public.resa_support_ticket_replies from anon;
-grant select,insert,update on public.resa_support_tickets to authenticated;
+grant select,insert on public.resa_support_tickets to authenticated;
+revoke update on public.resa_support_tickets from authenticated;
+grant update (priority,status,assigned_to,resolution_note,updated_at,resolved_at) on public.resa_support_tickets to authenticated;
 grant select,insert on public.resa_support_ticket_replies to authenticated;
 grant usage,select on sequence public.resa_support_tickets_ticket_number_seq to authenticated;
 
@@ -56,7 +58,10 @@ with check (
 drop policy if exists resa_support_ticket_admin_update on public.resa_support_tickets;
 create policy resa_support_ticket_admin_update on public.resa_support_tickets for update to authenticated
 using (exists (select 1 from public.school_memberships sm where sm.school_id = resa_support_tickets.school_id and sm.user_id = auth.uid() and sm.status = 'active' and sm.role = 'admin'))
-with check (exists (select 1 from public.school_memberships sm where sm.school_id = resa_support_tickets.school_id and sm.user_id = auth.uid() and sm.status = 'active' and sm.role = 'admin'));
+with check (
+  exists (select 1 from public.school_memberships sm where sm.school_id = resa_support_tickets.school_id and sm.user_id = auth.uid() and sm.status = 'active' and sm.role = 'admin')
+  and (assigned_to is null or exists (select 1 from public.school_memberships assignee where assignee.school_id = resa_support_tickets.school_id and assignee.user_id = resa_support_tickets.assigned_to and assignee.status = 'active'))
+);
 
 drop policy if exists resa_support_reply_read on public.resa_support_ticket_replies;
 create policy resa_support_reply_read on public.resa_support_ticket_replies for select to authenticated
