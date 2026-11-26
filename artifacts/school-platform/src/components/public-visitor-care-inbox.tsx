@@ -53,6 +53,17 @@ export default function PublicVisitorCareInbox() {
     const timer=window.setInterval(()=>{if(document.visibilityState==="visible")refresh();},3000);
     return()=>{alive=false;window.clearInterval(timer);};
   },[activeId,loadMessages]);
+  useEffect(()=>{
+    if(!activeId)return;
+    const client=getSupabaseClient();
+    const channel=client.channel(`resa-public-care-${activeId}`)
+      .on("broadcast",{event:"message_updated"},()=>{
+        void loadMessages(activeId).catch(e=>setError(e.message||"Could not refresh this conversation."));
+        void loadThreads().catch(e=>setError(e.message||"Could not refresh enquiries."));
+      })
+      .subscribe();
+    return()=>{void client.removeChannel(channel);};
+  },[activeId,loadMessages,loadThreads]);
 
   const active=useMemo(()=>threads.find(thread=>thread.id===activeId),[threads,activeId]);
 
