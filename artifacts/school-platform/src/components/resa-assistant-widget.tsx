@@ -108,6 +108,7 @@ export default function ResaAssistantWidget() {
       if (!AudioContextCtor) return;
       const context = new AudioContextCtor();
       const play = () => {
+        if (context.state !== "running") return;
         const oscillator = context.createOscillator();
         const gain = context.createGain();
         oscillator.type = "sine";
@@ -119,9 +120,14 @@ export default function ResaAssistantWidget() {
         oscillator.connect(gain); gain.connect(context.destination);
         oscillator.start(); oscillator.stop(context.currentTime + 0.3);
         window.setTimeout(() => void context.close(), 500);
+        window.removeEventListener("pointerdown", unlockAndPlay);
       };
+      const unlockAndPlay = () => { void context.resume().then(play).catch(() => { soundAttempted.current = false; }); };
       if (context.state === "running") play();
-      else void context.resume().then(play).catch(() => { soundAttempted.current = false; });
+      else {
+        void context.resume().then(play).catch(() => { soundAttempted.current = false; });
+        window.addEventListener("pointerdown", unlockAndPlay, { once: true });
+      }
     } catch {
       soundAttempted.current = false;
     }
