@@ -2084,23 +2084,36 @@ function FoundationPage() {
         } catch { /* Autoplay restrictions or device settings may block in-app audio. */ }
       }
       if (prefs?.phone_notifications_enabled !== true || !('Notification' in window) || Notification.permission !== 'granted') return;
+      // Keep private and group messages in one updating notification per signed-in
+      // school account. The unread count is visible once instead of filling the
+      // Android/iOS notification shade with one card per message.
+      if (document.visibilityState !== 'visible') return; // Background push is handled by sw.js.
       const hidePreview = prefs?.show_notification_preview === false;
+      const grouped = category === 'messages' || category === 'group_messages';
+      const notificationTag = grouped ? 'resa-inbox-' + sid + '-' + uid : tag;
       const safeTitle = hidePreview ? 'RESA · New school update' : title;
       const safeBody = hidePreview ? 'You have a new RESA school update. Sign in to view it.' : body;
-      const options = {
-        body: safeBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
-        badge: '/media/logo/resa-logo.jpg?v=20261125', tag, data: { url },
-        silent: selectedSound === 'silent', vibrate: prefs?.vibration_enabled === false ? [] : [180, 90, 180],
-      };
       try {
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.ready;
-          if (alive) await registration.showNotification(safeTitle, options);
+          if (!alive) return;
+          const existing = grouped ? await registration.getNotifications({ tag: notificationTag }) : [];
+          const count = grouped ? Math.max(1, Number(existing[0]?.data?.count || 0) + 1) : 1;
+          const notificationTitle = grouped && count > 1 ? 'RESA · ' + count + ' new messages' : safeTitle;
+          const notificationBody = grouped && count > 1
+            ? count + ' new messages. Latest: ' + (hidePreview ? 'Open RESA to read your inbox.' : safeTitle + ' · ' + safeBody)
+            : safeBody;
+          await registration.showNotification(notificationTitle, {
+            body: notificationBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
+            badge: '/media/logo/resa-logo.jpg?v=20261125', tag: notificationTag,
+            data: { url, count, grouped }, renotify: grouped,
+            silent: selectedSound === 'silent', vibrate: prefs?.vibration_enabled === false ? [] : [180, 90, 180],
+          });
         } else if (alive) {
-          new Notification(safeTitle, options);
+          new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped });
         }
       } catch {
-        if (alive) new Notification(safeTitle, options);
+        if (alive) new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped });
       }
     };
 
