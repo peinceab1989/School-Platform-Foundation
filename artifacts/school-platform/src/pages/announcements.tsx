@@ -39,7 +39,7 @@ export default function AnnouncementsPage({ schoolId }: { schoolId: string }) {
           .select("id,title,content,announcement_type,is_published,published_at,expires_at,created_at")
           .eq("school_id", schoolId)
           .order("created_at", { ascending: false }),
-        client.from("resa_chat_settings").select("channel_policy").eq("school_id", schoolId).maybeSingle(),
+        (client as any).from("resa_chat_settings").select("channel_policy").eq("school_id", schoolId).maybeSingle(),
       ]);
       if (announcementsResult.error) throw announcementsResult.error;
       if (settingsResult.error) throw settingsResult.error;
