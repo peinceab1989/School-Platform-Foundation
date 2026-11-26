@@ -27,6 +27,30 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [pushStatus, setPushStatus] = useState({ registered: false, supported: typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, detail: "Checking this device…" });
   const [testBusy, setTestBusy] = useState(false);
+  const notificationCategories = [
+    ["messages", "Private messages"], ["group_messages", "Group messages"], ["announcements", "School announcements"],
+    ["attendance", "Attendance updates"], ["academics", "Academics and assignments"], ["results", "Results"],
+    ["fees", "Fees and payments"], ["admissions", "Admissions"], ["cbt", "CBT and examinations"],
+    ["school_activities", "School activities and events"], ["system_alerts", "System and security alerts"],
+  ] as const;
+  const soundOptions = [
+    ["resa_chime", "RESA Signature Chime"], ["classic_bell", "Classic Bell"], ["digital_ping", "Digital Ping"],
+    ["soft_tone", "Soft Tone"], ["gentle_melody", "Gentle Melody"], ["crystal_drop", "Crystal Drop"],
+    ["double_beep", "Double Beep"], ["alert_tone", "Alert Tone"], ["message_pop", "Message Pop"],
+    ["school_bell", "School Bell"], ["vibrant_ring", "Vibrant Ring"], ["silent", "Silent"],
+  ] as const;
+  const [preferences, setPreferences] = useState({
+    enabled: true, phone_notifications_enabled: false, vibration_enabled: true,
+    show_notification_preview: true, in_app_sound_enabled: true, quiet_hours_enabled: false,
+    quiet_hours_start: "21:00", quiet_hours_end: "07:00",
+    category_preferences: Object.fromEntries(notificationCategories.map(([key]) => [key, true])) as Record<string, boolean>,
+    category_sounds: Object.fromEntries(notificationCategories.map(([key]) => [key, "resa_chime"])) as Record<string, string>,
+  });
+  const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const [preferencesError, setPreferencesError] = useState("");
+  const [preferencesNotice, setPreferencesNotice] = useState("");
+
 
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -37,6 +61,22 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       if (authError || !auth.user) throw new Error("Please sign in again.");
       const uid = auth.user.id;
       setUserId(uid);
+      setPreferencesLoading(true);
+      const preferenceResult = await db.from("resa_notification_preferences")
+        .select("enabled,phone_notifications_enabled,vibration_enabled,show_notification_preview,in_app_sound_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end,category_preferences,category_sounds")
+        .eq("school_id", schoolId).eq("user_id", uid).maybeSingle();
+      if (preferenceResult.error) throw preferenceResult.error;
+      if (preferenceResult.data) {
+        const saved = preferenceResult.data;
+        setPreferences(current => ({
+          ...current, ...saved,
+          quiet_hours_start: String(saved.quiet_hours_start || "21:00").slice(0, 5),
+          quiet_hours_end: String(saved.quiet_hours_end || "07:00").slice(0, 5),
+          category_preferences: { ...current.category_preferences, ...(saved.category_preferences || {}) },
+          category_sounds: { ...current.category_sounds, ...(saved.category_sounds || {}) },
+        }));
+      }
+      setPreferencesLoading(false);
       void getResaPushRegistrationStatus(schoolId)
         .then(status => setPushStatus({ registered: status.registered, supported: status.supported, detail: status.detail }))
         .catch(() => setPushStatus({ registered: false, supported: true, detail: "Could not verify this phone's registration." }));
@@ -148,6 +188,55 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     } catch (e) { setError(e instanceof Error ? e.message : "Could not mark this notification as read."); }
   }
 
+  async function saveNotificationPreferences() {
+    setPreferencesSaving(true); setPreferencesError(""); setPreferencesNotice("");
+    try {
+      const db = getSupabaseClient() as any;
+      const { data: auth, error: authError } = await db.auth.getUser();
+      if (authError || !auth.user) throw new Error("Please sign in again.");
+      const { error: saveError } = await db.from("resa_notification_preferences").upsert({
+        school_id: schoolId, user_id: auth.user.id, enabled: preferences.enabled,
+        phone_notifications_enabled: preferences.phone_notifications_enabled,
+        vibration_enabled: preferences.vibration_enabled,
+        show_notification_preview: preferences.show_notification_preview,
+        in_app_sound_enabled: preferences.in_app_sound_enabled,
+        quiet_hours_enabled: preferences.quiet_hours_enabled,
+        quiet_hours_start: preferences.quiet_hours_start,
+        quiet_hours_end: preferences.quiet_hours_end,
+        category_preferences: preferences.category_preferences,
+        category_sounds: preferences.category_sounds,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "school_id,user_id" });
+      if (saveError) throw saveError;
+      setPreferencesNotice("Your RESA notification preferences have been saved.");
+    } catch (e) { setPreferencesError(e instanceof Error ? e.message : "Preferences could not be saved."); }
+    finally { setPreferencesSaving(false); }
+  }
+
+  function previewNotificationSound(soundId: string) {
+    if (soundId === "silent") return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audio = new AudioContextClass();
+      const patterns: Record<string, number[]> = {
+        resa_chime: [784, 988], classic_bell: [1046, 784], digital_ping: [1175],
+        soft_tone: [523], gentle_melody: [659, 784, 988], crystal_drop: [1318, 1046],
+        double_beep: [880, 880], alert_tone: [988, 784, 988], message_pop: [740],
+        school_bell: [659, 784, 659], vibrant_ring: [880, 1046, 1318],
+      };
+      (patterns[soundId] || patterns.resa_chime).forEach((frequency, index) => {
+        const oscillator = audio.createOscillator(), gain = audio.createGain();
+        const start = audio.currentTime + index * 0.16;
+        oscillator.frequency.value = frequency; oscillator.type = "sine";
+        gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(0.09, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
+        oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(start); oscillator.stop(start + 0.15);
+      });
+      window.setTimeout(() => void audio.close(), 900);
+    } catch { setPreferencesError("This device or browser blocked the sound preview."); }
+  }
+
   async function enableBrowserAlerts() {
     setError("");
     try {
@@ -198,6 +287,33 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           <button onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><RefreshCw size={15} className={loading?"animate-spin":""}/>Refresh</button>
           <Link href="/school-communication" className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold"><MessageSquare size={15}/>Open Communication Centre</Link>
         </div>
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><h2 className="text-lg font-extrabold">My notification preferences</h2><p className="mt-1 text-sm text-slate-600">Choose which RESA updates reach you and how they sound on this device.</p></div>
+          <button type="button" onClick={() => void saveNotificationPreferences()} disabled={preferencesLoading || preferencesSaving} className="rounded-xl bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{preferencesSaving ? "Saving…" : "Save preferences"}</button>
+        </div>
+        {preferencesLoading ? <p className="mt-3 text-sm text-slate-500">Loading your preferences…</p> : <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {[
+              ["enabled","All RESA notifications"],["phone_notifications_enabled","Phone push notifications"],
+              ["in_app_sound_enabled","Sound while using the portal"],["vibration_enabled","Vibration (device support required)"],
+              ["show_notification_preview","Show message previews"],["quiet_hours_enabled","Enable quiet hours"],
+            ].map(([key,label]) => <label key={key} className="flex items-center justify-between gap-3 rounded-xl border p-3 text-sm font-semibold">
+              <span>{label}</span><input type="checkbox" checked={Boolean((preferences as any)[key])} onChange={e=>setPreferences(p=>({...p,[key]:e.target.checked}))} className="h-5 w-5 accent-emerald-800"/>
+            </label>)}
+          </div>
+          {preferences.quiet_hours_enabled && <div className="mt-3 grid grid-cols-2 gap-3"><label className="text-xs font-bold text-slate-600">Quiet hours start<input type="time" value={preferences.quiet_hours_start} onChange={e=>setPreferences(p=>({...p,quiet_hours_start:e.target.value}))} className="mt-1 block w-full rounded-lg border p-2 text-sm"/></label><label className="text-xs font-bold text-slate-600">Quiet hours end<input type="time" value={preferences.quiet_hours_end} onChange={e=>setPreferences(p=>({...p,quiet_hours_end:e.target.value}))} className="mt-1 block w-full rounded-lg border p-2 text-sm"/></label></div>}
+          <div className="mt-4 border-t pt-4"><h3 className="font-bold">Choose notification categories</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {notificationCategories.map(([key,label]) => <div key={key} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
+              <label className="flex min-w-0 items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={preferences.category_preferences[key] !== false} onChange={e=>setPreferences(p=>({...p,category_preferences:{...p.category_preferences,[key]:e.target.checked}}))} className="h-4 w-4 accent-emerald-800"/>{label}</label>
+              <div className="flex items-center gap-1"><select aria-label={label+" sound"} value={preferences.category_sounds[key] || "resa_chime"} onChange={e=>setPreferences(p=>({...p,category_sounds:{...p.category_sounds,[key]:e.target.value}}))} className="max-w-36 rounded-lg border bg-white px-2 py-1.5 text-xs">{soundOptions.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select><button type="button" onClick={()=>previewNotificationSound(preferences.category_sounds[key] || "resa_chime")} className="rounded-lg border bg-white px-2 py-1.5 text-xs font-bold" aria-label={"Preview "+label+" sound"}>▶</button></div>
+            </div>)}
+          </div></div>
+          <p className="mt-3 text-xs leading-5 text-slate-500">Background alert sound and vibration are ultimately controlled by Android and the browser's notification channel. The sound preview works only while this page is open. Quiet hours are saved as a preference; server-side quiet-hour suppression is not yet active. Critical school safety and attendance alerts may have separate delivery rules.</p>
+        </>}
+        {preferencesError && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">{preferencesError}</p>}
+        {preferencesNotice && <p role="status" className="mt-3 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">{preferencesNotice}</p>}
       </section>
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
