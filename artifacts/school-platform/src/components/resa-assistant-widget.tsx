@@ -78,10 +78,30 @@ export default function ResaAssistantWidget() {
   const [availability, setAvailability] = useState<CustomerCareAvailability | null>(null);
   const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
   const [customerCareOnline, setCustomerCareOnline] = useState(false);
+  const [publicAskEnabled,setPublicAskEnabled] = useState(true);
   const soundAttempted = useRef(false);
   const lastChimeDay = useRef("");
 
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  useEffect(()=>{
+    let alive=true;
+    if(!hasSupabaseConfig)return()=>{alive=false;};
+    void (async()=>{
+      try{
+        const {data,error}=await (getSupabaseClient() as any).rpc(
+          "nexus_public_module_is_enabled",
+          {p_module_key:"resa_public_ask"},
+        );
+        if(alive&&!error)setPublicAskEnabled(data===true);
+      }catch{
+        // Keep the public help widget available if the control service is temporarily unavailable.
+      }
+    })();
+    return()=>{alive=false;};
+  },[]);
+  useEffect(()=>{
+    if(!publicAskEnabled&&careId)setCareMode(true);
+  },[publicAskEnabled,careId]);
   useEffect(() => {
     if (!careId || !careToken || !open || !careMode) return;
     if (!hasSupabaseConfig) {
@@ -356,6 +376,8 @@ export default function ResaAssistantWidget() {
     setQuestion("");
     setFallbackNotice(true);
   }
+
+  if(!publicAskEnabled&&!careId)return null;
 
   return <div ref={containerRef} className={position ? "fixed z-[1200]" : "fixed bottom-4 left-4 z-[1200]"} style={position ? { left: position.left, top: position.top, right: "auto", bottom: "auto" } : undefined}>
     {showAvailabilityPrompt && !open && <div role="status" className="mb-3 w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-emerald-200 bg-white p-4 shadow-2xl"><div className="flex items-center justify-between gap-2"><strong className="text-sm text-emerald-950">RESA Customer Care</strong><span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-800">Available now</span></div><p className="mt-2 text-sm font-semibold text-slate-900">Hello! 👋 We're ready to chat.</p><p className="mt-1 text-xs leading-5 text-slate-600">Ask us about admissions, fees, school services or general enquiries.</p><div className="mt-3 flex gap-2"><button type="button" onClick={openCustomerCare} className="flex-1 rounded-lg bg-emerald-900 px-3 py-2 text-xs font-bold text-white">Chat with us</button><button type="button" onClick={dismissAvailabilityPrompt} aria-label="Dismiss availability message" className="rounded-lg border px-3 py-2 text-xs font-semibold text-slate-600">Not now</button></div></div>}
