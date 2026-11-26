@@ -64,6 +64,7 @@ jobs:
           supabase/functions/resa-push-dispatch/index.ts
           supabase/functions/resa-ai-practice/index.ts
           supabase/functions/resa-ai-assistant/index.ts
+          supabase/functions/resa-public-customer-care/index.ts
 
       - name: Test RESA AI assistant request validation
         run: deno test --node-modules-dir=auto supabase/functions/resa-ai-assistant/index_test.ts
