@@ -404,13 +404,27 @@ Deno.serve(async (request) => {
         .eq("enabled", true)
         .eq("phone_notifications_enabled", true)
       : admin.from("resa_notification_preferences")
-        .select("user_id,enabled,phone_notifications_enabled")
+        .select("user_id,enabled,phone_notifications_enabled,category_preferences")
         .eq("school_id", schoolId)
         .in("user_id", recipientIds)
         .eq("enabled", true)
         .eq("phone_notifications_enabled", true);
     const { data: preferences, error: preferenceError } = await preferenceQuery;
     if (preferenceError) throw preferenceError;
+    const categoryByEvent: Record<string, string> = {
+      school_message: "messages",
+      chat_message: "group_messages",
+      announcement: "announcements",
+      result_published: "results",
+      assignment_published: "academics",
+      assignment_graded: "academics",
+      exam_published: "cbt",
+      fee_update: "fees",
+      fee_payment: "fees",
+      timetable_update: "school_activities",
+      admission_admin: "admissions",
+    };
+    const category = categoryByEvent[eventType];
     const optedIn = selectPushRecipients({
       eventType,
       recipientIds,
@@ -418,13 +432,22 @@ Deno.serve(async (request) => {
       genericPreferences: eventType === "attendance" ? [] : (preferences || []),
       parentAttendancePreferences: eventType === "attendance" ? (preferences || []) as Array<{ user_id: string; parent_guardian_id: string; enabled: boolean; phone_notifications_enabled: boolean }> : [],
     });
-    if (!optedIn.length) return json({ accepted: true, recipients: recipientIds.length, devices: 0, sent: 0 });
+    const categoryOptedIn = category
+      ? optedIn.filter((userId) => {
+          const preference = (preferences || []).find((item: any) => item.user_id === userId);
+          const categories = preference?.category_preferences;
+          // Missing legacy category keys default to enabled to preserve delivery.
+          return !categories || categories[category] !== false;
+        })
+      : optedIn;
+    if (!categoryOptedIn.length) return json({ accepted: true, recipients: recipientIds.length, devices: 0, sent: 0, skipped_by_preference: optedIn.length });
+
 
     const { data: subscriptions, error: subscriptionError } = await admin
       .from("resa_push_subscriptions")
       .select("id,user_id,endpoint,p256dh,auth_key")
       .eq("school_id", schoolId)
-      .in("user_id", optedIn);
+      .in("user_id", categoryOptedIn);
     if (subscriptionError) throw subscriptionError;
     if (!subscriptions?.length) return json({ accepted: true, recipients: optedIn.length, devices: 0, sent: 0 });
 
@@ -458,7 +481,7 @@ Deno.serve(async (request) => {
     }));
     const failures = results.filter((result) => result.status === "rejected").length;
     if (failures) console.error("RESA push delivery failures:", failures);
-    return json({ accepted: true, recipients: optedIn.length, devices: subscriptions.length, sent, expired, failures });
+    return json({ accepted: true, recipients: categoryOptedIn.length, devices: subscriptions.length, sent, expired, failures });
   } catch (error) {
     console.error("RESA push dispatch failed:", error);
     return json({ error: error instanceof Error ? error.message : "Push dispatch failed" }, 500);
