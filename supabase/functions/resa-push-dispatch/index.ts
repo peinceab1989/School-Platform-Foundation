@@ -426,11 +426,14 @@ Deno.serve(async (request) => {
       admission_admin: "admissions",
     };
     const category = categoryByEvent[eventType];
-    const categoryPreferenceRows = eventType === "attendance"
-      ? (await admin.from("resa_notification_preferences")
-          .select("user_id,category_preferences,category_sounds,vibration_enabled,show_notification_preview,quiet_hours_enabled,quiet_hours_start,quiet_hours_end")
-          .eq("school_id", schoolId).in("user_id", recipientIds)).data || []
-      : (preferences || []);
+    let categoryPreferenceRows: any[] = preferences || [];
+    if (eventType === "attendance") {
+      const categoryPreferenceResult = await admin.from("resa_notification_preferences")
+        .select("user_id,category_preferences,category_sounds,vibration_enabled,show_notification_preview,quiet_hours_enabled,quiet_hours_start,quiet_hours_end")
+        .eq("school_id", schoolId).in("user_id", recipientIds);
+      if (categoryPreferenceResult.error) throw categoryPreferenceResult.error;
+      categoryPreferenceRows = categoryPreferenceResult.data || [];
+    }
     const optedIn = selectPushRecipients({
       eventType,
       recipientIds,
