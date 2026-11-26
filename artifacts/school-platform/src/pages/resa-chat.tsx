@@ -310,6 +310,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     const attachmentMime = attachment ? (attachment.type || "application/octet-stream").split(";")[0].trim().toLowerCase() : null;
     try {
       if (attachment) {
+        if (attachmentMime === "application/octet-stream") throw new Error("This device cannot identify the file type. Choose a common image, audio, video, PDF, Office document or ZIP archive format.");
         if (attachment.size <= 0 || attachment.size > 100 * 1024 * 1024) throw new Error("Chat attachments must be 100 MB or smaller.");
         const blockedExtension = /\.(exe|dll|com|bat|cmd|msi|msp|ps1|sh|bash|zsh|js|mjs|cjs|html|htm|xhtml|svg|jar|apk|ipa|app|deb|rpm|php|py|rb|pl|wasm|scr|vbs|hta)$/i;
         const blockedMime = /^(text\/html|image\/svg\+xml|application\/javascript|text\/javascript|application\/x-msdownload|application\/x-dosexec|application\/x-executable|application\/x-sh)$/i;
