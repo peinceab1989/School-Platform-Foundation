@@ -1096,6 +1096,7 @@ function NexusDashboard({
   const [busyModule, setBusyModule] = useState<string | null>(null);
   const [moduleSearch, setModuleSearch] = useState('');
   const [moduleCategory, setModuleCategory] = useState("all");
+  const [moduleSurface, setModuleSurface] = useState("all");
   const [errorText, setErrorText] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
 
@@ -1437,11 +1438,15 @@ function NexusDashboard({
   const moduleCategories = Array.from(new Set(
     modules.map((module) => String(module.settings?.category || "General")),
   )).sort((a, b) => a.localeCompare(b));
+  const moduleSurfaces = Array.from(new Set(
+    modules.map((module) => String(module.settings?.surface || "RESA Portal")),
+  )).sort((a, b) => a.localeCompare(b));
   const visibleModules = modules.filter((module) => {
     const query = moduleSearch.trim().toLowerCase();
     const matchesSearch = !query || `${module.display_name} ${module.module_key}`.toLowerCase().includes(query);
     const category = String(module.settings?.category || "General");
-    return matchesSearch && (moduleCategory === "all" || category === moduleCategory);
+    const surface = String(module.settings?.surface || "RESA Portal");
+    return matchesSearch && (moduleCategory === "all" || category === moduleCategory) && (moduleSurface === "all" || surface === moduleSurface);
   });
   const enforcedModuleCount = modules.filter((module) => module.settings?.enforcement_state !== "registry_only").length;
   const pendingModuleCount = modules.length - enforcedModuleCount;
@@ -1757,6 +1762,13 @@ function NexusDashboard({
                 />
               </label>
               <label style={{ display: "block", margin: "12px 0" }}>
+                <span style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Filter by product surface</span>
+                <select value={moduleSurface} onChange={(event) => setModuleSurface(event.target.value)} style={{ width: "100%", boxSizing: "border-box", padding: 12, border: "1px solid #cbd5cc", borderRadius: 8, background: "#fff" }}>
+                  <option value="all">All product surfaces</option>
+                  {moduleSurfaces.map((surface) => <option key={surface} value={surface}>{surface}</option>)}
+                </select>
+              </label>
+              <label style={{ display: "block", margin: "12px 0" }}>
                 <span style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Filter by feature area</span>
                 <select value={moduleCategory} onChange={(event) => setModuleCategory(event.target.value)} style={{ width: "100%", boxSizing: "border-box", padding: 12, border: "1px solid #cbd5cc", borderRadius: 8, background: "#fff" }}>
                   <option value="all">All feature areas ({modules.length})</option>
@@ -1801,7 +1813,12 @@ function NexusDashboard({
                       >
                         {module.module_key}
                       </div>
-                      <div style={{ marginTop: 5, fontSize: 12, color: "#536456" }}>{String(module.settings?.category || "General")}</div>
+                      <div style={{ marginTop: 5, fontSize: 12, color: "#536456" }}>
+                        <div>{String(module.settings?.surface || "RESA Portal")} · {String(module.settings?.category || "General")}</div>
+                        {String(module.settings?.description || "") ? <p style={{ margin: "7px 0 0", fontSize: 12, lineHeight: 1.5, color: "#536456" }}>{String(module.settings?.description || "")}</p> : null}
+                        {String(module.settings?.route || "") ? <div style={{ marginTop: 5, fontSize: 11, color: "#68766b", overflowWrap: "anywhere" }}>Entry point: {String(module.settings?.route || "")}</div> : null}
+                        <div style={{ marginTop: 5, fontSize: 11, color: "#68766b" }}>Health: {String(module.settings?.health_state || "unknown").replaceAll("_", " ")} · Enforcement: {String(module.settings?.enforcement_state || "not verified").replaceAll("_", " ")}</div>
+                      </div>
 
                       <div style={{ marginTop: 7, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <span
