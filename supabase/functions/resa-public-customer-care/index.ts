@@ -77,6 +77,23 @@ async function broadcastConversationUpdate(conversationId: string) {
     console.warn("Customer Care realtime broadcast unavailable", error);
   }
 }
+async function broadcastSchoolCareNotification() {
+  try {
+    const channel = service.channel(
+      `resa-public-care-notifications-${SCHOOL_ID}`,
+      { config: { private: true } },
+    );
+    await channel.send({
+      type: "broadcast",
+      event: "message_updated",
+      payload: {},
+    });
+    await service.removeChannel(channel);
+  } catch (error) {
+    // Admin badges also poll, so a transient broadcast failure is non-fatal.
+    console.warn("Customer Care notification broadcast unavailable", error);
+  }
+}
 async function rateLimit(fingerprint: string, action: string, max: number, seconds: number) {
   const { data, error } = await service.rpc("resa_public_care_consume_rate_limit", {
     p_fingerprint_hash: fingerprint,
@@ -120,6 +137,7 @@ Deno.serve(async (req: Request) => {
       if (messageError) throw messageError;
       await service.from("resa_public_care_conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversation.id);
       await broadcastConversationUpdate(conversation.id);
+      await broadcastSchoolCareNotification();
       return reply(200, { conversation_id: conversation.id, token }, origin);
     }
     if (action === "visitor_send" || action === "visitor_poll") {
@@ -144,6 +162,7 @@ Deno.serve(async (req: Request) => {
         }).eq("id", id);
         if (updateError) throw updateError;
         await broadcastConversationUpdate(id);
+        await broadcastSchoolCareNotification();
         currentStatus = "open";
       }
       const { data: messages, error } = await service.from("resa_public_care_messages")
