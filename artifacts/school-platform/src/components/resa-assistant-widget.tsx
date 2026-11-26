@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import { useLocation } from "wouter";
 import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight, RotateCcw } from "lucide-react";
 
@@ -80,6 +80,10 @@ export default function ResaAssistantWidget() {
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   useEffect(() => {
     if (!careId || !careToken || !open || !careMode) return;
+    if (!hasSupabaseConfig) {
+      setCareError("Customer Care is temporarily unavailable. Please contact the school directly.");
+      return;
+    }
     let alive = true;
     const client = getSupabaseClient();
     const poll = async () => {
@@ -111,6 +115,10 @@ export default function ResaAssistantWidget() {
   }, [careId, careToken, open, careMode]);
   useEffect(() => {
     let alive = true;
+    if (!hasSupabaseConfig) {
+      setCustomerCareOnline(false);
+      return () => { alive = false; };
+    }
     const db = getSupabaseClient();
     const loadAvailability = async () => {
       const result = await (db as any).from("resa_customer_care_public_availability")
@@ -278,6 +286,10 @@ export default function ResaAssistantWidget() {
   }
 
   async function pollPublicCare(id=careId,token=careToken) {
+    if (!hasSupabaseConfig) {
+      setCareError("Customer Care is temporarily unavailable. Please contact the school directly.");
+      return;
+    }
     if(!id||!token)return;
     const result=await getSupabaseClient().functions.invoke("resa-public-customer-care",{body:{action:"visitor_poll",conversation_id:id,token}});
     if(!result.error&&result.data?.messages){
@@ -293,6 +305,10 @@ export default function ResaAssistantWidget() {
   }
   async function startPublicCare(event: React.FormEvent) {
     event.preventDefault();setCareError("");
+    if (!hasSupabaseConfig) {
+      setCareError("Customer Care is temporarily unavailable. Please contact the school directly.");
+      return;
+    }
     if(!careName.trim()||!careDraft.trim()) {setCareError("Enter your name and first message.");return;}
     setCareBusy(true);
     try {
@@ -307,7 +323,12 @@ export default function ResaAssistantWidget() {
     finally {setCareBusy(false);}
   }
   async function sendPublicCare(event: React.FormEvent) {
-    event.preventDefault();if(!careDraft.trim()||!careId||!careToken)return;
+    event.preventDefault();
+    if (!hasSupabaseConfig) {
+      setCareError("Customer Care is temporarily unavailable. Please contact the school directly.");
+      return;
+    }
+    if(!careDraft.trim()||!careId||!careToken)return;
     setCareBusy(true);setCareError("");
     try {
       const result=await getSupabaseClient().functions.invoke("resa-public-customer-care",{body:{action:"visitor_send",conversation_id:careId,token:careToken,message:careDraft}});
