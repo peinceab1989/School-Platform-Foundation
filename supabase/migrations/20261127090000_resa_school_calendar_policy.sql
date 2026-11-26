@@ -306,3 +306,42 @@ create trigger student_attendance_school_calendar_guard
   for each row execute function public.enforce_school_calendar_student_attendance();
 
 revoke all on function public.enforce_school_calendar_student_attendance() from public, anon, authenticated;
+
+-- Reflect the real database enforcement in Engine Room. The module may be
+-- disabled before configuration, but cannot be switched off after a weekly
+-- operating policy exists because that would silently reopen attendance.
+create or replace function public.protect_configured_school_calendar_module()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if old.module_key = 'school_calendar'
+    and old.is_enabled is true
+    and new.is_enabled is false
+    and exists (
+      select 1 from public.school_operating_schedules s
+      where s.configured_at is not null
+    ) then
+    raise exception 'The school calendar cannot be disabled while an operating schedule is configured. Remove or replace the schedule through the authorised calendar workflow first.';
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists protect_configured_school_calendar_module on public.nexus_module_controls;
+create trigger protect_configured_school_calendar_module
+  before update of is_enabled on public.nexus_module_controls
+  for each row execute function public.protect_configured_school_calendar_module();
+
+revoke all on function public.protect_configured_school_calendar_module() from public, anon, authenticated;
+
+update public.nexus_module_controls
+set settings = settings || jsonb_build_object(
+  'enforcement_state','database_enforced',
+  'health_state','unknown',
+  'route','/school-calendar',
+  'enforcement_note','RLS-protected calendar rules, explicit closure overrides, audit triggers and same-day student-attendance database guard.'
+)
+where module_key = 'school_calendar';
