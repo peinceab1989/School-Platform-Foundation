@@ -32,7 +32,7 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
         db.from("school_operating_schedules").select("*").eq("school_id",schoolId).maybeSingle(),
         db.from("school_calendar_rules").select("*").eq("school_id",schoolId).order("starts_at",{ascending:false}).limit(100),
         db.from("school_staff_work_schedules").select("*").eq("school_id",schoolId).order("day_of_week").order("starts_at"),
-        db.from("school_memberships").select("user_id,role").eq("school_id",schoolId).eq("status","active").in("role",["teacher","staff","admin"])
+        db.from("school_memberships").select("user_id,role").eq("school_id",schoolId).eq("status","active").in("role",["teacher","admin"])
       ]);
       for (const r of [scheduleResult,ruleResult,staffResult,membershipResult]) if (r.error) throw r.error;
       const schedule = scheduleResult.data;
