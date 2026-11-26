@@ -1810,10 +1810,12 @@ function NexusDashboard({
                       >
                         {module.module_key}
                       </div>
-                      <div style={{ marginTop: 5, fontSize: 12, color: "#536456" }}>{String(module.settings?.surface || "RESA Portal")} · {String(module.settings?.category || "General")}</div>
-                      {typeof module.settings?.description === "string" && <p style={{ margin: "7px 0 0", fontSize: 12, lineHeight: 1.5, color: "#536456" }}>{module.settings.description}</p>}
-                      {typeof module.settings?.route === "string" && <div style={{ marginTop: 5, fontSize: 11, color: "#68766b", overflowWrap: "anywhere" }}>Entry point: {module.settings.route}</div>
-                      <div style={{ marginTop: 5, fontSize: 11, color: "#68766b" }}>Health: {String(module.settings?.health_state || "unknown").replaceAll("_", " ")} · Enforcement: {String(module.settings?.enforcement_state || "not verified").replaceAll("_", " ")}</div>
+                      <div style={{ marginTop: 5, fontSize: 12, color: "#536456" }}>
+                        <div>{String(module.settings?.surface || "RESA Portal")} · {String(module.settings?.category || "General")}</div>
+                        {String(module.settings?.description || "") ? <p style={{ margin: "7px 0 0", fontSize: 12, lineHeight: 1.5, color: "#536456" }}>{String(module.settings?.description || "")}</p> : null}
+                        {String(module.settings?.route || "") ? <div style={{ marginTop: 5, fontSize: 11, color: "#68766b", overflowWrap: "anywhere" }}>Entry point: {String(module.settings?.route || "")}</div> : null}
+                        <div style={{ marginTop: 5, fontSize: 11, color: "#68766b" }}>Health: {String(module.settings?.health_state || "unknown").replaceAll("_", " ")} · Enforcement: {String(module.settings?.enforcement_state || "not verified").replaceAll("_", " ")}</div>
+                      </div>
 
                       <div style={{ marginTop: 7, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <span
