@@ -60,7 +60,7 @@ self.addEventListener('push', (event) => {
     badge: payload.badge || '/media/logo/resa-logo.jpg?v=20261125',
     tag: payload.tag || 'resa-school-update',
     data: { url: payload.url || '/parent-dashboard' },
-    renotify: true,
+    renotify: false,
     silent: false,
     vibrate: Array.isArray(payload.vibrate) ? payload.vibrate : [180, 90, 180],
   };
