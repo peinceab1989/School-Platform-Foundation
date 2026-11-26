@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://jetab-tech.pages.dev/sitemap.xml
