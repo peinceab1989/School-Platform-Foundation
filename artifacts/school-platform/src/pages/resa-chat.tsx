@@ -307,6 +307,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     if (!activeChannelAllowed) { setError("The school administrator has disabled this channel for your account."); return; }
     setSending(true); setError("");
     let uploadedPath: string | null = null;
+    const attachmentMime = attachment ? (attachment.type || "application/octet-stream").split(";")[0].trim().toLowerCase() : null;
     try {
       if (attachment) {
         if (attachment.size <= 0 || attachment.size > 100 * 1024 * 1024) throw new Error("Chat attachments must be 100 MB or smaller.");
@@ -315,14 +316,14 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
         if (blockedExtension.test(attachment.name) || blockedMime.test(attachment.type)) throw new Error("This file type is blocked for safety. Send documents, images, audio, video, spreadsheets, presentations or archives instead.");
         const safeName = attachment.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100) || "attachment";
         uploadedPath = schoolId + "/" + activeConversation.id + "/" + crypto.randomUUID() + "-" + safeName;
-        const upload = await (db as any).storage.from("resa-chat-media").upload(uploadedPath, attachment, { contentType: attachment.type || "application/octet-stream", upsert: false });
+        const upload = await (db as any).storage.from("resa-chat-media").upload(uploadedPath, attachment, { contentType: attachmentMime || "application/octet-stream", upsert: false });
         if (upload.error) throw upload.error;
       }
       const result = await (db as any).from("resa_chat_messages").insert({
         conversation_id: activeConversation.id, school_id: schoolId, sender_id: userId,
         body: draft.trim() || (attachment ? "Attachment" : ""),
         attachment_path: uploadedPath, attachment_name: attachment?.name ?? null,
-        attachment_mime: attachment ? (attachment.type || "application/octet-stream") : null, attachment_size: attachment?.size ?? null
+        attachment_mime: attachmentMime, attachment_size: attachment?.size ?? null
       });
       if (result.error) {
         if (uploadedPath) await (db as any).storage.from("resa-chat-media").remove([uploadedPath]);
