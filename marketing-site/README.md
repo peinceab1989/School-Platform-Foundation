@@ -1,27 +1,36 @@
 # JETAB TECH marketing website
 
-This is a standalone, static promotional website for JETAB TECH and RESA Digital Campus.
+A standalone, responsive static website for JETAB TECH Digital Solutions.
 
-## Files
-- `index.html` — responsive marketing landing page.
-- `brochure.html` — printable product overview. Visitors can use **Download / Save as PDF** in their browser's print dialog.
+## Website contents
+- `index.html` — company introduction, complete service catalogue, products, communities, project approach and WhatsApp enquiry form.
+- `brochure.html` — printable RESA Digital Campus product overview.
+- `favicon.svg` — JETAB TECH browser icon.
+- `robots.txt` and `sitemap.xml` — basic search-engine discovery files.
 
-## Free Cloudflare Pages deployment
-Create a **new** Cloudflare Pages project connected to this repository. Do not change the existing RESA portal project.
+## Cloudflare Pages deployment
 
-Recommended settings:
-- Project name: `jetab-tech` (or another available name)
+This site is deployed separately from the RESA school portal.
+
+Recommended settings for the dedicated `jetab-tech` Pages project:
 - Production branch: `feature/jetab-tech-marketing-site`
-- Root directory: `marketing-site`
+- Root directory: leave blank
 - Framework preset: `None` / `Static HTML`
 - Build command: leave empty
-- Build output directory: `.`
+- Build output directory: `marketing-site`
 
-Cloudflare Pages should publish `index.html` from this directory. The brochure is available at `/brochure.html`.
+The public homepage is `https://jetab-tech.pages.dev/`; the product brochure is available at `/brochure.html`.
 
-## Before public launch
-1. Confirm the WhatsApp number and contact wording.
-2. Replace or supplement the illustrative dashboard graphic with approved screenshots from a safe demo environment.
-3. Confirm each advertised capability in a guided product test. The page intentionally describes RESA as an evolving platform and does not claim every listed workflow is production-ready.
-4. Do not add real student, parent or staff records to the public site.
-5. Keep the current school portal and its Supabase data separate from the marketing site.
+## Enquiry form and privacy
+The enquiry form validates the visitor's entries in the browser and prepares a WhatsApp message to +234 705 407 8988. It does not write enquiry data to a website database. Visitors review the prepared message and choose whether to send it.
+
+## Content and service integrity
+The website distinguishes commercial service areas from products and community/educational initiatives. It does not claim that every RESA or JETAB AI capability is production-ready, and it does not imply formal HSE certification. Availability, project scope, pricing and deliverables are confirmed during enquiry.
+
+## Before launch verification
+1. Confirm the WhatsApp number and company contact channels.
+2. Add only approved portfolio images, testimonials and project screenshots.
+3. Test all navigation links, service enquiry selections and WhatsApp form behaviour on mobile and desktop.
+4. Review current product capabilities before making stronger feature claims.
+5. Keep real student, parent and staff records off the public marketing website.
+6. Keep the dedicated JETAB TECH Pages project separate from RESA's portal deployment and Supabase data.
