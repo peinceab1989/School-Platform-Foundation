@@ -2049,7 +2049,7 @@ function FoundationPage() {
       if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
       const { data: prefs } = await notificationPreferencesPromise;
       if (!alive || prefs?.enabled === false || prefs?.category_preferences?.[category] === false) return;
-      if (prefs?.quiet_hours_enabled === true) {
+      if (category !== 'attendance' && prefs?.quiet_hours_enabled === true) {
         const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
         const now = Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
         const startText = String(prefs.quiet_hours_start || '21:00').slice(0, 5);
@@ -2165,6 +2165,7 @@ function FoundationPage() {
             String(row.message || 'A linked learner has checked in or out.'),
             id,
             '/parent-dashboard',
+            'attendance',
           );
         };
         parentAttendanceChannel = db.channel(`resa-parent-attendance-${sid}-${uid}`)
