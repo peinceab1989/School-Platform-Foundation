@@ -22,7 +22,7 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
   const [notice,setNotice] = useState("");
-  const [rule,setRule] = useState({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"15:00",scope:"all",attendanceAllowed:false});
+  const [rule,setRule] = useState({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"15:00",scope:"all",attendanceAllowed:false,overrideRuleId:"",overrideReason:""});
   const [staffForm,setStaffForm] = useState({userId:"",day:"1",start:"08:00",end:"15:00",from:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),until:"",notes:""});
 
   const load = useCallback(async () => {
@@ -83,15 +83,19 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
       const endsAt = new Date(rule.endDate+"T"+rule.endTime+":00+01:00");
       if(!Number.isFinite(startsAt.getTime())||!Number.isFinite(endsAt.getTime())||endsAt<=startsAt) throw new Error("The end date and time must be later than the start.");
       if(rule.type==="special_opening" && rule.scope==="attendance" && !rule.attendanceAllowed) throw new Error("Confirm attendance is allowed before opening attendance for a special activity.");
-      const scopes = rule.scope==="all" ? ["all"] : [rule.scope];
+      const targetClosure = rule.type==="override" ? rules.find(x=>x.id===rule.overrideRuleId && x.rule_type==="closure" && x.status==="active") : null;
+      if(rule.type==="override" && (!targetClosure || rule.overrideReason.trim().length<10)) throw new Error("Choose an active closure and enter an override reason of at least 10 characters.");
+      if(targetClosure && (startsAt < new Date(targetClosure.starts_at) || endsAt > new Date(targetClosure.ends_at))) throw new Error("The override period must remain within the selected closure window.");
+      const scopes = targetClosure ? targetClosure.scopes : (rule.scope==="all" ? ["all"] : [rule.scope]);
       const {error:e}=await db.from("school_calendar_rules").insert({
         school_id:schoolId,title:rule.title.trim(),description:rule.description.trim()||null,rule_type:rule.type,
         starts_at:startsAt.toISOString(),ends_at:endsAt.toISOString(),scopes,attendance_allowed:rule.attendanceAllowed,
+        overrides_rule_id:targetClosure?.id||null,override_reason:targetClosure?rule.overrideReason.trim():null,
         created_by:userId,updated_by:userId
       });
       if(e) throw e;
       setNotice(rule.type==="closure"?"Closure saved. It takes priority over the weekly schedule.":"Special opening saved. Any overlapping closure must be explicitly resolved.");
-      setRule({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"15:00",scope:"all",attendanceAllowed:false});
+      setRule({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"15:00",scope:"all",attendanceAllowed:false,overrideRuleId:"",overrideReason:""});
       await load();
     } catch(e) {setError(errorText(e));} finally {setBusy(false);}
   }
@@ -159,8 +163,8 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
           <h2 className="font-bold">Add holiday, closure or special opening</h2><p className="mt-1 text-xs text-slate-500">Closures override normal hours. A special opening never silently overrides a closure.</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-semibold sm:col-span-2">Title<input required maxLength={160} value={rule.title} onChange={e=>setRule({...rule,title:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"/></label>
-            <label className="text-sm font-semibold">Rule type<select value={rule.type} onChange={e=>setRule({...rule,type:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"><option value="closure">Holiday / closure</option><option value="special_opening">Special opening / activity</option></select></label>
-            <label className="text-sm font-semibold">Applies to<select value={rule.scope} onChange={e=>setRule({...rule,scope:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"><option value="all">Whole school</option><option value="attendance">Attendance</option><option value="timetable">Timetable / lessons</option><option value="examinations">Examinations</option><option value="staff">Staff operations</option><option value="public_events">Public events</option><option value="notifications">Notifications</option></select></label>
+            <label className="text-sm font-semibold">Rule type<select value={rule.type} onChange={e=>setRule({...rule,type:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"><option value="closure">Holiday / closure</option><option value="special_opening">Special opening / activity</option><option value="override">Explicit closure override</option></select></label>
+            {rule.type==="override"&&<><label className="text-sm font-semibold sm:col-span-2">Closure to override<select required value={rule.overrideRuleId} onChange={e=>setRule({...rule,overrideRuleId:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"><option value="">Select active closure</option>{rules.filter(x=>x.rule_type==="closure"&&x.status==="active").map(x=><option key={x.id} value={x.id}>{x.title} · {formatDate(x.starts_at)}</option>)}</select></label><label className="text-sm font-semibold sm:col-span-2">Reason for explicit override<textarea required minLength={10} maxLength={1000} value={rule.overrideReason} onChange={e=>setRule({...rule,overrideReason:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"/></label></>}<label className="text-sm font-semibold">Applies to<select value={rule.scope} onChange={e=>setRule({...rule,scope:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"><option value="all">Whole school</option><option value="attendance">Attendance</option><option value="timetable">Timetable / lessons</option><option value="examinations">Examinations</option><option value="staff">Staff operations</option><option value="public_events">Public events</option><option value="notifications">Notifications</option></select></label>
             <label className="text-sm font-semibold">Starts<input required type="date" value={rule.startDate} onChange={e=>setRule({...rule,startDate:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"/><input aria-label="Start time" type="time" value={rule.startTime} onChange={e=>setRule({...rule,startTime:e.target.value})} className="mt-2 w-full rounded-lg border border-slate-300 p-3 font-normal"/></label>
             <label className="text-sm font-semibold">Ends<input required type="date" value={rule.endDate} onChange={e=>setRule({...rule,endDate:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"/><input aria-label="End time" type="time" value={rule.endTime} onChange={e=>setRule({...rule,endTime:e.target.value})} className="mt-2 w-full rounded-lg border border-slate-300 p-3 font-normal"/></label>
             <label className="flex items-start gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={rule.attendanceAllowed} onChange={e=>setRule({...rule,attendanceAllowed:e.target.checked})} className="mt-1 h-4 w-4 accent-emerald-800"/><span>Allow attendance for this special activity (only applies to special openings)</span></label>
