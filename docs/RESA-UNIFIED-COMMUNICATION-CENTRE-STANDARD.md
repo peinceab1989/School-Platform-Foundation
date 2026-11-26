@@ -79,7 +79,7 @@ The implementation is additive. Never clear or reset existing conversations, sch
 ## Contact directory and relationship-scoped messaging (26 November 2026)
 - Direct messages, Customer Care and administrator-created group membership selection now use one server-authorised school contact directory.
 - The next additive migration resolves a person's display name from the profile name first and the school's people record second; it returns a clear “name not set” state instead of silently labelling every account only as Teacher or Student.
-- Contact visibility is relationship-scoped: administrators can manage active school members; parents can reach administrators and teachers assigned to their linked, active learners; teachers can reach learners in their assigned active classes; students can reach teachers assigned to their active classes. All scopes retain active school membership checks.
+- Contact visibility is administrator-controlled by sender-role and recipient-role policy. The server returns only active school members in categories the sender is allowed to contact; Customer Care is separately restricted to authorised school administrators.
 - The contact-directory migration is committed to the feature branch but has not yet been applied to the live database. Its function definition and role-scoped lookup were smoke-tested inside a transaction and rolled back; active test contexts returned scoped directories for all four roles (admin 19, parent 6, student 6, teacher 2). No production schema change was retained.
 - The owner confirmed that the Android push test notification was displayed on the registered phone. This verifies one real-device test delivery; it does not yet establish multi-device, closed-app or sustained delivery reliability.
 
@@ -113,3 +113,20 @@ The target is a school communication system that competes on clarity, speed, pri
 - The contact-directory improvement is committed to this feature branch with a migration for SQL review; it is not yet applied to production.
 - The feature-branch frontend remains unmerged and has not replaced the live RESA frontend.
 - No separate Preview environment is required or being requested for this work.
+
+## Administrator-managed recipient routing and message deep links (26 November 2026)
+- The compose flow now starts with a recipient-category selector: Administrators, Teachers & staff, Parents & guardians, and Students. A second selector displays named people only after the current sender role is authorised for that recipient category.
+- If the administrator has not granted access to a recipient category or the channel itself is disabled, the interface explains that the user must contact the administrator. It does not reveal names from a disallowed category.
+- The administrator's Communication Permissions panel now includes a sender-role × recipient-role matrix. Each role can be granted or denied private-message access to each recipient group independently.
+- The default policy preserves conservative access: teacher → admin/student; parent → admin; student → admin/teacher (subject to the existing student private-messaging entitlement); administrators can manage all active members. The administrator can change these settings, for example to permit student-to-student or teacher-to-teacher communication.
+- The database contact directory filters names using the same recipient policy. A SECURITY DEFINER helper with an empty search_path checks the active sender and recipient memberships, channel switch, sender-role permission and recipient-role matrix. Restrictive conversation/message INSERT policies prevent bypassing the UI. A separate Customer Care path checks Customer Care permission and only exposes administrators.
+- A new permissive direct-chat policy allows administrator-approved role pairs beyond the former teacher/student assignment-only pattern, while the existing student-messaging entitlement remains an additional guard.
+- Customer Care is now available inside RESA Chat, routes non-admin requests to an administrator support conversation, and is linked from Ask RESA and the Communication Centre. Customer Care is kept distinct from ordinary direct chats.
+- The unified notifications inbox now displays sender names and opens the exact message or conversation. Chat deep links include the conversation and message IDs; the chat screen scrolls to the selected message. The legacy school-message inbox similarly opens and highlights the selected message.
+- The portal-wide realtime listener now handles incoming RESA chat messages, verifies the current user's conversation/group membership, and presents sender-aware alerts with category preferences, sound, quiet hours, privacy and a deep link. Push notifications also include the sender's verified profile name and deep-link to the exact message.
+- The service worker already routes notification taps to the URL carried by the notification payload; this work now supplies the conversation/message target for chat alerts.
+
+### Recipient-policy validation
+- The migration, helper and restrictive policies were applied only inside a transaction for syntax and policy smoke tests, then rolled back. No production schema changes were retained.
+- Role matrix smoke tests confirmed the default Customer Care route to an administrator remains available for student, parent and teacher roles, while the student private-message channel remains closed until an administrator enables it.
+- The feature branch has not been merged and these recipient-policy changes have not been applied to production.
