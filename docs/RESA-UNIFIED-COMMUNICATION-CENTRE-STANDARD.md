@@ -35,3 +35,17 @@ The implementation is additive. Never clear or reset existing conversations, sch
 5. Verify admin policy is enforced server-side, not only by hiding controls.
 6. Verify messages and existing records remain intact.
 7. Deploy only after review and successful checks; report the deployed commit and actual test outcomes.
+
+
+## Implemented first operational slice (26 November 2026)
+- Personal notification settings are available in the existing Notifications page: master switch, phone push, category switches, category sound selection and in-page preview, vibration, preview privacy, and quiet-hours schedule.
+- Foreground school messages, announcements and account/security alerts apply the same personal category, quiet-hours and privacy choices.
+- Web Push dispatch enforces category opt-outs, quiet hours in Africa/Lagos, preview privacy, vibration and the Silent choice for non-attendance event categories.
+- Parent attendance continues to use its dedicated guardian opt-in and event routing, separate from ordinary quiet-hour preferences.
+- The additive schema was applied to the linked Supabase project and the push dispatcher was deployed as version 9.
+
+## Explicit platform boundaries and remaining work
+- Android/browser notification-channel settings determine actual background sound; a web page cannot guarantee a custom sound file or override device DND.
+- Admin global channel/role policy fields are schema-only until all message and chat write paths enforce them server-side. Do not expose them as effective controls yet.
+- Voice/video calls require a configured signaling/media provider and remain unavailable.
+- Delivery testing on real Android devices and the current Cloudflare Pages build/checks must pass before merging.
