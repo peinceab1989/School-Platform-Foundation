@@ -3514,30 +3514,63 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
    APPLICATION ROUTES
 ========================================================= */
 
+function PublicModuleGate({moduleKey,children}:{moduleKey:string;children:ReactNode}) {
+  const [state,setState] = useState<'checking'|'enabled'|'disabled'>('checking');
+  useEffect(()=>{
+    let active=true;
+    void (async()=>{
+      try {
+        const {data,error}=await (getSupabaseClient() as any).rpc(
+          'nexus_public_module_is_enabled',
+          {p_module_key:moduleKey},
+        );
+        if(!active)return;
+        // Public pages fail open if the control service is unavailable; content remains public.
+        if(error) {
+          console.warn('RESA public module control could not be checked:',error.message);
+          setState('enabled');
+        } else {
+          setState(data===true?'enabled':'disabled');
+        }
+      } catch(error) {
+        if(active) {
+          console.warn('RESA public module control unavailable:',error);
+          setState('enabled');
+        }
+      }
+    })();
+    return()=>{active=false;};
+  },[moduleKey]);
+
+  if(state==='checking') return <main className="min-h-screen grid place-items-center bg-slate-50 p-6" role="status"><div className="rounded-2xl border bg-white p-6 text-center shadow-sm"><p className="font-bold text-slate-900">Preparing RESA page…</p></div></main>;
+  if(state==='disabled') return <main className="min-h-screen grid place-items-center bg-slate-50 p-6"><div className="max-w-md rounded-2xl border bg-white p-6 text-center shadow-sm"><p className="text-xs font-bold uppercase tracking-widest text-amber-700">RESA website section</p><h1 className="mt-2 text-xl font-extrabold text-slate-900">This section is temporarily unavailable</h1><p className="mt-2 text-sm text-slate-600">This section has been switched off by the authorised system owner. Other RESA pages remain available.</p><Link href="/" className="mt-5 inline-flex rounded-lg bg-emerald-900 px-4 py-2 text-sm font-bold text-white">Return to RESA home</Link></div></main>;
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   return (
     <RoutedErrorBoundary>
       <Switch>
         {/* Public school website */}
-        <Route path="/" component={PublicHome} />
+        <Route path="/" component={() => <PublicModuleGate moduleKey="resa_public_home"><PublicHome /></PublicModuleGate>} />
         {/* Some mobile browsers may retain the explicit document path. */}
-        <Route path="/index.html" component={PublicHome} />
-        <Route path="/about" component={() => <AboutPage />} />
-        <Route path="/academics" component={() => <AcademicsPage />} />
+        <Route path="/index.html" component={() => <PublicModuleGate moduleKey="resa_public_home"><PublicHome /></PublicModuleGate>} />
+        <Route path="/about" component={() => <PublicModuleGate moduleKey="resa_about"><AboutPage /></PublicModuleGate>} />
+        <Route path="/academics" component={() => <PublicModuleGate moduleKey="resa_academics"><AcademicsPage /></PublicModuleGate>} />
         <Route
           path="/innovation-technology"
-          component={() => <InnovationTechnologyPage />}
+          component={() => <PublicModuleGate moduleKey="resa_innovation_technology"><InnovationTechnologyPage /></PublicModuleGate>}
         />
-        <Route path="/practical-skills" component={() => <PracticalSkillsPage />} />
-        <Route path="/wisdom-inspiration" component={() => <WisdomInspirationPage />} />
-        <Route path="/activities-gallery" component={() => <ActivitiesGalleryPage />} />
-        <Route path="/admissions" component={() => <AdmissionsPage />} />
-        <Route path="/admissions-apply" component={AdmissionsApplicationPage} />
-        <Route path="/external-cbt-registration" component={ExternalCbtRegistrationPage} />
-        <Route path="/contact" component={() => <ContactPage />} />
-        <Route path="/maps" component={ResaMapsExplorerPage} />
-        <Route path="/portal-options" component={() => <PortalOptionsPage />} />
-        <Route path="/practice-drills" component={() => <StudentPracticeDrillsPage />} />
+        <Route path="/practical-skills" component={() => <PublicModuleGate moduleKey="resa_practical_skills"><PracticalSkillsPage /></PublicModuleGate>} />
+        <Route path="/wisdom-inspiration" component={() => <PublicModuleGate moduleKey="resa_wisdom_inspiration"><WisdomInspirationPage /></PublicModuleGate>} />
+        <Route path="/activities-gallery" component={() => <PublicModuleGate moduleKey="resa_activities_gallery"><ActivitiesGalleryPage /></PublicModuleGate>} />
+        <Route path="/admissions" component={() => <PublicModuleGate moduleKey="resa_public_admissions"><AdmissionsPage /></PublicModuleGate>} />
+        <Route path="/admissions-apply" component={() => <PublicModuleGate moduleKey="resa_admissions_application"><AdmissionsApplicationPage /></PublicModuleGate>} />
+        <Route path="/external-cbt-registration" component={() => <PublicModuleGate moduleKey="resa_cbt_registration"><ExternalCbtRegistrationPage /></PublicModuleGate>} />
+        <Route path="/contact" component={() => <PublicModuleGate moduleKey="resa_public_contact"><ContactPage /></PublicModuleGate>} />
+        <Route path="/maps" component={() => <PublicModuleGate moduleKey="resa_maps"><ResaMapsExplorerPage /></PublicModuleGate>} />
+        <Route path="/portal-options" component={() => <PublicModuleGate moduleKey="resa_portal_options"><PortalOptionsPage /></PublicModuleGate>} />
+        <Route path="/practice-drills" component={() => <PublicModuleGate moduleKey="resa_practice_drills"><StudentPracticeDrillsPage /></PublicModuleGate>} />
         <Route path="/teaching-materials" component={FoundationPage} />
         <Route path="/resa-chat" component={FoundationPage} />
 
