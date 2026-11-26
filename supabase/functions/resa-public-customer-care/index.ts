@@ -108,6 +108,7 @@ Deno.serve(async (req: Request) => {
       const id = cleanText(body.conversation_id, 100);
       const token = cleanText(body.token, 100);
       if (!id || !/^[0-9a-f-]{36}$/i.test(token)) return reply(400, { error: "Invalid conversation credentials." }, origin);
+      if (action === "visitor_poll" && !(await rateLimit(fingerprint,"poll",120,600))) return reply(429,{error:"Please wait a moment before refreshing the conversation."},origin);
       const tokenHash = await sha(token);
       const { data: conversation } = await service.from("resa_public_care_conversations")
         .select("id,status,visitor_token_hash").eq("id", id).eq("visitor_token_hash", tokenHash).maybeSingle();
