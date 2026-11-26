@@ -7,6 +7,7 @@ const SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
 const service = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 const allowedOrigins = new Set([
   "https://school-platform-foundation.pages.dev",
+  "https://feature-resa-public-customer.school-platform-foundation.pages.dev",
   "https://resa-school-portal.netlify.app",
   "https://resa-digital-campus.pages.dev",
   "https://jetab-tech.pages.dev",
