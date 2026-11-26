@@ -86,10 +86,11 @@ function ResaInstallPrompt() {
   };
 
   const installInstructions = isIOS
-    ? 'On iPhone or iPad: open RESA in Safari, tap the Share button, choose “Add to Home Screen”, turn on “Open as Web App” if shown, then tap “Add”.'
+    ? 'On iPhone or iPad: open RESA in Safari, tap Share, choose “Add to Home Screen”, enable “Open as Web App” if shown, then tap “Add”. For iPhone/iPad web push, use iOS/iPadOS 16.4 or later, launch RESA from its Home Screen icon, and allow notifications when asked.'
     : isMac
-      ? 'On a Mac: in Safari on supported macOS versions, choose File > Add to Dock. In Chrome or Edge, open the browser menu and choose Install RESA.'
-      : 'On Android: use Chrome and tap Install when prompted, or open the browser menu and choose “Install app” or “Add to Home screen”. On Windows: use Chrome or Edge and choose “Install RESA” from the address bar or browser menu.';
+      ? 'On a Mac: in Safari on supported macOS versions choose File > Add to Dock. In Chrome or Edge, open the browser menu and choose Install RESA. You can then launch it from the Dock or Applications.'
+      : 'On Android: use Chrome, Edge or Samsung Internet and choose “Install app” or “Add to Home screen” from the browser menu. On Windows, Linux and Chromebook: use Chrome or Edge and choose “Install RESA” from the address bar or browser menu; Firefox on Android offers an Add to Home Screen option on supported versions.';
+
 
   if (!visible) return null;
 
@@ -108,7 +109,7 @@ function ResaInstallPrompt() {
         <div className="min-w-0 flex-1">
           <p className="font-bold text-slate-900">Install the RESA School App</p>
           <p className="mt-1 text-sm leading-5 text-slate-600">
-            Add RESA to your device for quick, app-like access to the school portal.
+            Install RESA on supported phones, tablets and computers. Your signed-in role and dashboard stay the same across devices.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -127,9 +128,10 @@ function ResaInstallPrompt() {
             </button>
           </div>
           {showInstructions && (
-            <p className="mt-3 rounded-lg bg-emerald-50 p-3 text-xs leading-5 text-emerald-950">
-              {installInstructions}
-            </p>
+            <div className="mt-3 rounded-lg bg-emerald-50 p-3 text-xs leading-5 text-emerald-950">
+              <p>{installInstructions}</p>
+              <p className="mt-2">Phone alerts depend on browser and operating-system support. Android and supported desktop browsers use Web Push; iPhone/iPad Web Push requires an installed Home Screen app on iOS/iPadOS 16.4 or later. Keep this same RESA address when installing on each device.</p>
+            </div>
           )}
         </div>
         <button
