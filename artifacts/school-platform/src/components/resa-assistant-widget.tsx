@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight, LoaderCircle, RotateCcw } from "lucide-react";
-import { getSupabaseClient } from "@/lib/supabase/client";
 
 type HelpTopic = {
   keys: string[];
@@ -25,6 +24,10 @@ const helpTopics: HelpTopic[] = [
   { keys: ["drive", "upload", "photo", "video", "file"], title: "RESA Drive", answer: "RESA Drive is used for school-managed files and media. Uploads should follow the school's file-size and access rules. If a file does not appear after upload, check its upload status before uploading it again.", href: "/school-services" },
   { keys: ["message", "messages", "communication", "announcement", "chat"], title: "School communication", answer: "Use the school communication area for authorised school messages. Avoid sharing passwords, payment credentials or sensitive student information in general messages.", href: "/school-communication" },
   { keys: ["settings", "school profile", "school information"], title: "School settings", answer: "School settings should only be changed by authorised administrators. Confirm the academic session, term and school details before saving changes that affect the wider portal.", href: "/school-settings" },
+  { keys: ["school name", "about resa", "about the school", "school motto", "motto"], title: "About RESA", answer: "Rhema Exploits Science Academy International (RESA) is in Benin City, Edo State. The school motto is PASSION • SKILLS • EXCELLENT SPIRIT. For official school information and current announcements, contact the school directly.", href: "/" },
+  { keys: ["school address", "resa address", "school location", "where is the school", "school phone", "school email", "contact resa", "contact the school"], title: "School contact and location", answer: "Rhema Exploits Science Academy International is at 1 Smiling George Way, Behind Mat Ice, Opp. Winners’ Chapel, Sapele Road, Benin City, Edo State, Nigeria. Phone: +234 805 842 2691. Email: rhemaexploitsacademy@gmail.com.", href: "/maps" },
+  { keys: ["apply for admission", "how to apply", "admission process", "admission form"], title: "How to enquire about admission", answer: "Use the Admissions section of the RESA website to review the application route and submit the required details. Admission availability, current requirements, fees and decisions must be confirmed by the school; Ask RESA cannot approve an application or confirm a place.", href: "/admissions" },
+  { keys: ["forgot password", "reset password", "cannot log in", "login problem", "sign in problem"], title: "Login and password help", answer: "Use the portal’s official password-reset option if it is available on your sign-in screen. Never share your password or one-time verification code with anyone, including in this chat. If you cannot regain access, contact an authorised school administrator to verify your account.", href: "/login" },
 ];
 
 function normalise(value: string) {
@@ -138,45 +141,17 @@ export default function ResaAssistantWidget() {
 
   const activePage = useMemo(() => path.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "home", [path]);
 
-  async function ask(value = question) {
+  function ask(value = question) {
     const trimmed = value.trim();
     if (!trimmed || pending) return;
     const history: ChatMessage[] = [...messages, { role: "user" as const, content: trimmed }].slice(-8);
-    setMessages(history);
+    const topic = findTopic(trimmed);
+    const answer = topic
+      ? `${topic.title}\n\n${topic.answer}\n\nSource: RESA's approved local help library. No external AI service was contacted for this reply.`
+      : "I do not have an approved answer to that question in RESA's current help library. I can help with attendance, results, fees and payments, assignments, examinations and CBT, admissions, staff accounts, parent accounts, classes, RESA Drive, school communication, school contact details and basic login guidance. For other questions or an official decision, please use the Portal Navigation Guide or contact RESA Customer Care. No external AI service was contacted.";
+    setMessages([...history, { role: "assistant" as const, content: answer }].slice(-8));
     setQuestion("");
-    setPending(true);
-    setFallbackNotice(false);
-    try {
-      const { data, error } = await getSupabaseClient().functions.invoke<{ answer?: string }>("resa-ai-assistant", {
-        body: { messages: history, currentPage: activePage },
-      });
-      if (error) throw error;
-      if (typeof data?.answer !== "string" || !data.answer.trim()) throw new Error("The assistant returned no answer.");
-      setMessages([...history, { role: "assistant" as const, content: data.answer.trim() }].slice(-8));
-    } catch (caught) {
-      let serviceMessage = "";
-      const context = caught && typeof caught === "object" && "context" in caught
-        ? (caught as { context?: unknown }).context
-        : undefined;
-      if (context instanceof Response) {
-        try {
-          const payload = await context.clone().json() as { error?: unknown };
-          if (typeof payload?.error === "string" && payload.error.trim()) serviceMessage = payload.error.trim();
-        } catch {
-          // Keep the safe fallback if the response body is not readable JSON.
-        }
-      }
-      const topic = findTopic(trimmed);
-      const answer = serviceMessage
-        ? `${serviceMessage}\n\nIf this continues, contact RESA Customer Care. Do not share passwords or sensitive student information here.`
-        : topic
-          ? `${topic.title}\n\n${topic.answer}\n\nVerified help-library fallback: the AI assistant is temporarily unavailable.`
-          : "The AI assistant is temporarily unavailable. Please try again later, use the verified Portal Navigation Guide, or contact RESA Customer Care. Do not share passwords or sensitive student information here.";
-      setMessages([...history, { role: "assistant" as const, content: answer }].slice(-8));
-      setFallbackNotice(true);
-    } finally {
-      setPending(false);
-    }
+    setFallbackNotice(true);
   }
 
   return <div ref={containerRef} className={position ? "fixed z-[1200]" : "fixed bottom-4 left-4 z-[1200]"} style={position ? { left: position.left, top: position.top, right: "auto", bottom: "auto" } : undefined}>
@@ -190,7 +165,7 @@ export default function ResaAssistantWidget() {
         <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","How do I use school fees?"].map(q=><button type="button" key={q} disabled={pending} onClick={()=>void ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50">{q}</button>)}</div>
         {messages.map((message, index)=><div key={index} className={message.role==="user"?"ml-7 rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-emerald-950":"mr-3 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"}><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{message.role==="user"?"You":"Ask RESA"}</p><p className="whitespace-pre-wrap">{message.content}</p></div>)}
         {pending && <div className="flex items-center gap-2 text-sm text-slate-500" role="status"><LoaderCircle size={16} className="animate-spin"/> Ask RESA is preparing a reply…</div>}
-        {fallbackNotice && <p className="text-[10px] text-amber-700">AI service unavailable; a verified help-library fallback may be shown.</p>}
+        {fallbackNotice && <p className="text-[10px] text-amber-700">Local verified help-library mode • no AI API usage</p>}
       </div>
       <form onSubmit={e=>{e.preventDefault();void ask();}} className="flex gap-2 border-t border-slate-100 p-3">
         <input value={question} onChange={e=>setQuestion(e.target.value)} maxLength={1200} disabled={pending} placeholder="Ask a portal question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 disabled:bg-slate-50" aria-label="Ask RESA a question"/>
