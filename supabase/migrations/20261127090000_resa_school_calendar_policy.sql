@@ -93,10 +93,7 @@ drop policy if exists "School admins manage calendar rules" on public.school_cal
 create policy "School admins manage calendar rules"
   on public.school_calendar_rules for all to authenticated
   using (public.has_school_role(school_id, array['admin']::public.school_role[]))
-  with check (
-    public.has_school_role(school_id, array['admin']::public.school_role[]))
-    and created_by = (select auth.uid())
-  );
+  with check (public.has_school_role(school_id, array['admin']::public.school_role[]));
 
 drop policy if exists "Staff read own work schedules" on public.school_staff_work_schedules;
 create policy "Staff read own work schedules"
@@ -115,10 +112,7 @@ drop policy if exists "School admins manage staff work schedules" on public.scho
 create policy "School admins manage staff work schedules"
   on public.school_staff_work_schedules for all to authenticated
   using (public.has_school_role(school_id, array['admin']::public.school_role[]))
-  with check (
-    public.has_school_role(school_id, array['admin']::public.school_role[]))
-    and created_by = (select auth.uid())
-  );
+  with check (public.has_school_role(school_id, array['admin']::public.school_role[]));
 
 grant select on public.school_operating_schedules, public.school_calendar_rules to authenticated;
 grant insert, update, delete on public.school_operating_schedules, public.school_calendar_rules to authenticated;
@@ -252,3 +246,19 @@ grant execute on function public.school_calendar_effective_status(uuid,timestamp
 comment on table public.school_operating_schedules is 'Authoritative weekly school operating schedule; no weekly days are assumed until configured by an administrator.';
 comment on table public.school_calendar_rules is 'Dated closures, special openings and explicit audited overrides for school operating policy.';
 comment on table public.school_staff_work_schedules is 'Effective-dated individual staff work schedules; visible to the staff member and school administrators.';
+
+-- Reuse the existing immutable Engine Room audit trigger for calendar changes.
+drop trigger if exists school_operating_schedules_nexus_audit on public.school_operating_schedules;
+create trigger school_operating_schedules_nexus_audit
+  after insert or update or delete on public.school_operating_schedules
+  for each row execute function public.nexus_audit_row_change();
+
+drop trigger if exists school_calendar_rules_nexus_audit on public.school_calendar_rules;
+create trigger school_calendar_rules_nexus_audit
+  after insert or update or delete on public.school_calendar_rules
+  for each row execute function public.nexus_audit_row_change();
+
+drop trigger if exists school_staff_work_schedules_nexus_audit on public.school_staff_work_schedules;
+create trigger school_staff_work_schedules_nexus_audit
+  after insert or update or delete on public.school_staff_work_schedules
+  for each row execute function public.nexus_audit_row_change();
