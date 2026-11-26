@@ -2043,7 +2043,7 @@ function FoundationPage() {
     let parentAttendancePoll: ReturnType<typeof setInterval> | null = null;
 
     const notificationPreferencesPromise = db.from('resa_notification_preferences')
-      .select('enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,in_app_sound_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
+      .select('enabled,phone_notifications_enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,in_app_sound_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
       .eq('school_id', sid).eq('user_id', uid).maybeSingle();
     const showResaNotification = async (title: string, body: string, tag: string, url: string, category: string) => {
       if (!alive) return;
