@@ -3,23 +3,36 @@ import { Bell, BellRing, Volume2, VolumeX } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from "@/lib/notifications/push";
 
-function playResaChime() {
+type ResaChatSound = "default" | "soft-pop" | "classic" | "gentle-bell" | "silent";
+
+async function playResaChime(sound: ResaChatSound) {
+  if (sound === "silent") return;
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
     const context = new AudioContextClass();
+    if (context.state === "suspended") await context.resume();
+    const notes: Record<Exclude<ResaChatSound, "silent">, { frequencies: number[]; type: OscillatorType; duration: number; volume: number }> = {
+      default: { frequencies: [880, 1174.66], type: "sine", duration: 0.44, volume: 0.12 },
+      "soft-pop": { frequencies: [660, 880], type: "sine", duration: 0.22, volume: 0.075 },
+      classic: { frequencies: [784, 988, 784], type: "triangle", duration: 0.34, volume: 0.09 },
+      "gentle-bell": { frequencies: [1046.5, 1318.5], type: "sine", duration: 0.62, volume: 0.08 },
+    };
+    const selected = notes[sound];
+    const start = context.currentTime;
     const gain = context.createGain();
-    gain.gain.setValueAtTime(0.0001, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.025);
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.42);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(selected.volume, start + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + selected.duration);
     gain.connect(context.destination);
     const oscillator = context.createOscillator();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(880, context.currentTime);
-    oscillator.frequency.setValueAtTime(1174.66, context.currentTime + 0.14);
+    oscillator.type = selected.type;
+    selected.frequencies.forEach((frequency, index) => {
+      oscillator.frequency.setValueAtTime(frequency, start + index * (selected.duration / selected.frequencies.length) * 0.62);
+    });
     oscillator.connect(gain);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.44);
+    oscillator.start(start);
+    oscillator.stop(start + selected.duration + 0.02);
     oscillator.onended = () => { void context.close(); };
   } catch {
     // Browser autoplay or device sound settings may prevent foreground audio.
@@ -39,9 +52,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
   const [registered, setRegistered] = useState(false);
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState("");
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    try { return window.localStorage.getItem("resa-chat-sound-enabled") !== "false"; }
-    catch { return true; }
+  const [chatSound, setChatSound] = useState<ResaChatSound>(() => {
+    try {
+      const saved = window.localStorage.getItem("resa-chat-sound-choice");
+      return saved === "soft-pop" || saved === "classic" || saved === "gentle-bell" || saved === "silent" ? saved : "default";
+    } catch { return "default"; }
   });
   const refreshSequence = useRef(0);
 
@@ -101,7 +116,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
     const notify = async (title: string, body: string, tag: string, url: string, playSound = false) => {
       // Play the in-app chat chime independently of Web Push permission.
       // When the page is backgrounded, let the OS push notification provide the alert.
-      if (playSound && soundEnabled && document.visibilityState === "visible") playResaChime();
+      if (playSound && document.visibilityState === "visible") void playResaChime(chatSound);
       if (!("Notification" in window) || Notification.permission !== "granted") return;
       try {
         const registration = await navigator.serviceWorker.ready;
@@ -189,23 +204,40 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       if (channel) void db.removeChannel(channel);
     };
-  }, [schoolId, registerPush, soundEnabled]);
+  }, [schoolId, registerPush, chatSound]);
 
   return (
     <span className="ml-2 inline-flex items-center gap-1">
+      <label className="inline-flex items-center gap-1" title="Choose the sound for incoming RESA messages">
+        {chatSound === "silent" ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        <span className="sr-only">Chat notification sound</span>
+        <select
+          aria-label="Chat notification sound"
+          value={chatSound}
+          onChange={event => {
+            const next = event.target.value as ResaChatSound;
+            setChatSound(next);
+            try { window.localStorage.setItem("resa-chat-sound-choice", next); } catch { /* Device storage may be unavailable. */ }
+            if (next !== "silent") void playResaChime(next);
+          }}
+          className="max-w-28 rounded-md border border-input bg-background px-1.5 py-1 text-xs text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <option value="default">RESA Chime</option>
+          <option value="soft-pop">Soft Pop</option>
+          <option value="classic">Classic Message</option>
+          <option value="gentle-bell">Gentle Bell</option>
+          <option value="silent">Silent</option>
+        </select>
+      </label>
       <button
         type="button"
-        onClick={() => setSoundEnabled(current => {
-          const next = !current;
-          try { window.localStorage.setItem("resa-chat-sound-enabled", String(next)); } catch { /* Device storage may be unavailable. */ }
-          return next;
-        })}
-        title={soundEnabled ? "Chat sounds are on — tap to mute this device" : "Chat sounds are muted — tap to enable"}
-        aria-label={soundEnabled ? "Mute RESA chat sounds" : "Enable RESA chat sounds"}
-        aria-pressed={soundEnabled}
-        className="inline-flex items-center justify-center rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => void playResaChime(chatSound)}
+        disabled={chatSound === "silent"}
+        title={chatSound === "silent" ? "Sound is set to silent" : "Preview selected chat sound"}
+        aria-label="Preview selected chat sound"
+        className="inline-flex items-center justify-center rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
       >
-        {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+        <span className="text-[10px] font-semibold">Test</span>
       </button>
       {count > 0 && (
         <span aria-label={count + " unread messages"} title={count + " unread messages"} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
