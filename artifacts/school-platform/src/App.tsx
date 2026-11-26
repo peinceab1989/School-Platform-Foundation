@@ -2454,14 +2454,14 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance' && currentPath !== '/technical-support') {
         setLocation('/student-dashboard');
       }
       return;
     }
 
     if (parentMembership) {
-      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance'].includes(currentPath)) {
+      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance', '/technical-support'].includes(currentPath)) {
         setLocation('/parent-dashboard');
       }
       return;
