@@ -109,9 +109,34 @@ with check (
   )
 );
 
-drop policy if exists resa_tech_assets_admin_all on public.resa_technical_assets;
-create policy resa_tech_assets_admin_all on public.resa_technical_assets
-for all to authenticated
+drop policy if exists resa_tech_assets_admin_read on public.resa_technical_assets;
+create policy resa_tech_assets_admin_read on public.resa_technical_assets
+for select to authenticated
+using (
+  exists (
+    select 1 from public.school_memberships sm
+    where sm.school_id = resa_technical_assets.school_id
+      and sm.user_id = (select auth.uid())
+      and sm.status = 'active' and sm.role = 'admin'
+  )
+);
+
+drop policy if exists resa_tech_assets_admin_insert on public.resa_technical_assets;
+create policy resa_tech_assets_admin_insert on public.resa_technical_assets
+for insert to authenticated
+with check (
+  created_by = (select auth.uid())
+  and exists (
+    select 1 from public.school_memberships sm
+    where sm.school_id = resa_technical_assets.school_id
+      and sm.user_id = (select auth.uid())
+      and sm.status = 'active' and sm.role = 'admin'
+  )
+);
+
+drop policy if exists resa_tech_assets_admin_update on public.resa_technical_assets;
+create policy resa_tech_assets_admin_update on public.resa_technical_assets
+for update to authenticated
 using (
   exists (
     select 1 from public.school_memberships sm
@@ -121,8 +146,7 @@ using (
   )
 )
 with check (
-  created_by = (select auth.uid())
-  and exists (
+  exists (
     select 1 from public.school_memberships sm
     where sm.school_id = resa_technical_assets.school_id
       and sm.user_id = (select auth.uid())
