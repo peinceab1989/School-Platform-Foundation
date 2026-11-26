@@ -1452,8 +1452,13 @@ function NexusDashboard({
   const canToggleModule = (module: NexusModule) =>
     ["ui_route_enforced","database_enforced","edge_function_enforced","component_enforced"]
       .includes(String(module.settings?.enforcement_state || ""));
+  const enforcementStateOf = (module: NexusModule) => String(module.settings?.enforcement_state || "registry_only");
   const enforcedModuleCount = modules.filter(canToggleModule).length;
-  const pendingModuleCount = modules.length - enforcedModuleCount;
+  const pendingModuleCount = modules.filter(module => enforcementStateOf(module) === "registry_only").length;
+  const aliasModuleCount = modules.filter(module => enforcementStateOf(module) === "alias").length;
+  const monitorOnlyCount = modules.filter(module => enforcementStateOf(module) === "monitor_only").length;
+  const criticalAlwaysOnCount = modules.filter(module => enforcementStateOf(module) === "critical_always_on").length;
+  const externalSurfaceCount = modules.filter(module => enforcementStateOf(module) === "external_surface").length;
 
   return (
     <main
@@ -1781,8 +1786,12 @@ function NexusDashboard({
               </label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "10px 0 14px" }}>
                 <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12 }}>Registered: <strong>{modules.length}</strong></span>
-                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12, background: "#eef5ef" }}>Enforcement connected: <strong>{enforcedModuleCount}</strong></span>
-                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12, background: "#fff9e8" }}>Awaiting enforcement: <strong>{pendingModuleCount}</strong></span>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12, background: "#eef5ef" }}>Enforced controls: <strong>{enforcedModuleCount}</strong></span>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12, background: "#fff9e8" }}>Still to wire: <strong>{pendingModuleCount}</strong></span>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12 }}>Aliases: <strong>{aliasModuleCount}</strong></span>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12 }}>Monitor-only: <strong>{monitorOnlyCount}</strong></span>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12 }}>Always-on: <strong>{criticalAlwaysOnCount}</strong></span>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12 }}>External surfaces: <strong>{externalSurfaceCount}</strong></span>
               </div>
               {loading && modules.length === 0 && <p>Loading modules…</p>}
 
@@ -1837,14 +1846,23 @@ function NexusDashboard({
                         >
                           {module.is_enabled ? 'Enabled' : 'Disabled'}
                         </span>
-                        {module.settings?.enforcement_state === 'alias' && (
+                        {enforcementStateOf(module) === 'alias' && (
                           <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#e8eaf6', color: '#39446b' }}>
                             Alias of {String(module.settings?.alias_of || 'canonical module')}
                           </span>
                         )}
-                        {!canToggleModule(module) && module.settings?.enforcement_state !== 'alias' && (
+                        {enforcementStateOf(module) === 'monitor_only' && (
+                          <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#e8eef4', color: '#334b62' }}>Protected dependency · monitor only</span>
+                        )}
+                        {enforcementStateOf(module) === 'critical_always_on' && (
+                          <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#fcefdc', color: '#76520b' }}>Critical · always on</span>
+                        )}
+                        {enforcementStateOf(module) === 'external_surface' && (
+                          <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#edf0f2', color: '#4a5560' }}>Managed in separate deployment</span>
+                        )}
+                        {!canToggleModule(module) && ['alias','monitor_only','critical_always_on','external_surface'].indexOf(enforcementStateOf(module)) === -1 && (
                           <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#fff1d6', color: '#76520b' }}>
-                            {module.settings?.enforcement_state === 'registry_only' ? 'Access enforcement pending' : 'Enforcement not verified'}
+                            Access enforcement pending
                           </span>
                         )}
                       </div>
@@ -1863,7 +1881,7 @@ function NexusDashboard({
                       }}
                     >
                       {!canToggleModule(module)
-                        ? (module.settings?.enforcement_state === 'alias' ? 'Alias — manage canonical module' : 'Pending enforcement')
+                        ? (enforcementStateOf(module) === 'alias' ? 'Alias — manage canonical module' : enforcementStateOf(module) === 'monitor_only' ? 'Protected dependency' : enforcementStateOf(module) === 'critical_always_on' ? 'Always on' : enforcementStateOf(module) === 'external_surface' ? 'Separate deployment' : 'Pending enforcement')
                         : busyModule === module.module_key
                           ? 'Saving…'
                           : module.is_enabled
