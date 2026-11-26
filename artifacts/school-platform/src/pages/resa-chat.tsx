@@ -186,7 +186,9 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     { key: "parent", label: "Parents & guardians" },
     { key: "student", label: "Students" },
   ], []);
-  const selectedRoleAllowed = customerCareMode ? selectedRole === "admin" : isAdmin || (recipientPolicy[role] ?? []).includes(selectedRole);
+  const selectedRoleAllowed = customerCareMode
+    ? canUseCustomerCare && selectedRole === "admin"
+    : isAdmin || (canUsePrivate && (recipientPolicy[role] ?? []).includes(selectedRole));
   const roleContacts = sortedContacts.filter(contact => contact.role === selectedRole);
 
   function broadcastTyping(typing: boolean) {
