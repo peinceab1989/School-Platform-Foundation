@@ -18,7 +18,7 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [channelPolicy, setChannelPolicy] = useState<Record<string, boolean>>({
-    private_messages: true, group_messages: true, announcements: true, customer_care: true,
+    private_messages: true, group_messages: true, announcements: true, customer_care: true, file_attachments: true,
   });
   const [rolePolicy, setRolePolicy] = useState<Record<string, Record<string, boolean>>>({
     teacher: { private_messages: true, group_messages: true, announcements: true, customer_care: true },
@@ -87,11 +87,11 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
         setAllowAllStudents(Boolean(accessResult.data?.allow_all_students));
         setAllowedStudentIds((accessResult.data?.allowed_student_ids ?? []) as string[]);
         setChatEnabled(Boolean(chatResult.data?.chat_enabled));
-        setChannelPolicy({ private_messages: true, group_messages: true, announcements: true, customer_care: true, ...(chatResult.data?.channel_policy ?? {}) });
+        setChannelPolicy({ private_messages: true, group_messages: true, announcements: true, customer_care: true, file_attachments: true, ...(chatResult.data?.channel_policy ?? {}) });
         setRolePolicy({
-          teacher: { private_messages: true, group_messages: true, announcements: true, customer_care: true, ...(chatResult.data?.role_policy?.teacher ?? {}) },
-          parent: { private_messages: true, group_messages: true, announcements: true, customer_care: true, ...(chatResult.data?.role_policy?.parent ?? {}) },
-          student: { private_messages: false, group_messages: true, announcements: true, customer_care: true, ...(chatResult.data?.role_policy?.student ?? {}) },
+          teacher: { private_messages: true, group_messages: true, announcements: true, customer_care: true, file_attachments: true, ...(chatResult.data?.role_policy?.teacher ?? {}) },
+          parent: { private_messages: true, group_messages: true, announcements: true, customer_care: true, file_attachments: true, ...(chatResult.data?.role_policy?.parent ?? {}) },
+          student: { private_messages: false, group_messages: true, announcements: true, customer_care: true, file_attachments: true, ...(chatResult.data?.role_policy?.student ?? {}) },
         });
         setRecipientPolicy({ admin: ["admin", "teacher", "parent", "student"], teacher: ["admin", "student"], parent: ["admin"], student: ["admin", "teacher"], ...(chatResult.data?.recipient_policy ?? {}) });
       }
@@ -238,7 +238,7 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
           <h2 className="text-lg font-bold">Communication permissions</h2>
           <p className="mt-1 text-sm text-slate-600">Control which channels are available school-wide and which roles may use them. These rules are checked by database security policies, not just by the screen.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            {([{key:"private_messages",label:"Private messages"},{key:"group_messages",label:"Group messages"},{key:"announcements",label:"School announcements"},{key:"customer_care",label:"Customer Care"}] as const).map(item=><label key={item.key} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" checked={channelPolicy[item.key] !== false} onChange={e=>setChannelPolicy(old=>({...old,[item.key]:e.target.checked}))}/>{item.label}</label>)}
+            {([{key:"private_messages",label:"Private messages"},{key:"group_messages",label:"Group messages"},{key:"announcements",label:"School announcements"},{key:"customer_care",label:"Customer Care"},{key:"file_attachments",label:"Chat file sharing / downloads"}] as const).map(item=><label key={item.key} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" checked={channelPolicy[item.key] !== false} onChange={e=>setChannelPolicy(old=>({...old,[item.key]:e.target.checked}))}/>{item.label}</label>)}
           </div>
           <h3 className="mt-4 text-sm font-bold text-slate-800">Role permissions</h3>
           <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
