@@ -25,6 +25,8 @@ import {
 
 import AdminPortalShell from '@/components/admin-portal-shell';
 import ResaAssistantWidget from '@/components/resa-assistant-widget';
+import TechnicalSupportLauncher from '@/components/technical-support-launcher';
+const TechnicalSupportPage = lazy(() => import('@/pages/technical-support'));
 const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
 import PeopleStatusNotices from '@/components/people-status-notices';
@@ -207,6 +209,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/my-compliance',
   '/external-cbt',
   '/school-cctv',
+  '/technical-support',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -2451,14 +2454,14 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance' && currentPath !== '/technical-support') {
         setLocation('/student-dashboard');
       }
       return;
     }
 
     if (parentMembership) {
-      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance'].includes(currentPath)) {
+      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance', '/technical-support'].includes(currentPath)) {
         setLocation('/parent-dashboard');
       }
       return;
@@ -2831,8 +2834,9 @@ function FoundationPage() {
     !adminMembership &&
     !studentMembership &&
     !membershipsLoading &&
-    (currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/resa-chat' || currentPath === '/my-results' || currentPath === '/parent-authorizations' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
+    (currentPath === '/technical-support' || currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/resa-chat' || currentPath === '/my-results' || currentPath === '/parent-authorizations' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
+    if (currentPath === '/technical-support') return <TechnicalSupportPage />;
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/parent-authorizations' && session) return <ParentAuthorizationsPage schoolId={parentMembership.schoolId} userId={session.user.id} />;
@@ -2861,6 +2865,7 @@ function FoundationPage() {
     !teacherMembership &&
     !membershipsLoading
   ) {
+    if (currentPath === '/technical-support') return withAdminShell(<TechnicalSupportPage />);
     if (currentPath === '/notifications') return withAdminShell(<NotificationsPage schoolId={adminMembership.schoolId} role="admin" />);
     if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     if (currentPath === '/resa-chat' && session) return withAdminShell(<ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
@@ -3015,8 +3020,10 @@ function FoundationPage() {
       '/results-management',
       '/teaching-materials',
       '/resa-chat',
+      '/technical-support',
     ].includes(currentPath)
   ) {
+    if (currentPath === '/technical-support') return <TechnicalSupportPage />;
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/teaching-materials') return <TeachingMaterialsPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/resa-chat') return <ResaChatPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
@@ -3033,6 +3040,8 @@ function FoundationPage() {
       />
     );
   }
+
+  if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/technical-support') return <TechnicalSupportPage />;
 
   if (authState === 'signed-in' && accessCheckState === 'success' && !membershipsLoading && !adminMembership && !teacherMembership && studentMembership && currentPath === '/school-communication') {
     return <SchoolCommunicationPage schoolId={studentMembership.schoolId} role="student" />;
@@ -3426,6 +3435,7 @@ function AppRoutes() {
         <Route path="/resa-drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
+        <Route path="/technical-support" component={FoundationPage} />
         <Route path="/my-compliance" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
@@ -3461,6 +3471,7 @@ function App() {
           </main>
         }>
           <AppRoutes />
+          <TechnicalSupportLauncher />
           <ResaAssistantWidget />
         </Suspense>
       </WouterRouter>
