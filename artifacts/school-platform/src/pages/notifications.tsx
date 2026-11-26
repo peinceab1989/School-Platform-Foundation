@@ -255,8 +255,8 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         if (chatError) throw chatError;
       }
       setItems(previous => previous.map(item => ({ ...item, unread: false })));
-      setUnreadCount(0);
-      setNotice("All currently loaded private and group messages have been marked as read.");
+      await load(true);
+      setNotice("All currently loaded private and group messages have been marked as read. Older unread items will remain counted until they are loaded and marked read.");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not mark all messages as read."); }
   }
 
