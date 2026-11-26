@@ -1449,7 +1449,10 @@ function NexusDashboard({
     const surface = String(module.settings?.surface || "RESA Portal");
     return matchesSearch && (moduleCategory === "all" || category === moduleCategory) && (moduleSurface === "all" || surface === moduleSurface);
   });
-  const enforcedModuleCount = modules.filter((module) => module.settings?.enforcement_state !== "registry_only").length;
+  const canToggleModule = (module: NexusModule) =>
+    ["ui_route_enforced","database_enforced","edge_function_enforced","component_enforced"]
+      .includes(String(module.settings?.enforcement_state || ""));
+  const enforcedModuleCount = modules.filter(canToggleModule).length;
   const pendingModuleCount = modules.length - enforcedModuleCount;
 
   return (
@@ -1834,9 +1837,14 @@ function NexusDashboard({
                         >
                           {module.is_enabled ? 'Enabled' : 'Disabled'}
                         </span>
-                        {module.settings?.enforcement_state === 'registry_only' && (
+                        {module.settings?.enforcement_state === 'alias' && (
+                          <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#e8eaf6', color: '#39446b' }}>
+                            Alias of {String(module.settings?.alias_of || 'canonical module')}
+                          </span>
+                        )}
+                        {!canToggleModule(module) && module.settings?.enforcement_state !== 'alias' && (
                           <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#fff1d6', color: '#76520b' }}>
-                            Access enforcement pending
+                            {module.settings?.enforcement_state === 'registry_only' ? 'Access enforcement pending' : 'Enforcement not verified'}
                           </span>
                         )}
                       </div>
@@ -1845,17 +1853,17 @@ function NexusDashboard({
                     <button
                       type="button"
                       onClick={() => void changeModuleStatus(module)}
-                      disabled={busyModule !== null || loading || module.settings?.enforcement_state === 'registry_only'}
-                      title={module.settings?.enforcement_state === 'registry_only' ? 'This feature is registered but its access enforcement is not yet implemented.' : undefined}
+                      disabled={busyModule !== null || loading || !canToggleModule(module)}
+                      title={!canToggleModule(module) ? (module.settings?.enforcement_state === 'alias' ? 'This is a legacy alias. Change its canonical module instead.' : 'This feature is not connected to verified access enforcement and cannot be toggled here.') : undefined}
                       style={{
                         ...buttonStyle,
                         background: module.is_enabled ? '#8b2c2c' : '#17683b',
                         color: '#fff',
-                        opacity: busyModule !== null || loading || module.settings?.enforcement_state === 'registry_only' ? 0.45 : 1,
+                        opacity: busyModule !== null || loading || !canToggleModule(module) ? 0.45 : 1,
                       }}
                     >
-                      {module.settings?.enforcement_state === 'registry_only'
-                        ? 'Pending enforcement'
+                      {!canToggleModule(module)
+                        ? (module.settings?.enforcement_state === 'alias' ? 'Alias — manage canonical module' : 'Pending enforcement')
                         : busyModule === module.module_key
                           ? 'Saving…'
                           : module.is_enabled
@@ -1978,9 +1986,60 @@ const privateCancelStyle: CSSProperties = {
   cursor: 'pointer',
 };
 
+const ROUTE_MODULE_KEYS: Record<string,string> = {
+  '/school-settings':'resa_school_settings',
+  '/admissions-management':'resa_admissions_management',
+  '/results-management':'resa_results_entry',
+  '/examinations':'resa_examinations',
+  '/external-cbt-management':'resa_external_cbt_management',
+  '/external-cbt':'resa_external_cbt',
+  '/my-results':'resa_results_publication',
+  '/student-cbt':'resa_student_cbt',
+  '/form-teacher-attendance':'resa_form_teacher_attendance',
+  '/staff-attendance':'resa_staff_attendance',
+  '/announcements':'resa_announcements',
+  '/resa-chat':'resa_communications_centre',
+  '/notifications':'resa_notifications',
+  '/school-communication':'resa_school_communication',
+  '/parent-dashboard':'resa_parent_dashboard',
+  '/student-dashboard':'resa_student_dashboard',
+  '/teacher-dashboard':'resa_teacher_dashboard',
+  '/payment-gateway-settings':'resa_payments_gateway',
+  '/fees-management':'resa_fees_management',
+  '/fees':'resa_fees_management',
+  '/school-fees':'resa_fees_management',
+  '/parent-authorizations':'resa_parent_authorisations',
+  '/smart-access-management':'resa_smart_access',
+  '/student-id-cards':'resa_student_id_cards',
+  '/student-id-card':'resa_student_id_cards',
+  '/technical-operations':'resa_technical_operations',
+  '/publication-centre':'resa_publication_centre',
+  '/school-reports':'resa_school_reports',
+  '/hr-management':'resa_hr_management',
+  '/staff-invitations':'resa_staff_invitations',
+  '/parent-management':'resa_parent_management',
+  '/parents':'resa_parent_management',
+  '/students':'resa_student_records',
+  '/student-enrolments':'resa_student_enrolments',
+  '/technical-support':'resa_technical_support',
+  '/assignments':'resa_assignments',
+  '/student-assignments':'resa_assignments',
+  '/classes':'resa_classes',
+  '/subjects':'resa_subjects',
+  '/subject-management':'resa_subjects',
+  '/teaching-assignments':'resa_teaching_assignments',
+  '/teaching-materials':'resa_teaching_materials',
+  '/school-calendar':'school_calendar',
+  '/drive':'resa_drive',
+  '/resa-drive':'resa_drive',
+  '/attendance':'resa_attendance',
+  '/biometric-attendance':'resa_biometric_attendance',
+};
+
 function FoundationPage() {
   const [location, setLocation] = useLocation();
   const currentPath = normalizePath(location);
+  const routeModuleKey = ROUTE_MODULE_KEYS[currentPath] ?? null;
   const lastRecordedRouteVisit = useRef<string>('');
 
   const [session, setSession] = useState<Session | null>(null);
@@ -1995,6 +2054,8 @@ function FoundationPage() {
 
   const [accessCheckState, setAccessCheckState] =
     useState<FoundationAccessCheckState>('idle');
+  const [moduleGate, setModuleGate] = useState<{ key: string | null; state: 'idle' | 'loading' | 'enabled' | 'disabled' | 'error' }>({key:null,state:'idle'});
+  const [moduleGateRetry, setModuleGateRetry] = useState(0);
 
   const [errorText, setErrorText] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
@@ -2029,6 +2090,29 @@ function FoundationPage() {
   // Account-wide live notifications: works on every authenticated RESA page,
   // not only when the user happens to keep the Notifications page open.
   const notificationMembership = teacherMembership ?? adminMembership ?? studentMembership ?? parentMembership;
+
+  useEffect(() => {
+    if (!routeModuleKey || isExternalCandidate || authState !== 'signed-in' ||
+        accessCheckState !== 'success' || membershipsLoading || !session?.user.id) {
+      setModuleGate({key:routeModuleKey,state:'idle'});
+      return;
+    }
+    let active = true;
+    setModuleGate({key:routeModuleKey,state:'loading'});
+    void (async () => {
+      try {
+        const {data,error} = await (getSupabaseClient() as any).rpc('nexus_module_is_enabled',{p_module_key:routeModuleKey});
+        if (!active) return;
+        if (error) setModuleGate({key:routeModuleKey,state:'error'});
+        else setModuleGate({key:routeModuleKey,state:data === true ? 'enabled' : 'disabled'});
+      } catch {
+        if (active) setModuleGate({key:routeModuleKey,state:'error'});
+      }
+    })();
+    return () => { active = false; };
+  }, [routeModuleKey,isExternalCandidate,authState,accessCheckState,membershipsLoading,session?.user.id,moduleGateRetry]);
+
+
 
   // Route visits are recorded centrally. This is not proof of a data-changing
   // action; sensitive record changes need database-side audit coverage.
@@ -2833,6 +2917,827 @@ function FoundationPage() {
       setLocation('/jetab-engine-room');
     }
   };
+
+
+
+  // Route visits are recorded centrally. This is not proof of a data-changing
+  // action; sensitive record changes need database-side audit coverage.
+  useEffect(() => {
+    const privateEngineRoom = currentPath === '/jetab-engine-room' || currentPath === '/nexus';
+    if (authState !== 'signed-in' ||
+        (!privateEngineRoom && accessCheckState !== 'success') ||
+        (membershipsLoading && !privateEngineRoom) ||
+        !session?.user?.id || !currentPath || currentPath === '/portal') return;
+
+    const visitKey = `${session.user.id}:${currentPath}`;
+    if (lastRecordedRouteVisit.current === visitKey) return;
+    lastRecordedRouteVisit.current = visitKey;
+
+    void (async () => {
+      let actorRole = teacherMembership ? 'teacher'
+        : adminMembership ? 'admin'
+        : studentMembership ? 'student'
+        : parentMembership ? 'parent'
+        : 'unknown';
+      const db = getSupabaseClient() as any;
+      if (actorRole === 'unknown') {
+        const staffRecord = await db.from('staff').select('id')
+          .eq('user_id', session.user.id).limit(1).maybeSingle();
+        if (staffRecord.data) actorRole = 'staff';
+      }
+      const dashboard = currentPath.includes('teacher') ? 'teacher'
+        : currentPath.includes('student') || currentPath.includes('cbt') ? 'student'
+        : currentPath.includes('parent') ? 'parent'
+        : currentPath.includes('staff') ? 'staff'
+        : currentPath === '/jetab-engine-room' || currentPath === '/nexus' ? 'jetab'
+        : adminMembership ? 'admin'
+        : 'unknown';
+
+      await db.from('nexus_activity_events').insert({
+        actor_user_id: session.user.id,
+        school_id: notificationMembership?.schoolId ?? null,
+        actor_role: actorRole,
+        dashboard,
+        route: currentPath,
+        action: 'dashboard_visit',
+        outcome: 'success',
+        metadata: { source: 'client_route_tracker' },
+      });
+    })();
+  }, [
+    authState, accessCheckState, membershipsLoading, session?.user?.id,
+    currentPath, teacherMembership, adminMembership, studentMembership,
+    parentMembership, notificationMembership?.schoolId,
+  ]);
+  useEffect(() => {
+    if (
+      authState !== 'signed-in' ||
+      accessCheckState !== 'success' ||
+      membershipsLoading ||
+      !session?.user?.id ||
+      !notificationMembership?.schoolId
+    ) return;
+
+    const db = getSupabaseClient() as any;
+    const uid = session.user.id;
+    const sid = notificationMembership.schoolId;
+    let alive = true;
+    let channel: any = null;
+    let parentAttendanceChannel: any = null;
+    let parentAttendancePoll: ReturnType<typeof setInterval> | null = null;
+
+    const updateResaAppBadge = async () => {
+      const badgeNavigator = navigator as Navigator & { setAppBadge?: (count?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+      if (!badgeNavigator.setAppBadge && !badgeNavigator.clearAppBadge) return;
+      const [directUnread, chatUnread] = await Promise.all([
+        db.from('school_messages').select('id', { count: 'exact', head: true })
+          .eq('school_id', sid).eq('recipient_id', uid).eq('is_read', false),
+        db.rpc('resa_get_unread_chat_count', { p_school_id: sid }),
+      ]);
+      if (!alive || directUnread.error || chatUnread.error) return;
+      const total = Math.max(0, Number(directUnread.count || 0) + Number(chatUnread.data || 0));
+      try {
+        if (total > 0) await badgeNavigator.setAppBadge?.(total);
+        else await badgeNavigator.clearAppBadge?.();
+      } catch { /* App icon badges are optional and depend on OS/browser support. */ }
+    };
+    void updateResaAppBadge();
+
+    const notificationPreferencesPromise = db.from('resa_notification_preferences')
+      .select('enabled,phone_notifications_enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,in_app_sound_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
+      .eq('school_id', sid).eq('user_id', uid).maybeSingle();
+    const showResaNotification = async (title: string, body: string, tag: string, url: string, category: string) => {
+      if (!alive) return;
+      const { data: prefs } = await notificationPreferencesPromise;
+      if (!alive || prefs?.enabled === false || prefs?.category_preferences?.[category] === false) return;
+      if (category !== 'attendance' && prefs?.quiet_hours_enabled === true) {
+        const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+        const now = Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+        const startText = String(prefs.quiet_hours_start || '21:00').slice(0, 5);
+        const endText = String(prefs.quiet_hours_end || '07:00').slice(0, 5);
+        const [sh, sm] = startText.split(':').map(Number), [eh, em] = endText.split(':').map(Number);
+        const start = sh * 60 + sm, end = eh * 60 + em;
+        if (start !== end && (start < end ? now >= start && now < end : now >= start || now < end)) return;
+      }
+      const selectedSound = String(prefs?.category_sounds?.[category] || 'resa_chime');
+      if (prefs?.in_app_sound_enabled !== false && selectedSound !== 'silent') {
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+            const audio = new AudioContextClass();
+            const patterns: Record<string, number[]> = {
+              resa_chime: [784, 988], classic_bell: [1046, 784], digital_ping: [1175],
+              soft_tone: [523], gentle_melody: [659, 784, 988], crystal_drop: [1318, 1046],
+              double_beep: [880, 880], alert_tone: [988, 784, 988], message_pop: [740],
+              school_bell: [659, 784, 659], vibrant_ring: [880, 1046, 1318],
+            };
+            (patterns[selectedSound] || patterns.resa_chime).forEach((frequency, index) => {
+              const oscillator = audio.createOscillator(), gain = audio.createGain();
+              const start = audio.currentTime + index * 0.16;
+              oscillator.frequency.value = frequency; oscillator.type = 'sine';
+              gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(0.07, start + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
+              oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(start); oscillator.stop(start + 0.15);
+            });
+            void audio.resume().catch(() => undefined);
+            window.setTimeout(() => void audio.close(), 900);
+          }
+        } catch { /* Autoplay restrictions or device settings may block in-app audio. */ }
+      }
+      if (prefs?.phone_notifications_enabled !== true || !('Notification' in window) || Notification.permission !== 'granted') return;
+      // Keep private and group messages in one updating notification per signed-in
+      // school account. The unread count is visible once instead of filling the
+      // Android/iOS notification shade with one card per message.
+      if (document.visibilityState !== 'visible') return; // Background push is handled by sw.js.
+      const hidePreview = prefs?.show_notification_preview === false;
+      const grouped = category === 'messages' || category === 'group_messages';
+      const notificationTag = grouped ? 'resa-inbox-' + sid + '-' + uid : tag;
+      const safeTitle = hidePreview ? 'RESA · New school update' : title;
+      const safeBody = hidePreview ? 'You have a new RESA school update. Sign in to view it.' : body;
+      try {
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          if (!alive) return;
+          // When this account has a Web Push subscription, the service worker
+          // owns the system notification. The realtime listener still provides
+          // the in-app sound, but must not create a duplicate phone card.
+          const activeSubscription = await registration.pushManager.getSubscription();
+          if (activeSubscription) return;
+          const existing = grouped ? await registration.getNotifications({ tag: notificationTag }) : [];
+          const count = grouped ? Math.max(1, Number(existing[0]?.data?.count || 0) + 1) : 1;
+          const notificationTitle = grouped && count > 1 ? 'RESA · ' + count + ' new messages' : safeTitle;
+          const notificationBody = grouped && count > 1
+            ? count + ' new messages. Latest: ' + (hidePreview ? 'Open RESA to read your inbox.' : safeTitle + ' · ' + safeBody)
+            : safeBody;
+          const notificationOptions = {
+            body: notificationBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
+            badge: '/media/logo/resa-logo.jpg?v=20261125', tag: notificationTag,
+            data: { url, count, grouped }, renotify: grouped,
+            silent: selectedSound === 'silent', vibrate: prefs?.vibration_enabled === false ? [] : [180, 90, 180],
+          } as NotificationOptions & { renotify?: boolean; vibrate?: number[] };
+          await registration.showNotification(notificationTitle, notificationOptions);
+        } else if (alive) {
+          new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped } as NotificationOptions & { renotify?: boolean });
+        }
+      } catch {
+        if (alive) new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped } as NotificationOptions & { renotify?: boolean });
+      }
+    };
+
+    channel = db.channel(`resa-account-notifications-${sid}-${uid}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'school_messages',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        const message = payload.new as Record<string, any>;
+        if (String(message.recipient_id) !== uid || String(message.sender_id) === uid) return;
+        void updateResaAppBadge();
+        void (async () => {
+          const senderProfile = await db.from('profiles').select('display_name').eq('id', message.sender_id).maybeSingle();
+          if (!alive) return;
+          const senderName = senderProfile.data?.display_name || 'School member';
+          void showResaNotification(
+            senderName + ' · ' + String(message.subject || 'New message'),
+            String(message.message || 'You have received a new school message.'),
+            `resa-message-${String(message.id || `message-${Date.now()}`)}`,
+            '/school-communication?message_id=' + encodeURIComponent(String(message.id || '')),
+            'messages',
+          );
+        })();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'resa_chat_messages',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        const message = payload.new as Record<string, any>;
+        if (String(message.sender_id) === uid || !message.conversation_id) return;
+        void (async () => {
+          const { data: conversation, error: conversationError } = await db.from('resa_chat_conversations')
+            .select('id,subject,conversation_type,participant_one,participant_two')
+            .eq('school_id', sid).eq('id', message.conversation_id).maybeSingle();
+          if (!alive || conversationError || !conversation) return;
+          let isRecipient = conversation.participant_one === uid || conversation.participant_two === uid;
+          if (conversation.conversation_type === 'group') {
+            const membership = await db.from('resa_chat_group_members').select('user_id')
+              .eq('school_id', sid).eq('conversation_id', conversation.id).eq('user_id', uid).maybeSingle();
+            isRecipient = !membership.error && Boolean(membership.data);
+          }
+          if (!alive || !isRecipient) return;
+          void updateResaAppBadge();
+          const senderProfile = await db.from('profiles').select('display_name').eq('id', message.sender_id).maybeSingle();
+          const senderName = senderProfile.data?.display_name || 'School member';
+          const category = conversation.conversation_type === 'group' ? 'group_messages' : 'messages';
+          const title = conversation.conversation_type === 'group'
+            ? senderName + ' · ' + String(conversation.subject || 'RESA group')
+            : senderName + ' sent you a message';
+          const target = '/resa-chat?conversation_id=' + encodeURIComponent(String(conversation.id)) + '&message_id=' + encodeURIComponent(String(message.id));
+          void showResaNotification(
+            title,
+            String(message.body || 'You have received a new RESA message.'),
+            'resa-chat-' + String(message.id),
+            target,
+            category,
+          );
+        })();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'resa_chat_message_reads',
+        filter: `school_id=eq.${sid}`,
+      }, () => { void updateResaAppBadge(); })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'school_messages',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        if (String(payload.new?.recipient_id) === uid) void updateResaAppBadge();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'announcements',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        const item = payload.new as Record<string, any>;
+        const publishedAt = item.published_at ? new Date(item.published_at).getTime() : 0;
+        const expiresAt = item.expires_at ? new Date(item.expires_at).getTime() : Number.POSITIVE_INFINITY;
+        if (item.is_published !== true || !Number.isFinite(publishedAt) || publishedAt > Date.now() || expiresAt <= Date.now()) return;
+        void showResaNotification(
+          `RESA · ${String(item.title || 'School announcement')}`,
+          String(item.content || 'A new school announcement is available.'),
+          `resa-announcement-${String(item.id || `announcement-${Date.now()}`)}`,
+          '/notifications',
+          'announcements',
+        );
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'nexus_compliance_cases',
+        filter: `subject_user_id=eq.${uid}`,
+      }, (payload: any) => {
+        const item = payload.new as Record<string, any>;
+        if (item.status !== 'issued') return;
+        const label = item.case_type === 'warning' ? 'Written warning' : 'Formal query';
+        void showResaNotification(
+          `RESA · ${label}`,
+          `${String(item.title || label)}. Reference: ${String(item.case_number || '')}. Open My Queries and Warnings to respond.`,
+          String(item.id || `compliance-${Date.now()}`),
+          '/my-compliance',
+          'system_alerts',
+        );
+      })
+      .subscribe();
+
+    // Parent attendance alerts follow the parent across portal pages, not just
+    // the dashboard. The dashboard owns its own listener to avoid duplicate banners.
+    if (
+      notificationMembership.role === 'parent' &&
+      currentPath !== '/parent-dashboard' &&
+      currentPath !== '/dashboard'
+    ) {
+      void (async () => {
+        const accounts = await db.from('parent_portal_accounts')
+          .select('parent_guardian_id')
+          .eq('school_id', sid).eq('user_id', uid).eq('is_active', true);
+        if (!alive || accounts.error) return;
+        const parentIds = [...new Set<string>((accounts.data ?? []).map((row: any) => String(row.parent_guardian_id)))];
+        if (!parentIds.length) return;
+        const preferences = await db.from('parent_attendance_notification_preferences')
+          .select('phone_notifications_enabled')
+          .eq('school_id', sid).eq('user_id', uid)
+          .in('parent_guardian_id', parentIds);
+        if (!alive || preferences.error || !(preferences.data ?? []).some((row: any) => row.phone_notifications_enabled)) return;
+
+        const initial = await db.from('biometric_parent_notifications')
+          .select('id,created_at')
+          .eq('school_id', sid).in('parent_guardian_id', parentIds)
+          .order('created_at', { ascending: false }).limit(100);
+        if (!alive || initial.error) return;
+        const seen = new Set<string>((initial.data ?? []).map((row: any) => String(row.id)));
+        let cursor = (initial.data ?? []).reduce(
+          (latest: string, row: any) => String(row.created_at) > latest ? String(row.created_at) : latest,
+          new Date(Date.now() - 60000).toISOString(),
+        );
+        const deliver = (row: Record<string, any>) => {
+          const id = String(row.id || '');
+          if (!id || seen.has(id) || !parentIds.includes(String(row.parent_guardian_id))) return;
+          seen.add(id);
+          if (row.created_at && String(row.created_at) > cursor) cursor = String(row.created_at);
+          void showResaNotification(
+            'RESA · Attendance update',
+            String(row.message || 'A linked learner has checked in or out.'),
+            id,
+            '/parent-dashboard',
+            'attendance',
+          );
+        };
+        parentAttendanceChannel = db.channel(`resa-parent-attendance-${sid}-${uid}`)
+          .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'biometric_parent_notifications',
+            filter: `school_id=eq.${sid}`,
+          }, (payload: any) => deliver(payload.new as Record<string, any>))
+          .subscribe();
+        parentAttendancePoll = setInterval(async () => {
+          if (!alive || !cursor) return;
+          const fresh = await db.from('biometric_parent_notifications')
+            .select('id,parent_guardian_id,message,created_at')
+            .eq('school_id', sid).in('parent_guardian_id', parentIds)
+            .gt('created_at', cursor).order('created_at', { ascending: true }).limit(50);
+          if (!alive || fresh.error) return;
+          for (const row of fresh.data ?? []) deliver(row as Record<string, any>);
+        }, 15000);
+      })();
+    }
+
+    return () => {
+      alive = false;
+      if (parentAttendancePoll) clearInterval(parentAttendancePoll);
+      if (parentAttendanceChannel) void db.removeChannel(parentAttendanceChannel);
+      if (channel) void db.removeChannel(channel);
+    };
+  }, [authState, accessCheckState, membershipsLoading, session?.user?.id, notificationMembership?.schoolId, notificationMembership?.role, currentPath]);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig) {
+      setAuthState('needs-config');
+      return;
+    }
+
+    let active = true;
+    // Auth events can arrive while getSession() is still resolving. Never let
+    // that older snapshot overwrite a newer sign-in/sign-out event; doing so
+    // can leave a freshly signed-in user on the sign-in screen until reload.
+    let authEventVersion = 0;
+    const client = getSupabaseClient();
+
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
+      authEventVersion += 1;
+
+      setSession(nextSession);
+      setAuthState(nextSession ? 'signed-in' : 'signed-out');
+      if (nextSession?.user.app_metadata?.must_change_password === true) setLocation('/reset-password');
+      setErrorText(null);
+      setStatusText(null);
+      setAccessCheckState('idle');
+
+      if (!nextSession) {
+        setMemberships([]);
+        setMembershipsLoading(false);
+      }
+    });
+
+    const versionAtSessionReadStart = authEventVersion;
+    void client.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!active || authEventVersion !== versionAtSessionReadStart) return;
+
+        if (error) {
+          setErrorText(error.message);
+          setSession(null);
+          setAuthState('signed-out');
+          return;
+        }
+
+        setSession(data.session);
+        setAuthState(data.session ? 'signed-in' : 'signed-out');
+        if (data.session?.user.app_metadata?.must_change_password === true) setLocation('/reset-password');
+      })
+      .catch((error: unknown) => {
+        if (!active || authEventVersion !== versionAtSessionReadStart) return;
+
+        setErrorText(
+          error instanceof Error
+            ? error.message
+            : 'Could not restore the saved sign-in session.',
+        );
+
+        setSession(null);
+        setAuthState('signed-out');
+      });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  /*
+   * Protected school routes:
+   * - Active admins retain administrator access.
+   * - Active teachers are directed to the teacher dashboard.
+   * - Active students are directed to the student dashboard.
+   * - Other accounts do not receive protected school-page access.
+   *
+   * Membership access verification remains required.
+   */
+  useEffect(() => {
+    if (!PROTECTED_SCHOOL_PATHS.includes(currentPath)) {
+      return;
+    }
+
+    if (authState === 'signed-out' || authState === 'needs-config') {
+      setLocation('/portal');
+      return;
+    }
+
+    if (
+      authState !== 'signed-in' ||
+      membershipsLoading ||
+      accessCheckState === 'idle' ||
+      accessCheckState === 'loading'
+    ) {
+      return;
+    }
+
+    if (accessCheckState !== 'success') {
+      setLocation('/portal');
+      return;
+    }
+
+    if (isExternalCandidate) {
+      if (currentPath !== '/external-cbt') setLocation('/external-cbt');
+      return;
+    }
+
+    // A teacher account must never be routed into administrator pages,
+    // even if an old or duplicate admin membership is also present.
+    if (teacherMembership) {
+      if (
+        currentPath === '/dashboard' ||
+        currentPath === '/student-dashboard' ||
+        currentPath === '/student-cbt' ||
+        currentPath === '/student-assignments' ||
+        currentPath === '/assignments' ||
+        currentPath === '/student-id-card' ||
+        currentPath === '/my-results' ||
+        currentPath === '/parent-dashboard' ||
+        ADMIN_SCHOOL_PATHS.includes(currentPath)
+      ) {
+        setLocation('/teacher-dashboard');
+      }
+      return;
+    }
+
+    // Only accounts without an active teacher membership may use admin routes.
+    if (adminMembership) {
+      if (
+        currentPath === '/teacher-dashboard' ||
+        currentPath === '/student-dashboard' ||
+        currentPath === '/student-cbt' ||
+        currentPath === '/student-assignments' ||
+        currentPath === '/assignments' ||
+        currentPath === '/student-id-card' ||
+        currentPath === '/my-results' ||
+        currentPath === '/parent-dashboard'
+      ) {
+        setLocation('/dashboard');
+      }
+      return;
+    }
+
+    if (studentMembership) {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance' && currentPath !== '/technical-support') {
+        setLocation('/student-dashboard');
+      }
+      return;
+    }
+
+    if (parentMembership) {
+      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance', '/technical-support'].includes(currentPath)) {
+        setLocation('/parent-dashboard');
+      }
+      return;
+    }
+
+    setLocation('/portal');
+  }, [
+    authState,
+    currentPath,
+    membershipsLoading,
+    accessCheckState,
+    adminMembership,
+    teacherMembership,
+    studentMembership,
+    parentMembership,
+    isExternalCandidate,
+    setLocation,
+  ]);
+
+  /*
+   * Route signed-in users from the portal landing page to
+   * the dashboard matching their active membership.
+   */
+  useEffect(() => {
+    if (
+      currentPath !== '/portal' ||
+      authState !== 'signed-in' ||
+      membershipsLoading ||
+      accessCheckState !== 'success'
+    ) {
+      return;
+    }
+
+    // External candidates use a separate CBT workspace and never become enrolled students.
+    if (isExternalCandidate) {
+      setLocation('/external-cbt');
+    } else if (teacherMembership) {
+      setLocation('/teacher-dashboard');
+    } else if (adminMembership) {
+      setLocation('/dashboard');
+    } else if (studentMembership) {
+      setLocation('/student-dashboard');
+    } else if (parentMembership) {
+      setLocation('/parent-dashboard');
+    }
+  }, [
+    currentPath,
+    authState,
+    membershipsLoading,
+    accessCheckState,
+    adminMembership,
+    teacherMembership,
+    studentMembership,
+    parentMembership,
+    isExternalCandidate,
+    setLocation,
+  ]);
+
+  useEffect(() => {
+    if (
+      (currentPath === '/jetab-engine-room' || currentPath === '/nexus') &&
+      authState !== 'signed-in'
+    ) {
+      setPrivateLoginOpen(true);
+    }
+  }, [currentPath, authState]);
+
+  useEffect(() => {
+    if (!session || authState !== 'signed-in') {
+      setMemberships([]);
+      setMembershipsLoading(false);
+      setAccessCheckState('idle');
+      return;
+    }
+
+    if (isExternalCandidate) {
+      setMemberships([]);
+      setMembershipsLoading(false);
+      setAccessCheckState('success');
+      setStatusText('External candidate account verified. Examination access is controlled by the school.');
+      return;
+    }
+
+    let active = true;
+
+    setMembershipsLoading(true);
+    setAccessCheckState('loading');
+
+    void runMembershipAccessCheck(getSupabaseClient(), session.user.id)
+      .then(({ memberships: nextMemberships, result }) => {
+        if (!active) return;
+
+        if (!result.passed) {
+          setMemberships([]);
+          setAccessCheckState('error');
+          setErrorText(result.message);
+          return;
+        }
+
+        setMemberships(nextMemberships);
+        setAccessCheckState('success');
+        setStatusText(
+          `${nextMemberships.length} school ${
+            nextMemberships.length === 1 ? 'membership is' : 'memberships are'
+          } visible to this account.`,
+        );
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+
+        setMemberships([]);
+        setAccessCheckState('error');
+        setErrorText(
+          error instanceof Error
+            ? error.message
+            : 'Could not load this account’s school memberships.',
+        );
+      })
+      .finally(() => {
+        if (active) setMembershipsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authState, session, isExternalCandidate]);
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    if (!hasSupabaseConfig) {
+      setAuthState('needs-config');
+      setErrorText('Supabase is not configured.');
+      return false;
+    }
+
+    setAuthState('loading');
+    setErrorText(null);
+    setStatusText(null);
+
+    try {
+      const identifier = email.trim();
+      const supabase = getSupabaseClient();
+
+      // Try a real Auth email first (invited parents and staff use this path).
+      // If it is not an Auth email, resolve it as a parent's current contact email;
+      // this keeps edited parent emails usable for internally-created RESA accounts.
+      if (identifier.includes('@') && !identifier.toLowerCase().endsWith('@resa.com')) {
+        const { error: emailError } = await supabase.auth.signInWithPassword({
+          email: identifier.toLowerCase(),
+          password,
+        });
+        if (!emailError) return true;
+
+        const { data, error } = await supabase.functions.invoke('resa-login-by-id', {
+          body: { login_id: identifier, password },
+        });
+        if (error || !data?.session?.access_token || !data?.session?.refresh_token) {
+          setAuthState('signed-out');
+          setErrorText(data?.error || 'The email or password is incorrect, or this parent portal account is not active.');
+          return false;
+        }
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        if (sessionError) {
+          setAuthState('signed-out');
+          setErrorText('Your credentials were accepted, but the secure session could not be started. Please try again.');
+          return false;
+        }
+        return true;
+      }
+
+      if (!identifier.toLowerCase().endsWith('@resa.com') && !/^(?:[a-zA-Z0-9][a-zA-Z0-9+(). /_-]{2,39}|\+\d[\d ().-]{7,20})$/.test(identifier)) {
+        setAuthState('signed-out');
+        setErrorText('Enter your registered email, student admission number, teacher staff ID, or parent phone number.');
+        return false;
+      }
+
+      const { data, error } = await supabase.functions.invoke('resa-login-by-id', {
+        body: { login_id: identifier, password },
+      });
+      if (error || !data?.session?.access_token || !data?.session?.refresh_token) {
+        setAuthState('signed-out');
+        setErrorText(data?.error || error?.message || 'The login ID or password is incorrect, or this portal account is not active.');
+        return false;
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+      if (sessionError) {
+        setAuthState('signed-out');
+        setErrorText('Your credentials were accepted, but the secure session could not be started. Please try again.');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      setAuthState('signed-out');
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : 'Could not reach the sign-in service.',
+      );
+      return false;
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    setErrorText(null);
+    setStatusText(null);
+
+    // Clear protected UI state immediately so a slow network request cannot
+    // leave the previous account's dashboard visible after Sign out is tapped.
+    setSession(null);
+    setMemberships([]);
+    setMembershipsLoading(false);
+    setAccessCheckState('idle');
+    setAuthState(hasSupabaseConfig ? 'signed-out' : 'needs-config');
+    setLocation('/portal');
+
+    if (!hasSupabaseConfig) return;
+
+    try {
+      const { error } = await getSupabaseClient().auth.signOut({
+        scope: 'local',
+      });
+
+      if (error) {
+        // Keep the local UI signed out even if the server request fails.
+        setErrorText(
+          `You have been signed out on this device, but Supabase reported: ${error.message}`,
+        );
+      }
+    } catch (error) {
+      // The local state is already cleared; surface the connection problem.
+      setErrorText(
+        error instanceof Error
+          ? `You have been signed out on this device. ${error.message}`
+          : 'You have been signed out on this device, but the sign-out service could not be reached.',
+      );
+    }
+  }, [setLocation]);
+
+  const runAccessCheck = useCallback(async () => {
+    if (!session) {
+      setAccessCheckState('error');
+      setErrorText('Sign in again before checking account access.');
+      return;
+    }
+
+    setAccessCheckState('loading');
+    setErrorText(null);
+    setStatusText(null);
+
+    try {
+      const client = getSupabaseClient();
+
+      const { memberships: checkedMemberships, result } =
+        await runMembershipAccessCheck(client, session.user.id);
+
+      if (!result.passed) {
+        setMemberships([]);
+        setAccessCheckState('error');
+        setErrorText(result.message);
+        return;
+      }
+
+      const unknownSchoolDenied = await confirmUnknownSchoolIsDenied(client);
+
+      if (!unknownSchoolDenied) {
+        setAccessCheckState('error');
+        setErrorText(
+          'The role helper did not deny access to an unrecognized school. Review the database policies before adding school records.',
+        );
+        return;
+      }
+
+      setMemberships(checkedMemberships);
+      setAccessCheckState('success');
+      setStatusText(
+        `${result.message} The role helper also denied access to an unrecognized school.`,
+      );
+    } catch (error) {
+      setAccessCheckState('error');
+      setErrorText(
+        error instanceof Error
+          ? error.message
+          : 'The account access check could not be completed.',
+      );
+    }
+  }, [session]);
+
+  const openPrivateLogin = () => {
+    setErrorText(null);
+    setPrivateLoginOpen(true);
+  };
+
+  const submitPrivateLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!privateUsername.trim() || !privatePassword) {
+      setErrorText('Enter your account email and password.');
+      return;
+    }
+
+    setPrivateLoginBusy(true);
+    setErrorText(null);
+
+    const succeeded = await signIn(privateUsername.trim(), privatePassword);
+
+    setPrivateLoginBusy(false);
+
+    if (succeeded) {
+      setPrivateLoginOpen(false);
+      setPrivatePassword('');
+      setLocation('/jetab-engine-room');
+    }
+  };
+
+  if (routeModuleKey && !isExternalCandidate && authState === 'signed-in' &&
+      accessCheckState === 'success' && !membershipsLoading) {
+    if (moduleGate.key !== routeModuleKey || moduleGate.state === 'idle' || moduleGate.state === 'loading') {
+      return <main className="min-h-screen grid place-items-center bg-slate-50 p-6"><div className="rounded-2xl border bg-white p-6 text-center shadow-sm"><p className="font-bold text-slate-900">Checking feature access…</p><p className="mt-1 text-sm text-slate-500">RESA is checking the Engine Room control for this page.</p></div></main>;
+    }
+    if (moduleGate.state === 'disabled') {
+      return <main className="min-h-screen grid place-items-center bg-slate-50 p-6"><div className="max-w-md rounded-2xl border bg-white p-6 text-center shadow-sm"><p className="text-xs font-bold uppercase tracking-widest text-amber-700">RESA Engine Room control</p><h1 className="mt-2 text-xl font-extrabold text-slate-900">This feature is currently disabled</h1><p className="mt-2 text-sm text-slate-600">The school administrator has disabled this module. Its data remains protected and unchanged. Contact an authorised administrator if you need access.</p><button onClick={()=>setLocation('/dashboard')} className="mt-5 rounded-lg bg-emerald-900 px-4 py-2 text-sm font-bold text-white">Return to dashboard</button></div></main>;
+    }
+    if (moduleGate.state === 'error') {
+      return <main className="min-h-screen grid place-items-center bg-slate-50 p-6"><div className="max-w-md rounded-2xl border bg-white p-6 text-center shadow-sm"><h1 className="font-extrabold text-slate-900">Feature access could not be checked</h1><p className="mt-2 text-sm text-slate-600">RESA has not opened this module because its Engine Room control could not be verified. Retry when your connection is stable.</p><button onClick={()=>setModuleGateRetry(value=>value+1)} className="mt-5 rounded-lg bg-emerald-900 px-4 py-2 text-sm font-bold text-white">Retry access check</button></div></main>;
+    }
+  }
+
+
 
   if (
     currentPath === '/my-compliance' &&
