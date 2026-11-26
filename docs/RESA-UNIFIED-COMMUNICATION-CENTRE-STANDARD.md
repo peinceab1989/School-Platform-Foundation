@@ -49,3 +49,7 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Admin global channel/role policy fields are schema-only until all message and chat write paths enforce them server-side. Do not expose them as effective controls yet.
 - Voice/video calls require a configured signaling/media provider and remain unavailable.
 - Delivery testing on real Android devices and the current Cloudflare Pages build/checks must pass before merging.
+
+- Foreground incoming messages/announcements/account alerts also attempt the selected original RESA tone when in-app sound is enabled; browser autoplay policy can block this until the user interacts with the page.
+- Notification tags are aligned between foreground and background delivery, and the service worker avoids re-sounding duplicate events.
+- Parent attendance alerts honour the general Attendance category switch and sound/privacy/vibration settings, while retaining the dedicated parent-attendance opt-in; attendance bypasses ordinary quiet hours.
