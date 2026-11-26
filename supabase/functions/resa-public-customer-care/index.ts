@@ -136,8 +136,10 @@ Deno.serve(async (req: Request) => {
         return reply(200,{conversations:data},origin);
       }
       const id = cleanText(body.conversation_id, 100);
-      const { data: conversation } = await service.from("resa_public_care_conversations")
-        .select("id").eq("id", id).eq("assigned_admin_id", adminId).maybeSingle();
+      const { data: settings } = await service.from("resa_customer_care_settings").select("chief_admin_user_id").eq("school_id",SCHOOL_ID).maybeSingle();
+      let conversationQuery = service.from("resa_public_care_conversations").select("id").eq("id",id).eq("school_id",SCHOOL_ID);
+      if(settings?.chief_admin_user_id !== adminId) conversationQuery = conversationQuery.eq("assigned_admin_id",adminId);
+      const { data: conversation } = await conversationQuery.maybeSingle();
       if (!conversation) return reply(404, { error: "Assigned visitor conversation not found." }, origin);
       if (action === "admin_view") {
         const { data, error } = await service.from("resa_public_care_messages").select("id,sender_kind,sender_admin_id,body,created_at").eq("conversation_id",id).order("created_at").limit(100);
