@@ -6,7 +6,7 @@ import { enableResaPushNotifications, getResaPushRegistrationStatus, sendResaPus
 
 type Notice = {
   id: string;
-  kind: "message" | "announcement" | "chat";
+  kind: "message" | "announcement" | "chat" | "attendance";
   title: string;
   body: string;
   createdAt: string;
@@ -16,6 +16,8 @@ type Notice = {
   channel?: string;
   targetUrl?: string;
   category: string;
+  source?: "biometric_parent_notifications" | "attendance_checkpoint_alerts";
+  sourceId?: string;
 };
 
 export default function NotificationsPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
@@ -91,8 +93,15 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         db.from("school_messages").select("id", { count: "exact", head: true }).eq("school_id", schoolId).eq("recipient_id", uid).eq("is_read", false),
         db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
       ]);
+      const attendanceResult = role === "parent"
+        ? await db.from("biometric_parent_notifications").select("id,notification_type,message,status,sent_at,created_at,read_at,student_id").eq("school_id", schoolId).order("created_at", {ascending:false}).limit(100)
+        : role === "admin"
+          ? await db.from("attendance_checkpoint_alerts").select("id,attendance_date,person_type,alert_status,first_detected_at,reminder_count,student_id,staff_id").eq("school_id", schoolId).neq("alert_status","acknowledged").order("first_detected_at",{ascending:false}).limit(100)
+          : {data:[],error:null};
+      if (attendanceResult.error) setNotice("Some attendance alerts could not be loaded: " + attendanceResult.error.message);
+      const attendanceUnread = (attendanceResult.data ?? []).filter((row:any)=>role==="parent" ? !row.read_at : row.alert_status!=="acknowledged").length;
       if (!directUnreadResult.error && !chatUnreadResult.error) {
-        setUnreadCount((directUnreadResult.count ?? 0) + Number(chatUnreadResult.data || 0));
+        setUnreadCount((directUnreadResult.count ?? 0) + Number(chatUnreadResult.data || 0) + attendanceUnread);
       } else {
         setNotice("The inbox is loaded, but the full unread count could not be verified. Refresh or reconnect to retry.");
       }
@@ -139,7 +148,16 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           : conversation?.conversation_type === "group" ? "group_messages" : "messages";
         return { id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member", channel: "chat", category, targetUrl: "/resa-chat?conversation_id=" + encodeURIComponent(m.conversation_id) + "&message_id=" + encodeURIComponent(m.id) };
       });
-      setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const attendanceNotices: Notice[] = (attendanceResult.data ?? []).map((row:any) => ({
+        id: "attendance-" + row.id, kind: "attendance", category: "attendance",
+        title: role === "parent" ? (row.notification_type || "Student attendance update") : "Attendance checkpoint alert",
+        body: row.message || (row.person_type === "student" ? "A student attendance checkpoint needs attention." : "A staff attendance checkpoint needs attention."),
+        createdAt: row.created_at || row.first_detected_at || row.sent_at || new Date().toISOString(),
+        unread: role === "parent" ? !row.read_at : row.alert_status !== "acknowledged",
+        source: role === "parent" ? "biometric_parent_notifications" : "attendance_checkpoint_alerts",
+        sourceId: row.id, targetUrl: "/attendance",
+      }));
+      setItems([...messages, ...announcements, ...chatNotices, ...attendanceNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); setPreferencesLoading(false); }
     finally { if (!quiet) setLoading(false); }
   }, [schoolId]);
@@ -198,6 +216,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         if (updateError) throw updateError;
       } else if (item.kind === "message") {
         const { error: updateError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", item.id).eq("recipient_id", userId);
+        if (updateError) throw updateError;
+      } else if (item.kind === "attendance" && item.source === "biometric_parent_notifications" && item.sourceId) {
+        const { error: updateError } = await db.from("biometric_parent_notifications").update({ read_at: new Date().toISOString() }).eq("id", item.sourceId).eq("school_id", schoolId);
         if (updateError) throw updateError;
       } else return;
       setItems(previous => previous.map(n => n.id === item.id ? { ...n, unread: false } : n));
@@ -260,10 +281,12 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const db = getSupabaseClient() as any;
       const directIds = items.filter(item => item.kind === "message" && item.unread).map(item => item.id);
       const chatIds = items.filter(item => item.kind === "chat" && item.unread).map(item => item.id.replace(/^chat-/, ""));
+      const attendanceIds = items.filter(item => item.kind === "attendance" && item.source === "biometric_parent_notifications" && item.unread && item.sourceId).map(item => item.sourceId as string);
       if (directIds.length) {
         const { error: directError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).in("id", directIds).eq("recipient_id", userId);
         if (directError) throw directError;
       }
+      if (attendanceIds.length) { const { error: attendanceError } = await db.from("biometric_parent_notifications").update({ read_at: new Date().toISOString() }).in("id", attendanceIds).eq("school_id", schoolId); if (attendanceError) throw attendanceError; }
       if (chatIds.length) {
         const { error: chatError } = await db.from("resa_chat_message_reads").upsert(
           chatIds.map(message_id => ({ message_id, school_id: schoolId, user_id: userId })),
