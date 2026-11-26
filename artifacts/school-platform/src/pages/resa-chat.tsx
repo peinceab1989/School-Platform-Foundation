@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { ArrowLeft, MessageCircle, Send, RefreshCw, ShieldCheck, Users, LockKeyhole, Paperclip, FileText, Mic, Square } from "lucide-react";
+import { ArrowLeft, MessageCircle, Send, RefreshCw, ShieldCheck, Users, LockKeyhole, Paperclip, FileText, Mic, Square, Download } from "lucide-react";
 
 type Role = "admin" | "teacher" | "student" | "parent";
 type Contact = { user_id: string; role: string; display_name: string };
 type Conversation = { id: string; participant_one: string; participant_two: string; subject: string; last_message_at: string; school_id: string; conversation_type: string };
-type ChatMessage = { id: string; sender_id: string; body: string; created_at: string; attachment_path?: string | null; attachment_name?: string | null; attachment_mime?: string | null; attachment_size?: number | null; attachment_url?: string | null };
+type ChatMessage = { id: string; sender_id: string; body: string; created_at: string; attachment_path?: string | null; attachment_name?: string | null; attachment_mime?: string | null; attachment_size?: number | null; attachment_url?: string | null; attachment_download_url?: string | null };
 const panel = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
 const field = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm";
 function renderMessageBody(body: string) {
@@ -21,7 +21,7 @@ function renderMessageBody(body: string) {
 export default function ResaChatPage({ schoolId, userId, role }: { schoolId: string; userId: string; role: Role }) {
   const db = getSupabaseClient();
   const [enabled, setEnabled] = useState(false);
-  const [channelPolicy, setChannelPolicy] = useState<Record<string, boolean>>({ private_messages: true, group_messages: true, customer_care: true });
+  const [channelPolicy, setChannelPolicy] = useState<Record<string, boolean>>({ private_messages: true, group_messages: true, customer_care: true, file_attachments: true });
   const [rolePolicy, setRolePolicy] = useState<Record<string, Record<string, boolean>>>({});
   const [recipientPolicy, setRecipientPolicy] = useState<Record<string, string[]>>({
     admin: ["admin", "teacher", "parent", "student"],
@@ -60,6 +60,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const canUsePrivate = channelPolicy.private_messages !== false && (isAdmin || rolePolicy[role]?.private_messages !== false);
   const canUseGroups = channelPolicy.group_messages !== false && (isAdmin || rolePolicy[role]?.group_messages !== false);
   const canUseCustomerCare = channelPolicy.customer_care !== false && (isAdmin || rolePolicy[role]?.customer_care !== false);
+  const canUseFiles = channelPolicy.file_attachments !== false && (isAdmin || rolePolicy[role]?.file_attachments !== false);
 
   const load = useCallback(async () => {
     setLoading(true); setContactsLoading(true); setError("");
@@ -67,7 +68,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     const settings = await (db as any).from("resa_chat_settings").select("chat_enabled,channel_policy,role_policy,recipient_policy").eq("school_id", schoolId).maybeSingle();
     if (settings.error) setError(settings.error.message);
     setEnabled(Boolean(settings.data?.chat_enabled));
-    setChannelPolicy({ private_messages: true, group_messages: true, customer_care: true, ...(settings.data?.channel_policy ?? {}) });
+    setChannelPolicy({ private_messages: true, group_messages: true, customer_care: true, file_attachments: true, ...(settings.data?.channel_policy ?? {}) });
     setRolePolicy(settings.data?.role_policy ?? {});
     setRecipientPolicy({ admin: ["admin", "teacher", "parent", "student"], teacher: ["admin", "student"], parent: ["admin"], student: ["admin", "teacher"], ...(settings.data?.recipient_policy ?? {}) });
     const conv = await (db as any).from("resa_chat_conversations").select("id,participant_one,participant_two,subject,last_message_at,school_id,conversation_type").eq("school_id", schoolId).order("last_message_at", { ascending: false });
@@ -126,8 +127,12 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
           }
           const enriched = await Promise.all(rows.map(async m => {
             if (!m.attachment_path) return m;
-            const signed = await (db as any).storage.from("resa-chat-media").createSignedUrl(m.attachment_path, 3600);
-            return { ...m, attachment_url: signed.data?.signedUrl ?? null };
+            const storage = (db as any).storage.from("resa-chat-media");
+            const [inlineUrl, downloadUrl] = await Promise.all([
+              storage.createSignedUrl(m.attachment_path, 3600),
+              storage.createSignedUrl(m.attachment_path, 3600, { download: true }),
+            ]);
+            return { ...m, attachment_url: inlineUrl.data?.signedUrl ?? null, attachment_download_url: downloadUrl.data?.signedUrl ?? null };
           }));
           setMessages(enriched);
           if (rows.length) {
@@ -250,6 +255,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
 
   async function startVoiceNote() {
     setError("");
+    if (!canUseFiles) { setError("The school administrator has disabled chat file and voice-note sharing."); return; }
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setError("Voice recording is not supported in this browser. You can attach an existing audio file instead.");
       return;
@@ -295,6 +301,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   async function sendMessage(e: FormEvent) {
     e.preventDefault(); if ((!draft.trim() && !attachment) || !activeConversation) return;
     if (!enabled) { setError("Chat has been deactivated by the administrator."); return; }
+    if (attachment && !canUseFiles) { setError("The school administrator has disabled chat file sharing."); return; }
     const activeChannelAllowed = activeConversation.conversation_type === "group" ? canUseGroups : activeConversation.conversation_type === "admin_support" ? canUseCustomerCare : canUsePrivate;
     if (!activeChannelAllowed) { setError("The school administrator has disabled this channel for your account."); return; }
     setSending(true); setError("");
@@ -303,7 +310,10 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       if (attachment) {
         const allowed = ["image/jpeg","image/png","image/webp","image/gif","video/mp4","video/webm","audio/webm","audio/ogg","audio/mpeg","application/pdf","text/plain","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
         if (!allowed.includes(attachment.type)) throw new Error("Unsupported attachment type. Choose an image, video, audio file, PDF, text or Word document.");
-        if (attachment.size <= 0 || attachment.size > 20 * 1024 * 1024) throw new Error("Attachments must be 20 MB or smaller.");
+        if (attachment.size <= 0 || attachment.size > 100 * 1024 * 1024) throw new Error("Chat attachments must be 100 MB or smaller.");
+        const blockedExtension = /\.(exe|dll|com|bat|cmd|msi|msp|ps1|sh|bash|zsh|js|mjs|cjs|html|htm|xhtml|svg|jar|apk|ipa|app|deb|rpm|php|py|rb|pl|wasm|scr|vbs|hta)$/i;
+        const blockedMime = /^(text\/html|image\/svg\+xml|application\/javascript|text\/javascript|application\/x-msdownload|application\/x-dosexec|application\/x-executable|application\/x-sh)$/i;
+        if (blockedExtension.test(attachment.name) || blockedMime.test(attachment.type)) throw new Error("This file type is blocked for safety. Send documents, images, audio, video, spreadsheets, presentations or archives instead.");
         const safeName = attachment.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100) || "attachment";
         uploadedPath = schoolId + "/" + activeConversation.id + "/" + crypto.randomUUID() + "-" + safeName;
         const upload = await (db as any).storage.from("resa-chat-media").upload(uploadedPath, attachment, { contentType: attachment.type, upsert: false });
@@ -325,8 +335,12 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       if (!fresh.error) {
         const enriched = await Promise.all((fresh.data ?? []).map(async (m: ChatMessage) => {
           if (!m.attachment_path) return m;
-          const signed = await (db as any).storage.from("resa-chat-media").createSignedUrl(m.attachment_path, 3600);
-          return { ...m, attachment_url: signed.data?.signedUrl ?? null };
+          const storage = (db as any).storage.from("resa-chat-media");
+          const [inlineUrl, downloadUrl] = await Promise.all([
+            storage.createSignedUrl(m.attachment_path, 3600),
+            storage.createSignedUrl(m.attachment_path, 3600, { download: true }),
+          ]);
+          return { ...m, attachment_url: inlineUrl.data?.signedUrl ?? null, attachment_download_url: downloadUrl.data?.signedUrl ?? null };
         }));
         setMessages(enriched);
       }
@@ -348,18 +362,18 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
       <section className={panel+" min-h-[460px]"}><div className="flex items-center gap-3 border-b border-slate-200 pb-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><MessageCircle size={22}/></span><div><h2 className="font-extrabold">{activeConversation?.subject ?? "Your messages"}</h2><p className="text-xs text-slate-500">{activeConversation?(activeConversation.conversation_type==="group"?"Group conversation":(otherContact?.display_name??memberNames[otherId]??"Conversation participant")):"Choose a conversation or start a new one"}{activeConversation && <span className="ml-2 text-emerald-700">· {onlineCount} online</span>}</p>{typingIds.length>0 && <span className="ml-2 text-emerald-700">· Someone is typing…</span>}</div></div>
         <div className="flex max-h-[480px] min-h-[300px] flex-col gap-3 overflow-y-auto py-4">{!activeConversation?<div className="m-auto max-w-sm text-center text-sm text-slate-500"><ShieldCheck size={28} className="mx-auto mb-2 text-emerald-800"/><p>Messages are private to conversation participants and authorised school administrators.</p></div>:messages.length===0?<p className="m-auto text-sm text-slate-500">No messages yet. Say hello.</p>:messages.map(m=><div id={"resa-chat-message-" + m.id} key={m.id} className={"max-w-[88%] rounded-2xl px-4 py-3 "+(m.sender_id===userId?"self-end bg-emerald-900 text-white":"self-start bg-slate-100 text-slate-900")}>{(activeConversation?.conversation_type==="group"||m.sender_id!==userId)&&<p className={"mb-1 text-[10px] font-bold "+(m.sender_id===userId?"text-emerald-100":"text-emerald-800")}>{m.sender_id===userId?"You":memberNames[m.sender_id]||contacts.find(contact=>contact.user_id===m.sender_id)?.display_name||"School member"}</p>}<p className="whitespace-pre-wrap break-words text-sm leading-6">{renderMessageBody(m.body)}</p>
           {m.attachment_path && <div className="mt-2 rounded-lg bg-black/5 p-2 text-sm">
-            {m.attachment_url ? (m.attachment_mime?.startsWith("image/") ? <a href={m.attachment_url} target="_blank" rel="noreferrer"><img src={m.attachment_url} alt={m.attachment_name || "Chat attachment"} className="max-h-64 rounded-lg object-contain"/></a> : m.attachment_mime?.startsWith("audio/") ? <audio controls src={m.attachment_url} className="max-w-full"/> : m.attachment_mime?.startsWith("video/") ? <video controls src={m.attachment_url} className="max-h-64 max-w-full rounded-lg"/> : <a href={m.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 underline"><FileText size={16}/>{m.attachment_name || "Open attachment"}</a>) : "Attachment unavailable"}
+            {m.attachment_url ? <><div>{m.attachment_mime?.startsWith("image/") ? <a href={m.attachment_url} target="_blank" rel="noreferrer"><img src={m.attachment_url} alt={m.attachment_name || "Chat attachment"} className="max-h-64 rounded-lg object-contain"/></a> : m.attachment_mime?.startsWith("audio/") ? <audio controls src={m.attachment_url} className="max-w-full"/> : m.attachment_mime?.startsWith("video/") ? <video controls src={m.attachment_url} className="max-h-64 max-w-full rounded-lg"/> : <a href={m.attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 underline"><FileText size={16}/>{m.attachment_name || "Open attachment"}</a>}</div><a href={m.attachment_download_url || m.attachment_url} download={m.attachment_name || true} className="mt-2 inline-flex items-center gap-2 rounded-lg border border-current/20 px-3 py-1.5 text-xs font-bold"><Download size={14}/> Download file</a></> : "Attachment unavailable"}
           </div>}
           <time className={"mt-1 block text-[10px] "+(m.sender_id===userId?"text-emerald-100":"text-slate-500")}>{new Date(m.created_at).toLocaleString()}</time>
           {m.sender_id===userId && <span className="block text-right text-[10px] opacity-70">{readCounts[m.id] ? "Seen by " + readCounts[m.id] : "Sent"}</span>}</div>)}</div>
         <form onSubmit={e=>void sendMessage(e)} className="border-t border-slate-200 pt-3">
           {attachment && <div className="mb-2 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-950"><span className="truncate">{attachment.name} · {(attachment.size/1024/1024).toFixed(1)} MB</span><button type="button" onClick={()=>setAttachment(null)} className="font-bold">Remove</button></div>}
           <div className="flex items-end gap-2">
-            <label className="cursor-pointer rounded-lg border p-3 text-slate-700" title="Attach a file"><Paperclip size={18}/><input type="file" className="hidden" disabled={!enabled||!activeConversation||recording||(activeConversation?.conversation_type==="group"?!canUseGroups:activeConversation?.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate)} accept="image/*,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,.pdf,.doc,.docx,.txt" onChange={e=>setAttachment(e.target.files?.[0] ?? null)}/></label><button type="button" onClick={()=>recording?stopVoiceNote():void startVoiceNote()} disabled={!enabled||!activeConversation||sending||Boolean(attachment)||(activeConversation?.conversation_type==="group"?!canUseGroups:activeConversation?.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate)} className={"rounded-lg border p-3 "+(recording?"border-rose-300 bg-rose-50 text-rose-700":"text-slate-700")} title={recording?"Stop voice note":"Record voice note"}>{recording?<Square size={18}/>:<Mic size={18}/>}</button>
+            <label className="cursor-pointer rounded-lg border p-3 text-slate-700" title="Attach a file"><Paperclip size={18}/><input type="file" className="hidden" disabled={!enabled||!canUseFiles||!activeConversation||recording||(activeConversation?.conversation_type==="group"?!canUseGroups:activeConversation?.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate)} accept="*/*" onChange={e=>setAttachment(e.target.files?.[0] ?? null)}/></label><button type="button" onClick={()=>recording?stopVoiceNote():void startVoiceNote()} disabled={!enabled||!canUseFiles||!activeConversation||sending||Boolean(attachment)||(activeConversation?.conversation_type==="group"?!canUseGroups:activeConversation?.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate)} className={"rounded-lg border p-3 "+(recording?"border-rose-300 bg-rose-50 text-rose-700":"text-slate-700")} title={recording?"Stop voice note":"Record voice note"}>{recording?<Square size={18}/>:<Mic size={18}/>}</button>
             <textarea value={draft} onChange={e=>{setDraft(e.target.value);broadcastTyping(Boolean(e.target.value.trim()));}} onBlur={()=>broadcastTyping(false)} maxLength={5000} rows={2} placeholder={!enabled?"Chat is disabled by the administrator":activeConversation?"Write a message…":"Choose a contact and open a chat to send this message"} disabled={!enabled||Boolean(activeConversation&&(activeConversation.conversation_type==="group"?!canUseGroups:activeConversation.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate))} className={field+" min-h-[48px] resize-y"}/>
             <button disabled={!enabled||!activeConversation||(!draft.trim()&&!attachment)||sending||recording||(activeConversation?.conversation_type==="group"?!canUseGroups:activeConversation?.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><Send size={16}/>{sending?"Sending":"Send"}</button>
           </div>
-          <p className="mt-2 text-[11px] text-slate-500">{recording?"Recording voice note… Stop recording to attach it.":!activeConversation?"You can draft a message now; open a conversation before sending. Private attachments up to 20 MB.":"Private attachments up to 20 MB. Images, voice notes, video, PDF and Word files."}</p>
+          <p className="mt-2 text-[11px] text-slate-500">{recording?"Recording voice note… Stop recording to attach it.":!activeConversation?"You can draft a message now; open a conversation before sending. Private attachments up to 100 MB. The school administrator controls whether file sharing is enabled.":"Private attachments up to 100 MB. Images, audio, video, documents, spreadsheets, presentations and archives. Executable and active script files are blocked."}</p>
         </form>
       </section>
     </div>
