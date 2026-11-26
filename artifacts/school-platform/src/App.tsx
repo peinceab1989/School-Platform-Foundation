@@ -2120,17 +2120,18 @@ function FoundationPage() {
           const notificationBody = grouped && count > 1
             ? count + ' new messages. Latest: ' + (hidePreview ? 'Open RESA to read your inbox.' : safeTitle + ' · ' + safeBody)
             : safeBody;
-          await registration.showNotification(notificationTitle, {
+          const notificationOptions = {
             body: notificationBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
             badge: '/media/logo/resa-logo.jpg?v=20261125', tag: notificationTag,
-            data: { url, count, grouped },
+            data: { url, count, grouped }, renotify: grouped,
             silent: selectedSound === 'silent', vibrate: prefs?.vibration_enabled === false ? [] : [180, 90, 180],
-          });
+          } as NotificationOptions & { renotify?: boolean; vibrate?: number[] };
+          await registration.showNotification(notificationTitle, notificationOptions);
         } else if (alive) {
-          new Notification(safeTitle, { body: safeBody, tag: notificationTag });
+          new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped } as NotificationOptions & { renotify?: boolean });
         }
       } catch {
-        if (alive) new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped });
+        if (alive) new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped } as NotificationOptions & { renotify?: boolean });
       }
     };
 
