@@ -2842,7 +2842,6 @@ function FoundationPage() {
     (currentPath === '/technical-support' || currentPath === '/school-cctv' || currentPath === '/notifications' || currentPath === '/school-communication' || currentPath === '/resa-chat' || currentPath === '/my-results' || currentPath === '/parent-authorizations' || currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard')
   ) {
     if (currentPath === '/technical-support') return <TechnicalSupportPage />;
-    if (currentPath === '/technical-assignments') return <TechnicalAssignmentsPage />;
     if (currentPath === '/dashboard' || currentPath === '/portal' || currentPath === '/parent-dashboard') return <ParentDashboard schoolId={parentMembership.schoolId} schoolName={parentMembership.schoolName} userId={session?.user.id ?? ''} email={session?.user.email} onSignOut={() => void signOut()} />;
     if (currentPath === '/my-results') return <MyPublishedResultsPage schoolId={parentMembership.schoolId} userId={session?.user.id ?? ''} role="parent" />;
     if (currentPath === '/parent-authorizations' && session) return <ParentAuthorizationsPage schoolId={parentMembership.schoolId} userId={session.user.id} />;
@@ -3032,6 +3031,7 @@ function FoundationPage() {
     ].includes(currentPath)
   ) {
     if (currentPath === '/technical-support') return <TechnicalSupportPage />;
+    if (currentPath === '/technical-assignments') return <TechnicalAssignmentsPage />;
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/teaching-materials') return <TeachingMaterialsPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/resa-chat') return <ResaChatPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
