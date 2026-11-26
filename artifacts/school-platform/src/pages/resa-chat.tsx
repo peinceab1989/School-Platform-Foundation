@@ -50,7 +50,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
   const isAdmin = role === "admin";
   const canUsePrivate = channelPolicy.private_messages !== false && (isAdmin || rolePolicy[role]?.private_messages !== false);
   const canUseGroups = channelPolicy.group_messages !== false && (isAdmin || rolePolicy[role]?.group_messages !== false);
-  const canUseCustomerCare = channelPolicy.customer_care !== false;
+  const canUseCustomerCare = channelPolicy.customer_care !== false && (isAdmin || rolePolicy[role]?.customer_care !== false);
 
   const load = useCallback(async () => {
     setLoading(true); setContactsLoading(true); setError("");
