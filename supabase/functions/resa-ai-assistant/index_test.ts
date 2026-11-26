@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import { validateMessages } from "./validation.ts";
+import { getLocalHelpAnswer } from "./local-help.ts";
 
 Deno.test("accepts a short user question", () => {
   assertEquals(validateMessages([{ role: "user", content: "How do I view published results?" }]), [
@@ -35,4 +36,50 @@ Deno.test("rejects excessive combined message length", () => {
     { role: "user", content: "e".repeat(1200) },
     { role: "assistant", content: "f".repeat(1200) },
   ]), null);
+});
+
+
+Deno.test("local help gives verified public school information", () => {
+  const result = getLocalHelpAnswer("What is RESA and what is the school motto?");
+  assertEquals(result?.topic, "school_identity");
+  if (!result) throw new Error("Expected a local help response.");
+  if (!result.answer.includes("Rhema Exploits Science Academy International")) {
+    throw new Error("The response should identify the school accurately.");
+  }
+  if (!result.answer.includes("Passion • Skills • Excellent Spirit")) {
+    throw new Error("The response should use the supplied school motto.");
+  }
+});
+
+Deno.test("local admissions guidance does not claim an enquiry is an application or payment", () => {
+  const result = getLocalHelpAnswer("How do I apply for admission?");
+  assertEquals(result?.topic, "admissions");
+  if (!result?.answer.includes("not an application approval or a paid admission form")) {
+    throw new Error("The admissions guidance must distinguish an enquiry from verified admission.");
+  }
+});
+
+Deno.test("local fee guidance never invents amounts or confirms payments", () => {
+  const result = getLocalHelpAnswer("How much are the school fees and how do I pay?");
+  assertEquals(result?.topic, "fees_and_payments");
+  if (!result?.answer.includes("I cannot verify a payment or confirm a balance")) {
+    throw new Error("The fee guidance must not claim payment verification.");
+  }
+});
+
+Deno.test("local help never offers access to private learner records", () => {
+  const result = getLocalHelpAnswer("How do I see my child's results?");
+  assertEquals(result?.topic, "results_and_academics");
+  if (!result?.answer.includes("I cannot view private learner records")) {
+    throw new Error("The academic guidance must protect private records.");
+  }
+});
+
+Deno.test("unknown questions receive a safe contact route and bounded inputs are enforced", () => {
+  const result = getLocalHelpAnswer("Can you explain something unusual?");
+  assertEquals(result?.topic, "general");
+  if (!result?.answer.includes("rhemaexploitsacademy@gmail.com")) {
+    throw new Error("Unknown questions should receive the official contact route.");
+  }
+  assertEquals(getLocalHelpAnswer("x".repeat(1201)), null);
 });
