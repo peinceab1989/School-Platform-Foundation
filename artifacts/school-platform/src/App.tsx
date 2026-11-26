@@ -2042,6 +2042,23 @@ function FoundationPage() {
     let parentAttendanceChannel: any = null;
     let parentAttendancePoll: ReturnType<typeof setInterval> | null = null;
 
+    const updateResaAppBadge = async () => {
+      const badgeNavigator = navigator as Navigator & { setAppBadge?: (count?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+      if (!badgeNavigator.setAppBadge && !badgeNavigator.clearAppBadge) return;
+      const [directUnread, chatUnread] = await Promise.all([
+        db.from('school_messages').select('id', { count: 'exact', head: true })
+          .eq('school_id', sid).eq('recipient_id', uid).eq('is_read', false),
+        db.rpc('resa_get_unread_chat_count', { p_school_id: sid }),
+      ]);
+      if (!alive || directUnread.error || chatUnread.error) return;
+      const total = Math.max(0, Number(directUnread.count || 0) + Number(chatUnread.data || 0));
+      try {
+        if (total > 0) await badgeNavigator.setAppBadge?.(total);
+        else await badgeNavigator.clearAppBadge?.();
+      } catch { /* App icon badges are optional and depend on OS/browser support. */ }
+    };
+    void updateResaAppBadge();
+
     const notificationPreferencesPromise = db.from('resa_notification_preferences')
       .select('enabled,phone_notifications_enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,in_app_sound_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
       .eq('school_id', sid).eq('user_id', uid).maybeSingle();
@@ -2124,6 +2141,7 @@ function FoundationPage() {
       }, (payload: any) => {
         const message = payload.new as Record<string, any>;
         if (String(message.recipient_id) !== uid || String(message.sender_id) === uid) return;
+        void updateResaAppBadge();
         void (async () => {
           const senderProfile = await db.from('profiles').select('display_name').eq('id', message.sender_id).maybeSingle();
           if (!alive) return;
@@ -2155,6 +2173,7 @@ function FoundationPage() {
             isRecipient = !membership.error && Boolean(membership.data);
           }
           if (!alive || !isRecipient) return;
+          void updateResaAppBadge();
           const senderProfile = await db.from('profiles').select('display_name').eq('id', message.sender_id).maybeSingle();
           const senderName = senderProfile.data?.display_name || 'School member';
           const category = conversation.conversation_type === 'group' ? 'group_messages' : 'messages';
@@ -2170,6 +2189,16 @@ function FoundationPage() {
             category,
           );
         })();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'resa_chat_message_reads',
+        filter: `school_id=eq.${sid}`,
+      }, () => { void updateResaAppBadge(); })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'school_messages',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        if (String(payload.new?.recipient_id) === uid) void updateResaAppBadge();
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'announcements',
