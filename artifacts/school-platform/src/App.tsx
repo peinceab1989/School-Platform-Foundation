@@ -3435,6 +3435,7 @@ function AppRoutes() {
         <Route path="/resa-drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
+        <Route path="/technical-support" component={FoundationPage} />
         <Route path="/my-compliance" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
