@@ -19,6 +19,7 @@ type Notice = {
   source?: "biometric_parent_notifications" | "attendance_checkpoint_alerts";
   sourceId?: string;
   conversationId?: string;
+  unreadCount?: number;
 };
 
 export default function NotificationsPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
@@ -113,7 +114,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
             title: "New website enquiry · " + row.visitor_name,
             body: String(row.unread_visitor_count||1) + " unread visitor message(s) about " + String(row.duty_key || "general").replaceAll("_"," ") + ". Open Customer Care to reply.",
             createdAt: row.last_message_at, unread: true, senderName: row.visitor_name,
-            conversationId: row.id, targetUrl: "/resa-chat?channel=customer_care",
+            conversationId: row.id, unreadCount: Number(row.unread_visitor_count||1), targetUrl: "/resa-chat?channel=customer_care",
           }));
         } else {
           setNotice(previous => previous ? previous + " Public Customer Care alerts could not be loaded: " + careResult.error.message : "Public Customer Care alerts could not be loaded: " + careResult.error.message);
@@ -246,7 +247,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         if (careError) throw careError;
       } else return;
       setItems(previous => previous.map(n => n.id === item.id ? { ...n, unread: false } : n));
-      setUnreadCount(previous => Math.max(0, previous - 1));
+      setUnreadCount(previous => Math.max(0, previous - (item.unreadCount || 1)));
     } catch (e) { setError(e instanceof Error ? e.message : "Could not mark this notification as read."); }
   }
 
@@ -359,7 +360,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   }
 
   const categoryLabels: Record<string,string> = { all:"All categories", attendance:"Attendance", administration:"Administration", customer_care:"Customer Care", fees:"Fees & payments", admissions:"Admissions", cbt:"CBT & examinations", results:"Results", academics:"Academics", announcements:"Announcements", messages:"Private messages", group_messages:"Group chats", technical:"Technical support" };
-  const categoryCounts = useMemo(() => items.reduce<Record<string,{total:number;unread:number}>>((counts,item) => { const key=item.category || "messages"; counts[key] ||= {total:0,unread:0}; counts[key].total++; if(item.unread) counts[key].unread++; return counts; },{}),[items]);
+  const categoryCounts = useMemo(() => items.reduce<Record<string,{total:number;unread:number}>>((counts,item) => { const key=item.category || "messages"; counts[key] ||= {total:0,unread:0}; counts[key].total++; if(item.unread) counts[key].unread += item.unreadCount || 1; return counts; },{}),[items]);
   const filteredItems = useMemo(() => items.filter(item => {
     const itemDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.createdAt));
     const matchesDate = itemDate === selectedDate;
