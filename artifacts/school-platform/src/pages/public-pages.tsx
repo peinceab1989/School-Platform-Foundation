@@ -575,7 +575,6 @@ export function AdmissionsPage() {
     parentName: "",
     parentPhone: "",
     parentEmail: "",
-    preferredContact: "WhatsApp",
   });
   const [prepared, setPrepared] = useState<string[]>([]);
 
@@ -598,7 +597,7 @@ export function AdmissionsPage() {
       purchase.parentEmail.trim() ? `Email: ${purchase.parentEmail.trim()}` : "",
       "Please confirm the current admission form price and approved payment instructions.",
       "I understand that the admission/form number is issued only after payment has been verified by RESA."
-    ].filter(Boolean).join("\\n");
+    ].filter(Boolean).join("\n");
     window.open(`https://wa.me/2348058422691?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   }
 
