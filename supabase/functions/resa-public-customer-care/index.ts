@@ -114,6 +114,14 @@ Deno.serve(async (req: Request) => {
     const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
     const fingerprint = await sha(ip + ":" + (req.headers.get("user-agent") || "unknown"));
     if (action === "visitor_start") {
+      const { data: customerCareEnabled, error: controlError } = await service.rpc(
+        "nexus_public_module_is_enabled",
+        { p_module_key: "resa_public_customer_care" },
+      );
+      if (controlError) throw controlError;
+      if (customerCareEnabled !== true) {
+        return reply(503, { error: "RESA Customer Care is not accepting new visitor conversations right now. Please use the official school contact details." }, origin);
+      }
       if (!(await rateLimit(fingerprint, "start", 5, 3600))) return reply(429, { error: "Please wait before starting another chat." }, origin);
       const name = cleanText(body.name, 100);
       const email = cleanText(body.email, 254);
