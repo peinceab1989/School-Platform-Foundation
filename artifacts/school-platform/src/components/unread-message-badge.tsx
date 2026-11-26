@@ -97,15 +97,24 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           if (active && sequence === refreshSequence.current) setCount(0);
           return;
         }
-        const [direct, chatCount] = await Promise.all([
+        const [direct, chatCount, membership] = await Promise.all([
           db.from("school_messages")
             .select("id", { count: "exact", head: true })
             .eq("school_id", schoolId).eq("recipient_id", userId).eq("is_read", false),
           db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
+          db.from("school_memberships").select("role").eq("school_id",schoolId).eq("user_id",userId).eq("status","active").maybeSingle(),
         ]);
         if (direct.error) throw direct.error;
         if (chatCount.error) throw chatCount.error;
-        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0);
+        let attendanceCount = 0;
+        if (!membership.error && membership.data?.role === "parent") {
+          const attendance = await db.from("biometric_parent_notifications").select("id",{count:"exact",head:true}).eq("school_id",schoolId).is("read_at",null);
+          if (!attendance.error) attendanceCount = attendance.count ?? 0;
+        } else if (!membership.error && membership.data?.role === "admin") {
+          const attendance = await db.from("attendance_checkpoint_alerts").select("id",{count:"exact",head:true}).eq("school_id",schoolId).neq("alert_status","acknowledged");
+          if (!attendance.error) attendanceCount = attendance.count ?? 0;
+        }
+        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0) + attendanceCount;
         // Ignore slower, older requests that finish after a newer Realtime refresh.
         if (active && sequence === refreshSequence.current) setCount(nextCount);
       } catch (error) {
