@@ -44,7 +44,8 @@ export default function AnnouncementsPage({ schoolId }: { schoolId: string }) {
       if (announcementsResult.error) throw announcementsResult.error;
       if (settingsResult.error) throw settingsResult.error;
       setRows((announcementsResult.data ?? []) as Announcement[]);
-      setAnnouncementChannelEnabled(settingsResult.data?.channel_policy?.announcements !== false);
+      const settingsData = settingsResult.data as { channel_policy?: Record<string, boolean> } | null;
+      setAnnouncementChannelEnabled(settingsData?.channel_policy?.announcements !== false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load announcements.");
     } finally {
