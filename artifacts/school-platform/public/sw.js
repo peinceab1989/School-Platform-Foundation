@@ -61,7 +61,7 @@ self.addEventListener('push', (event) => {
     tag: payload.tag || 'resa-school-update',
     data: { url: payload.url || '/parent-dashboard' },
     renotify: false,
-    silent: false,
+    silent: payload.silent === true,
     vibrate: Array.isArray(payload.vibrate) ? payload.vibrate : [180, 90, 180],
   };
   event.waitUntil(self.registration.showNotification(title, options));
