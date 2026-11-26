@@ -23,7 +23,7 @@ function ResaInstallPrompt() {
 
   useEffect(()=>{
     let active=true;
-    void getSupabaseClient().rpc('nexus_public_module_is_enabled',{p_module_key:'resa_pwa_install'})
+    void (getSupabaseClient() as any).rpc('nexus_public_module_is_enabled',{p_module_key:'resa_pwa_install'})
       .then(({data,error})=>{if(active&&!error)setInstallModuleEnabled(data===true);})
       .catch(()=>{});
     return()=>{active=false;};
