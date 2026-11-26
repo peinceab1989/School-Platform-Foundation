@@ -63,6 +63,20 @@ async function assignedAdmin(duty: string) {
     .eq("school_id", SCHOOL_ID).eq("user_id", chief).eq("role", "admin").eq("status", "active").maybeSingle();
   return activeChief?.user_id ?? null;
 }
+async function broadcastConversationUpdate(conversationId: string) {
+  try {
+    const channel = service.channel(`resa-public-care-${conversationId}`);
+    await channel.send({
+      type: "broadcast",
+      event: "message_updated",
+      payload: { conversation_id: conversationId },
+    });
+    await service.removeChannel(channel);
+  } catch (error) {
+    // Broadcast is an acceleration path; clients also poll securely as fallback.
+    console.warn("Customer Care realtime broadcast unavailable", error);
+  }
+}
 async function rateLimit(fingerprint: string, action: string, max: number, seconds: number) {
   const { data, error } = await service.rpc("resa_public_care_consume_rate_limit", {
     p_fingerprint_hash: fingerprint,
@@ -105,6 +119,7 @@ Deno.serve(async (req: Request) => {
       });
       if (messageError) throw messageError;
       await service.from("resa_public_care_conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversation.id);
+      await broadcastConversationUpdate(conversation.id);
       return reply(200, { conversation_id: conversation.id, token }, origin);
     }
     if (action === "visitor_send" || action === "visitor_poll") {
@@ -128,6 +143,7 @@ Deno.serve(async (req: Request) => {
           last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(),
         }).eq("id", id);
         if (updateError) throw updateError;
+        await broadcastConversationUpdate(id);
         currentStatus = "open";
       }
       const { data: messages, error } = await service.from("resa_public_care_messages")
@@ -200,6 +216,7 @@ Deno.serve(async (req: Request) => {
         const { error } = await service.from("resa_public_care_conversations")
           .update(changes).eq("id",id);
         if (error) throw error;
+        await broadcastConversationUpdate(id);
         return reply(200,{ok:true,status:nextStatus},origin);
       }
       const message = cleanText(body.message, 5000);
@@ -214,6 +231,7 @@ Deno.serve(async (req: Request) => {
         last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       }).eq("id", id);
       if (updateError) throw updateError;
+      await broadcastConversationUpdate(id);
       return reply(200, { ok: true }, origin);
     }
     return reply(400, { error: "Unknown action." }, origin);
