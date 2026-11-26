@@ -6,7 +6,7 @@ import { enableResaPushNotifications, getResaPushRegistrationStatus, sendResaPus
 
 type Notice = {
   id: string;
-  kind: "message" | "announcement" | "chat" | "attendance";
+  kind: "message" | "announcement" | "chat" | "attendance" | "visitor_care";
   title: string;
   body: string;
   createdAt: string;
@@ -18,6 +18,7 @@ type Notice = {
   category: string;
   source?: "biometric_parent_notifications" | "attendance_checkpoint_alerts";
   sourceId?: string;
+  conversationId?: string;
 };
 
 export default function NotificationsPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
@@ -100,8 +101,26 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           : {data:[],error:null};
       if (attendanceResult.error) setNotice("Some attendance alerts could not be loaded: " + attendanceResult.error.message);
       const attendanceUnread = (attendanceResult.data ?? []).filter((row:any)=>role==="parent" ? !row.read_at : row.alert_status!=="acknowledged").length;
+      let publicCareNotices: Notice[] = [];
+      let publicCareUnread = 0;
+      if (role === "admin") {
+        const careResult = await db.functions.invoke("resa-public-customer-care", { body: { action: "admin_notifications" } });
+        if (!careResult.error) {
+          const conversations = careResult.data?.conversations ?? [];
+          publicCareUnread = conversations.length;
+          publicCareNotices = conversations.map((row:any) => ({
+            id: "visitor-care-" + row.id, kind: "visitor_care", category: "customer_care",
+            title: "New website enquiry · " + row.visitor_name,
+            body: "A visitor sent a message about " + String(row.duty_key || "general").replaceAll("_"," ") + ". Open Customer Care to reply.",
+            createdAt: row.last_message_at, unread: true, senderName: row.visitor_name,
+            conversationId: row.id, targetUrl: "/resa-chat?channel=customer_care",
+          }));
+        } else {
+          setNotice(previous => previous ? previous + " Public Customer Care alerts could not be loaded: " + careResult.error.message : "Public Customer Care alerts could not be loaded: " + careResult.error.message);
+        }
+      }
       if (!directUnreadResult.error && !chatUnreadResult.error) {
-        setUnreadCount((directUnreadResult.count ?? 0) + Number(chatUnreadResult.data || 0) + attendanceUnread);
+        setUnreadCount((directUnreadResult.count ?? 0) + Number(chatUnreadResult.data || 0) + attendanceUnread + publicCareUnread);
       } else {
         setNotice("The inbox is loaded, but the full unread count could not be verified. Refresh or reconnect to retry.");
       }
@@ -159,7 +178,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         source: role === "parent" ? "biometric_parent_notifications" : "attendance_checkpoint_alerts",
         sourceId: row.id, targetUrl: "/attendance",
       }));
-      setItems([...messages, ...announcements, ...chatNotices, ...attendanceNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      setItems([...messages, ...announcements, ...chatNotices, ...attendanceNotices, ...publicCareNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); setPreferencesLoading(false); }
     finally { if (!quiet) setLoading(false); }
   }, [schoolId]);
@@ -222,6 +241,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       } else if (item.kind === "attendance" && item.source === "biometric_parent_notifications" && item.sourceId) {
         const { error: updateError } = await db.from("biometric_parent_notifications").update({ read_at: new Date().toISOString() }).eq("id", item.sourceId).eq("school_id", schoolId);
         if (updateError) throw updateError;
+      } else if (item.kind === "visitor_care" && item.conversationId) {
+        const { error: careError } = await db.functions.invoke("resa-public-customer-care", { body: { action: "admin_view", conversation_id: item.conversationId } });
+        if (careError) throw careError;
       } else return;
       setItems(previous => previous.map(n => n.id === item.id ? { ...n, unread: false } : n));
       setUnreadCount(previous => Math.max(0, previous - 1));
