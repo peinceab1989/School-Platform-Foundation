@@ -107,11 +107,11 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         const careResult = await db.functions.invoke("resa-public-customer-care", { body: { action: "admin_notifications" } });
         if (!careResult.error) {
           const conversations = careResult.data?.conversations ?? [];
-          publicCareUnread = conversations.length;
+          publicCareUnread = conversations.reduce((total:number,row:any)=>total+Number(row.unread_visitor_count||0),0);
           publicCareNotices = conversations.map((row:any) => ({
             id: "visitor-care-" + row.id, kind: "visitor_care", category: "customer_care",
             title: "New website enquiry · " + row.visitor_name,
-            body: "A visitor sent a message about " + String(row.duty_key || "general").replaceAll("_"," ") + ". Open Customer Care to reply.",
+            body: String(row.unread_visitor_count||1) + " unread visitor message(s) about " + String(row.duty_key || "general").replaceAll("_"," ") + ". Open Customer Care to reply.",
             createdAt: row.last_message_at, unread: true, senderName: row.visitor_name,
             conversationId: row.id, targetUrl: "/resa-chat?channel=customer_care",
           }));
