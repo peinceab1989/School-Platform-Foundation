@@ -147,8 +147,9 @@ declare
   v_opening public.school_calendar_rules%rowtype;
   v_override public.school_calendar_rules%rowtype;
 begin
-  if auth.uid() is null or not public.has_school_role(p_school_id) then
-    raise exception 'Access denied: active school membership required';
+  if (auth.uid() is null and coalesce(auth.role(),'') <> 'service_role')
+    or (auth.uid() is not null and not public.has_school_role(p_school_id)) then
+    raise exception 'Access denied: active school membership or trusted service role required';
   end if;
   if p_scope not in ('attendance','timetable','examinations','staff','public_events','notifications','all') then
     raise exception 'Unsupported calendar scope';
@@ -326,9 +327,6 @@ as $function$
 declare
   v_status record;
 begin
-  if auth.uid() is null then
-    return new;
-  end if;
   if new.attendance_date <> (now() at time zone 'Africa/Lagos')::date then
     return new;
   end if;
