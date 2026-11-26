@@ -65,71 +65,16 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     const convRows = (conv.data ?? []) as Conversation[];
     setConversations(convRows);
     if (activeId && !convRows.some(c => c.id === activeId)) setActiveId("");
-    const memberRole = role === "teacher" ? "student" : "teacher";
-    let contactIds: string[] = [];
-    let parentDirectory: Contact[] = [];
-    if (isAdmin) {
-      const members = await (db as any).from("school_memberships").select("user_id,role").eq("school_id", schoolId).eq("status", "active").in("role", ["teacher","student","parent"]);
-      if (members.error) throw members.error;
-      contactIds = (members.data ?? []).map((m: any) => m.user_id).filter((id: string) => id !== userId);
-    } else if (role === "teacher") {
-      const staffRes = await (db as any).from("staff").select("id").eq("school_id", schoolId).eq("user_id", userId).eq("status", "active");
-      if (staffRes.error) throw staffRes.error;
-      const staffIds = (staffRes.data ?? []).map((x: any) => x.id);
-      if (staffIds.length) {
-        const assignment = await (db as any).from("teacher_assignments").select("class_id").eq("school_id", schoolId).in("staff_id", staffIds);
-        if (assignment.error) throw assignment.error;
-        const classIds: string[] = [...new Set<string>((assignment.data ?? []).map((x: any) => String(x.class_id)).filter(Boolean))];
-        if (classIds.length) {
-          const enrollment = await (db as any).from("student_enrollments").select("student_id").eq("school_id", schoolId).eq("status", "active").in("class_id", classIds);
-          if (enrollment.error) throw enrollment.error;
-          const studentIds: string[] = [...new Set<string>((enrollment.data ?? []).map((x: any) => String(x.student_id)).filter(Boolean))];
-          if (studentIds.length) {
-            const students = await (db as any).from("students").select("user_id").eq("school_id", schoolId).in("id", studentIds);
-            if (students.error) throw students.error;
-            contactIds = [...new Set<string>((students.data ?? []).map((x: any) => String(x.user_id ?? "")).filter((id: string) => id && id !== userId))];
-          }
-        }
-      }
-    } else if (role === "parent") {
-      const directory = await (db as any).rpc("get_school_message_contacts", { p_school_id: schoolId });
-      if (directory.error) setError(directory.error.message);
-      parentDirectory = (directory.data ?? []).filter((entry: any) => entry.user_id !== userId && entry.role === "admin").map((entry: any) => ({ user_id: entry.user_id, role: entry.role, display_name: entry.display_name || "School administrator" }));
-    } else {
-      const studentRes = await (db as any).from("students").select("id").eq("school_id", schoolId).eq("user_id", userId).maybeSingle();
-      if (studentRes.error) throw studentRes.error;
-      if (studentRes.data?.id) {
-        const enrollments = await (db as any).from("student_enrollments").select("class_id").eq("school_id", schoolId).eq("student_id", studentRes.data.id).eq("status", "active");
-        if (enrollments.error) throw enrollments.error;
-        const classIds: string[] = [...new Set<string>((enrollments.data ?? []).map((x: any) => String(x.class_id)).filter(Boolean))];
-        if (classIds.length) {
-          const assignment = await (db as any).from("teacher_assignments").select("staff_id").eq("school_id", schoolId).in("class_id", classIds);
-          if (assignment.error) throw assignment.error;
-          const staffIds: string[] = [...new Set<string>((assignment.data ?? []).map((x: any) => String(x.staff_id)).filter(Boolean))];
-          if (staffIds.length) {
-            const staff = await (db as any).from("staff").select("user_id").eq("school_id", schoolId).eq("status", "active").in("id", staffIds);
-            if (staff.error) throw staff.error;
-            contactIds = [...new Set<string>((staff.data ?? []).map((x: any) => String(x.user_id ?? "")).filter((id: string) => id && id !== userId))];
-          }
-        }
-      }
-    }
-    if (!isAdmin && role !== "parent") {
-      const admins = await (db as any).from("school_memberships").select("user_id").eq("school_id", schoolId).eq("status", "active").eq("role", "admin");
-      if (admins.error) throw admins.error;
-      contactIds = [...new Set<string>([...contactIds, ...(admins.data ?? []).map((x: any) => String(x.user_id)).filter((id: string) => id !== userId)])];
-    }
-    if (role === "parent") {
-      setContacts(parentDirectory);
-    } else if (contactIds.length) {
-      const members = await (db as any).from("school_memberships").select("user_id,role").eq("school_id", schoolId).eq("status", "active").in("user_id", contactIds);
-      if (members.error) throw members.error;
-      const ids = (members.data ?? []).map((x: any) => x.user_id);
-      const profiles = ids.length ? await (db as any).from("profiles").select("id,display_name").in("id", ids) : { data: [], error: null };
-      if (profiles.error) throw profiles.error;
-      const profileMap = new Map((profiles.data ?? []).map((p: any) => [p.id, p.display_name]));
-      setContacts((members.data ?? []).map((m: any) => ({ user_id: m.user_id, role: m.role, display_name: profileMap.get(m.user_id) || (m.role === "teacher" ? "Teacher" : m.role === "student" ? "Student" : "School administrator") })));
-    } else setContacts([]);
+    // A single server-authorised directory keeps direct messages, Customer Care
+    // and group member selection consistent across every role. The RPC returns
+    // only active contacts within the caller's school relationship scope.
+    const directory = await (db as any).rpc("get_school_message_contacts", { p_school_id: schoolId });
+    if (directory.error) throw directory.error;
+    setContacts((directory.data ?? []).map((entry: any) => ({
+      user_id: String(entry.user_id),
+      role: String(entry.role),
+      display_name: String(entry.display_name || "Name not set — ask the school office to update this profile"),
+    })).filter((entry: Contact) => entry.user_id && entry.user_id !== userId));
     } catch (e) {
       setContacts([]);
       setError(e instanceof Error ? e.message : "School contacts could not be loaded. Refresh and try again.");
