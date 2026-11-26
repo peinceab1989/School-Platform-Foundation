@@ -12,7 +12,7 @@ create table if not exists public.resa_technical_operations_events (
   school_id uuid not null references public.schools(id) on delete cascade,
   ticket_id uuid references public.resa_support_tickets(id) on delete cascade,
   actor_user_id uuid references auth.users(id) on delete set null,
-  event_type text not null check (event_type in ('ticket_assigned','ticket_status_changed','ticket_priority_changed','ticket_escalated','maintenance_created','maintenance_completed','asset_created','repair_recorded','note')),
+  event_type text not null check (event_type in ('ticket_assigned','ticket_status_changed','ticket_priority_changed','ticket_escalated','maintenance_created','maintenance_updated','maintenance_completed','asset_created','repair_recorded','note')),
   summary text not null check (char_length(summary) between 3 and 240),
   details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
@@ -255,8 +255,13 @@ select cron.schedule(
         and not exists (
           select 1 from public.resa_support_ticket_replies r
           where r.ticket_id = t.id
-            and r.author_user_id <> t.reporter_user_id
             and r.is_internal = false
+            and exists (
+              select 1 from public.school_memberships sm
+              where sm.school_id = t.school_id
+                and sm.user_id = r.author_user_id
+                and sm.status = 'active' and sm.role = 'admin'
+            )
         )
         and t.created_at <= now() - make_interval(mins =>
           case t.priority
