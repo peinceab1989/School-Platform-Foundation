@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, BellRing, Volume2, VolumeX } from "lucide-react";
+import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from "@/lib/notifications/push";
 
@@ -96,15 +97,24 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           if (active && sequence === refreshSequence.current) setCount(0);
           return;
         }
-        const [direct, chatCount] = await Promise.all([
+        const [direct, chatCount, membership] = await Promise.all([
           db.from("school_messages")
             .select("id", { count: "exact", head: true })
             .eq("school_id", schoolId).eq("recipient_id", userId).eq("is_read", false),
           db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
+          db.from("school_memberships").select("role").eq("school_id",schoolId).eq("user_id",userId).eq("status","active").maybeSingle(),
         ]);
         if (direct.error) throw direct.error;
         if (chatCount.error) throw chatCount.error;
-        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0);
+        let attendanceCount = 0;
+        if (!membership.error && membership.data?.role === "parent") {
+          const attendance = await db.from("biometric_parent_notifications").select("id",{count:"exact",head:true}).eq("school_id",schoolId).is("read_at",null);
+          if (!attendance.error) attendanceCount = attendance.count ?? 0;
+        } else if (!membership.error && membership.data?.role === "admin") {
+          const attendance = await db.from("attendance_checkpoint_alerts").select("id",{count:"exact",head:true}).eq("school_id",schoolId).neq("alert_status","acknowledged");
+          if (!attendance.error) attendanceCount = attendance.count ?? 0;
+        }
+        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0) + attendanceCount;
         // Ignore slower, older requests that finish after a newer Realtime refresh.
         if (active && sequence === refreshSequence.current) setCount(nextCount);
       } catch (error) {
@@ -239,11 +249,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       >
         <span className="text-[10px] font-semibold">Test</span>
       </button>
-      {count > 0 && (
-        <span aria-label={count + " unread messages"} title={count + " unread messages"} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
-          {count > 99 ? "99+" : count}
-        </span>
-      )}
+      <Link href="/notifications" aria-label={count > 0 ? count + " unread notifications. Open notification centre" : "Open notification centre"} title="Open notification centre" className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Bell className="h-4 w-4"/>
+        <span className="text-[10px] font-semibold">Inbox</span>
+        {count > 0 && <span aria-label={count + " unread messages"} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">{count > 99 ? "99+" : count}</span>}
+      </Link>
       {permission !== "unsupported" && (
         <button
           type="button"
