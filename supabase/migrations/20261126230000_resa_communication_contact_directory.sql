@@ -110,6 +110,31 @@ grant execute on function public.get_school_message_contacts(uuid) to authentica
 
 -- Restrictive policies ensure the recipient-role choice is enforced even if a
 -- client bypasses the contact selector or submits a forged conversation.
+-- Existing direct-chat policies deliberately covered only assigned teacher/student
+-- pairs and admin support. This additional permissive policy enables other
+-- role pairs only when the administrator has explicitly enabled that pair.
+drop policy if exists "admin approved role-to-role direct chat" on public.resa_chat_conversations;
+create policy "admin approved role-to-role direct chat"
+on public.resa_chat_conversations
+for insert
+to authenticated
+with check (
+  conversation_type = 'direct'
+  and created_by = (select auth.uid())
+  and participant_one = (select auth.uid())
+  and participant_one <> participant_two
+  and public.resa_chat_recipient_allowed(school_id, participant_two, 'private_messages')
+  and (
+    not public.has_school_role(school_id, array['student'::public.school_role])
+    or public.student_messaging_access_enabled(school_id, (select auth.uid()))
+  )
+  and exists (
+    select 1 from public.resa_chat_settings settings
+    where settings.school_id = resa_chat_conversations.school_id
+      and settings.chat_enabled = true
+  )
+);
+
 drop policy if exists "resa recipient role policy conversations" on public.resa_chat_conversations;
 create policy "resa recipient role policy conversations"
 on public.resa_chat_conversations
