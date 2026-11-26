@@ -142,7 +142,7 @@ Deno.serve(async (req: Request) => {
       applicant_name: applicantName, class_applied_for: classAppliedFor,
       parent_name: parentName, parent_email: parentEmail || null,
       amount, amount_minor: amountMinor, currency: "NGN",
-      provider: "paystack", provider_reference: reference, client_request_key: clientRequestKey,
+      provider: "paystack", payment_environment: gateway.environment, provider_reference: reference, client_request_key: clientRequestKey,
       status: "pending", expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     }).select("id").single();
     if (intentError) {
