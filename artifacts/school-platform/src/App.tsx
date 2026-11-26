@@ -2043,7 +2043,7 @@ function FoundationPage() {
     let parentAttendancePoll: ReturnType<typeof setInterval> | null = null;
 
     const notificationPreferencesPromise = db.from('resa_notification_preferences')
-      .select('enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
+      .select('enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,in_app_sound_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
       .eq('school_id', sid).eq('user_id', uid).maybeSingle();
     const showResaNotification = async (title: string, body: string, tag: string, url: string, category: string) => {
       if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
@@ -2059,6 +2059,30 @@ function FoundationPage() {
         if (start !== end && (start < end ? now >= start && now < end : now >= start || now < end)) return;
       }
       const selectedSound = String(prefs?.category_sounds?.[category] || 'resa_chime');
+      if (prefs?.in_app_sound_enabled !== false && selectedSound !== 'silent') {
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+            const audio = new AudioContextClass();
+            const patterns: Record<string, number[]> = {
+              resa_chime: [784, 988], classic_bell: [1046, 784], digital_ping: [1175],
+              soft_tone: [523], gentle_melody: [659, 784, 988], crystal_drop: [1318, 1046],
+              double_beep: [880, 880], alert_tone: [988, 784, 988], message_pop: [740],
+              school_bell: [659, 784, 659], vibrant_ring: [880, 1046, 1318],
+            };
+            (patterns[selectedSound] || patterns.resa_chime).forEach((frequency, index) => {
+              const oscillator = audio.createOscillator(), gain = audio.createGain();
+              const start = audio.currentTime + index * 0.16;
+              oscillator.frequency.value = frequency; oscillator.type = 'sine';
+              gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(0.07, start + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
+              oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(start); oscillator.stop(start + 0.15);
+            });
+            void audio.resume().catch(() => undefined);
+            window.setTimeout(() => void audio.close(), 900);
+          }
+        } catch { /* Autoplay restrictions or device settings may block in-app audio. */ }
+      }
       const safeBody = prefs?.show_notification_preview === false ? 'You have a new RESA school update. Sign in to view it.' : body;
       const options = {
         body: safeBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
