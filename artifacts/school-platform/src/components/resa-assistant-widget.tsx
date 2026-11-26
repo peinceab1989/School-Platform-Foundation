@@ -71,9 +71,11 @@ export default function ResaAssistantWidget() {
     let alive = true;
     const db = getSupabaseClient();
     const loadAvailability = async () => {
-      const result = await (db as any).rpc("get_resa_customer_care_availability", { p_school_id: RESA_SCHOOL_ID });
-      if (!alive || result.error || !result.data?.length) return;
-      setAvailability(result.data[0] as CustomerCareAvailability);
+      const result = await (db as any).from("resa_customer_care_public_availability")
+        .select("availability_enabled,availability_days,availability_start,availability_end,timezone,website_popup_enabled,soft_sound_enabled")
+        .eq("school_id", RESA_SCHOOL_ID).maybeSingle();
+      if (!alive || result.error || !result.data) return;
+      setAvailability(result.data as CustomerCareAvailability);
     };
     void loadAvailability();
     const refresh = window.setInterval(() => void loadAvailability(), 60000);
