@@ -86,6 +86,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
     let active = true;
     const db = getSupabaseClient() as any;
     let channel: any;
+    let careChannel: any;
     let userId = "";
 
     const refresh = async () => {
@@ -159,8 +160,27 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       if (document.visibilityState === "visible") void refresh();
     };
     const refreshWhenOnline = () => { void refresh(); };
+    const setupCareRealtime = async () => {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user || !active) return;
+      const { data: membership } = await db.from("school_memberships")
+        .select("role").eq("school_id",schoolId).eq("user_id",user.id)
+        .eq("status","active").maybeSingle();
+      if (!active || membership?.role !== "admin") return;
+      careChannel = db.channel(
+        "resa-public-care-notifications-" + schoolId,
+        { config: { private: true } },
+      ).on("broadcast",{event:"message_updated"},()=>{void refresh();})
+        .subscribe((status:string)=>{
+          if(status==="SUBSCRIBED")void refresh();
+          if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED") {
+            console.warn("RESA Customer Care realtime notification status:",status);
+          }
+        });
+    };
 
     void refresh();
+    void setupCareRealtime().catch(error=>console.warn("RESA Customer Care realtime setup failed:",error));
     if ("Notification" in window && Notification.permission === "granted") {
       void registerPush().catch(error => {
         setRegistered(false);
@@ -226,6 +246,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       window.removeEventListener("online", refreshWhenOnline);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       if (channel) void db.removeChannel(channel);
+      if (careChannel) void db.removeChannel(careChannel);
     };
   }, [schoolId, registerPush, chatSound]);
 
