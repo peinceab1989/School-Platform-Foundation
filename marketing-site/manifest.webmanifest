@@ -1,0 +1,29 @@
+{
+  "id": "/",
+  "name": "JETAB TECH — Digital Solutions",
+  "short_name": "JETAB TECH",
+  "description": "Practical digital solutions, AI, software, web platforms, IT support and technology learning.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#faf8f1",
+  "theme_color": "#102d24",
+  "categories": [
+    "business",
+    "productivity",
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
