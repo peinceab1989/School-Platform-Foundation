@@ -1,1 +1,0 @@
-grant execute on function public.nexus_public_module_is_enabled(text) to service_role;
