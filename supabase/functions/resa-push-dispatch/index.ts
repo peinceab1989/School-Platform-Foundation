@@ -429,7 +429,7 @@ Deno.serve(async (request) => {
     let categoryPreferenceRows: any[] = preferences || [];
     if (eventType === "attendance") {
       const categoryPreferenceResult = await admin.from("resa_notification_preferences")
-        .select("user_id,category_preferences,category_sounds,vibration_enabled,show_notification_preview,quiet_hours_enabled,quiet_hours_start,quiet_hours_end")
+        .select("user_id,enabled,category_preferences,category_sounds,vibration_enabled,show_notification_preview,quiet_hours_enabled,quiet_hours_start,quiet_hours_end")
         .eq("school_id", schoolId).in("user_id", recipientIds);
       if (categoryPreferenceResult.error) throw categoryPreferenceResult.error;
       categoryPreferenceRows = categoryPreferenceResult.data || [];
@@ -448,6 +448,10 @@ Deno.serve(async (request) => {
     const categoryOptedIn = category
       ? optedIn.filter((userId) => {
           const preference = categoryPreferenceRows.find((item: any) => item.user_id === userId);
+          // The general notification master switch applies to every category,
+          // including attendance. The separate parent attendance opt-in is
+          // checked before this point and remains an additional requirement.
+          if (preference?.enabled === false) return false;
           const categories = preference?.category_preferences;
           // Missing legacy category keys default to enabled to preserve delivery.
           if (categories && categories[category] === false) return false;
