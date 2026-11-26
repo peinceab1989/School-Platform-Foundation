@@ -2114,6 +2114,11 @@ function FoundationPage() {
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.ready;
           if (!alive) return;
+          // When this account has a Web Push subscription, the service worker
+          // owns the system notification. The realtime listener still provides
+          // the in-app sound, but must not create a duplicate phone card.
+          const activeSubscription = await registration.pushManager.getSubscription();
+          if (activeSubscription) return;
           const existing = grouped ? await registration.getNotifications({ tag: notificationTag }) : [];
           const count = grouped ? Math.max(1, Number(existing[0]?.data?.count || 0) + 1) : 1;
           const notificationTitle = grouped && count > 1 ? 'RESA · ' + count + ' new messages' : safeTitle;
