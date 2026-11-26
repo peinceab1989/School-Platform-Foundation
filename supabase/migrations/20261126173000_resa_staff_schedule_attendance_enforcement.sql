@@ -108,7 +108,7 @@ begin
       null::time, null::time, 'Africa/Lagos'::text, false, null::uuid;
   end if;
 end;
-$function$
+$function$;
 
 
 create or replace function public.school_staff_is_scheduled(
@@ -392,5 +392,5 @@ begin
     'parent_notifications_sent', v_parent_notifications
   );
 end;
-$function$
+$function$;
 
