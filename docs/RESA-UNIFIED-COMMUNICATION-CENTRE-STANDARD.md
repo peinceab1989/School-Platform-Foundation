@@ -80,7 +80,7 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Direct messages, Customer Care and administrator-created group membership selection now use one server-authorised school contact directory.
 - The next additive migration resolves a person's display name from the profile name first and the school's people record second; it returns a clear “name not set” state instead of silently labelling every account only as Teacher or Student.
 - Contact visibility is administrator-controlled by sender-role and recipient-role policy. The server returns only active school members in categories the sender is allowed to contact; Customer Care is separately restricted to authorised school administrators.
-- The contact-directory migration is committed to the feature branch but has not yet been applied to the live database. Its function definition and role-scoped lookup were smoke-tested inside a transaction and rolled back; active test contexts returned scoped directories for all four roles (admin 19, parent 6, student 6, teacher 2). No production schema change was retained.
+- The contact-directory migration is committed to the feature branch but has not yet been applied to the live database. Its function definition and role-scoped lookup were smoke-tested inside a transaction and rolled back; active test contexts returned policy-filtered directories for all four roles (admin 19, parent 2, student 2 Customer Care administrators only, teacher 10). No production schema change was retained.
 - The owner confirmed that the Android push test notification was displayed on the registered phone. This verifies one real-device test delivery; it does not yet establish multi-device, closed-app or sustained delivery reliability.
 
 ## Product quality roadmap — school-grade communications
@@ -127,6 +127,6 @@ The target is a school communication system that competes on clarity, speed, pri
 - The service worker already routes notification taps to the URL carried by the notification payload; this work now supplies the conversation/message target for chat alerts.
 
 ### Recipient-policy validation
-- The migration, helper and restrictive policies were applied only inside a transaction for syntax and policy smoke tests, then rolled back. No production schema changes were retained.
+- The migration, helper and restrictive policies were applied only inside transactions for syntax, grants and role-scoped contact-directory smoke tests, then rolled back. The latest directory test returned 19 administrator contacts, 2 parent contacts, 2 student contacts (Customer Care administrators only because student private messaging is disabled by default), and 10 teacher contacts. No production schema changes were retained.
 - Role matrix smoke tests confirmed the default Customer Care route to an administrator remains available for student, parent and teacher roles, while the student private-message channel remains closed until an administrator enables it.
 - The feature branch has not been merged and these recipient-policy changes have not been applied to production.
