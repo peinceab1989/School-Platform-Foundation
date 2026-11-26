@@ -177,12 +177,6 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     };
   }, [load]);
 
-  async function openNotice(item: Notice) {
-    if (item.unread) await markRead(item);
-    if (item.targetUrl) window.location.assign(item.targetUrl);
-    else if (item.kind === "announcement") window.location.assign("/notifications");
-  }
-
   async function markRead(item: Notice) {
     if (!item.unread) return;
     try {
