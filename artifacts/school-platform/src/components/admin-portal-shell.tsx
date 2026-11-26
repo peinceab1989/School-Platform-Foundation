@@ -5,7 +5,7 @@ import {
   ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
   MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
   Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight, ChevronDown,
-  MessageCircle, Wallet, BellRing,
+  MessageCircle, Wallet, BellRing, Wrench,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
 import ProfilePhotoCard from "@/components/profile-photo-card";
@@ -46,6 +46,7 @@ const groups = [
   { label: "COMMUNICATION", items: [
     ["Communication Centre", "/school-communication", MessageSquare],
     ["Notifications", "/notifications", BellRing],
+    ["Technical Support & Maintenance", "/technical-support", Wrench],
   ]},
   { label: "ADMINISTRATION", items: [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
