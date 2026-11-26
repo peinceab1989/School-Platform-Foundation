@@ -213,18 +213,50 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     if (!enabled) { setError("Chat has been deactivated by the administrator."); return; }
     if (customerCareMode ? !canUseCustomerCare : !canUsePrivate) { setError(customerCareMode ? "Customer Care is disabled for your account by the school administrator." : "Private messaging is disabled for your account by the school administrator."); return; }
     if (!selectedRoleAllowed) { setError("This recipient group is not enabled for your role. Contact the school administrator for access."); return; }
-    if (!selectedContact || !roleContacts.some(contact => contact.user_id === selectedContact)) { setError("Choose a person from the selected, authorised recipient group."); return; }
-    if (customerCareMode && !isAdmin && !roleContacts.some(contact => contact.user_id === selectedContact && contact.role === "admin")) { setError("Customer Care requests must be sent to an authorised school administrator."); return; }
-    const desiredType = customerCareMode && !isAdmin ? "admin_support" : (!isAdmin && contacts.find(contact => contact.user_id === selectedContact)?.role === "admin" ? "admin_support" : "direct");
-    const existing = conversations.find(c => c.conversation_type === desiredType && [c.participant_one,c.participant_two].includes(userId) && [c.participant_one,c.participant_two].includes(selectedContact));
+    let recipientId = selectedContact;
+    let target = contacts.find(c => c.user_id === selectedContact);
+    if (customerCareMode && !isAdmin) {
+      const route = await (db as any).rpc("resolve_resa_customer_care_admin", { p_school_id: schoolId, p_duty_key: customerCareDuty });
+      if (route.error || !route.data) { setError(route.error?.message || "No Customer Care administrator is currently assigned."); return; }
+      recipientId = String(route.data);
+      target = contacts.find(c => c.user_id === recipientId);
+    } else if (!selectedContact || !roleContacts.some(contact => contact.user_id === selectedContact)) {
+      setError("Choose a person from the selected, authorised recipient group."); return;
+    }
+    const desiredType = customerCareMode && !isAdmin ? "admin_support" : (!isAdmin && target?.role === "admin" ? "admin_support" : "direct");
+    const existing = conversations.find(c => c.conversation_type === desiredType && (!(customerCareMode&&!isAdmin) || c.customer_care_duty === customerCareDuty) && [c.participant_one,c.participant_two].includes(userId) && [c.participant_one,c.participant_two].includes(recipientId));
     if (existing) { setActiveId(existing.id); return; }
-    const target = contacts.find(c => c.user_id === selectedContact);
     const result = await (db as any).from("resa_chat_conversations").insert({
-      school_id: schoolId, created_by: userId, participant_one: userId, participant_two: selectedContact,
+      school_id: schoolId, created_by: userId, participant_one: userId, participant_two: recipientId,
+      customer_care_duty: customerCareMode && !isAdmin ? customerCareDuty : "general",
       conversation_type: customerCareMode && !isAdmin ? "admin_support" : (!isAdmin && target?.role === "admin" ? "admin_support" : "direct"), subject: subject.trim() || (customerCareMode ? "Customer Care" : target ? "Chat with " + target.display_name : "Chat")
     }).select("id").single();
     if (result.error) setError(result.error.message);
     else { setActiveId(result.data.id); setNotice("Conversation opened."); await load(); }
+  }
+
+  async function saveCareAssignment(dutyKey: string, adminUserId: string) {
+    if (!isChiefAdmin) return;
+    const result = adminUserId
+      ? await (db as any).from("resa_customer_care_assignments").upsert({ school_id: schoolId, duty_key: dutyKey, admin_user_id: adminUserId, assigned_by: userId, enabled: true }, { onConflict: "school_id,duty_key" })
+      : await (db as any).from("resa_customer_care_assignments").delete().eq("school_id", schoolId).eq("duty_key", dutyKey);
+    if (result.error) { setError(result.error.message); return; }
+    const refreshed = await (db as any).from("resa_customer_care_assignments").select("duty_key,admin_user_id,enabled").eq("school_id", schoolId);
+    if (!refreshed.error) setCareAssignments(refreshed.data || []);
+    setNotice("Customer Care duty assignment saved.");
+  }
+
+  async function saveCareSchedule() {
+    if (!isChiefAdmin) return;
+    setSavingCareSettings(true); setError("");
+    const result = await (db as any).from("resa_customer_care_settings").update({
+      availability_start: careStart, availability_end: careEnd, availability_days: careDays,
+      website_popup_enabled: carePopupEnabled, soft_sound_enabled: careSoundEnabled,
+      updated_by: userId, updated_at: new Date().toISOString()
+    }).eq("school_id", schoolId);
+    if (result.error) setError(result.error.message);
+    else setNotice("Customer Care availability schedule saved.");
+    setSavingCareSettings(false);
   }
 
   async function createGroup(e: FormEvent) {
@@ -369,7 +401,9 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
           {m.sender_id===userId && <span className="block text-right text-[10px] opacity-70">{readCounts[m.id] ? "Seen by " + readCounts[m.id] : "Sent"}</span>}</div>)}</div>
         <form onSubmit={e=>void sendMessage(e)} className="border-t border-slate-200 pt-3">
           {attachment && <div className="mb-2 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-950"><span className="truncate">{attachment.name} · {(attachment.size/1024/1024).toFixed(1)} MB</span><button type="button" onClick={()=>setAttachment(null)} className="font-bold">Remove</button></div>}
+          {showEmojiPicker&&<div className="mb-2 flex flex-wrap gap-2 rounded-xl bg-slate-50 p-2">{["😀","😃","😂","😊","😍","🥰","😉","😭","🙏","👍","👏","🎉","❤️","🔥","💯","🤝","🤔","😎","🙌","✅"].map(emoji=><button key={emoji} type="button" onClick={()=>setDraft(value=>value+emoji)} className="rounded-lg p-2 text-xl hover:bg-white" aria-label={"Insert "+emoji}>{emoji}</button>)}</div>}
           <div className="flex items-end gap-2">
+            <button type="button" onClick={()=>setShowEmojiPicker(v=>!v)} disabled={!enabled||!activeConversation} className="rounded-lg border p-3 text-slate-700" title="Insert emoji" aria-label="Open emoji picker"><Smile size={18}/></button>
             <label className="cursor-pointer rounded-lg border p-3 text-slate-700" title="Attach a file"><Paperclip size={18}/><input type="file" className="hidden" disabled={!enabled||!canUseFiles||!activeConversation||recording||(activeConversation?.conversation_type==="group"?!canUseGroups:activeConversation?.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate)} accept="*/*" onChange={e=>setAttachment(e.target.files?.[0] ?? null)}/></label><button type="button" onClick={()=>recording?stopVoiceNote():void startVoiceNote()} disabled={!enabled||!canUseFiles||!activeConversation||sending||Boolean(attachment)||(activeConversation?.conversation_type==="group"?!canUseGroups:activeConversation?.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate)} className={"rounded-lg border p-3 "+(recording?"border-rose-300 bg-rose-50 text-rose-700":"text-slate-700")} title={recording?"Stop voice note":"Record voice note"}>{recording?<Square size={18}/>:<Mic size={18}/>}</button>
             <textarea value={draft} onChange={e=>{setDraft(e.target.value);broadcastTyping(Boolean(e.target.value.trim()));}} onBlur={()=>broadcastTyping(false)} maxLength={5000} rows={2} placeholder={!enabled?"Chat is disabled by the administrator":activeConversation?"Write a message…":"Choose a contact and open a chat to send this message"} disabled={!enabled||Boolean(activeConversation&&(activeConversation.conversation_type==="group"?!canUseGroups:activeConversation.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate))} className={field+" min-h-[48px] resize-y"}/>
             <button disabled={!enabled||!activeConversation||(!draft.trim()&&!attachment)||Boolean(attachment&&!canUseFiles)||sending||recording||(activeConversation?.conversation_type==="group"?!canUseGroups:activeConversation?.conversation_type==="admin_support"?!canUseCustomerCare:!canUsePrivate)} className="inline-flex items-center gap-2 rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><Send size={16}/>{sending?"Sending":"Send"}</button>
