@@ -5,7 +5,7 @@ import {
   ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
   MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
   Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight, ChevronDown,
-  MessageCircle, Wallet,
+  MessageCircle, Wallet, BellRing,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
 import ProfilePhotoCard from "@/components/profile-photo-card";
@@ -45,6 +45,7 @@ const groups = [
   ]},
   { label: "COMMUNICATION", items: [
     ["Communication Centre", "/school-communication", MessageSquare],
+    ["Notifications", "/notifications", BellRing],
   ]},
   { label: "ADMINISTRATION", items: [
     ["HR & Employee Records", "/hr-management", BriefcaseBusiness],
@@ -116,7 +117,7 @@ export default function AdminPortalShell({ children, schoolId, schoolName, email
                 const ItemIcon = Icon as typeof LayoutDashboard;
                 return <Link key={href as string} href={href as string} aria-current={active ? "page" : undefined} className={`resa-nav-link ${active ? "active" : ""}`}>
                   <ItemIcon size={18} strokeWidth={1.8}/><span>{label as string}</span>
-                  {href === "/school-communication" && <UnreadMessageBadge schoolId={schoolId}/>}
+                  {href === "/notifications" && <UnreadMessageBadge schoolId={schoolId}/>}
                 </Link>;
               })}
             </div>}
