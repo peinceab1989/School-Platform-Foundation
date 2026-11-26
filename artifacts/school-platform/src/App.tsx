@@ -185,7 +185,6 @@ const ADMIN_SCHOOL_PATHS = [
   '/biometric-attendance',
   '/smart-access-management',
   '/school-cctv',
-  '/technical-support',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -210,6 +209,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/my-compliance',
   '/external-cbt',
   '/school-cctv',
+  '/technical-support',
 ];
 
 const buttonStyle: CSSProperties = {
