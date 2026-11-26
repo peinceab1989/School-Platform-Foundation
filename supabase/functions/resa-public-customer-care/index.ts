@@ -163,7 +163,7 @@ Deno.serve(async (req: Request) => {
       }
       if (action === "admin_list") {
         let query = service.from("resa_public_care_conversations")
-          .select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at,last_message_sender_kind,last_admin_read_at")
+          .select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at,last_message_sender_kind,last_admin_read_at,unread_visitor_count")
           .eq("school_id",SCHOOL_ID);
         if (body.include_closed !== true) query = query.neq("status","closed");
         if (!isChief) query = query.eq("assigned_admin_id",adminId);
