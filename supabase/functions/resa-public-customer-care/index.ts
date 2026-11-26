@@ -63,12 +63,14 @@ async function assignedAdmin(duty: string) {
   return activeChief?.user_id ?? null;
 }
 async function rateLimit(fingerprint: string, action: string, max: number, seconds: number) {
-  const since = new Date(Date.now() - seconds * 1000).toISOString();
-  const { count } = await service.from("resa_public_care_rate_limits").select("id", { count: "exact", head: true })
-    .eq("fingerprint_hash", fingerprint).eq("action_key", action).gte("created_at", since);
-  if ((count ?? 0) >= max) return false;
-  await service.from("resa_public_care_rate_limits").insert({ fingerprint_hash: fingerprint, action_key: action });
-  return true;
+  const { data, error } = await service.rpc("resa_public_care_consume_rate_limit", {
+    p_fingerprint_hash: fingerprint,
+    p_action_key: action,
+    p_max: max,
+    p_window_seconds: seconds,
+  });
+  if (error) throw error;
+  return data === true;
 }
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
@@ -94,7 +96,7 @@ Deno.serve(async (req: Request) => {
       const tokenHash = await sha(token);
       const { data: conversation, error } = await service.from("resa_public_care_conversations").insert({
         school_id: SCHOOL_ID, visitor_name: name, visitor_email: email || null,
-        visitor_token_hash: tokenHash, assigned_admin_id: admin, duty_key: duty,
+        visitor_token_hash: tokenHash, assigned_admin_id: admin, duty_key: duty, last_message_sender_kind: "visitor",
       }).select("id").single();
       if (error) throw error;
       const { error: messageError } = await service.from("resa_public_care_messages").insert({
@@ -113,52 +115,99 @@ Deno.serve(async (req: Request) => {
       const { data: conversation } = await service.from("resa_public_care_conversations")
         .select("id,status,visitor_token_hash").eq("id", id).eq("visitor_token_hash", tokenHash).maybeSingle();
       if (!conversation) return reply(404, { error: "Conversation not found." }, origin);
+      let currentStatus = conversation.status;
       if (action === "visitor_send") {
         if (!(await rateLimit(fingerprint, "message", 20, 600))) return reply(429, { error: "Please slow down before sending another message." }, origin);
         const message = cleanText(body.message, 5000);
-        if (!message || conversation.status === "closed") return reply(400, { error: "This conversation cannot accept a new message." }, origin);
+        if (!message || conversation.status === "closed") return reply(400, { error: "This conversation is closed. Start a new conversation with RESA Customer Care." }, origin);
         const { error } = await service.from("resa_public_care_messages").insert({ conversation_id: id, sender_kind: "visitor", body: message });
         if (error) throw error;
-        await service.from("resa_public_care_conversations").update({ status: "open", last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
+        const { error: updateError } = await service.from("resa_public_care_conversations").update({
+          status: "open", last_message_sender_kind: "visitor",
+          last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }).eq("id", id);
+        if (updateError) throw updateError;
+        currentStatus = "open";
       }
       const { data: messages, error } = await service.from("resa_public_care_messages")
         .select("id,sender_kind,body,created_at").eq("conversation_id", id).order("created_at").limit(100);
       if (error) throw error;
-      return reply(200, { messages, status: conversation.status }, origin);
+      return reply(200, { messages, status: currentStatus }, origin);
     }
-    if (action === "admin_list" || action === "admin_view" || action === "admin_reply" || action === "admin_close") {
+    if (["admin_list","admin_view","admin_reply","admin_close","admin_reopen","admin_unread_count","admin_notifications"].includes(action)) {
       const adminId = await adminFrom(req);
       if (!adminId) return reply(401, { error: "An active RESA administrator account is required." }, origin);
+      const { data: settings, error: settingsError } = await service.from("resa_customer_care_settings")
+        .select("chief_admin_user_id").eq("school_id",SCHOOL_ID).maybeSingle();
+      if (settingsError) throw settingsError;
+      const isChief = settings?.chief_admin_user_id === adminId;
+
+      const unreadQuery = async () => {
+        let query = service.from("resa_public_care_conversations")
+          .select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at,last_admin_read_at,last_message_sender_kind")
+          .eq("school_id",SCHOOL_ID).neq("status","closed").eq("last_message_sender_kind","visitor");
+        if (!isChief) query = query.eq("assigned_admin_id",adminId);
+        const { data, error } = await query.order("last_message_at",{ascending:false}).limit(200);
+        if (error) throw error;
+        return (data || []).filter((row:any) => !row.last_admin_read_at || new Date(row.last_message_at).getTime() > new Date(row.last_admin_read_at).getTime());
+      };
+
+      if (action === "admin_unread_count") {
+        const unread = await unreadQuery();
+        return reply(200,{count:unread.length},origin);
+      }
+      if (action === "admin_notifications") {
+        const unread = await unreadQuery();
+        return reply(200,{conversations:unread.slice(0,100)},origin);
+      }
       if (action === "admin_list") {
-        const { data: settings } = await service.from("resa_customer_care_settings").select("chief_admin_user_id").eq("school_id",SCHOOL_ID).maybeSingle();
-        let query = service.from("resa_public_care_conversations").select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at").eq("school_id",SCHOOL_ID).neq("status","closed");
-        if (settings?.chief_admin_user_id !== adminId) query = query.eq("assigned_admin_id",adminId);
-        const { data, error } = await query.order("last_message_at",{ascending:false}).limit(100);
+        let query = service.from("resa_public_care_conversations")
+          .select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at,last_message_sender_kind,last_admin_read_at")
+          .eq("school_id",SCHOOL_ID);
+        if (body.include_closed !== true) query = query.neq("status","closed");
+        if (!isChief) query = query.eq("assigned_admin_id",adminId);
+        const { data, error } = await query.order("last_message_at",{ascending:false}).limit(200);
         if (error) throw error;
         return reply(200,{conversations:data},origin);
       }
+
       const id = cleanText(body.conversation_id, 100);
-      const { data: settings } = await service.from("resa_customer_care_settings").select("chief_admin_user_id").eq("school_id",SCHOOL_ID).maybeSingle();
-      let conversationQuery = service.from("resa_public_care_conversations").select("id").eq("id",id).eq("school_id",SCHOOL_ID);
-      if(settings?.chief_admin_user_id !== adminId) conversationQuery = conversationQuery.eq("assigned_admin_id",adminId);
-      const { data: conversation } = await conversationQuery.maybeSingle();
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return reply(400,{error:"Invalid conversation reference."},origin);
+      let conversationQuery = service.from("resa_public_care_conversations")
+        .select("id,status,assigned_admin_id").eq("id",id).eq("school_id",SCHOOL_ID);
+      if (!isChief) conversationQuery = conversationQuery.eq("assigned_admin_id",adminId);
+      const { data: conversation, error: conversationError } = await conversationQuery.maybeSingle();
+      if (conversationError) throw conversationError;
       if (!conversation) return reply(404, { error: "Assigned visitor conversation not found." }, origin);
+
       if (action === "admin_view") {
-        const { data, error } = await service.from("resa_public_care_messages").select("id,sender_kind,sender_admin_id,body,created_at").eq("conversation_id",id).order("created_at").limit(100);
+        const { error: readError } = await service.from("resa_public_care_conversations")
+          .update({last_admin_read_at:new Date().toISOString()}).eq("id",id);
+        if (readError) throw readError;
+        const { data, error } = await service.from("resa_public_care_messages")
+          .select("id,sender_kind,sender_admin_id,body,created_at").eq("conversation_id",id).order("created_at").limit(100);
         if (error) throw error;
-        return reply(200,{messages:data},origin);
+        return reply(200,{messages:data,status:conversation.status},origin);
       }
-      if (action === "admin_close") {
-        await service.from("resa_public_care_conversations").update({ status: "closed", updated_at: new Date().toISOString() }).eq("id", id);
-        return reply(200, { ok: true }, origin);
+      if (action === "admin_close" || action === "admin_reopen") {
+        const nextStatus = action === "admin_close" ? "closed" : "open";
+        const { error } = await service.from("resa_public_care_conversations")
+          .update({status:nextStatus,updated_at:new Date().toISOString()}).eq("id",id);
+        if (error) throw error;
+        return reply(200,{ok:true,status:nextStatus},origin);
       }
       const message = cleanText(body.message, 5000);
       if (!message) return reply(400, { error: "Enter a reply before sending." }, origin);
+      if (conversation.status === "closed") return reply(409,{error:"This conversation is closed. Reopen it before replying."},origin);
       const { error } = await service.from("resa_public_care_messages").insert({
         conversation_id: id, sender_kind: "admin", sender_admin_id: adminId, body: message,
       });
       if (error) throw error;
-      await service.from("resa_public_care_conversations").update({ status: "waiting", last_message_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", id);
+      const { error: updateError } = await service.from("resa_public_care_conversations").update({
+        status: "waiting", last_message_sender_kind: "admin",
+        last_message_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      }).eq("id", id);
+      if (updateError) throw updateError;
       return reply(200, { ok: true }, origin);
     }
     return reply(400, { error: "Unknown action." }, origin);
