@@ -2115,9 +2115,43 @@ function FoundationPage() {
           `RESA · ${String(message.subject || 'New message')}`,
           String(message.message || 'You have received a new school message.'),
           `resa-message-${String(message.id || `message-${Date.now()}`)}`,
-          '/notifications',
+          '/school-communication?message_id=' + encodeURIComponent(String(message.id || '')),
           'messages',
         );
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'resa_chat_messages',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        const message = payload.new as Record<string, any>;
+        if (String(message.sender_id) === uid || !message.conversation_id) return;
+        void (async () => {
+          const { data: conversation, error: conversationError } = await db.from('resa_chat_conversations')
+            .select('id,subject,conversation_type,participant_one,participant_two')
+            .eq('school_id', sid).eq('id', message.conversation_id).maybeSingle();
+          if (!alive || conversationError || !conversation) return;
+          let isRecipient = conversation.participant_one === uid || conversation.participant_two === uid;
+          if (conversation.conversation_type === 'group') {
+            const membership = await db.from('resa_chat_group_members').select('user_id')
+              .eq('school_id', sid).eq('conversation_id', conversation.id).eq('user_id', uid).maybeSingle();
+            isRecipient = !membership.error && Boolean(membership.data);
+          }
+          if (!alive || !isRecipient) return;
+          const senderProfile = await db.from('profiles').select('display_name').eq('id', message.sender_id).maybeSingle();
+          const senderName = senderProfile.data?.display_name || 'School member';
+          const category = conversation.conversation_type === 'group' ? 'group_messages' : 'messages';
+          const title = conversation.conversation_type === 'group'
+            ? senderName + ' · ' + String(conversation.subject || 'RESA group')
+            : senderName + ' sent you a message';
+          const target = '/resa-chat?conversation_id=' + encodeURIComponent(String(conversation.id)) + '&message_id=' + encodeURIComponent(String(message.id));
+          void showResaNotification(
+            title,
+            String(message.body || 'You have received a new RESA message.'),
+            'resa-chat-' + String(message.id),
+            target,
+            category,
+          );
+        })();
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'announcements',
