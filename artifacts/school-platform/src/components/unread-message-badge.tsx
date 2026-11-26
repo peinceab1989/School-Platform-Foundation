@@ -60,6 +60,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
     } catch { return "default"; }
   });
   const refreshSequence = useRef(0);
+  const lastPublicCareCount = useRef<number | null>(null);
 
   const registerPush = useCallback(async () => {
     await enableResaPushNotifications(schoolId, false);
@@ -114,7 +115,19 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           const attendance = await db.from("attendance_checkpoint_alerts").select("id",{count:"exact",head:true}).eq("school_id",schoolId).neq("alert_status","acknowledged");
           if (!attendance.error) attendanceCount = attendance.count ?? 0;
         }
-        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0) + attendanceCount;
+        let publicCareCount = 0;
+        if (!membership.error && membership.data?.role === "admin") {
+          const care = await db.functions.invoke("resa-public-customer-care", { body: { action: "admin_unread_count" } });
+          if (!care.error) {
+            publicCareCount = Number(care.data?.count || 0);
+            const previous = lastPublicCareCount.current;
+            if (previous !== null && publicCareCount > previous) {
+              void notify("New RESA website enquiry", "A visitor has sent a new message to Customer Care.", "resa-public-care-inbox", "/resa-chat?channel=customer_care", true);
+            }
+            lastPublicCareCount.current = publicCareCount;
+          }
+        }
+        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0) + attendanceCount + publicCareCount;
         // Ignore slower, older requests that finish after a newer Realtime refresh.
         if (active && sequence === refreshSequence.current) setCount(nextCount);
       } catch (error) {
