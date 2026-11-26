@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, BellRing, Volume2, VolumeX } from "lucide-react";
+import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from "@/lib/notifications/push";
 
@@ -239,11 +240,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       >
         <span className="text-[10px] font-semibold">Test</span>
       </button>
-      {count > 0 && (
-        <span aria-label={count + " unread messages"} title={count + " unread messages"} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
-          {count > 99 ? "99+" : count}
-        </span>
-      )}
+      <Link href="/notifications" aria-label={count > 0 ? count + " unread notifications. Open notification centre" : "Open notification centre"} title="Open notification centre" className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Bell className="h-4 w-4"/>
+        <span className="text-[10px] font-semibold">Inbox</span>
+        {count > 0 && <span aria-label={count + " unread messages"} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">{count > 99 ? "99+" : count}</span>}
+      </Link>
       {permission !== "unsupported" && (
         <button
           type="button"
