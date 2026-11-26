@@ -180,6 +180,12 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
       .maybeSingle();
     if (conversationError) throw conversationError;
     if (!conversation) return [];
+    // Determine the notification category from the verified conversation row,
+    // not from caller-supplied webhook data. Direct and Customer Care chats use
+    // the Private Messages preference; groups use Group Messages.
+    row.__resa_notification_category = conversation.conversation_type === "group"
+      ? "group_messages"
+      : "messages";
     let ids: string[] = [];
     if (conversation.conversation_type === "group") {
       const { data, error } = await admin
@@ -425,7 +431,9 @@ Deno.serve(async (request) => {
       timetable_update: "school_activities",
       admission_admin: "admissions",
     };
-    const category = categoryByEvent[eventType];
+    const category = eventType === "chat_message"
+      ? String(row.__resa_notification_category || "messages")
+      : categoryByEvent[eventType];
     let categoryPreferenceRows: any[] = preferences || [];
     if (eventType === "attendance") {
       const categoryPreferenceResult = await admin.from("resa_notification_preferences")
