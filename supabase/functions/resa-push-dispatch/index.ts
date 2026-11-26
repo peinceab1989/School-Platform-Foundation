@@ -152,13 +152,25 @@ async function resolveStaffUser(schoolId: string, staffId: string): Promise<stri
   return uniqueIds([data?.user_id]);
 }
 
+async function filterActiveSchoolMembers(schoolId: string, userIds: string[]): Promise<string[]> {
+  const ids = uniqueIds(userIds);
+  if (!schoolId || !ids.length) return [];
+  const { data, error } = await admin.from("school_memberships")
+    .select("user_id")
+    .eq("school_id", schoolId)
+    .eq("status", "active")
+    .in("user_id", ids);
+  if (error) throw error;
+  return uniqueIds((data || []).map((item) => item.user_id));
+}
+
 async function resolveRecipients(eventType: string, row: PushRecord): Promise<string[]> {
   const schoolId = String(row.school_id || "");
   if (!schoolId) return [];
 
 
   if (eventType === "school_message") {
-    return uniqueIds([row.recipient_id]);
+    return filterActiveSchoolMembers(schoolId, uniqueIds([row.recipient_id]));
   }
 
   if (eventType === "attendance") {
@@ -205,7 +217,7 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
     } else {
       ids = uniqueIds([conversation.participant_one, conversation.participant_two]);
     }
-    return ids.filter((id) => id !== String(row.sender_id || ""));
+    return filterActiveSchoolMembers(schoolId, ids.filter((id) => id !== String(row.sender_id || "")));
   }
 
 
