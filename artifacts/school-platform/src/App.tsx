@@ -27,6 +27,7 @@ import AdminPortalShell from '@/components/admin-portal-shell';
 import ResaAssistantWidget from '@/components/resa-assistant-widget';
 import TechnicalSupportLauncher from '@/components/technical-support-launcher';
 const TechnicalSupportPage = lazy(() => import('@/pages/technical-support'));
+const TechnicalOperationsPage = lazy(() => import('@/pages/technical-operations'));
 const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
 import PeopleStatusNotices from '@/components/people-status-notices';
@@ -185,6 +186,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/biometric-attendance',
   '/smart-access-management',
   '/school-cctv',
+  '/technical-operations',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -210,6 +212,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/external-cbt',
   '/school-cctv',
   '/technical-support',
+  '/technical-operations',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -2866,6 +2869,7 @@ function FoundationPage() {
     !membershipsLoading
   ) {
     if (currentPath === '/technical-support') return withAdminShell(<TechnicalSupportPage />);
+    if (currentPath === '/technical-operations') return withAdminShell(<TechnicalOperationsPage />);
     if (currentPath === '/notifications') return withAdminShell(<NotificationsPage schoolId={adminMembership.schoolId} role="admin" />);
     if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     if (currentPath === '/resa-chat' && session) return withAdminShell(<ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
@@ -3436,6 +3440,7 @@ function AppRoutes() {
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/technical-support" component={FoundationPage} />
+        <Route path="/technical-operations" component={FoundationPage} />
         <Route path="/my-compliance" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
