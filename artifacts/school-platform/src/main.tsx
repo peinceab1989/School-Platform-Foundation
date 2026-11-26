@@ -86,7 +86,7 @@ function ResaInstallPrompt() {
   };
 
   const installInstructions = isIOS
-    ? 'On iPhone or iPad: open RESA in Safari, tap Share, choose “Add to Home Screen”, enable “Open as Web App” if shown, then tap “Add”. For iPhone/iPad web push, use iOS/iPadOS 16.4 or later, launch RESA from its Home Screen icon, and allow notifications when asked.'
+    ? 'On iPhone or iPad: on iOS/iPadOS 16.4 or later, open RESA in Safari or another supported browser, tap Share, choose “Add to Home Screen”, enable “Open as Web App” if shown, then tap “Add”. For Web Push, launch RESA from its Home Screen icon and allow notifications when asked. Safari is the recommended installation path.'
     : isMac
       ? 'On a Mac: in Safari on supported macOS versions choose File > Add to Dock. In Chrome or Edge, open the browser menu and choose Install RESA. You can then launch it from the Dock or Applications.'
       : 'On Android: use Chrome, Edge or Samsung Internet and choose “Install app” or “Add to Home screen” from the browser menu. On Windows, Linux and Chromebook: use Chrome or Edge and choose “Install RESA” from the address bar or browser menu; Firefox on Android offers an Add to Home Screen option on supported versions.';
