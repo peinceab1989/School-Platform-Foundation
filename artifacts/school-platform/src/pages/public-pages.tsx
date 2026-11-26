@@ -1,5 +1,5 @@
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import {
   ArrowRight,
@@ -25,6 +25,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { PublicLayout } from "@/components/public-site";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 const SCHOOL = "RHEMA EXPLOITS SCIENCE ACADEMY INT’L";
 const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
@@ -577,6 +578,60 @@ export function AdmissionsPage() {
     parentEmail: "",
   });
   const [prepared, setPrepared] = useState<string[]>([]);
+  const [quote,setQuote]=useState<{form_price:number|null;currency:string;online_checkout_available:boolean}|null>(null);
+  const [checkoutBusy,setCheckoutBusy]=useState(false);
+  const [checkoutError,setCheckoutError]=useState("");
+  const [paymentReference,setPaymentReference]=useState("");
+  const [verifiedForm,setVerifiedForm]=useState<{form_number:string;receipt_number:string}|null>(null);
+
+  async function refreshPaymentStatus(reference:string){
+    setCheckoutError("");
+    try{
+      const {data,error}=await getSupabaseClient().functions.invoke("resa-admission-paystack-checkout",{body:{action:"status",reference}});
+      if(error)throw error;
+      if(data?.verified&&data?.form_number){
+        setVerifiedForm({form_number:data.form_number,receipt_number:data.receipt_number});
+        setPaymentReference(reference);
+      }else{
+        setCheckoutError("Paystack has returned to RESA, but settlement verification is still pending. Use Check payment status again shortly. No admission number is issued until verification succeeds.");
+      }
+    }catch(e){setCheckoutError(e instanceof Error?e.message:"Payment status could not be checked. Try again shortly.");}
+  }
+
+  useEffect(()=>{
+    let active=true;
+    getSupabaseClient().functions.invoke("resa-admission-paystack-checkout",{body:{action:"quote"}})
+      .then(({data,error})=>{if(active&&!error&&data?.success)setQuote({form_price:data.form_price??null,currency:data.currency??"NGN",online_checkout_available:Boolean(data.online_checkout_available)});})
+      .catch(()=>{});
+    const reference=new URLSearchParams(window.location.search).get("reference");
+    if(reference&&/^RESA-ADM-PAY-[A-F0-9]{32}$/.test(reference)){
+      setPaymentReference(reference);
+      void refreshPaymentStatus(reference);
+    }
+    return()=>{active=false;};
+  },[]);
+
+  async function handlePurchaseSubmit(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    setCheckoutError("");
+    if(!quote?.online_checkout_available){sendPurchaseRequest(event);return;}
+    if(!purchase.parentEmail.trim()){
+      setCheckoutError("Enter the parent/guardian email address to receive the Paystack payment receipt.");
+      return;
+    }
+    setCheckoutBusy(true);
+    try{
+      const {data,error}=await getSupabaseClient().functions.invoke("resa-admission-paystack-checkout",{body:{
+        action:"initialize",applicant_name:purchase.studentName,class_applied_for:purchase.classAppliedFor,
+        parent_name:purchase.parentName,phone:purchase.parentPhone,email:purchase.parentEmail,parent_email:purchase.parentEmail,
+        client_request_key:crypto.randomUUID()
+      }});
+      if(error)throw error;
+      if(!data?.success||!data?.checkout_url)throw new Error(data?.error||"Secure checkout could not be started.");
+      window.location.assign(data.checkout_url);
+    }catch(e){setCheckoutError(e instanceof Error?e.message:"Secure checkout could not be started. No form number has been issued.");}
+    finally{setCheckoutBusy(false);}
+  }
 
   const documents = [
     "Four (4) recent passport photographs of the applicant",
