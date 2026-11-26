@@ -43,14 +43,14 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Foreground school messages, announcements and account/security alerts apply the same personal category, quiet-hours and privacy choices.
 - Web Push dispatch enforces category opt-outs, quiet hours in Africa/Lagos, preview privacy, vibration and the Silent choice for non-attendance event categories.
 - Parent attendance continues to use its dedicated guardian opt-in and event routing, separate from ordinary quiet-hour preferences.
-- The additive schema was applied to the linked Supabase project and the push dispatcher was deployed as version 11.
+- The seven foundational additive schema migrations were applied to the linked RESA Supabase project. The push dispatcher is live as version 12 after the CORS preflight correction; the same CORS handling is now recorded in source control.
 
 ## Explicit platform boundaries and remaining work
 - Android/browser notification-channel settings determine actual background sound; a web page cannot guarantee a custom sound file or override device DND.
 - Phone push opt-in is enforced separately from in-page notification sounds. Registering a device enables the phone-push preference; disabling it suppresses foreground OS notifications and server push without deleting the device subscription.
 - Quiet hours are enforced for ordinary server-delivered push and foreground OS notifications; urgent attendance alerts bypass quiet hours. This does not override device-level Do Not Disturb.
 - Admin global channel/role policy controls are available in Communication Centre settings. Database restrictive policies enforce private/group/Customer Care/announcement access for relevant writes; announcement reads are also role-gated. Student private messaging defaults to off. Administrators can still view drafts and unpublish announcements while publishing is paused.
-- Voice/video calls require a configured signaling/media provider and remain unavailable.
+- Voice/video calls require a configured signalling/media provider, TURN relay, consent flow, abuse controls and device testing; they remain unavailable until those dependencies are selected and verified.
 - GitHub TypeScript, production build, Edge Function type-checks and notification routing tests passed; the Cloudflare Pages branch preview deployed successfully. Real Android multi-device and authenticated push-delivery tests remain required before merging. The automated push test confirms that the push service accepted a send request; it does not prove that Android displayed or sounded the notification.
 
 - Foreground incoming messages/announcements/account alerts also attempt the selected original RESA tone when in-app sound is enabled; browser autoplay policy can block this until the user interacts with the page.
@@ -72,5 +72,13 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Server-side push applies the global notification master switch to attendance events in addition to the dedicated guardian attendance opt-in and Attendance category preference.
 - Direct and Customer Care chat pushes use the Private Messages preference; group chat pushes use Group Messages, with the category selected from the verified conversation record.
 - Foreground OS notification handling loads the phone-push opt-in field and respects it independently of in-page sound.
-- The project owner confirms that the two Supabase public client settings have already been added to Cloudflare Pages Preview. A fresh preview build is required: the currently served preview still renders the SETUP REQUIRED fallback on /portal. Do not request the same keys again; verify the next preview deployment before authenticated acceptance testing.
+- No separate Preview environment is part of the current release workflow. The feature branch remains isolated from the live production frontend; release acceptance must be performed against the agreed deployment path without asking the owner to repeat environment-variable setup.
 - Latest CI passed for the notification hardening changes. Production frontend deployment remains gated on authenticated role and Android device acceptance tests.
+
+
+## Contact directory and relationship-scoped messaging (26 November 2026)
+- Direct messages, Customer Care and administrator-created group membership selection now use one server-authorised school contact directory.
+- The next additive migration resolves a person's display name from the profile name first and the school's people record second; it returns a clear “name not set” state instead of silently labelling every account only as Teacher or Student.
+- Contact visibility is relationship-scoped: administrators can manage active school members; parents can reach administrators and teachers assigned to their linked, active learners; teachers can reach learners in their assigned active classes; students can reach teachers assigned to their active classes. All scopes retain active school membership checks.
+- The contact-directory migration is committed to the feature branch but has not yet been applied to the live database. It must pass SQL review and CI before release.
+- The owner confirmed that the Android push test notification was displayed on the registered phone. This verifies one real-device test delivery; it does not yet establish multi-device, closed-app or sustained delivery reliability.
