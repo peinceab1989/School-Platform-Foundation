@@ -5,7 +5,7 @@ import {
   ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
   MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
   Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight, ChevronDown,
-  MessageCircle, Wallet,
+  MessageCircle, Wallet, Wrench,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
 import ProfilePhotoCard from "@/components/profile-photo-card";
@@ -57,6 +57,8 @@ const groups = [
     ["Publication Centre", "/publication-centre", ShieldCheck],
     ["CCTV & Monitoring", "/school-cctv", Video],
     ["School Settings", "/school-settings", Settings],
+    ["Technical Operations", "/technical-operations", Wrench],
+    ["Technical Support Queue", "/technical-support", ShieldCheck],
     ["Portal Navigation Guide", "/portal-navigation-guide", BookOpen],
   ]},
 ];
