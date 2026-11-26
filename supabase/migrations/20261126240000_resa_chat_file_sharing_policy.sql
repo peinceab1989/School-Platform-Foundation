@@ -10,8 +10,7 @@ set file_size_limit = 104857600,
       'application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-powerpoint','application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      'application/zip','application/x-zip-compressed','application/x-7z-compressed','application/vnd.rar',
-      'application/octet-stream'
+      'application/zip','application/x-zip-compressed','application/x-7z-compressed','application/vnd.rar'
     ]
 where id = 'resa-chat-media';
 
