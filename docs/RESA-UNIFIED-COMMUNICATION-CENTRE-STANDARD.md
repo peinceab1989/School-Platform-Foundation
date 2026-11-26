@@ -157,6 +157,6 @@ The target is a school communication system that competes on clarity, speed, pri
 - Group conversations support realtime discussion, sender identity, read receipts, voice notes and private file sharing. Live audio/video conference rooms still require a configured and tested calling/signalling/TURN service before they can be advertised as available.
 
 ### Release validation still required
-- Automated build/type checks and SQL migration transaction tests are required after these changes.
+- CI run 45812244695 passed on the current feature revision: workspace type-check, production builds, RESA Edge Function type-check, AI request validation, push audience authorization and notification preference routing all succeeded. The new chat-file migration was also executed in a SQL transaction and rolled back after confirming both restrictive Storage policies are created.
 - Physical acceptance tests remain required on Android Chrome, Samsung Internet, iPhone/iPad Safari Home Screen, Windows/macOS desktop browsers, and at least one tablet.
 - Verify direct-recipient isolation, group-member isolation, message count replacement, tap-through to the exact message, upload/download and administrator revocation on real accounts before production release.
