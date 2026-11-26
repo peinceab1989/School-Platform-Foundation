@@ -122,7 +122,6 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
         logo_url: form.logo_url?.trim() || null,
         current_academic_session_id: form.current_academic_session_id || null,
         current_term_id: form.current_term_id || null,
-        notify_parents_on_student_absence: form.notify_parents_on_student_absence,
         updated_at: new Date().toISOString(),
       };
       const result = form.id
