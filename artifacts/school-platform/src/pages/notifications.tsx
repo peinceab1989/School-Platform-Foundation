@@ -6,7 +6,7 @@ import { enableResaPushNotifications, getResaPushRegistrationStatus, sendResaPus
 
 type Notice = {
   id: string;
-  kind: "message" | "announcement" | "chat";
+  kind: "message" | "announcement" | "chat" | "attendance";
   title: string;
   body: string;
   createdAt: string;
@@ -15,6 +15,9 @@ type Notice = {
   senderName?: string;
   channel?: string;
   targetUrl?: string;
+  category: string;
+  source?: "biometric_parent_notifications" | "attendance_checkpoint_alerts";
+  sourceId?: string;
 };
 
 export default function NotificationsPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
@@ -27,6 +30,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [pushStatus, setPushStatus] = useState({ registered: false, supported: typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, detail: "Checking this device…" });
   const [testBusy, setTestBusy] = useState(false);
   const notificationCategories = [
@@ -89,8 +93,15 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         db.from("school_messages").select("id", { count: "exact", head: true }).eq("school_id", schoolId).eq("recipient_id", uid).eq("is_read", false),
         db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
       ]);
+      const attendanceResult = role === "parent"
+        ? await db.from("biometric_parent_notifications").select("id,notification_type,message,status,sent_at,created_at,read_at,student_id").eq("school_id", schoolId).order("created_at", {ascending:false}).limit(100)
+        : role === "admin"
+          ? await db.from("attendance_checkpoint_alerts").select("id,attendance_date,person_type,alert_status,first_detected_at,reminder_count,student_id,staff_id").eq("school_id", schoolId).neq("alert_status","acknowledged").order("first_detected_at",{ascending:false}).limit(100)
+          : {data:[],error:null};
+      if (attendanceResult.error) setNotice("Some attendance alerts could not be loaded: " + attendanceResult.error.message);
+      const attendanceUnread = (attendanceResult.data ?? []).filter((row:any)=>role==="parent" ? !row.read_at : row.alert_status!=="acknowledged").length;
       if (!directUnreadResult.error && !chatUnreadResult.error) {
-        setUnreadCount((directUnreadResult.count ?? 0) + Number(chatUnreadResult.data || 0));
+        setUnreadCount((directUnreadResult.count ?? 0) + Number(chatUnreadResult.data || 0) + attendanceUnread);
       } else {
         setNotice("The inbox is loaded, but the full unread count could not be verified. Refresh or reconnect to retry.");
       }
@@ -105,16 +116,20 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const readResult = chatIds.length ? await db.from("resa_chat_message_reads").select("message_id").eq("user_id", uid).in("message_id", chatIds) : { data: [] };
       const readIds = new Set((readResult.data ?? []).map((r: any) => r.message_id));
       const conversationIds = [...new Set(chatRows.map((m: any) => m.conversation_id).filter(Boolean))];
-      const conversationResult = conversationIds.length ? await db.from("resa_chat_conversations").select("id,subject").in("id", conversationIds) : { data: [] };
+      const conversationResult = conversationIds.length ? await db.from("resa_chat_conversations").select("id,subject,conversation_type,customer_care_duty").in("id", conversationIds) : { data: [] };
       const conversationNames = new Map((conversationResult.data ?? []).map((row: any) => [row.id, row.subject]));
+      const conversationDetails = new Map((conversationResult.data ?? []).map((row: any) => [row.id, row]));
       const senderIds = [...new Set([...(messageResult.data ?? []).map((m: any) => m.sender_id), ...chatRows.map((m: any) => m.sender_id)].filter(Boolean))];
       const senderProfiles = senderIds.length ? await db.from("profiles").select("id,display_name").in("id", senderIds) : { data: [], error: null };
       const senderNames = new Map((senderProfiles.data ?? []).map((profile: any) => [profile.id, profile.display_name || "School member"]));
+      const senderMemberships = senderIds.length ? await db.from("school_memberships").select("user_id,role").eq("school_id",schoolId).eq("status","active").in("user_id",senderIds) : {data:[]};
+      const senderRoles = new Map((senderMemberships.data ?? []).map((membership:any)=>[membership.user_id,membership.role]));
       const now = Date.now();
       const messages: Notice[] = (messageResult.data ?? []).map((m: any) => ({
         id: m.id, kind: "message", title: m.subject, body: m.message, createdAt: m.sent_at,
         unread: !m.is_read, sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member",
         channel: m.channel, targetUrl: "/school-communication?message_id=" + encodeURIComponent(m.id),
+        category: m.channel === "customer_care" ? "customer_care" : m.channel === "announcement" ? "announcements" : m.channel === "attendance" ? "attendance" : m.channel === "fees" ? "fees" : m.channel === "admissions" ? "admissions" : m.channel === "cbt" ? "cbt" : m.channel === "results" ? "results" : m.channel === "admin" || senderRoles.get(m.sender_id) === "admin" ? "administration" : "messages",
       }));
       const announcements: Notice[] = (announcementResult.data ?? [])
         .filter((a: any) => {
@@ -125,10 +140,26 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         })
         .map((a: any) => ({
           id: a.id, kind: "announcement", title: a.title, body: a.content,
-          createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type,
+          createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type, category: "announcements",
         }));
-      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member", channel: "chat", targetUrl: "/resa-chat?conversation_id=" + encodeURIComponent(m.conversation_id) + "&message_id=" + encodeURIComponent(m.id) }));
-      setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => {
+        const conversation = conversationDetails.get(m.conversation_id) as any;
+        const duty = String(conversation?.customer_care_duty || "general");
+        const category = conversation?.conversation_type === "admin_support"
+          ? (["fees","admissions","cbt","results","attendance","technical"].includes(duty) ? duty : "customer_care")
+          : conversation?.conversation_type === "group" ? "group_messages" : "messages";
+        return { id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member", channel: "chat", category, targetUrl: "/resa-chat?conversation_id=" + encodeURIComponent(m.conversation_id) + "&message_id=" + encodeURIComponent(m.id) };
+      });
+      const attendanceNotices: Notice[] = (attendanceResult.data ?? []).map((row:any) => ({
+        id: "attendance-" + row.id, kind: "attendance", category: "attendance",
+        title: role === "parent" ? (row.notification_type || "Student attendance update") : "Attendance checkpoint alert",
+        body: row.message || (row.person_type === "student" ? "A student attendance checkpoint needs attention." : "A staff attendance checkpoint needs attention."),
+        createdAt: row.created_at || row.first_detected_at || row.sent_at || new Date().toISOString(),
+        unread: role === "parent" ? !row.read_at : row.alert_status !== "acknowledged",
+        source: role === "parent" ? "biometric_parent_notifications" : "attendance_checkpoint_alerts",
+        sourceId: row.id, targetUrl: "/attendance",
+      }));
+      setItems([...messages, ...announcements, ...chatNotices, ...attendanceNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); setPreferencesLoading(false); }
     finally { if (!quiet) setLoading(false); }
   }, [schoolId]);
@@ -187,6 +218,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         if (updateError) throw updateError;
       } else if (item.kind === "message") {
         const { error: updateError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", item.id).eq("recipient_id", userId);
+        if (updateError) throw updateError;
+      } else if (item.kind === "attendance" && item.source === "biometric_parent_notifications" && item.sourceId) {
+        const { error: updateError } = await db.from("biometric_parent_notifications").update({ read_at: new Date().toISOString() }).eq("id", item.sourceId).eq("school_id", schoolId);
         if (updateError) throw updateError;
       } else return;
       setItems(previous => previous.map(n => n.id === item.id ? { ...n, unread: false } : n));
@@ -249,10 +283,12 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const db = getSupabaseClient() as any;
       const directIds = items.filter(item => item.kind === "message" && item.unread).map(item => item.id);
       const chatIds = items.filter(item => item.kind === "chat" && item.unread).map(item => item.id.replace(/^chat-/, ""));
+      const attendanceIds = items.filter(item => item.kind === "attendance" && item.source === "biometric_parent_notifications" && item.unread && item.sourceId).map(item => item.sourceId as string);
       if (directIds.length) {
         const { error: directError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).in("id", directIds).eq("recipient_id", userId);
         if (directError) throw directError;
       }
+      if (attendanceIds.length) { const { error: attendanceError } = await db.from("biometric_parent_notifications").update({ read_at: new Date().toISOString() }).in("id", attendanceIds).eq("school_id", schoolId); if (attendanceError) throw attendanceError; }
       if (chatIds.length) {
         const { error: chatError } = await db.from("resa_chat_message_reads").upsert(
           chatIds.map(message_id => ({ message_id, school_id: schoolId, user_id: userId })),
@@ -260,7 +296,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         );
         if (chatError) throw chatError;
       }
-      setItems(previous => previous.map(item => ({ ...item, unread: false })));
+      setItems(previous => previous.map(item => item.kind === "attendance" && item.source === "attendance_checkpoint_alerts" ? item : ({ ...item, unread: false })));
       await load(true);
       setNotice("All currently loaded private and group messages have been marked as read. Older unread items will remain counted until they are loaded and marked read.");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not mark all messages as read."); }
@@ -294,14 +330,17 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
     }
   }
 
+  const categoryLabels: Record<string,string> = { all:"All categories", attendance:"Attendance", administration:"Administration", customer_care:"Customer Care", fees:"Fees & payments", admissions:"Admissions", cbt:"CBT & examinations", results:"Results", academics:"Academics", announcements:"Announcements", messages:"Private messages", group_messages:"Group chats", technical:"Technical support" };
+  const categoryCounts = useMemo(() => items.reduce<Record<string,{total:number;unread:number}>>((counts,item) => { const key=item.category || "messages"; counts[key] ||= {total:0,unread:0}; counts[key].total++; if(item.unread) counts[key].unread++; return counts; },{}),[items]);
   const filteredItems = useMemo(() => items.filter(item => {
     const itemDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.createdAt));
     const matchesDate = itemDate === selectedDate;
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
     const matchesUnread = filter === "all" || (item.kind !== "announcement" && item.unread);
     const query = search.trim().toLocaleLowerCase();
     const matchesSearch = !query || `${item.title} ${item.body} ${item.kind} ${item.channel ?? ""}`.toLocaleLowerCase().includes(query);
-    return matchesDate && matchesUnread && matchesSearch;
-  }), [items, selectedDate, filter, search]);
+    return matchesDate && matchesUnread && matchesSearch && matchesCategory;
+  }), [items, selectedDate, filter, search, categoryFilter]);
   const back = role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "student" ? "/student-dashboard" : "/parent-dashboard";
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-4xl px-4 py-5 sm:px-6">
@@ -363,10 +402,19 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           <div className="flex gap-2"><button type="button" onClick={()=>setFilter("all")} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filter==="all"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>All</button><button type="button" onClick={()=>setFilter("unread")} className={`rounded-full px-3 py-1.5 text-xs font-bold ${filter==="unread"?"bg-emerald-900 text-white":"bg-slate-100 text-slate-700"}`}>Unread</button></div>
           <div className="flex items-center gap-2"><span className="text-xs text-slate-500">{filteredItems.length} shown · {items.length} loaded</span>{unreadCount > 0 && <button type="button" onClick={()=>void markAllRead()} className="rounded-lg border px-2.5 py-1.5 text-xs font-bold text-emerald-900">Mark all read</button>}</div>
         </div>
+        <div className="mt-3 flex gap-2 overflow-x-auto border-t border-slate-100 pt-3 pb-1">
+          {Object.entries(categoryLabels).filter(([key])=>key==="all"||categoryCounts[key]).map(([key,label])=>{
+            const count=categoryCounts[key]?.unread||0;
+            const total=categoryCounts[key]?.total||0;
+            return <button key={key} type="button" onClick={()=>setCategoryFilter(key)} className={`shrink-0 rounded-full border px-3 py-2 text-xs font-bold ${categoryFilter===key?"border-emerald-900 bg-emerald-900 text-white":"border-slate-200 bg-white text-slate-700"}`}>
+              {label}{key!=="all"&&<span className="ml-1 opacity-75">{count>0?count:total}</span>}
+            </button>;
+          })}
+        </div>
       </section>
       {!loading && filteredItems.length===0 && items.length>0 && <p className="rounded-xl border border-dashed bg-white p-4 text-sm text-slate-600">No notifications match this date and search. Choose another date or clear the search to find older items.</p>}
       <div className="max-h-[68vh] space-y-2 overflow-y-auto pr-1">{filteredItems.map(item => <article key={item.kind + item.id} className={`rounded-xl border bg-white p-3 shadow-sm ${item.unread ? "border-emerald-400 ring-1 ring-emerald-100" : "border-slate-200"}`}>
-        <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="announcement"?<Megaphone size={20}/>:<MessageSquare size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{item.kind==="announcement"?"School announcement":item.kind==="chat"?"Group chat":item.channel==="announcement"?"School notification":item.channel==="customer_care"?"Customer Care":"Private message"}</span></div>{item.senderName&&<p className="mt-1 text-xs font-semibold text-emerald-800">From: {item.senderName}</p>}<p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-slate-700">{item.body}</p>{item.targetUrl&&<a href={item.targetUrl} onClick={()=>{if(item.unread)void markRead(item);}} className="mt-2 inline-block text-xs font-bold text-emerald-800 underline underline-offset-2">Open conversation →</a>}<p className="mt-2 text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
+        <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="announcement"?<Megaphone size={20}/>:<MessageSquare size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{categoryLabels[item.category] || (item.kind==="announcement"?"School announcement":item.kind==="chat"?"Chat message":"Private message")}</span></div>{item.senderName&&<p className="mt-1 text-xs font-semibold text-emerald-800">From: {item.senderName}</p>}<p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-slate-700">{item.body}</p>{item.targetUrl&&<a href={item.targetUrl} onClick={()=>{if(item.unread)void markRead(item);}} className="mt-2 inline-block text-xs font-bold text-emerald-800 underline underline-offset-2">Open conversation →</a>}<p className="mt-2 text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
       </article>)}</div>
       <p className="text-xs leading-5 text-slate-500">Background phone alerts use RESA Web Push. Each person must register each phone/browser separately. Delivery depends on Android notification permission, battery/background restrictions and network availability; this page verifies registration and provides a real push-service test. Email and WhatsApp delivery are not claimed as connected.</p>
     </div>
