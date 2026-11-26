@@ -81,7 +81,7 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
       if(!rule.title.trim()||!rule.startDate||!rule.endDate) throw new Error("Enter a title and both dates.");
       const startsAt = new Date(rule.startDate+"T"+(rule.allDay?"00:00":rule.startTime)+":00+01:00");
       const endDay = rule.allDay ? new Date(rule.endDate+"T00:00:00+01:00") : null;
-      if(endDay) endDay.setDate(endDay.getDate()+1);
+      if(endDay) endDay.setUTCDate(endDay.getUTCDate()+1);
       const endsAt = rule.allDay && endDay ? endDay : new Date(rule.endDate+"T"+rule.endTime+":00+01:00");
       if(!Number.isFinite(startsAt.getTime())||!Number.isFinite(endsAt.getTime())||endsAt<=startsAt) throw new Error("The end date and time must be later than the start.");
       if(rule.type==="special_opening" && rule.scope==="attendance" && !rule.attendanceAllowed) throw new Error("Confirm attendance is allowed before opening attendance for a special activity.");
@@ -96,7 +96,7 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
         created_by:userId,updated_by:userId
       });
       if(e) throw e;
-      setNotice(rule.type==="closure"?"Closure saved. It takes priority over the weekly schedule.":"Special opening saved. Any overlapping closure must be explicitly resolved.");
+      setNotice(rule.type==="closure"?"Closure saved. It takes priority over the weekly schedule.":rule.type==="override"?"Explicit closure override saved and attributed to your administrator account.":"Special opening saved. Any overlapping closure must be explicitly resolved.");
       setRule({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"15:00",scope:"all",attendanceAllowed:false,allDay:false,overrideRuleId:"",overrideReason:""});
       await load();
     } catch(e) {setError(errorText(e));} finally {setBusy(false);}
