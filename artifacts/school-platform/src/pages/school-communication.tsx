@@ -59,7 +59,7 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
         setContacts((contactsResult.data ?? []).filter((m: any) => m.user_id !== auth.user.id).map((m: any) => ({
           user_id: m.user_id,
           role: m.role,
-          display_name: m.display_name || (String(m.role).charAt(0).toUpperCase() + String(m.role).slice(1) + " member"),
+          display_name: m.display_name || "Name not set — ask the school office to update this profile",
         })));
       }
       if (messagesResult.error) throw messagesResult.error;
