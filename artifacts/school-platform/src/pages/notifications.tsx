@@ -267,7 +267,8 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const status = await getResaPushRegistrationStatus(schoolId);
       setPushStatus({ registered: status.registered, supported: status.supported, detail: status.detail });
       if (!status.registered) throw new Error(status.detail);
-      setNotice("This phone is registered with RESA's push service. Run the delivery test below to confirm that the phone can receive a background notification.");
+      setPreferences(current => ({ ...current, enabled: true, phone_notifications_enabled: true }));
+      setNotice("This phone is registered with RESA's push service and phone alerts are enabled for this account. Run the delivery test below to confirm background delivery.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Phone notifications could not be enabled.");
     }
