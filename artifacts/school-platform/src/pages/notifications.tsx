@@ -36,7 +36,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   const [pushStatus, setPushStatus] = useState({ registered: false, supported: typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, detail: "Checking this device…" });
   const [testBusy, setTestBusy] = useState(false);
   const notificationCategories = [
-    ["messages", "Private messages"], ["group_messages", "Group messages"], ["announcements", "School announcements"],
+    ["messages", "Private messages"], ["group_messages", "Group messages"], ["customer_care", "Customer Care"], ["announcements", "School announcements"],
     ["attendance", "Attendance updates"], ["academics", "Academics and assignments"], ["results", "Results"],
     ["fees", "Fees and payments"], ["admissions", "Admissions"], ["cbt", "CBT and examinations"],
     ["school_activities", "School activities and events"], ["system_alerts", "System and security alerts"],
