@@ -16,7 +16,7 @@ const tabs:{id:Tab;label:string;icon:any}[]=[{id:"overview",label:"Overview",ico
 
 export default function TechnicalOperationsPage(){
  const db=getSupabaseClient() as any;
- const [userId,setUserId]=useState(""); const [schoolId,setSchoolId]=useState("");
+ const [userId,setUserId]=useState(""); const [schoolId,setSchoolId]=useState(""); const [adminUserIds,setAdminUserIds]=useState<string[]>([]);
  const [tickets,setTickets]=useState<Ticket[]>([]); const [replies,setReplies]=useState<Reply[]>([]);
  const [people,setPeople]=useState<Person[]>([]); const [assets,setAssets]=useState<Asset[]>([]);
  const [schedules,setSchedules]=useState<Schedule[]>([]); const [events,setEvents]=useState<Event[]>([]);
@@ -52,7 +52,7 @@ export default function TechnicalOperationsPage(){
    db.from("school_memberships").select("user_id,role").eq("school_id",adminMembership.school_id).eq("status","active").in("role",["admin","teacher"])
   ]);
   for(const result of [ticketResult,replyResult,assetResult,scheduleResult,eventResult,staffResult])if(result.error)throw result.error;
-  const staffIds=(staffResult.data||[]).map((m:any)=>m.user_id);
+  const staffIds=(staffResult.data||[]).map((m:any)=>m.user_id);\n  setAdminUserIds((staffResult.data||[]).filter((m:any)=>m.role==="admin").map((m:any)=>m.user_id));
   const peopleResult=staffIds.length?await db.from("people").select("user_id,first_name,middle_name,last_name").eq("school_id",adminMembership.school_id).in("user_id",staffIds):{data:[],error:null};
   if(peopleResult.error)throw peopleResult.error;
   const names=new Map((peopleResult.data||[]).map((p:any)=>[p.user_id,[p.first_name,p.middle_name,p.last_name].filter(Boolean).join(" ")]));
@@ -64,7 +64,7 @@ export default function TechnicalOperationsPage(){
  useEffect(()=>{let active=true;setLoading(true);load().catch(e=>{if(active)setError(e.message||"Could not load Technical Operations.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[load]);
  useEffect(()=>{const timer=window.setInterval(()=>void load().catch(e=>setError(e.message||"Refresh failed.")),30000);return()=>window.clearInterval(timer);},[load]);
 
- const firstResponse=useMemo(()=>{const map=new Map<string,string>();for(const r of replies){const ticket=tickets.find(t=>t.id===r.ticket_id);if(ticket&&r.author_user_id!==ticket.reporter_user_id&&!map.has(r.ticket_id))map.set(r.ticket_id,r.created_at);}return map;},[replies,tickets]);
+ const firstResponse=useMemo(()=>{const map=new Map<string,string>();for(const r of replies){const ticket=tickets.find(t=>t.id===r.ticket_id);if(ticket&&adminUserIds.includes(r.author_user_id)&&!map.has(r.ticket_id))map.set(r.ticket_id,r.created_at);}return map;},[replies,tickets,adminUserIds]);
  const openTickets=tickets.filter(t=>!["resolved","closed"].includes(t.status));
  const overdueTickets=openTickets.filter(t=>!firstResponse.has(t.id)&&Date.now()-new Date(t.created_at).getTime()>((slaMinutes[t.priority]||480)*60000));
  const escalatedTickets=openTickets.filter(t=>Boolean(t.escalated_at)||Number(t.escalation_level||0)>0);
@@ -106,7 +106,7 @@ export default function TechnicalOperationsPage(){
   try{
    const patch={status,updated_at:new Date().toISOString(),...(status==="completed"?{completed_at:new Date().toISOString(),completion_notes:completionNotes.trim()||"Completed and recorded by the school administrator."}:{})};
    const {data,error:e}=await db.from("resa_maintenance_schedules").update(patch).eq("id",schedule.id).eq("school_id",schoolId).select("*").single();if(e)throw e;
-   if(status==="completed")await logEvent(null,"maintenance_completed","Maintenance completed: "+schedule.title,{schedule_id:schedule.id,asset_id:schedule.asset_id,completion_notes:completionNotes.trim()});
+   await logEvent(null,status==="completed"?"maintenance_completed":"maintenance_updated",(status==="completed"?"Maintenance completed: ":"Maintenance status updated: ")+schedule.title,{schedule_id:schedule.id,asset_id:schedule.asset_id,status,completion_notes:completionNotes.trim()});
    setSchedules(rows=>rows.map(s=>s.id===schedule.id?data:s));setCompletionNotes("");setNotice("Maintenance record updated.");
   }catch(e:any){setError(e.message||"Could not update maintenance record.");}finally{setBusy(false);}
  };
