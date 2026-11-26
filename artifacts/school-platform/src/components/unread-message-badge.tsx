@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, BellRing } from "lucide-react";
+import { Bell, BellRing, Volume2, VolumeX } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from "@/lib/notifications/push";
 
@@ -39,6 +39,10 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
   const [registered, setRegistered] = useState(false);
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState("");
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try { return window.localStorage.getItem("resa-chat-sound-enabled") !== "false"; }
+    catch { return true; }
+  });
   const refreshSequence = useRef(0);
 
   const registerPush = useCallback(async () => {
@@ -94,9 +98,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       }
     };
 
-    const notify = async (title: string, body: string, tag: string, url: string) => {
+    const notify = async (title: string, body: string, tag: string, url: string, playSound = false) => {
+      // Play the in-app chat chime independently of Web Push permission.
+      // When the page is backgrounded, let the OS push notification provide the alert.
+      if (playSound && soundEnabled && document.visibilityState === "visible") playResaChime();
       if (!("Notification" in window) || Notification.permission !== "granted") return;
-      playResaChime();
       try {
         const registration = await navigator.serviceWorker.ready;
         await registration.showNotification(title, {
@@ -138,6 +144,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
               String(message.message || "You have received a new school message.").slice(0, 160),
               "resa-message-" + String(message.id),
               "/notifications",
+              true,
             );
           }
           void refresh();
@@ -150,6 +157,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
             String(payload.new.body || "You have received a new chat message.").slice(0, 160),
             "resa-chat-" + String(payload.new.id),
             "/resa-chat",
+            true,
           );
           void refresh();
         }
@@ -181,10 +189,24 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       if (channel) void db.removeChannel(channel);
     };
-  }, [schoolId, registerPush]);
+  }, [schoolId, registerPush, soundEnabled]);
 
   return (
     <span className="ml-2 inline-flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => setSoundEnabled(current => {
+          const next = !current;
+          try { window.localStorage.setItem("resa-chat-sound-enabled", String(next)); } catch { /* Device storage may be unavailable. */ }
+          return next;
+        })}
+        title={soundEnabled ? "Chat sounds are on — tap to mute this device" : "Chat sounds are muted — tap to enable"}
+        aria-label={soundEnabled ? "Mute RESA chat sounds" : "Enable RESA chat sounds"}
+        aria-pressed={soundEnabled}
+        className="inline-flex items-center justify-center rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+      </button>
       {count > 0 && (
         <span aria-label={count + " unread messages"} title={count + " unread messages"} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
           {count > 99 ? "99+" : count}
