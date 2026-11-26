@@ -63,8 +63,8 @@ export default function ResaAssistantWidget() {
   const [availability, setAvailability] = useState<CustomerCareAvailability | null>(null);
   const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
   const [customerCareOnline, setCustomerCareOnline] = useState(false);
-  const [promptDismissed, setPromptDismissed] = useState(false);
   const soundAttempted = useRef(false);
+  const lastChimeDay = useRef("");
 
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   useEffect(() => {
@@ -91,14 +91,18 @@ export default function ResaAssistantWidget() {
       const start = Number(String(availability.availability_start).slice(0,2))*60+Number(String(availability.availability_start).slice(3,5));
       const end = Number(String(availability.availability_end).slice(0,2))*60+Number(String(availability.availability_end).slice(3,5));
       const online = availability.availability_enabled && (availability.availability_days || []).includes(dayNumber) && minute >= start && minute < end;
+      const dateKey = new Intl.DateTimeFormat("en-CA", { timeZone: availability.timezone || "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+      if (lastChimeDay.current !== dateKey) { lastChimeDay.current = dateKey; soundAttempted.current = false; }
+      let dismissedToday = false;
+      try { dismissedToday = localStorage.getItem("resa-care-prompt-dismissed-" + dateKey) === "1"; } catch { /* Session-only dismissal remains available. */ }
       setCustomerCareOnline(online);
       const shouldPrompt = online && availability.website_popup_enabled;
-      setShowAvailabilityPrompt(shouldPrompt && !promptDismissed);
+      setShowAvailabilityPrompt(shouldPrompt && !dismissedToday);
     };
     evaluate();
     const tick = window.setInterval(evaluate, 30000);
     return () => window.clearInterval(tick);
-  }, [availability, promptDismissed]);
+  }, [availability]);
 
   useEffect(() => {
     if (!showAvailabilityPrompt || !availability?.soft_sound_enabled || soundAttempted.current) return;
@@ -214,7 +218,10 @@ export default function ResaAssistantWidget() {
   const activePage = useMemo(() => path.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "home", [path]);
 
   function dismissAvailabilityPrompt() {
-    setPromptDismissed(true);
+    try {
+      const dateKey = new Intl.DateTimeFormat("en-CA", { timeZone: availability?.timezone || "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      localStorage.setItem("resa-care-prompt-dismissed-" + dateKey, "1");
+    } catch { /* Dismissal still applies for the current render. */ }
     setShowAvailabilityPrompt(false);
   }
 
