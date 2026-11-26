@@ -122,7 +122,7 @@ export default function PortalOptionsPage() {
 
       </section>
 
-      <footer className="border-t border-emerald-950/10 bg-white px-4 py-5 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3 text-[10px]">Designed &amp; Powered by <a href="https://wa.me/2347054078988" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 underline underline-offset-2">JETAB TECH</a></p></footer>
+      <footer className="border-t border-emerald-950/10 bg-white px-4 py-6 text-center text-xs text-slate-500"><p className="font-semibold text-emerald-900">RHEMA EXPLOITS SCIENCE ACADEMY (RESA)</p><p className="mt-1">PASSION • SKILLS • EXCELLENT SPIRIT</p><p className="mt-3 text-[10px]">Designed &amp; Powered by <a href="https://wa.me/2347054078988" target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-800 underline underline-offset-2">JETAB TECH</a></p><Link href="/" className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-800/20 bg-emerald-50 px-5 py-3 text-sm font-extrabold text-emerald-950 transition hover:border-emerald-800 hover:bg-emerald-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"><ArrowUpRight size={17} aria-hidden="true" className="rotate-[-135deg]" /> Back to Official RESA Website</Link></footer>
     </main>
   );
 }
