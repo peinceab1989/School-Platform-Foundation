@@ -2123,11 +2123,11 @@ function FoundationPage() {
           await registration.showNotification(notificationTitle, {
             body: notificationBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
             badge: '/media/logo/resa-logo.jpg?v=20261125', tag: notificationTag,
-            data: { url, count, grouped }, renotify: grouped,
+            data: { url, count, grouped },
             silent: selectedSound === 'silent', vibrate: prefs?.vibration_enabled === false ? [] : [180, 90, 180],
           });
         } else if (alive) {
-          new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped });
+          new Notification(safeTitle, { body: safeBody, tag: notificationTag });
         }
       } catch {
         if (alive) new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped });
