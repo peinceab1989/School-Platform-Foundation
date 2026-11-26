@@ -56,6 +56,8 @@ self.addEventListener('push', (event) => {
   const grouped = payload.grouped === true && typeof payload.tag === 'string';
   const tag = payload.tag || 'resa-school-update';
   event.waitUntil((async () => {
+    const openClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (openClients.some(client => client.visibilityState === 'visible')) return;
     let count = 1;
     if (grouped) {
       const existing = await self.registration.getNotifications({ tag });
