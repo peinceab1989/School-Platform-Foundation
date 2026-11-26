@@ -1978,9 +1978,63 @@ const privateCancelStyle: CSSProperties = {
   cursor: 'pointer',
 };
 
+const ROUTE_MODULE_KEYS: Record<string,string> = {
+  '/school-settings':'resa_school_settings',
+  '/admissions-management':'resa_admissions_management',
+  '/results-management':'resa_results_entry',
+  '/examinations':'resa_examinations',
+  '/external-cbt-management':'resa_external_cbt_management',
+  '/external-cbt':'resa_external_cbt',
+  '/my-results':'resa_results_publication',
+  '/student-cbt':'resa_student_cbt',
+  '/practice-drills':'resa_practice_drills',
+  '/biometric-attendance':'resa_biometric_attendance',
+  '/form-teacher-attendance':'resa_form_teacher_attendance',
+  '/staff-attendance':'resa_staff_attendance',
+  '/announcements':'resa_announcements',
+  '/resa-chat':'resa_communications_centre',
+  '/notifications':'resa_notifications',
+  '/school-communication':'resa_school_communication',
+  '/admin':'resa_admin_dashboard',
+  '/parent-dashboard':'resa_parent_dashboard',
+  '/student-dashboard':'resa_student_dashboard',
+  '/teacher-dashboard':'resa_teacher_dashboard',
+  '/payment-gateway-settings':'resa_payments_gateway',
+  '/fees-management':'resa_fees_management',
+  '/portal-options':'resa_portal_options',
+  '/parent-authorizations':'resa_parent_authorisations',
+  '/smart-access-management':'resa_smart_access',
+  '/student-id-cards':'resa_student_id_cards',
+  '/technical-operations':'resa_technical_operations',
+  '/test-data-setup':'resa_test_data',
+  '/publication-centre':'resa_publication_centre',
+  '/school-reports':'resa_school_reports',
+  '/reset-password':'resa_password_reset',
+  '/school-cctv':'resa_school_cctv',
+  '/hr-management':'resa_hr_management',
+  '/accept-invitation':'resa_invitation_acceptance',
+  '/staff-invitations':'resa_staff_invitations',
+  '/parent-management':'resa_parent_management',
+  '/students':'resa_student_records',
+  '/technical-support':'resa_technical_support',
+  '/assignments':'resa_assignments',
+  '/classes':'resa_classes',
+  '/subjects':'resa_subjects',
+  '/teaching-assignments':'resa_teaching_assignments',
+  '/teaching-materials':'resa_teaching_materials',
+  '/maps':'resa_maps',
+  '/school-calendar':'school_calendar',
+  '/student-enrolments':'resa_student_enrolments',
+  '/drive':'resa_drive',
+  '/resa-drive':'resa_drive',
+};
+
+
+
 function FoundationPage() {
   const [location, setLocation] = useLocation();
   const currentPath = normalizePath(location);
+  const routeModuleKey = ROUTE_MODULE_KEYS[currentPath] ?? null;
   const lastRecordedRouteVisit = useRef<string>('');
 
   const [session, setSession] = useState<Session | null>(null);
@@ -1995,6 +2049,8 @@ function FoundationPage() {
 
   const [accessCheckState, setAccessCheckState] =
     useState<FoundationAccessCheckState>('idle');
+  const [moduleGate, setModuleGate] = useState<{ key: string | null; state: 'idle' | 'loading' | 'enabled' | 'disabled' | 'error' }>({key:null,state:'idle'});
+  const [moduleGateRetry, setModuleGateRetry] = useState(0);
 
   const [errorText, setErrorText] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
@@ -2029,6 +2085,29 @@ function FoundationPage() {
   // Account-wide live notifications: works on every authenticated RESA page,
   // not only when the user happens to keep the Notifications page open.
   const notificationMembership = teacherMembership ?? adminMembership ?? studentMembership ?? parentMembership;
+
+  useEffect(() => {
+    if (!routeModuleKey || isExternalCandidate || authState !== 'signed-in' ||
+        accessCheckState !== 'success' || membershipsLoading || !session?.user.id) {
+      setModuleGate({key:routeModuleKey,state:'idle'});
+      return;
+    }
+    let active = true;
+    setModuleGate({key:routeModuleKey,state:'loading'});
+    void (async () => {
+      try {
+        const {data,error} = await (getSupabaseClient() as any).rpc('nexus_module_is_enabled',{p_module_key:routeModuleKey});
+        if (!active) return;
+        if (error) setModuleGate({key:routeModuleKey,state:'error'});
+        else setModuleGate({key:routeModuleKey,state:data === true ? 'enabled' : 'disabled'});
+      } catch {
+        if (active) setModuleGate({key:routeModuleKey,state:'error'});
+      }
+    })();
+    return () => { active = false; };
+  }, [routeModuleKey,isExternalCandidate,authState,accessCheckState,membershipsLoading,session?.user.id,moduleGateRetry]);
+
+
 
   // Route visits are recorded centrally. This is not proof of a data-changing
   // action; sensitive record changes need database-side audit coverage.
@@ -2833,6 +2912,20 @@ function FoundationPage() {
       setLocation('/jetab-engine-room');
     }
   };
+
+  if (routeModuleKey && !isExternalCandidate && authState === 'signed-in' &&
+      accessCheckState === 'success' && !membershipsLoading) {
+    if (moduleGate.key !== routeModuleKey || moduleGate.state === 'idle' || moduleGate.state === 'loading') {
+      return <main className="min-h-screen grid place-items-center bg-slate-50 p-6"><div className="rounded-2xl border bg-white p-6 text-center shadow-sm"><p className="font-bold text-slate-900">Checking feature access…</p><p className="mt-1 text-sm text-slate-500">RESA is checking the Engine Room control for this page.</p></div></main>;
+    }
+    if (moduleGate.state === 'disabled') {
+      return <main className="min-h-screen grid place-items-center bg-slate-50 p-6"><div className="max-w-md rounded-2xl border bg-white p-6 text-center shadow-sm"><p className="text-xs font-bold uppercase tracking-widest text-amber-700">RESA Engine Room control</p><h1 className="mt-2 text-xl font-extrabold text-slate-900">This feature is currently disabled</h1><p className="mt-2 text-sm text-slate-600">The school administrator has disabled this module. Its data remains protected and unchanged. Contact an authorised administrator if you need access.</p><button onClick={()=>setLocation('/dashboard')} className="mt-5 rounded-lg bg-emerald-900 px-4 py-2 text-sm font-bold text-white">Return to dashboard</button></div></main>;
+    }
+    if (moduleGate.state === 'error') {
+      return <main className="min-h-screen grid place-items-center bg-slate-50 p-6"><div className="max-w-md rounded-2xl border bg-white p-6 text-center shadow-sm"><h1 className="font-extrabold text-slate-900">Feature access could not be checked</h1><p className="mt-2 text-sm text-slate-600">RESA has not opened this module because its Engine Room control could not be verified. Retry when your connection is stable.</p><button onClick={()=>setModuleGateRetry(value=>value+1)} className="mt-5 rounded-lg bg-emerald-900 px-4 py-2 text-sm font-bold text-white">Retry access check</button></div></main>;
+    }
+  }
+
 
   if (
     currentPath === '/my-compliance' &&
