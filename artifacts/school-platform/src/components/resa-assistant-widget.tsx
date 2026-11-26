@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight, LoaderCircle, RotateCcw } from "lucide-react";
+import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight, RotateCcw } from "lucide-react";
 
 type HelpTopic = {
   keys: string[];
@@ -56,7 +56,6 @@ export default function ResaAssistantWidget() {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [pending, setPending] = useState(false);
   const [fallbackNotice, setFallbackNotice] = useState(false);
 
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
@@ -143,7 +142,7 @@ export default function ResaAssistantWidget() {
 
   function ask(value = question) {
     const trimmed = value.trim();
-    if (!trimmed || pending) return;
+    if (!trimmed) return;
     const history: ChatMessage[] = [...messages, { role: "user" as const, content: trimmed }].slice(-8);
     const topic = findTopic(trimmed);
     const answer = topic
@@ -162,14 +161,13 @@ export default function ResaAssistantWidget() {
       </header>
       <div className="max-h-80 space-y-3 overflow-y-auto p-4" aria-live="polite">
         <p className="text-sm leading-6 text-slate-600">Hello! I can guide you through RESA's general portal features. I cannot view private school records or change account data. Please do not share passwords, payment details or sensitive personal information.</p>
-        <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","How do I use school fees?"].map(q=><button type="button" key={q} disabled={pending} onClick={()=>void ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50">{q}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","How do I use school fees?"].map(q=><button type="button" key={q} onClick={()=>ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50">{q}</button>)}</div>
         {messages.map((message, index)=><div key={index} className={message.role==="user"?"ml-7 rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-emerald-950":"mr-3 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"}><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{message.role==="user"?"You":"Ask RESA"}</p><p className="whitespace-pre-wrap">{message.content}</p></div>)}
-        {pending && <div className="flex items-center gap-2 text-sm text-slate-500" role="status"><LoaderCircle size={16} className="animate-spin"/> Ask RESA is preparing a reply…</div>}
         {fallbackNotice && <p className="text-[10px] text-amber-700">Local verified help-library mode • no AI API usage</p>}
       </div>
       <form onSubmit={e=>{e.preventDefault();void ask();}} className="flex gap-2 border-t border-slate-100 p-3">
-        <input value={question} onChange={e=>setQuestion(e.target.value)} maxLength={1200} disabled={pending} placeholder="Ask a portal question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 disabled:bg-slate-50" aria-label="Ask RESA a question"/>
-        <button type="submit" aria-label="Send question" disabled={pending || !question.trim()} className="rounded-xl bg-[#174c35] px-3 text-white disabled:opacity-50">{pending?<LoaderCircle size={17} className="animate-spin"/>:<Send size={17}/>}</button>
+        <input value={question} onChange={e=>setQuestion(e.target.value)} maxLength={1200} placeholder="Ask a portal question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 disabled:bg-slate-50" aria-label="Ask RESA a question"/>
+        <button type="submit" aria-label="Send question" disabled={!question.trim()} className="rounded-xl bg-[#174c35] px-3 text-white disabled:opacity-50"><Send size={17}/></button>
       </form>
       <footer className="flex flex-wrap items-center justify-between gap-2 px-4 pb-3 text-xs"><button type="button" onClick={()=>{setPosition(null);try{localStorage.removeItem("resa-assistant-position-v2");}catch{/* Position reset remains active for this session. */}}} className="inline-flex items-center gap-1 font-semibold text-slate-600 underline" title="Return Ask RESA to its default left-side position"><RotateCcw size={12}/> Reset position</button><a href="/portal-navigation-guide" className="font-semibold text-emerald-800 underline">Portal guide</a><a href="/maps" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MapPin size={12}/> Maps</a><a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MessageCircle size={12}/> Customer care</a></footer>
       <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">AI guidance is informational, may be inaccurate and cannot access private records or perform school actions.</p>
