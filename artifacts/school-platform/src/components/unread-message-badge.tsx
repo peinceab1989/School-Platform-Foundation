@@ -123,7 +123,22 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
             publicCareCount = Number(care.data?.count || 0);
             const previous = lastPublicCareCount.current;
             if (previous !== null && publicCareCount > previous) {
-              void notify("New RESA website enquiry", "A visitor has sent a new message to Customer Care.", "resa-public-care-inbox", "/resa-chat?channel=customer_care", true);
+              const preferenceResult = await db.from("resa_notification_preferences")
+                .select("enabled,phone_notifications_enabled,in_app_sound_enabled,category_preferences")
+                .eq("school_id",schoolId).eq("user_id",userId).maybeSingle();
+              const preferences = preferenceResult.error ? null : preferenceResult.data;
+              const customerCareEnabled = preferences?.enabled !== false
+                && preferences?.category_preferences?.customer_care !== false;
+              if (customerCareEnabled) {
+                void notify(
+                  "New RESA website enquiry",
+                  "A visitor has sent a new message to Customer Care.",
+                  "resa-public-care-inbox",
+                  "/resa-chat?channel=customer_care",
+                  preferences?.in_app_sound_enabled !== false,
+                  preferences?.phone_notifications_enabled !== false,
+                );
+              }
             }
             lastPublicCareCount.current = publicCareCount;
           }
@@ -137,11 +152,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       }
     };
 
-    const notify = async (title: string, body: string, tag: string, url: string, playSound = false) => {
+    const notify = async (title: string, body: string, tag: string, url: string, playSound = false, allowBrowserNotification = true) => {
       // Play the in-app chat chime independently of Web Push permission.
       // When the page is backgrounded, let the OS push notification provide the alert.
       if (playSound && document.visibilityState === "visible") void playResaChime(chatSound);
-      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      if (!allowBrowserNotification || !("Notification" in window) || Notification.permission !== "granted") return;
       try {
         const registration = await navigator.serviceWorker.ready;
         await registration.showNotification(title, {
