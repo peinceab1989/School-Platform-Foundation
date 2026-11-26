@@ -1,5 +1,53 @@
--- Centralise RESA messaging contact visibility and resolve real school names.
--- Additive change: no messages, memberships, accounts or subscriptions are modified.
+-- Centralise RESA messaging contact visibility, names and administrator-controlled
+-- role-to-role access. This is additive: no messages, memberships, accounts or
+-- device subscriptions are modified.
+alter table public.resa_chat_settings
+  add column if not exists recipient_policy jsonb not null default
+  '{"admin":["admin","teacher","parent","student"],"teacher":["admin","student"],"parent":["admin"],"student":["admin","teacher"]}'::jsonb;
+
+update public.resa_chat_settings
+set recipient_policy = '{"admin":["admin","teacher","parent","student"],"teacher":["admin","student"],"parent":["admin"],"student":["admin","teacher"]}'::jsonb
+where recipient_policy is null or recipient_policy = '{}'::jsonb;
+
+-- Check the current sender's role and the selected recipient's role against
+-- the administrator-managed policy. Administrators retain directory access.
+create or replace function public.resa_chat_recipient_allowed(
+  p_school_id uuid,
+  p_recipient_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path to ''
+as $function$
+  select exists (
+    select 1
+    from public.school_memberships sender
+    join public.resa_chat_settings settings on settings.school_id = sender.school_id
+    join public.school_memberships recipient
+      on recipient.school_id = sender.school_id
+     and recipient.user_id = p_recipient_id
+     and recipient.status = 'active'::public.membership_status
+    where sender.school_id = p_school_id
+      and sender.user_id = (select auth.uid())
+      and sender.status = 'active'::public.membership_status
+      and p_recipient_id <> (select auth.uid())
+      and (
+        sender.role = 'admin'::public.school_role
+        or (
+          coalesce(settings.channel_policy ->> 'private_messages', 'true') = 'true'
+          and coalesce(settings.role_policy -> sender.role::text ->> 'private_messages', 'true') = 'true'
+          and coalesce(settings.recipient_policy -> sender.role::text, '[]'::jsonb)
+            ? recipient.role::text
+        )
+      )
+  );
+$function$;
+
+revoke all on function public.resa_chat_recipient_allowed(uuid, uuid) from public, anon;
+grant execute on function public.resa_chat_recipient_allowed(uuid, uuid) to authenticated;
+
 create or replace function public.get_school_message_contacts(p_school_id uuid)
 returns table(user_id uuid, role public.school_role, display_name text)
 language sql
@@ -39,93 +87,49 @@ as $function$
     and m.user_id <> auth.uid()
     and (
       c.role = 'admin'::public.school_role
-      or (
-        c.role = 'parent'::public.school_role
-        and (
-          m.role = 'admin'::public.school_role
-          or (
-            m.role = 'teacher'::public.school_role
-            and exists (
-              select 1
-              from public.parent_portal_accounts ppa
-              join public.parents_guardians pg
-                on pg.id = ppa.parent_guardian_id
-               and pg.school_id = ppa.school_id
-               and pg.portal_enabled = true
-              join public.parent_student_portal_access psa
-                on psa.parent_guardian_id = ppa.parent_guardian_id
-               and psa.school_id = ppa.school_id
-               and psa.is_active = true
-              join public.student_enrollments se
-                on se.student_id = psa.student_id
-               and se.school_id = psa.school_id
-               and se.status = 'active'
-              join public.teacher_assignments ta
-                on ta.class_id = se.class_id
-               and ta.school_id = se.school_id
-              join public.staff st
-                on st.id = ta.staff_id
-               and st.school_id = ta.school_id
-               and st.status = 'active'
-              where ppa.school_id = p_school_id
-                and ppa.user_id = auth.uid()
-                and ppa.is_active = true
-                and st.user_id = m.user_id
-            )
-          )
-        )
-      )
-      or (
-        c.role = 'teacher'::public.school_role
-        and (
-          m.role = 'admin'::public.school_role
-          or (
-            m.role = 'student'::public.school_role
-            and exists (
-              select 1
-              from public.staff mine
-              join public.teacher_assignments ta
-                on ta.staff_id = mine.id and ta.school_id = mine.school_id
-              join public.student_enrollments se
-                on se.class_id = ta.class_id and se.school_id = ta.school_id
-               and se.status = 'active'
-              join public.students s
-                on s.id = se.student_id and s.school_id = se.school_id
-              where mine.school_id = p_school_id
-                and mine.user_id = auth.uid()
-                and mine.status = 'active'
-                and s.user_id = m.user_id
-            )
-          )
-        )
-      )
-      or (
-        c.role = 'student'::public.school_role
-        and (
-          m.role = 'admin'::public.school_role
-          or (
-            m.role = 'teacher'::public.school_role
-            and exists (
-              select 1
-              from public.students mine
-              join public.student_enrollments se
-                on se.student_id = mine.id and se.school_id = mine.school_id
-               and se.status = 'active'
-              join public.teacher_assignments ta
-                on ta.class_id = se.class_id and ta.school_id = se.school_id
-              join public.staff st
-                on st.id = ta.staff_id and st.school_id = ta.school_id
-               and st.status = 'active'
-              where mine.school_id = p_school_id
-                and mine.user_id = auth.uid()
-                and st.user_id = m.user_id
-            )
-          )
-        )
-      )
+      or public.resa_chat_recipient_allowed(p_school_id, m.user_id)
     )
   order by display_name, m.role;
 $function$;
 
 revoke all on function public.get_school_message_contacts(uuid) from public, anon;
 grant execute on function public.get_school_message_contacts(uuid) to authenticated;
+
+
+-- Restrictive policies ensure the recipient-role choice is enforced even if a
+-- client bypasses the contact selector or submits a forged conversation.
+drop policy if exists "resa recipient role policy conversations" on public.resa_chat_conversations;
+create policy "resa recipient role policy conversations"
+on public.resa_chat_conversations
+as restrictive
+for insert
+to authenticated
+with check (
+  conversation_type = 'group'
+  or public.resa_chat_recipient_allowed(
+    school_id,
+    case when participant_one = (select auth.uid()) then participant_two else participant_one end
+  )
+);
+
+drop policy if exists "resa recipient role policy messages" on public.resa_chat_messages;
+create policy "resa recipient role policy messages"
+on public.resa_chat_messages
+as restrictive
+for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from public.resa_chat_conversations c
+    where c.id = resa_chat_messages.conversation_id
+      and c.school_id = resa_chat_messages.school_id
+      and (
+        c.conversation_type = 'group'
+        or public.resa_chat_recipient_allowed(
+          c.school_id,
+          case when c.participant_one = (select auth.uid()) then c.participant_two else c.participant_one end
+        )
+      )
+  )
+);
