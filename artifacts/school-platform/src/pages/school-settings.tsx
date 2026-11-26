@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import {
-  ArrowLeft, Save, RefreshCw, Settings2, School, UserRound, Users, ShieldCheck,
+  ArrowLeft, Save, RefreshCw, Settings2, School, UserRound, Users, ShieldCheck, CalendarDays,
   Eye, EyeOff, CheckCircle2, AlertCircle, LogOut, KeyRound, Search, Copy, LoaderCircle,
 } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -18,15 +18,16 @@ type Settings = {
   logo_url: string | null;
   current_academic_session_id: string | null;
   current_term_id: string | null;
+  notify_parents_on_student_absence: boolean;
 };
 type SessionOption = { id: string; name: string };
 type TermOption = { id: string; name: string; academic_session_id: string };
-type Tab = "school" | "management" | "account" | "access" | "security";
+type Tab = "school" | "attendance" | "management" | "account" | "access" | "security";
 type AccessRow = { role: "student" | "teacher" | "parent"; recordId: string; name: string; email: string; loginId: string; formalId: string; userId: string | null; accessStatus: string; active: boolean };
 
 const blank: Settings = {
   motto: "", address: "", phone: "", whatsapp_phone: "", admissions_phone: "", email: "", website: "", logo_url: "",
-  current_academic_session_id: null, current_term_id: null,
+  current_academic_session_id: null, current_term_id: null, notify_parents_on_student_absence: false,
 };
 const fieldClass = "mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-green-700 focus:ring-2 focus:ring-green-100";
 const labelClass = "block text-sm font-semibold text-slate-700";
@@ -62,6 +63,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
   const [signingOutOthers, setSigningOutOthers] = useState(false);
   const [customerCareEnabled, setCustomerCareEnabled] = useState(true);
   const [customerCareSaving, setCustomerCareSaving] = useState(false);
+  const [attendanceAlertsSaving, setAttendanceAlertsSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -120,6 +122,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
         logo_url: form.logo_url?.trim() || null,
         current_academic_session_id: form.current_academic_session_id || null,
         current_term_id: form.current_term_id || null,
+        notify_parents_on_student_absence: form.notify_parents_on_student_absence,
         updated_at: new Date().toISOString(),
       };
       const result = form.id
@@ -134,6 +137,31 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save school settings.");
     } finally { setSaving(false); }
+  }
+
+  async function saveAttendanceAlertSetting() {
+    setAttendanceAlertsSaving(true); setError(""); setNotice("");
+    try {
+      const db = getSupabaseClient() as any;
+      const { data: authData, error: authError } = await db.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Your administrator session has expired. Please sign in again.");
+      const now = new Date().toISOString();
+      const { error: saveError } = await db.from("school_settings").upsert({
+        school_id: schoolId,
+        notify_parents_on_student_absence: form.notify_parents_on_student_absence,
+        attendance_parent_absence_notifications_updated_by: authData.user.id,
+        attendance_parent_absence_notifications_updated_at: now,
+        updated_at: now,
+      }, { onConflict: "school_id" });
+      if (saveError) throw saveError;
+      setNotice(form.notify_parents_on_student_absence
+        ? "Parent absence alerts are enabled. Verified, active parent portal accounts will receive in-app alerts when their child is not recorded as present."
+        : "Parent absence alerts are disabled. Administrator attendance alerts remain active.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update parent absence notification settings.");
+    } finally { setAttendanceAlertsSaving(false); }
   }
 
   async function saveCustomerCareSetting() {
@@ -313,6 +341,7 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
 
   const tabs: { id: Tab; label: string; description: string; icon: typeof School }[] = [
     { id: "school", label: "School profile", description: "School details and academic defaults", icon: School },
+    { id: "attendance", label: "Attendance & alerts", description: "Control parent absence notifications", icon: CalendarDays },
     { id: "management", label: "Staff & other users", description: "Open staff, student and parent access controls", icon: Users },
     { id: "account", label: "Admin profile", description: "Name and login email", icon: UserRound },
     { id: "access", label: "Account & passwords", description: "Manage student, teacher and parent logins", icon: KeyRound },
@@ -388,6 +417,34 @@ export default function SchoolSettingsPage({ schoolId }: { schoolId: string }) {
                   </div>
                 </div>
               </section>}
+
+              {tab === "attendance" && <div>
+                <div className="mb-5 border-b border-slate-100 pb-4">
+                  <h3 className="text-lg font-extrabold">Attendance notifications</h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">Choose whether RESA should also notify parents when their child has no recorded school check-in at the attendance checkpoint. Administrator attendance alerts continue independently.</p>
+                </div>
+                <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-extrabold text-slate-900">Notify parents when a student is not recorded in school</h4>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${form.notify_parents_on_student_absence ? "bg-green-100 text-green-800" : "bg-slate-200 text-slate-700"}`}>
+                          {form.notify_parents_on_student_absence ? "Enabled" : "Disabled"}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">When enabled, each verified parent or guardian with an active portal link to that student receives one RESA in-app absence alert per attendance day. Staff absence alerts remain for authorised administrators and HR only.</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">The existing attendance checkpoint runs on Lagos time. This switch controls parent alerts only; it does not turn off administrator alerts or claim SMS/WhatsApp delivery.</p>
+                    </div>
+                    <button type="button" role="switch" aria-checked={form.notify_parents_on_student_absence} onClick={() => setForm(current => ({ ...current, notify_parents_on_student_absence: !current.notify_parents_on_student_absence }))} className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-green-700 focus:ring-offset-2 ${form.notify_parents_on_student_absence ? "bg-green-800" : "bg-slate-300"}`} aria-label="Toggle parent student absence alerts">
+                      <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition ${form.notify_parents_on_student_absence ? "translate-x-7" : "translate-x-1"}`} />
+                    </button>
+                  </div>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+                    <p className="text-xs leading-5 text-slate-500">Only the school's authorised administrators can change this setting. Parent recipients are resolved server-side against active student–guardian links and active parent portal accounts.</p>
+                    <button type="button" onClick={() => void saveAttendanceAlertSetting()} disabled={attendanceAlertsSaving || loading} className={primaryButton}><Save size={16}/>{attendanceAlertsSaving ? "Saving…" : "Save notification setting"}</button>
+                  </div>
+                </section>
+              </div>}
 
               {tab === "management" && <div>
                 <div className="mb-5 border-b border-slate-100 pb-4">
