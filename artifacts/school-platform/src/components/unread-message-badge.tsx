@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, BellRing, Volume2, VolumeX } from "lucide-react";
+import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { enableResaPushNotifications, getResaPushRegistrationStatus } from "@/lib/notifications/push";
 
@@ -59,6 +60,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
     } catch { return "default"; }
   });
   const refreshSequence = useRef(0);
+  const lastPublicCareCount = useRef<number | null>(null);
 
   const registerPush = useCallback(async () => {
     await enableResaPushNotifications(schoolId, false);
@@ -84,6 +86,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
     let active = true;
     const db = getSupabaseClient() as any;
     let channel: any;
+    let careChannel: any;
     let userId = "";
 
     const refresh = async () => {
@@ -96,15 +99,51 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
           if (active && sequence === refreshSequence.current) setCount(0);
           return;
         }
-        const [direct, chatCount] = await Promise.all([
+        const [direct, chatCount, membership] = await Promise.all([
           db.from("school_messages")
             .select("id", { count: "exact", head: true })
             .eq("school_id", schoolId).eq("recipient_id", userId).eq("is_read", false),
           db.rpc("resa_get_unread_chat_count", { p_school_id: schoolId }),
+          db.from("school_memberships").select("role").eq("school_id",schoolId).eq("user_id",userId).eq("status","active").maybeSingle(),
         ]);
         if (direct.error) throw direct.error;
         if (chatCount.error) throw chatCount.error;
-        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0);
+        let attendanceCount = 0;
+        if (!membership.error && membership.data?.role === "parent") {
+          const attendance = await db.from("biometric_parent_notifications").select("id",{count:"exact",head:true}).eq("school_id",schoolId).is("read_at",null);
+          if (!attendance.error) attendanceCount = attendance.count ?? 0;
+        } else if (!membership.error && membership.data?.role === "admin") {
+          const attendance = await db.from("attendance_checkpoint_alerts").select("id",{count:"exact",head:true}).eq("school_id",schoolId).neq("alert_status","acknowledged");
+          if (!attendance.error) attendanceCount = attendance.count ?? 0;
+        }
+        let publicCareCount = 0;
+        if (!membership.error && membership.data?.role === "admin") {
+          const care = await db.functions.invoke("resa-public-customer-care", { body: { action: "admin_unread_count" } });
+          if (!care.error) {
+            publicCareCount = Number(care.data?.count || 0);
+            const previous = lastPublicCareCount.current;
+            if (previous !== null && publicCareCount > previous) {
+              const preferenceResult = await db.from("resa_notification_preferences")
+                .select("enabled,phone_notifications_enabled,in_app_sound_enabled,category_preferences")
+                .eq("school_id",schoolId).eq("user_id",userId).maybeSingle();
+              const preferences = preferenceResult.error ? null : preferenceResult.data;
+              const customerCareEnabled = preferences?.enabled !== false
+                && preferences?.category_preferences?.customer_care !== false;
+              if (customerCareEnabled) {
+                void notify(
+                  "New RESA website enquiry",
+                  "A visitor has sent a new message to Customer Care.",
+                  "resa-public-care-inbox",
+                  "/resa-chat?channel=customer_care",
+                  preferences?.in_app_sound_enabled !== false,
+                  preferences?.phone_notifications_enabled !== false,
+                );
+              }
+            }
+            lastPublicCareCount.current = publicCareCount;
+          }
+        }
+        const nextCount = (direct.count ?? 0) + Number(chatCount.data || 0) + attendanceCount + publicCareCount;
         // Ignore slower, older requests that finish after a newer Realtime refresh.
         if (active && sequence === refreshSequence.current) setCount(nextCount);
       } catch (error) {
@@ -113,11 +152,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       }
     };
 
-    const notify = async (title: string, body: string, tag: string, url: string, playSound = false) => {
+    const notify = async (title: string, body: string, tag: string, url: string, playSound = false, allowBrowserNotification = true) => {
       // Play the in-app chat chime independently of Web Push permission.
       // When the page is backgrounded, let the OS push notification provide the alert.
       if (playSound && document.visibilityState === "visible") void playResaChime(chatSound);
-      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      if (!allowBrowserNotification || !("Notification" in window) || Notification.permission !== "granted") return;
       try {
         const registration = await navigator.serviceWorker.ready;
         await registration.showNotification(title, {
@@ -136,8 +175,27 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       if (document.visibilityState === "visible") void refresh();
     };
     const refreshWhenOnline = () => { void refresh(); };
+    const setupCareRealtime = async () => {
+      const { data: { user } } = await db.auth.getUser();
+      if (!user || !active) return;
+      const { data: membership } = await db.from("school_memberships")
+        .select("role").eq("school_id",schoolId).eq("user_id",user.id)
+        .eq("status","active").maybeSingle();
+      if (!active || membership?.role !== "admin") return;
+      careChannel = db.channel(
+        "resa-public-care-notifications-" + schoolId,
+        { config: { private: true } },
+      ).on("broadcast",{event:"message_updated"},()=>{void refresh();})
+        .subscribe((status:string)=>{
+          if(status==="SUBSCRIBED")void refresh();
+          if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED") {
+            console.warn("RESA Customer Care realtime notification status:",status);
+          }
+        });
+    };
 
     void refresh();
+    void setupCareRealtime().catch(error=>console.warn("RESA Customer Care realtime setup failed:",error));
     if ("Notification" in window && Notification.permission === "granted") {
       void registerPush().catch(error => {
         setRegistered(false);
@@ -203,6 +261,7 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       window.removeEventListener("online", refreshWhenOnline);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       if (channel) void db.removeChannel(channel);
+      if (careChannel) void db.removeChannel(careChannel);
     };
   }, [schoolId, registerPush, chatSound]);
 
@@ -239,11 +298,11 @@ export default function UnreadMessageBadge({ schoolId }: { schoolId: string }) {
       >
         <span className="text-[10px] font-semibold">Test</span>
       </button>
-      {count > 0 && (
-        <span aria-label={count + " unread messages"} title={count + " unread messages"} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
-          {count > 99 ? "99+" : count}
-        </span>
-      )}
+      <Link href="/notifications" aria-label={count > 0 ? count + " unread notifications. Open notification centre" : "Open notification centre"} title="Open notification centre" className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-current hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Bell className="h-4 w-4"/>
+        <span className="text-[10px] font-semibold">Inbox</span>
+        {count > 0 && <span aria-label={count + " unread messages"} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">{count > 99 ? "99+" : count}</span>}
+      </Link>
       {permission !== "unsupported" && (
         <button
           type="button"
