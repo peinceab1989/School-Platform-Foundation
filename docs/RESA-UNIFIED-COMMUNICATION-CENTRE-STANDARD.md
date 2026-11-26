@@ -130,3 +130,33 @@ The target is a school communication system that competes on clarity, speed, pri
 - The migration, helper and restrictive policies were applied only inside transactions for syntax, grants and role-scoped contact-directory smoke tests, then rolled back. The latest directory test returned 19 administrator contacts, 2 parent contacts, 2 student contacts (Customer Care administrators only because student private messaging is disabled by default), and 10 teacher contacts. No production schema changes were retained.
 - Role matrix smoke tests confirmed the default Customer Care route to an administrator remains available for student, parent and teacher roles, while the student private-message channel remains closed until an administrator enables it.
 - The feature branch has not been merged and these recipient-policy changes have not been applied to production.
+
+
+## Cross-device app installation, grouped alerts and file sharing
+
+### Installable app
+- The RESA web app retains its root-scoped service worker and manifest and now includes a scalable app icon built from the official RESA crest, app shortcuts for Chat and Notifications, and an existing-client launch preference.
+- The installation invitation gives platform-specific steps for Android, iPhone/iPad, macOS, Windows, Linux and Chromebook browsers.
+- iPhone/iPad Home Screen installation uses Safari. Web Push on iPhone/iPad requires iOS/iPadOS 16.4 or later and the installed Home Screen web app; notification permission must be granted.
+- Android and desktop installation and Web Push depend on a supported, current browser and operating-system settings. This is a standards-based installable web app, not a claim that a native iOS/Android store binary exists for every device.
+- The service worker caches only the static offline notice; authenticated portal records and private messages are not cached on shared devices.
+
+### Recipient-only alerts and notification-shade hygiene
+- Server push delivery for direct and group messages is restricted to active school memberships. Direct messages target the other participant; group messages target active group members only. The sender is excluded.
+- Each signed-in school account gets one stable message-notification tag per school. The service worker replaces that single card and increments its visible message count rather than creating a new notification card for every chat message.
+- The latest notification deep-links to the exact conversation and message. Private-preview preferences are respected.
+- When the portal is already visible, the service worker suppresses its duplicate push card and the foreground listener presents the single grouped notification. Hidden/background delivery is handled by the service worker.
+- Where supported, the installed app icon badge reflects the signed-in user's unread direct and group message count.
+- Attendance alerts remain targeted to the verified linked parent/guardian account and open the parent dashboard. Chat pages return users to the dashboard associated with their own active role.
+
+### Group files and voice notes
+- The administrator can enable or disable chat file sharing in Communication Centre settings. A restrictive Storage RLS policy enforces the setting server-side; hiding the upload control alone is not the security boundary.
+- The private `resa-chat-media` bucket remains private and conversation-member/admin read restrictions remain in force. The bucket cap is raised to 100 MB; signed URLs are used for inline previews and explicit downloads.
+- The chat client supports common school media and document formats, spreadsheets, presentations and archives, while blocking executable and active script formats. Files are not made public.
+- Voice-note recording selects a browser-supported audio container (WebM, MP4/M4A or OGG) to avoid forcing one codec on every device.
+- Group conversations support realtime discussion, sender identity, read receipts, voice notes and private file sharing. Live audio/video conference rooms still require a configured and tested calling/signalling/TURN service before they can be advertised as available.
+
+### Release validation still required
+- Automated build/type checks and SQL migration transaction tests are required after these changes.
+- Physical acceptance tests remain required on Android Chrome, Samsung Internet, iPhone/iPad Safari Home Screen, Windows/macOS desktop browsers, and at least one tablet.
+- Verify direct-recipient isolation, group-member isolation, message count replacement, tap-through to the exact message, upload/download and administrator revocation on real accounts before production release.
