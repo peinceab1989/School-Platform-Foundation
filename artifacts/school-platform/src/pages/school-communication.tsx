@@ -21,9 +21,9 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
     private_messages: true, group_messages: true, announcements: true, customer_care: true,
   });
   const [rolePolicy, setRolePolicy] = useState<Record<string, Record<string, boolean>>>({
-    teacher: { private_messages: true, group_messages: true, announcements: true },
-    parent: { private_messages: true, group_messages: true, announcements: true },
-    student: { private_messages: false, group_messages: true, announcements: true },
+    teacher: { private_messages: true, group_messages: true, announcements: true, customer_care: true },
+    parent: { private_messages: true, group_messages: true, announcements: true, customer_care: true },
+    student: { private_messages: false, group_messages: true, announcements: true, customer_care: true },
   });
   const [allowAllStudents, setAllowAllStudents] = useState(false);
   const [allowedStudentIds, setAllowedStudentIds] = useState<string[]>([]);
@@ -76,9 +76,9 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
         setChatEnabled(Boolean(chatResult.data?.chat_enabled));
         setChannelPolicy({ private_messages: true, group_messages: true, announcements: true, customer_care: true, ...(chatResult.data?.channel_policy ?? {}) });
         setRolePolicy({
-          teacher: { private_messages: true, group_messages: true, announcements: true, ...(chatResult.data?.role_policy?.teacher ?? {}) },
-          parent: { private_messages: true, group_messages: true, announcements: true, ...(chatResult.data?.role_policy?.parent ?? {}) },
-          student: { private_messages: false, group_messages: true, announcements: true, ...(chatResult.data?.role_policy?.student ?? {}) },
+          teacher: { private_messages: true, group_messages: true, announcements: true, customer_care: true, ...(chatResult.data?.role_policy?.teacher ?? {}) },
+          parent: { private_messages: true, group_messages: true, announcements: true, customer_care: true, ...(chatResult.data?.role_policy?.parent ?? {}) },
+          student: { private_messages: false, group_messages: true, announcements: true, customer_care: true, ...(chatResult.data?.role_policy?.student ?? {}) },
         });
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load school messages."); }
@@ -222,9 +222,9 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
           </div>
           <h3 className="mt-4 text-sm font-bold text-slate-800">Role permissions</h3>
           <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full min-w-[440px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-3">Role</th><th className="p-3">Private</th><th className="p-3">Group</th><th className="p-3">Announcements</th></tr></thead>
-              <tbody>{(["teacher","parent","student"] as const).map(memberRole=><tr key={memberRole} className="border-t border-slate-100"><th className="p-3 capitalize">{memberRole}</th>{(["private_messages","group_messages","announcements"] as const).map(key=><td key={key} className="p-3"><input aria-label={memberRole+" "+key} type="checkbox" checked={rolePolicy[memberRole]?.[key] !== false} disabled={channelPolicy[key] === false} onChange={e=>setRolePolicy(old=>({...old,[memberRole]:{...old[memberRole],[key]:e.target.checked}}))}/></td>)}</tr>)}</tbody>
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-3">Role</th><th className="p-3">Private</th><th className="p-3">Group</th><th className="p-3">Announcements</th><th className="p-3">Customer Care</th></tr></thead>
+              <tbody>{(["teacher","parent","student"] as const).map(memberRole=><tr key={memberRole} className="border-t border-slate-100"><th className="p-3 capitalize">{memberRole}</th>{(["private_messages","group_messages","announcements","customer_care"] as const).map(key=><td key={key} className="p-3"><input aria-label={memberRole+" "+key} type="checkbox" checked={rolePolicy[memberRole]?.[key] !== false} disabled={channelPolicy[key] === false} onChange={e=>setRolePolicy(old=>({...old,[memberRole]:{...old[memberRole],[key]:e.target.checked}}))}/></td>)}</tr>)}</tbody>
             </table>
           </div>
           <div className="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-950">Administrators retain management access. Voice and video calls remain unavailable until a calling provider is configured and tested; they are not presented as active channels.</div>
