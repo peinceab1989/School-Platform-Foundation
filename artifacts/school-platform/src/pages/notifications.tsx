@@ -189,6 +189,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
   useEffect(() => {
     let db: any;
     let channel: any;
+    let customerCareChannel: any;
     try {
       db = getSupabaseClient();
       channel = db.channel("resa-notifications-" + schoolId)
@@ -208,9 +209,21 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           // this page only refreshes the inbox to avoid duplicate notifications.
           void load(true);
         }).subscribe();
+
+      if (role === "admin") {
+        customerCareChannel = db.channel(
+          "resa-public-care-notifications-" + schoolId,
+          { config: { private: true } },
+        ).on("broadcast", { event: "message_updated" }, () => {
+          void load(true);
+        }).subscribe();
+      }
     } catch { /* Refresh remains available if Realtime is not configured. */ }
-    return () => { if (db && channel) void db.removeChannel(channel); };
-  }, [schoolId, userId, load]);
+    return () => {
+      if (db && channel) void db.removeChannel(channel);
+      if (db && customerCareChannel) void db.removeChannel(customerCareChannel);
+    };
+  }, [schoolId, userId, role, load]);
 
   useEffect(() => {
     const refreshQuietly = () => {
