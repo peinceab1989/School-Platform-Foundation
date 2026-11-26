@@ -80,7 +80,7 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Direct messages, Customer Care and administrator-created group membership selection now use one server-authorised school contact directory.
 - The next additive migration resolves a person's display name from the profile name first and the school's people record second; it returns a clear “name not set” state instead of silently labelling every account only as Teacher or Student.
 - Contact visibility is relationship-scoped: administrators can manage active school members; parents can reach administrators and teachers assigned to their linked, active learners; teachers can reach learners in their assigned active classes; students can reach teachers assigned to their active classes. All scopes retain active school membership checks.
-- The contact-directory migration is committed to the feature branch but has not yet been applied to the live database. It must pass SQL review and CI before release.
+- The contact-directory migration is committed to the feature branch but has not yet been applied to the live database. Its function definition and role-scoped lookup were smoke-tested inside a transaction and rolled back; active test contexts returned scoped directories for all four roles (admin 19, parent 6, student 6, teacher 2). No production schema change was retained.
 - The owner confirmed that the Android push test notification was displayed on the registered phone. This verifies one real-device test delivery; it does not yet establish multi-device, closed-app or sustained delivery reliability.
 
 ## Product quality roadmap — school-grade communications
