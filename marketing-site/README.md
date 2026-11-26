@@ -21,6 +21,9 @@ Recommended settings for the dedicated `jetab-tech` Pages project:
 
 The public homepage is `https://jetab-tech.pages.dev/`; the product brochure is available at `/brochure.html`.
 
+## Installable app (PWA)
+The site includes a web app manifest, standalone display mode, install controls for browsers that expose the install prompt, iOS Add to Home Screen guidance, a service worker, an offline fallback page and a branded scalable app icon. It is served from the same HTTPS origin, so no app-store account or separate backend is required. The service worker caches the app shell and uses network-first navigation with an offline fallback. Browser install prompts vary by browser, device and installation eligibility; on iPhone/iPad, visitors use Safari's Share → Add to Home Screen flow.
+
 ## Enquiry form and privacy
 The enquiry form validates the visitor's entries in the browser and prepares a WhatsApp message to +234 705 407 8988. It does not write enquiry data to a website database. Visitors review the prepared message and choose whether to send it.
 
