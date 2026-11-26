@@ -61,7 +61,7 @@ using (exists (select 1 from public.school_memberships sm where sm.school_id = r
 with check (
   exists (select 1 from public.school_memberships sm where sm.school_id = resa_support_tickets.school_id and sm.user_id = auth.uid() and sm.status = 'active' and sm.role = 'admin')
   and (assigned_to is null or exists (select 1 from public.school_memberships assignee where assignee.school_id = resa_support_tickets.school_id and assignee.user_id = resa_support_tickets.assigned_to and assignee.status = 'active' and assignee.role in ('admin','teacher'))
-);
+));
 
 drop policy if exists resa_support_reply_read on public.resa_support_ticket_replies;
 create policy resa_support_reply_read on public.resa_support_ticket_replies for select to authenticated
