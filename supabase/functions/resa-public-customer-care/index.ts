@@ -64,17 +64,33 @@ async function assignedAdmin(duty: string) {
   return activeChief?.user_id ?? null;
 }
 async function broadcastConversationUpdate(conversationId: string) {
+  const conversationChannel = service.channel(`resa-public-care-${conversationId}`);
+  const adminInboxChannel = service.channel(
+    `resa-public-care-notifications-${SCHOOL_ID}`,
+    { config: { private: true } },
+  );
   try {
-    const channel = service.channel(`resa-public-care-${conversationId}`);
-    await channel.send({
-      type: "broadcast",
-      event: "message_updated",
-      payload: { conversation_id: conversationId },
-    });
-    await service.removeChannel(channel);
+    await Promise.all([
+      conversationChannel.send({
+        type: "broadcast",
+        event: "message_updated",
+        payload: { conversation_id: conversationId },
+      }),
+      adminInboxChannel.send({
+        type: "broadcast",
+        event: "message_updated",
+        // Do not broadcast visitor identity or conversation IDs to the school-wide inbox.
+        payload: { refresh: true },
+      }),
+    ]);
   } catch (error) {
     // Broadcast is an acceleration path; clients also poll securely as fallback.
     console.warn("Customer Care realtime broadcast unavailable", error);
+  } finally {
+    await Promise.all([
+      service.removeChannel(conversationChannel),
+      service.removeChannel(adminInboxChannel),
+    ]);
   }
 }
 async function broadcastSchoolCareNotification() {
