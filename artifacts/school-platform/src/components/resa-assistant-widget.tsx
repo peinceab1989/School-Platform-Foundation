@@ -79,6 +79,37 @@ export default function ResaAssistantWidget() {
 
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
   useEffect(() => {
+    if (!careId || !careToken || !open || !careMode) return;
+    let alive = true;
+    const client = getSupabaseClient();
+    const poll = async () => {
+      const result = await client.functions.invoke("resa-public-customer-care", {
+        body: { action: "visitor_poll", conversation_id: careId, token: careToken },
+      });
+      if (!alive) return;
+      if (!result.error && result.data?.messages) {
+        setCareMessages(result.data.messages);
+        if (result.data.status === "open" || result.data.status === "waiting" || result.data.status === "closed") {
+          setCareStatus(result.data.status);
+        }
+      } else if (result.error) {
+        setCareError(result.error.message || "Could not refresh your Customer Care conversation.");
+      }
+    };
+    const channel = client.channel(`resa-public-care-${careId}`)
+      .on("broadcast", { event: "message_updated" }, () => { void poll(); })
+      .subscribe();
+    void poll();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void poll();
+    }, 5000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      void client.removeChannel(channel);
+    };
+  }, [careId, careToken, open, careMode]);
+  useEffect(() => {
     let alive = true;
     const db = getSupabaseClient();
     const loadAvailability = async () => {
