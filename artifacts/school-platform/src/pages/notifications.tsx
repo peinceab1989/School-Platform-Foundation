@@ -158,8 +158,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         .filter((a: any) => {
           const publishedAt = a.published_at ? new Date(a.published_at).getTime() : 0;
           const expiresAt = a.expires_at ? new Date(a.expires_at).getTime() : Number.POSITIVE_INFINITY;
+          const stillUnread = !announcementReadIds.has(String(a.id));
           return Number.isFinite(publishedAt) && publishedAt <= now &&
-            (expiresAt === Number.POSITIVE_INFINITY || (Number.isFinite(expiresAt) && expiresAt > now));
+            (stillUnread || expiresAt === Number.POSITIVE_INFINITY || (Number.isFinite(expiresAt) && expiresAt > now));
         })
         .map((a: any) => ({
           id: a.id, kind: "announcement", title: a.title, body: a.content,
