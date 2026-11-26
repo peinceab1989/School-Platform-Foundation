@@ -2042,9 +2042,29 @@ function FoundationPage() {
     let parentAttendanceChannel: any = null;
     let parentAttendancePoll: ReturnType<typeof setInterval> | null = null;
 
-    const showResaNotification = async (title: string, body: string, tag: string, url: string) => {
+    const notificationPreferencesPromise = db.from('resa_notification_preferences')
+      .select('enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
+      .eq('school_id', sid).eq('user_id', uid).maybeSingle();
+    const showResaNotification = async (title: string, body: string, tag: string, url: string, category: string) => {
       if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
-      const options = { body, icon: '/media/logo/resa-logo.jpg?v=20261125', badge: '/media/logo/resa-logo.jpg?v=20261125', tag, data: { url } };
+      const { data: prefs } = await notificationPreferencesPromise;
+      if (!alive || prefs?.enabled === false || prefs?.category_preferences?.[category] === false) return;
+      if (prefs?.quiet_hours_enabled === true) {
+        const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+        const now = Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+        const startText = String(prefs.quiet_hours_start || '21:00').slice(0, 5);
+        const endText = String(prefs.quiet_hours_end || '07:00').slice(0, 5);
+        const [sh, sm] = startText.split(':').map(Number), [eh, em] = endText.split(':').map(Number);
+        const start = sh * 60 + sm, end = eh * 60 + em;
+        if (start !== end && (start < end ? now >= start && now < end : now >= start || now < end)) return;
+      }
+      const selectedSound = String(prefs?.category_sounds?.[category] || 'resa_chime');
+      const safeBody = prefs?.show_notification_preview === false ? 'You have a new RESA school update. Sign in to view it.' : body;
+      const options = {
+        body: safeBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
+        badge: '/media/logo/resa-logo.jpg?v=20261125', tag, data: { url },
+        silent: selectedSound === 'silent', vibrate: prefs?.vibration_enabled === false ? [] : [180, 90, 180],
+      };
       try {
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.ready;
@@ -2069,6 +2089,7 @@ function FoundationPage() {
           String(message.message || 'You have received a new school message.'),
           String(message.id || `message-${Date.now()}`),
           '/notifications',
+          'messages',
         );
       })
       .on('postgres_changes', {
@@ -2084,6 +2105,7 @@ function FoundationPage() {
           String(item.content || 'A new school announcement is available.'),
           String(item.id || `announcement-${Date.now()}`),
           '/notifications',
+          'announcements',
         );
       })
       .on('postgres_changes', {
@@ -2098,6 +2120,7 @@ function FoundationPage() {
           `${String(item.title || label)}. Reference: ${String(item.case_number || '')}. Open My Queries and Warnings to respond.`,
           String(item.id || `compliance-${Date.now()}`),
           '/my-compliance',
+          'system_alerts',
         );
       })
       .subscribe();
