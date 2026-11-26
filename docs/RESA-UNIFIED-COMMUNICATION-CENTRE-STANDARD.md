@@ -145,7 +145,7 @@ The target is a school communication system that competes on clarity, speed, pri
 - Server push delivery for direct and group messages is restricted to active school memberships. Direct messages target the other participant; group messages target active group members only. The sender is excluded.
 - Each signed-in school account gets one stable message-notification tag per school. The service worker replaces that single card and increments its visible message count rather than creating a new notification card for every chat message.
 - The latest notification deep-links to the exact conversation and message. Private-preview preferences are respected.
-- When the portal is already visible, the service worker suppresses its duplicate push card and the foreground listener presents the single grouped notification. Hidden/background delivery is handled by the service worker.
+- When a Web Push subscription exists, the service worker owns the single grouped system notification in foreground and background; the foreground realtime listener supplies in-app sound and suppresses its duplicate OS card. If no push subscription exists, the foreground listener falls back to a grouped local notification.
 - Where supported, the installed app icon badge reflects the signed-in user's unread direct and group message count.
 - Attendance alerts remain targeted to the verified linked parent/guardian account and open the parent dashboard. Chat pages return users to the dashboard associated with their own active role.
 
