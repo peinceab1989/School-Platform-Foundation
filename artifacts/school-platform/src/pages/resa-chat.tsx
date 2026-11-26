@@ -77,7 +77,7 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     if (activeId && !convRows.some(c => c.id === activeId)) setActiveId("");
     // A single server-authorised directory keeps direct messages, Customer Care
     // and group member selection consistent across every role. The RPC returns
-    // only active contacts within the caller's school relationship scope.
+    // only active contacts in recipient categories approved for this sender role.
     const directory = await (db as any).rpc("get_school_message_contacts", { p_school_id: schoolId });
     if (directory.error) throw directory.error;
     setContacts((directory.data ?? []).map((entry: any) => ({
