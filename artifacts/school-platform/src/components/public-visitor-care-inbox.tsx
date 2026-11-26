@@ -94,7 +94,7 @@ export default function PublicVisitorCareInbox() {
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-extrabold text-emerald-950"><MessageCircle size={19}/> Public website enquiries</h2>
-        <p className="mt-1 text-xs text-slate-500">Visitors can contact RESA without a portal account. Conversations are restricted to the assigned administrator and Chief Administrator.</p>
+        <p className="mt-1 text-xs text-slate-500">Visitors can contact RESA without a portal account. Conversations are restricted to the assigned administrator and Chief Administrator. Open conversations refresh every 3 seconds while selected.</p>
       </div>
       <button type="button" onClick={()=>void loadThreads().catch(e=>setError(e.message))} className="rounded-lg border p-2" aria-label="Refresh public enquiries"><RefreshCw size={15}/></button>
     </div>
