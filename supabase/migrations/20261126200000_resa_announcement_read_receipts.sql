@@ -69,3 +69,18 @@ create policy resa_announcement_reads_update_own
 
 grant select, insert, update on public.resa_announcement_reads to authenticated;
 revoke delete on public.resa_announcement_reads from anon, authenticated;
+
+-- Keep read receipts synchronised between the recipient's open devices.
+do $publication$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'resa_announcement_reads'
+     ) then
+    execute 'alter publication supabase_realtime add table public.resa_announcement_reads';
+  end if;
+end;
+$publication$;
