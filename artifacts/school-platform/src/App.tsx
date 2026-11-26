@@ -2048,7 +2048,7 @@ function FoundationPage() {
     const showResaNotification = async (title: string, body: string, tag: string, url: string, category: string) => {
       if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
       const { data: prefs } = await notificationPreferencesPromise;
-      if (!alive || prefs?.enabled === false || prefs?.category_preferences?.[category] === false) return;
+      if (!alive || prefs?.enabled === false || prefs?.phone_notifications_enabled !== true || prefs?.category_preferences?.[category] === false) return;
       if (category !== 'attendance' && prefs?.quiet_hours_enabled === true) {
         const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
         const now = Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
@@ -2099,7 +2099,7 @@ function FoundationPage() {
           new Notification(safeTitle, options);
         }
       } catch {
-        if (alive) new Notification(title, options);
+        if (alive) new Notification(safeTitle, options);
       }
     };
 
