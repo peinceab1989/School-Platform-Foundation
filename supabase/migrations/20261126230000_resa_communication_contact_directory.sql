@@ -46,6 +46,10 @@ as $function$
             or (
               p_channel_key = 'private_messages'
               and coalesce(settings.recipient_policy -> sender.role::text, '[]'::jsonb) ? recipient.role::text
+              and (
+                sender.role <> 'student'::public.school_role
+                or public.student_messaging_access_enabled(p_school_id, sender.user_id)
+              )
             )
           )
         )
