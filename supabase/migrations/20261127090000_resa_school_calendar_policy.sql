@@ -299,6 +299,35 @@ create trigger school_operating_schedules_set_actor
 revoke all on function public.set_school_calendar_actor() from public, anon, authenticated;
 revoke all on function public.set_school_calendar_schedule_actor() from public, anon, authenticated;
 
+-- Prevent an administrator from assigning a work schedule to an unrelated account.
+create or replace function public.validate_school_staff_schedule_membership()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+begin
+  if not exists (
+    select 1
+    from public.school_memberships m
+    where m.school_id = new.school_id
+      and m.user_id = new.staff_user_id
+      and m.status = 'active'
+      and m.role in ('teacher'::public.school_role,'admin'::public.school_role)
+  ) then
+    raise exception 'The selected account is not an active teacher or administrator in this school.';
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists validate_school_staff_schedule_membership on public.school_staff_work_schedules;
+create trigger validate_school_staff_schedule_membership
+  before insert or update of school_id, staff_user_id on public.school_staff_work_schedules
+  for each row execute function public.validate_school_staff_schedule_membership();
+
+revoke all on function public.validate_school_staff_schedule_membership() from public, anon, authenticated;
+
 -- Reuse the existing immutable Engine Room audit trigger for calendar changes.
 drop trigger if exists school_operating_schedules_nexus_audit on public.school_operating_schedules;
 create trigger school_operating_schedules_nexus_audit
