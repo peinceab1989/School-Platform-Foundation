@@ -9,3 +9,6 @@ verify_jwt = true
 # Paystack HMAC signature before processing any event.
 [functions.resa-paystack-webhook]
 verify_jwt = false
+
+[functions.resa-admission-paystack-checkout]
+verify_jwt = false
