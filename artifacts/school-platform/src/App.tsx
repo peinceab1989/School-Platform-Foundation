@@ -608,6 +608,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           <Link href="/my-results" className="rounded-xl bg-amber-200 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-100">My learners’ results</Link>
           <Link href="/parent-authorizations" className="rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">Parent Authorizations</Link>
           <Link href="/school-communication" className="inline-flex items-center rounded-xl border border-amber-300/60 bg-amber-300 px-4 py-2.5 text-sm font-bold text-emerald-950 hover:bg-amber-200">Communication Centre <UnreadMessageBadge schoolId={schoolId} /></Link>
+          <Link href="/notifications" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Notifications & sound settings</Link>
           <a href="https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care.%20I%20need%20assistance%20with%20the%20parent%20portal." target="_blank" rel="noopener noreferrer" className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20">Customer Care</a>
         </nav>
       </header>
@@ -954,6 +955,7 @@ function StudentDashboard({
             <Link href="/my-results" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>My Report Cards</Link>
             <Link href="/student-id-card" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>My ID Card</Link>
             <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Communication Centre <UnreadMessageBadge schoolId={schoolId} /></Link>
+            <Link href="/notifications" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Notifications & sound settings</Link>
               <button type="button" onClick={onSignOut} style={buttonStyle}>Sign out</button>
               </div>
             </div>
