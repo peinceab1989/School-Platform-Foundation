@@ -24,6 +24,7 @@ create policy "School admins manage admission settings"
   with check (public.has_school_role(school_id,array['admin'::public.school_role]));
 grant select,insert,update on public.school_admission_settings to authenticated;
 grant all on public.school_admission_settings to service_role;
+grant select,insert,update on public.external_candidate_form_purchases to service_role;
 
 create table if not exists public.admission_form_payment_intents (
   id uuid primary key default gen_random_uuid(),
@@ -38,6 +39,7 @@ create table if not exists public.admission_form_payment_intents (
   amount_minor bigint not null check (amount_minor > 0),
   currency text not null default 'NGN' check (currency = 'NGN'),
   provider text not null default 'paystack' check (provider = 'paystack'),
+  payment_environment text not null check (payment_environment in ('test','live')),
   provider_reference text not null unique,
   provider_transaction_id text,
   client_request_key uuid not null,
