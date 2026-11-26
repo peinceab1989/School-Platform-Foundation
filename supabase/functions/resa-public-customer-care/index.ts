@@ -237,6 +237,7 @@ Deno.serve(async (req: Request) => {
         const { error: readError } = await service.from("resa_public_care_conversations")
           .update({last_admin_read_at:new Date().toISOString(),unread_visitor_count:0}).eq("id",id);
         if (readError) throw readError;
+        await broadcastConversationUpdate(id);
         const { data, error } = await service.from("resa_public_care_messages")
           .select("id,sender_kind,sender_admin_id,body,created_at").eq("conversation_id",id).order("created_at").limit(100);
         if (error) throw error;
