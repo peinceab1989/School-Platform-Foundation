@@ -144,7 +144,7 @@ Deno.serve(async (req: Request) => {
 
       const unreadQuery = async () => {
         let query = service.from("resa_public_care_conversations")
-          .select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at,last_admin_read_at,last_message_sender_kind")
+           .select("id,visitor_name,visitor_email,duty_key,status,created_at,last_message_at,last_admin_read_at,last_message_sender_kind,unread_visitor_count")
           .eq("school_id",SCHOOL_ID).neq("status","closed").eq("last_message_sender_kind","visitor");
         if (!isChief) query = query.eq("assigned_admin_id",adminId);
         const { data, error } = await query.order("last_message_at",{ascending:false}).limit(200);
@@ -154,7 +154,8 @@ Deno.serve(async (req: Request) => {
 
       if (action === "admin_unread_count") {
         const unread = await unreadQuery();
-        return reply(200,{count:unread.length},origin);
+        const count = unread.reduce((total:any,row:any)=>total+Number(row.unread_visitor_count||0),0);
+        return reply(200,{count},origin);
       }
       if (action === "admin_notifications") {
         const unread = await unreadQuery();
@@ -182,7 +183,7 @@ Deno.serve(async (req: Request) => {
 
       if (action === "admin_view") {
         const { error: readError } = await service.from("resa_public_care_conversations")
-          .update({last_admin_read_at:new Date().toISOString()}).eq("id",id);
+          .update({last_admin_read_at:new Date().toISOString(),unread_visitor_count:0}).eq("id",id);
         if (readError) throw readError;
         const { data, error } = await service.from("resa_public_care_messages")
           .select("id,sender_kind,sender_admin_id,body,created_at").eq("conversation_id",id).order("created_at").limit(100);
