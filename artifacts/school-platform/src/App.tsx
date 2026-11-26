@@ -334,7 +334,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
         if (preferencesError) throw preferencesError;
         const preference = savedPreferences?.[0];
         if (active) {
-          setSoundAlertsEnabled(Boolean(preference?.enabled));
+          setSoundAlertsEnabled(preference ? Boolean(preference.enabled) : true);
           setSoundChoice((preference?.sound_choice || "chime") as "chime" | "bell" | "soft" | "none");
           setPhoneNotificationsEnabled(Boolean(preference?.phone_notifications_enabled));
           setNotificationPreferencesLoading(false);
@@ -1093,6 +1093,7 @@ function NexusDashboard({
   const [loading, setLoading] = useState(false);
   const [busyModule, setBusyModule] = useState<string | null>(null);
   const [moduleSearch, setModuleSearch] = useState('');
+  const [moduleCategory, setModuleCategory] = useState("all");
   const [errorText, setErrorText] = useState<string | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
 
@@ -1431,6 +1432,18 @@ function NexusDashboard({
     [loadData],
   );
 
+  const moduleCategories = Array.from(new Set(
+    modules.map((module) => String(module.settings?.category || "General")),
+  )).sort((a, b) => a.localeCompare(b));
+  const visibleModules = modules.filter((module) => {
+    const query = moduleSearch.trim().toLowerCase();
+    const matchesSearch = !query || `${module.display_name} ${module.module_key}`.toLowerCase().includes(query);
+    const category = String(module.settings?.category || "General");
+    return matchesSearch && (moduleCategory === "all" || category === moduleCategory);
+  });
+  const enforcedModuleCount = modules.filter((module) => module.settings?.enforcement_state !== "registry_only").length;
+  const pendingModuleCount = modules.length - enforcedModuleCount;
+
   return (
     <main
       style={{
@@ -1708,9 +1721,9 @@ function NexusDashboard({
               <h2 style={{ marginTop: 0 }}>Module settings</h2>
 
               <div role="note" style={{ margin: '12px 0 16px', padding: 14, borderRadius: 10, border: '1px solid #e5c66b', background: '#fff9e8', color: '#614b12' }}>
-                <strong>Control scope: configuration and audit only</strong>
+                <strong>Verified feature controls</strong>
                 <p style={{ margin: '6px 0 0', lineHeight: 1.6 }}>
-                  A module marked Enabled is not automatically proven operational. A Disabled setting blocks access only where that feature checks the Nexus control. Each module must pass its own access, workflow and data-isolation tests before it can be marked launch-ready.
+                  Only controls connected to real access enforcement can be changed here. Features still awaiting route, server and database-policy enforcement are clearly marked as pending and cannot be falsely disabled from this screen.
                 </p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginBottom: 16 }}>
@@ -1728,7 +1741,7 @@ function NexusDashboard({
                 </div>
               </div>
               <p style={{ color: '#536456', lineHeight: 1.6 }}>
-                Changes are recorded in the database audit log. Before relying on a switch to restrict a feature, confirm that the feature checks the corresponding module key on the server or through a protected database policy. UI-only hiding is not sufficient security.
+                Every completed change is recorded in the private audit log. A feature is considered controllable only after its route, server actions and relevant database policies enforce the same setting; hiding a menu item alone is never treated as access control.
               </p>
 
               <label style={{ display: 'block', margin: '12px 0' }}>
@@ -1741,6 +1754,18 @@ function NexusDashboard({
                   style={{ width: '100%', boxSizing: 'border-box', padding: 12, border: '1px solid #cbd5cc', borderRadius: 8 }}
                 />
               </label>
+              <label style={{ display: "block", margin: "12px 0" }}>
+                <span style={{ display: "block", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Filter by feature area</span>
+                <select value={moduleCategory} onChange={(event) => setModuleCategory(event.target.value)} style={{ width: "100%", boxSizing: "border-box", padding: 12, border: "1px solid #cbd5cc", borderRadius: 8, background: "#fff" }}>
+                  <option value="all">All feature areas ({modules.length})</option>
+                  {moduleCategories.map((category) => <option key={category} value={category}>{category} ({modules.filter((module) => String(module.settings?.category || "General") === category).length})</option>)}
+                </select>
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "10px 0 14px" }}>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12 }}>Registered: <strong>{modules.length}</strong></span>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12, background: "#eef5ef" }}>Enforcement connected: <strong>{enforcedModuleCount}</strong></span>
+                <span style={{ ...statStyle, padding: "8px 11px", fontSize: 12, background: "#fff9e8" }}>Awaiting enforcement: <strong>{pendingModuleCount}</strong></span>
+              </div>
               {loading && modules.length === 0 && <p>Loading modules…</p>}
 
               {!loading && modules.length === 0 && !errorText && (
@@ -1748,7 +1773,7 @@ function NexusDashboard({
               )}
 
               <div style={{ display: 'grid', gap: 12 }}>
-                {modules.filter((module) => `${module.display_name} ${module.module_key}`.toLowerCase().includes(moduleSearch.trim().toLowerCase())).map((module) => (
+                {visibleModules.map((module) => (
                   <article
                     key={module.id}
                     style={{
@@ -1774,6 +1799,7 @@ function NexusDashboard({
                       >
                         {module.module_key}
                       </div>
+                      <div style={{ marginTop: 5, fontSize: 12, color: "#536456" }}>{String(module.settings?.category || "General")}</div>
 
                       <div style={{ marginTop: 7, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <span
@@ -1790,7 +1816,7 @@ function NexusDashboard({
                         </span>
                         {module.settings?.enforcement_state === 'registry_only' && (
                           <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#fff1d6', color: '#76520b' }}>
-                            Registry only · enforcement pending
+                            Access enforcement pending
                           </span>
                         )}
                       </div>
