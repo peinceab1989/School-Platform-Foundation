@@ -46,7 +46,7 @@ Requests are validated and text is length-limited by the Edge Function. The brow
 
 - `resa-public-customer-care` is deployed with platform JWT verification disabled so anonymous visitors can start chats.
 - Every administrator action validates the bearer token and checks for an active RESA administrator membership inside the Edge Function.
-- Visitor conversation, message and rate-limit tables have RLS enabled and are service-role-only.
+- Visitor conversation, message and rate-limit tables have RLS enabled, explicit deny policies for anon/authenticated roles, and service-role-only access.
 - Anonymous clients can read only the approved public availability fields through `resa_customer_care_public_availability`.
 - Customer Care assignment changes are protected by Chief Administrator RLS policies.
 - Schedule updates use column-level grants; the Chief Administrator identity is not editable through the schedule UI.
@@ -54,7 +54,7 @@ Requests are validated and text is length-limited by the Edge Function. The brow
 
 ## Delivery expectations
 
-The visitor widget refreshes messages by polling while the conversation is open. This is foreground chat delivery, not a claim of native WhatsApp/Telegram background push or email/WhatsApp delivery. Administrator unread counts are surfaced in the portal notification centre and refreshed through the existing foreground notification flow.
+Conversation updates use Realtime broadcast as the fast path, with secure polling as a recovery fallback while the visitor or administrator inbox is open. The school-wide admin refresh channel is private and permits only active RESA administrators; it carries only a generic refresh signal, not visitor identity, message text or conversation IDs. This is foreground chat delivery, not a claim of native WhatsApp/Telegram background push or email/WhatsApp delivery. Administrator unread counts are surfaced in the portal notification centre.
 
 ## Deployment
 
@@ -73,6 +73,7 @@ The visitor widget refreshes messages by polling while the conversation is open.
 - Confirm a non-assigned administrator cannot open another administrator's conversation.
 - Confirm the Chief Administrator can review all school visitor enquiries.
 - Confirm rate limits block requests beyond their configured threshold.
+- Confirm the private school-wide broadcast refresh channel is visible only to active RESA administrators.
 
 ## Current scope limitation
 
