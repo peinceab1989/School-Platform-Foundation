@@ -2111,13 +2111,18 @@ function FoundationPage() {
       }, (payload: any) => {
         const message = payload.new as Record<string, any>;
         if (String(message.recipient_id) !== uid || String(message.sender_id) === uid) return;
-        void showResaNotification(
-          `RESA · ${String(message.subject || 'New message')}`,
-          String(message.message || 'You have received a new school message.'),
-          `resa-message-${String(message.id || `message-${Date.now()}`)}`,
-          '/school-communication?message_id=' + encodeURIComponent(String(message.id || '')),
-          'messages',
-        );
+        void (async () => {
+          const senderProfile = await db.from('profiles').select('display_name').eq('id', message.sender_id).maybeSingle();
+          if (!alive) return;
+          const senderName = senderProfile.data?.display_name || 'School member';
+          void showResaNotification(
+            senderName + ' · ' + String(message.subject || 'New message'),
+            String(message.message || 'You have received a new school message.'),
+            `resa-message-${String(message.id || `message-${Date.now()}`)}`,
+            '/school-communication?message_id=' + encodeURIComponent(String(message.id || '')),
+            'messages',
+          );
+        })();
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'resa_chat_messages',
