@@ -27,6 +27,8 @@ import AdminPortalShell from '@/components/admin-portal-shell';
 import ResaAssistantWidget from '@/components/resa-assistant-widget';
 import TechnicalSupportLauncher from '@/components/technical-support-launcher';
 const TechnicalSupportPage = lazy(() => import('@/pages/technical-support'));
+const TechnicalOperationsPage = lazy(() => import('@/pages/technical-operations'));
+const TechnicalAssignmentsPage = lazy(() => import('@/pages/technical-assignments'));
 const AdminDashboard = lazy(() => import('@/pages/admin-dashboard'));
 import ProfilePhotoCard from '@/components/profile-photo-card';
 import PeopleStatusNotices from '@/components/people-status-notices';
@@ -185,6 +187,7 @@ const ADMIN_SCHOOL_PATHS = [
   '/biometric-attendance',
   '/smart-access-management',
   '/school-cctv',
+  '/technical-operations',
 ];
 
 const PROTECTED_SCHOOL_PATHS = [
@@ -210,6 +213,8 @@ const PROTECTED_SCHOOL_PATHS = [
   '/external-cbt',
   '/school-cctv',
   '/technical-support',
+  '/technical-operations',
+  '/technical-assignments',
 ];
 
 const buttonStyle: CSSProperties = {
@@ -2866,6 +2871,7 @@ function FoundationPage() {
     !membershipsLoading
   ) {
     if (currentPath === '/technical-support') return withAdminShell(<TechnicalSupportPage />);
+    if (currentPath === '/technical-operations') return withAdminShell(<TechnicalOperationsPage />);
     if (currentPath === '/notifications') return withAdminShell(<NotificationsPage schoolId={adminMembership.schoolId} role="admin" />);
     if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     if (currentPath === '/resa-chat' && session) return withAdminShell(<ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
@@ -3021,9 +3027,11 @@ function FoundationPage() {
       '/teaching-materials',
       '/resa-chat',
       '/technical-support',
+      '/technical-assignments',
     ].includes(currentPath)
   ) {
     if (currentPath === '/technical-support') return <TechnicalSupportPage />;
+    if (currentPath === '/technical-assignments') return <TechnicalAssignmentsPage />;
     if (currentPath === '/results-management') return <ResultsManagementPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/teaching-materials') return <TeachingMaterialsPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
     if (currentPath === '/resa-chat') return <ResaChatPage schoolId={teacherMembership.schoolId} userId={session.user.id} role="teacher" />;
@@ -3436,6 +3444,8 @@ function AppRoutes() {
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/technical-support" component={FoundationPage} />
+        <Route path="/technical-operations" component={FoundationPage} />
+        <Route path="/technical-assignments" component={FoundationPage} />
         <Route path="/my-compliance" component={FoundationPage} />
         <Route path="/school-communication" component={FoundationPage} />
         <Route path="/staff-attendance" component={FoundationPage} />
