@@ -192,8 +192,12 @@ Deno.serve(async (req: Request) => {
       }
       if (action === "admin_close" || action === "admin_reopen") {
         const nextStatus = action === "admin_close" ? "closed" : "open";
+        const now = new Date().toISOString();
+        const changes = action === "admin_close"
+          ? { status: nextStatus, last_admin_read_at: now, unread_visitor_count: 0, updated_at: now }
+          : { status: nextStatus, updated_at: now };
         const { error } = await service.from("resa_public_care_conversations")
-          .update({status:nextStatus,updated_at:new Date().toISOString()}).eq("id",id);
+          .update(changes).eq("id",id);
         if (error) throw error;
         return reply(200,{ok:true,status:nextStatus},origin);
       }
