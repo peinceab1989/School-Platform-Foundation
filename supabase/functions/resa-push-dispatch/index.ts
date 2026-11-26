@@ -271,17 +271,17 @@ function makeNotification(eventType: string, row: PushRecord) {
 
   if (eventType === "school_message") {
     return {
-      title: String(row.subject || "").trim() || "New RESA message",
+      title: (String(row.__resa_sender_name || "RESA member") + " · " + (String(row.subject || "").trim() || "New message")).slice(0, 120),
       body: String(row.message || "You have received a new school message.").slice(0, 180),
-      url: "/notifications",
+      url: "/school-communication?message_id=" + encodeURIComponent(id),
       tag: "resa-message-" + id,
     };
   }
   if (eventType === "chat_message") {
     return {
-      title: "New RESA chat message",
+      title: (String(row.__resa_sender_name || "RESA member") + " · RESA chat").slice(0, 120),
       body: String(row.body || "You have received a new chat message.").slice(0, 180),
-      url: "/resa-chat",
+      url: "/resa-chat?conversation_id=" + encodeURIComponent(String(row.conversation_id || "")) + "&message_id=" + encodeURIComponent(id),
       tag: "resa-chat-" + id,
     };
   }
@@ -409,6 +409,19 @@ Deno.serve(async (request) => {
 
     const recipientIds = await resolveRecipients(eventType, row);
     if (!recipientIds.length) return json({ accepted: true, recipients: 0, sent: 0 });
+
+    // Resolve the sender's verified school display name for the phone alert.
+    // This lookup is server-side and never exposes recipient directory data.
+    if (eventType === "school_message" || eventType === "chat_message") {
+      const senderId = String(row.sender_id || "");
+      const schoolIdForSender = String(row.school_id || "");
+      if (senderId && schoolIdForSender) {
+        const { data: senderProfile, error: senderProfileError } = await admin
+          .from("profiles").select("display_name").eq("id", senderId).maybeSingle();
+        if (senderProfileError) throw senderProfileError;
+        if (senderProfile?.display_name) row.__resa_sender_name = String(senderProfile.display_name);
+      }
+    }
 
     const schoolId = String(row.school_id || "");
     const preferenceQuery = eventType === "attendance"
