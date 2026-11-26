@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ExternalLink, MapPin, Navigation, Search, Sparkles } from "lucide-react";
 
@@ -29,7 +29,7 @@ export default function ResaMapsExplorerPage() {
     return `https://www.google.com/maps?q=${encodeURIComponent(destination || SCHOOL_MAP_QUERY)}&z=${zoom}&output=embed`;
   }, [destination]);
 
-  function searchPlace(event: React.FormEvent<HTMLFormElement>) {
+  function searchPlace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = searchInput.trim();
     if (query) setDestination(query);
