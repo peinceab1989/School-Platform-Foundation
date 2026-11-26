@@ -2087,7 +2087,7 @@ function FoundationPage() {
         void showResaNotification(
           `RESA · ${String(message.subject || 'New message')}`,
           String(message.message || 'You have received a new school message.'),
-          String(message.id || `message-${Date.now()}`),
+          `resa-message-${String(message.id || `message-${Date.now()}`)}`,
           '/notifications',
           'messages',
         );
@@ -2103,7 +2103,7 @@ function FoundationPage() {
         void showResaNotification(
           `RESA · ${String(item.title || 'School announcement')}`,
           String(item.content || 'A new school announcement is available.'),
-          String(item.id || `announcement-${Date.now()}`),
+          `resa-announcement-${String(item.id || `announcement-${Date.now()}`)}`,
           '/notifications',
           'announcements',
         );
