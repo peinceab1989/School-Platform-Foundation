@@ -2046,9 +2046,9 @@ function FoundationPage() {
       .select('enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,in_app_sound_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
       .eq('school_id', sid).eq('user_id', uid).maybeSingle();
     const showResaNotification = async (title: string, body: string, tag: string, url: string, category: string) => {
-      if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
+      if (!alive) return;
       const { data: prefs } = await notificationPreferencesPromise;
-      if (!alive || prefs?.enabled === false || prefs?.phone_notifications_enabled !== true || prefs?.category_preferences?.[category] === false) return;
+      if (!alive || prefs?.enabled === false || prefs?.category_preferences?.[category] === false) return;
       if (category !== 'attendance' && prefs?.quiet_hours_enabled === true) {
         const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
         const now = Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
@@ -2083,6 +2083,7 @@ function FoundationPage() {
           }
         } catch { /* Autoplay restrictions or device settings may block in-app audio. */ }
       }
+      if (prefs?.phone_notifications_enabled !== true || !('Notification' in window) || Notification.permission !== 'granted') return;
       const hidePreview = prefs?.show_notification_preview === false;
       const safeTitle = hidePreview ? 'RESA · New school update' : title;
       const safeBody = hidePreview ? 'You have a new RESA school update. Sign in to view it.' : body;
