@@ -306,11 +306,17 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const directIds = items.filter(item => item.kind === "message" && item.unread).map(item => item.id);
       const chatIds = items.filter(item => item.kind === "chat" && item.unread).map(item => item.id.replace(/^chat-/, ""));
       const attendanceIds = items.filter(item => item.kind === "attendance" && item.source === "biometric_parent_notifications" && item.unread && item.sourceId).map(item => item.sourceId as string);
+      const publicCareIds = items.filter(item => item.kind === "visitor_care" && item.unread && item.conversationId).map(item => item.conversationId as string);
       if (directIds.length) {
         const { error: directError } = await db.from("school_messages").update({ is_read: true, read_at: new Date().toISOString() }).in("id", directIds).eq("recipient_id", userId);
         if (directError) throw directError;
       }
       if (attendanceIds.length) { const { error: attendanceError } = await db.from("biometric_parent_notifications").update({ read_at: new Date().toISOString() }).in("id", attendanceIds).eq("school_id", schoolId); if (attendanceError) throw attendanceError; }
+      if (publicCareIds.length) {
+        const results = await Promise.all(publicCareIds.map(conversation_id => db.functions.invoke("resa-public-customer-care", { body: { action: "admin_view", conversation_id } })));
+        const failed = results.find((result:any) => result.error);
+        if (failed) throw failed.error;
+      }
       if (chatIds.length) {
         const { error: chatError } = await db.from("resa_chat_message_reads").upsert(
           chatIds.map(message_id => ({ message_id, school_id: schoolId, user_id: userId })),
