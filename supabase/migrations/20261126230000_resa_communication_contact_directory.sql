@@ -11,9 +11,11 @@ where recipient_policy is null or recipient_policy = '{}'::jsonb;
 
 -- Check the current sender's role and the selected recipient's role against
 -- the administrator-managed policy. Administrators retain directory access.
+drop function if exists public.resa_chat_recipient_allowed(uuid, uuid);
 create or replace function public.resa_chat_recipient_allowed(
   p_school_id uuid,
-  p_recipient_id uuid
+  p_recipient_id uuid,
+  p_channel_key text default 'private_messages'
 )
 returns boolean
 language sql
@@ -33,20 +35,26 @@ as $function$
       and sender.user_id = (select auth.uid())
       and sender.status = 'active'::public.membership_status
       and p_recipient_id <> (select auth.uid())
+      and p_channel_key in ('private_messages', 'customer_care')
       and (
         sender.role = 'admin'::public.school_role
         or (
-          coalesce(settings.channel_policy ->> 'private_messages', 'true') = 'true'
-          and coalesce(settings.role_policy -> sender.role::text ->> 'private_messages', 'true') = 'true'
-          and coalesce(settings.recipient_policy -> sender.role::text, '[]'::jsonb)
-            ? recipient.role::text
+          coalesce(settings.channel_policy ->> p_channel_key, 'true') = 'true'
+          and coalesce(settings.role_policy -> sender.role::text ->> p_channel_key, 'true') = 'true'
+          and (
+            (p_channel_key = 'customer_care' and recipient.role = 'admin'::public.school_role)
+            or (
+              p_channel_key = 'private_messages'
+              and coalesce(settings.recipient_policy -> sender.role::text, '[]'::jsonb) ? recipient.role::text
+            )
+          )
         )
       )
   );
 $function$;
 
-revoke all on function public.resa_chat_recipient_allowed(uuid, uuid) from public, anon;
-grant execute on function public.resa_chat_recipient_allowed(uuid, uuid) to authenticated;
+revoke all on function public.resa_chat_recipient_allowed(uuid, uuid, text) from public, anon;
+grant execute on function public.resa_chat_recipient_allowed(uuid, uuid, text) to authenticated;
 
 create or replace function public.get_school_message_contacts(p_school_id uuid)
 returns table(user_id uuid, role public.school_role, display_name text)
@@ -87,7 +95,11 @@ as $function$
     and m.user_id <> auth.uid()
     and (
       c.role = 'admin'::public.school_role
-      or public.resa_chat_recipient_allowed(p_school_id, m.user_id)
+      or public.resa_chat_recipient_allowed(p_school_id, m.user_id, 'private_messages')
+      or (
+        m.role = 'admin'::public.school_role
+        and public.resa_chat_recipient_allowed(p_school_id, m.user_id, 'customer_care')
+      )
     )
   order by display_name, m.role;
 $function$;
@@ -108,7 +120,8 @@ with check (
   conversation_type = 'group'
   or public.resa_chat_recipient_allowed(
     school_id,
-    case when participant_one = (select auth.uid()) then participant_two else participant_one end
+    case when participant_one = (select auth.uid()) then participant_two else participant_one end,
+    case when conversation_type = 'admin_support' then 'customer_care' else 'private_messages' end
   )
 );
 
@@ -128,7 +141,8 @@ with check (
         c.conversation_type = 'group'
         or public.resa_chat_recipient_allowed(
           c.school_id,
-          case when c.participant_one = (select auth.uid()) then c.participant_two else c.participant_one end
+          case when c.participant_one = (select auth.uid()) then c.participant_two else c.participant_one end,
+          case when c.conversation_type = 'admin_support' then 'customer_care' else 'private_messages' end
         )
       )
   )
