@@ -62,9 +62,14 @@ begin
   if tg_op='INSERT' then
     new.created_by := auth.uid();
   end if;
-  if new.status='approved' and (tg_op='INSERT' or old.status is distinct from 'approved') then
-    new.approved_by := auth.uid();
-    new.approved_at := now();
+  if new.status='approved' then
+    if tg_op='INSERT' then
+      new.approved_by := auth.uid();
+      new.approved_at := now();
+    elsif old.status is distinct from 'approved' then
+      new.approved_by := auth.uid();
+      new.approved_at := now();
+    end if;
   end if;
   new.updated_at := now();
   return new;
