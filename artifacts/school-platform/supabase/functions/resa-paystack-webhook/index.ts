@@ -67,7 +67,54 @@ Deno.serve(async (req) => {
       .select("id,expected_amount_minor,currency,status,provider").eq("provider", "paystack")
       .eq("provider_reference", reference).maybeSingle();
     if (intentError) throw intentError;
-    if (!intent) return new Response("Unknown reference", { status: 200 });
+    if (!intent) {
+      const { data: admissionIntent, error: admissionIntentError } = await admin.from("admission_form_payment_intents")
+        .select("id,school_id,amount_minor,currency,status,provider_reference").eq("provider", "paystack")
+        .eq("provider_reference", reference).maybeSingle();
+      if (admissionIntentError) throw admissionIntentError;
+      if (!admissionIntent) return new Response("Unknown reference", { status: 200 });
+      if (admissionIntent.status === "paid") return new Response("Admission form already issued", { status: 200 });
+
+      const { data: admissionGateway, error: admissionGatewayError } = await admin.from("school_payment_gateway_settings")
+        .select("environment").eq("school_id", admissionIntent.school_id).eq("provider", "paystack").maybeSingle();
+      if (admissionGatewayError) throw admissionGatewayError;
+      const admissionEnvironment = admissionGateway?.environment === "live" ? "live" : "test";
+      const admissionSecret = await readVaultSecret(admin, admissionEnvironment, "api_secret_key");
+      const admissionPrefix = admissionEnvironment === "live" ? "sk_live_" : "sk_test_";
+      if (!admissionSecret || !admissionSecret.startsWith(admissionPrefix)) {
+        console.error("RESA admission verification credential is unavailable");
+        return new Response("Admission payment verification is temporarily unavailable", { status: 500 });
+      }
+
+      const admissionVerifyResponse = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+        headers: { Authorization: `Bearer ${admissionSecret}` },
+      });
+      const admissionVerified = await admissionVerifyResponse.json().catch(() => ({}));
+      const admissionTx = admissionVerified.data;
+      if (!admissionVerifyResponse.ok || admissionVerified.status !== true || admissionTx?.status !== "success") {
+        return new Response("Admission provider verification is not final; retry webhook", { status: 500 });
+      }
+      if (admissionTx.reference !== reference || admissionTx.currency !== "NGN" ||
+          Number(admissionTx.amount) !== Number(admissionIntent.amount_minor) ||
+          (event.data.id != null && String(admissionTx.id) !== String(event.data.id))) {
+        await admin.from("admission_form_payment_intents")
+          .update({ status: "failed", failure_code: "provider_verification_mismatch", updated_at: new Date().toISOString() })
+          .eq("id", admissionIntent.id).neq("status", "paid");
+        return new Response("Verified admission transaction does not match the RESA payment intent", { status: 200 });
+      }
+
+      const { error: admissionRecordError } = await admin.rpc("record_verified_admission_form_purchase", {
+        p_intent_id: admissionIntent.id,
+        p_provider_transaction_id: String(admissionTx.id),
+        p_verified_amount_minor: Number(admissionTx.amount),
+        p_verified_currency: String(admissionTx.currency),
+      });
+      if (admissionRecordError) {
+        console.error("RESA verified admission payment RPC failed", admissionRecordError.message);
+        return new Response("Admission payment verification requires retry", { status: 500 });
+      }
+      return new Response("Admission form payment verified", { status: 200 });
+    }
     if (intent.status === "paid") return new Response("Already processed", { status: 200 });
     const { data: gateway, error: gatewayError } = await admin.from("school_payment_gateway_settings")
       .select("environment").eq("school_id", SCHOOL_ID).eq("provider", "paystack").maybeSingle();
