@@ -14,9 +14,23 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [tab, setTab] = useState<"inbox" | "sent">("inbox");
-  const [composeChannel, setComposeChannel] = useState<"private" | "customer_care">("private");
+  const [composeChannel, setComposeChannel] = useState<"private" | "customer_care">(() => role === "admin" ? "private" : "customer_care");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatEnabled, setChatEnabled] = useState(false);
+  const [channelPolicy, setChannelPolicy] = useState<Record<string, boolean>>({
+    private_messages: true, group_messages: true, announcements: true, customer_care: true, file_attachments: true,
+  });
+  const [rolePolicy, setRolePolicy] = useState<Record<string, Record<string, boolean>>>({
+    teacher: { private_messages: true, group_messages: true, announcements: true, customer_care: true },
+    parent: { private_messages: true, group_messages: true, announcements: true, customer_care: true },
+    student: { private_messages: false, group_messages: true, announcements: true, customer_care: true },
+  });
+  const [recipientPolicy, setRecipientPolicy] = useState<Record<string, string[]>>({
+    admin: ["admin", "teacher", "parent", "student"],
+    teacher: ["admin", "student"],
+    parent: ["admin"],
+    student: ["admin", "teacher"],
+  });
   const [allowAllStudents, setAllowAllStudents] = useState(false);
   const [allowedStudentIds, setAllowedStudentIds] = useState<string[]>([]);
   const [accessSaving, setAccessSaving] = useState(false);
@@ -27,6 +41,8 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
   const [messageSearch, setMessageSearch] = useState("");
   const [messageDate, setMessageDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
   const [userId, setUserId] = useState("");
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [focusedMessageId] = useState(() => typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("message_id") || "" : "");
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -51,26 +67,43 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
         setContacts((contactsResult.data ?? []).filter((m: any) => m.user_id !== auth.user.id).map((m: any) => ({
           user_id: m.user_id,
           role: m.role,
-          display_name: m.display_name || (String(m.role).charAt(0).toUpperCase() + String(m.role).slice(1) + " member"),
+          display_name: m.display_name || "Name not set — ask the school office to update this profile",
         })));
       }
       if (messagesResult.error) throw messagesResult.error;
       setMessages((messagesResult.data ?? []) as Message[]);
+      const senderIds = [...new Set((messagesResult.data ?? []).map((message: any) => message.sender_id).filter(Boolean))];
+      if (senderIds.length) {
+        const profileResult = await db.from("profiles").select("id,display_name").in("id", senderIds);
+        if (!profileResult.error) setMemberNames(Object.fromEntries((profileResult.data ?? []).map((profile: any) => [profile.id, profile.display_name || "School member"])));
+      }
       if (role === "admin") {
         const [accessResult, chatResult] = await Promise.all([
           db.from("school_messaging_access").select("allow_all_students,allowed_student_ids").eq("school_id", schoolId).maybeSingle(),
-          db.from("resa_chat_settings").select("chat_enabled").eq("school_id", schoolId).maybeSingle(),
+          db.from("resa_chat_settings").select("chat_enabled,channel_policy,role_policy,recipient_policy").eq("school_id", schoolId).maybeSingle(),
         ]);
         if (accessResult.error) throw accessResult.error;
         if (chatResult.error) throw chatResult.error;
         setAllowAllStudents(Boolean(accessResult.data?.allow_all_students));
         setAllowedStudentIds((accessResult.data?.allowed_student_ids ?? []) as string[]);
         setChatEnabled(Boolean(chatResult.data?.chat_enabled));
+        setChannelPolicy({ private_messages: true, group_messages: true, announcements: true, customer_care: true, file_attachments: true, ...(chatResult.data?.channel_policy ?? {}) });
+        setRolePolicy({
+          teacher: { private_messages: true, group_messages: true, announcements: true, customer_care: true, file_attachments: true, ...(chatResult.data?.role_policy?.teacher ?? {}) },
+          parent: { private_messages: true, group_messages: true, announcements: true, customer_care: true, file_attachments: true, ...(chatResult.data?.role_policy?.parent ?? {}) },
+          student: { private_messages: false, group_messages: true, announcements: true, customer_care: true, file_attachments: true, ...(chatResult.data?.role_policy?.student ?? {}) },
+        });
+        setRecipientPolicy({ admin: ["admin", "teacher", "parent", "student"], teacher: ["admin", "student"], parent: ["admin"], student: ["admin", "teacher"], ...(chatResult.data?.recipient_policy ?? {}) });
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load school messages."); }
     finally { setLoading(false); }
   }, [schoolId]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!focusedMessageId) return;
+    setTab("inbox");
+    document.getElementById("school-message-" + focusedMessageId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusedMessageId, messages]);
 
   async function send(event: FormEvent) {
     event.preventDefault(); setError(""); setNotice("");
@@ -122,6 +155,28 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
     finally { setAccessSaving(false); }
   }
 
+  async function saveCommunicationPolicies() {
+    if (role !== "admin") return;
+    setAccessSaving(true); setError(""); setNotice("");
+    try {
+      const db = getSupabaseClient() as any;
+      const { data: auth, error: authError } = await db.auth.getUser();
+      if (authError || !auth.user) throw new Error("Please sign in again.");
+      const { error: saveError } = await db.from("resa_chat_settings").upsert({
+        school_id: schoolId,
+        channel_policy: channelPolicy,
+        role_policy: rolePolicy,
+        recipient_policy: recipientPolicy,
+        policy_updated_at: new Date().toISOString(),
+        updated_by: auth.user.id,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "school_id" });
+      if (saveError) throw saveError;
+      setNotice("Communication channel and role permissions have been saved and are enforced by the database.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Communication permissions could not be saved."); }
+    finally { setAccessSaving(false); }
+  }
+
   async function saveStudentMessagingAccess() {
     if (role !== "admin") return;
     setAccessSaving(true); setError(""); setNotice("");
@@ -157,14 +212,14 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
     const query = messageSearch.trim().toLocaleLowerCase();
     return inTab && day === messageDate && (!query || `${m.subject} ${m.message}`.toLocaleLowerCase().includes(query));
   });
-  const nameFor = (id: string) => id === userId ? "You" : contacts.find(c => c.user_id === id)?.display_name || "School member";
+  const nameFor = (id: string) => id === userId ? "You" : contacts.find(c => c.user_id === id)?.display_name || memberNames[id] || "School member";
   const field = "mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-600";
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
-      <Link href={role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "parent" ? "/school-cctv" : "/student-dashboard"} className="mb-4 inline-flex items-center gap-2 text-sm text-emerald-100"><ArrowLeft size={16}/> Back to portal</Link>
+      <Link href={role === "admin" ? "/dashboard" : role === "teacher" ? "/teacher-dashboard" : role === "parent" ? "/parent-dashboard" : "/student-dashboard"} className="mb-4 inline-flex items-center gap-2 text-sm text-emerald-100"><ArrowLeft size={16}/> Back to portal</Link>
       <div className="flex items-center gap-3"><span className="rounded-xl bg-white/10 p-3"><MessageSquare size={25}/></span><div><p className="text-xs uppercase tracking-widest text-emerald-200">RESA School Portal</p><h1 className="text-2xl font-extrabold">Communication Centre</h1></div></div>
-      <p className="mt-2 text-sm text-emerald-100">One place for private messages, Customer Care, school chat, announcements and account notifications.</p>
-      <div className="mt-3 flex flex-wrap gap-2"><Link href="/resa-chat" className="inline-flex items-center gap-2 rounded-lg bg-amber-300 px-3 py-2 text-sm font-bold text-emerald-950">Group & live chat</Link><Link href="/notifications" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">Notification inbox</Link>{role === "admin" && <Link href="/announcements" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">Manage announcements</Link>}</div>
+      <p className="mt-2 text-sm text-emerald-100">A unified home for official school messages, administrator-controlled private chat, Customer Care, announcements and instant account notifications. Use RESA Chat for role-based conversations and live replies.</p>
+      <div className="mt-3 flex flex-wrap gap-2"><Link href="/resa-chat" className="inline-flex items-center gap-2 rounded-lg bg-amber-300 px-3 py-2 text-sm font-bold text-emerald-950">Open RESA Chat</Link><Link href="/resa-chat?channel=customer_care" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">In-app Customer Care</Link><Link href="/notifications" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">Notification inbox</Link>{role === "admin" && <Link href="/announcements" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">Manage announcements</Link>}</div>
     </div></header>
     <div className="mx-auto grid max-w-6xl gap-5 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
       <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
@@ -177,14 +232,38 @@ export default function SchoolCommunicationPage({ schoolId, role }: { schoolId: 
         <div className="mt-3 flex gap-2"><button onClick={()=>setTab("inbox")} className={`rounded-lg px-4 py-2 text-sm font-bold ${tab==="inbox"?"bg-emerald-900 text-white":"bg-slate-100"}`}>Inbox ({messages.filter(m=>m.recipient_id===userId&&!m.is_read).length} unread)</button><button onClick={()=>setTab("sent")} className={`rounded-lg px-4 py-2 text-sm font-bold ${tab==="sent"?"bg-emerald-900 text-white":"bg-slate-100"}`}>Sent</button></div>
         {loading&&<p className="py-6 text-sm text-slate-500">Loading messages…</p>}
         {!loading&&visible.length===0&&<div className="mt-4 rounded-xl border border-dashed p-8 text-center"><MessageSquare className="mx-auto text-slate-400" size={30}/><p className="mt-2 font-semibold">No messages here yet</p><p className="mt-1 text-sm text-slate-500">Messages sent to you or by you will appear here.</p></div>}
-        <div className="mt-3 max-h-[58vh] space-y-2 overflow-y-auto pr-1">{visible.map(m=><article key={m.id} onClick={()=>void markRead(m)} className={`rounded-xl border p-3 ${!m.is_read&&m.recipient_id===userId?"border-emerald-300 bg-emerald-50/50":"border-slate-200"}`}><div className="flex flex-wrap items-start justify-between gap-2"><h3 className="font-bold">{m.subject}</h3><div className="flex gap-2">{m.channel==="customer_care"&&<span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">Customer Care</span>}{m.channel==="announcement"&&<span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-900">School notification</span>}{!m.is_read&&m.recipient_id===userId&&<span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-900">Unread</span>}</div></div><p className="mt-1 text-xs text-slate-500">{tab==="inbox"?"From: "+nameFor(m.sender_id):"To: "+nameFor(m.recipient_id)} · {new Date(m.sent_at).toLocaleString()}</p><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{m.message}</p>{m.channel==="customer_care"&&m.recipient_id===userId&&<button type="button" onClick={e=>{e.stopPropagation();replyToCustomerCare(m)}} className="mt-3 rounded-lg bg-emerald-900 px-3 py-2 text-sm font-bold text-white">Reply in this conversation</button>}</article>)}</div>
+        <div className="mt-3 max-h-[58vh] space-y-2 overflow-y-auto pr-1">{visible.map(m=><article id={"school-message-" + m.id} key={m.id} onClick={()=>void markRead(m)} className={`rounded-xl border p-3 ${focusedMessageId===m.id?"border-emerald-500 ring-2 ring-emerald-100":!m.is_read&&m.recipient_id===userId?"border-emerald-300 bg-emerald-50/50":"border-slate-200"}`}><div className="flex flex-wrap items-start justify-between gap-2"><h3 className="font-bold">{m.subject}</h3><div className="flex gap-2">{m.channel==="customer_care"&&<span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">Customer Care</span>}{m.channel==="announcement"&&<span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-bold text-blue-900">School notification</span>}{!m.is_read&&m.recipient_id===userId&&<span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-900">Unread</span>}</div></div><p className="mt-1 text-xs text-slate-500">{tab==="inbox"?"From: "+nameFor(m.sender_id):"To: "+nameFor(m.recipient_id)} · {new Date(m.sent_at).toLocaleString()}</p><p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6">{m.message}</p>{m.channel==="customer_care"&&m.recipient_id===userId&&<button type="button" onClick={e=>{e.stopPropagation();replyToCustomerCare(m)}} className="mt-3 rounded-lg bg-emerald-900 px-3 py-2 text-sm font-bold text-white">Reply in this conversation</button>}</article>)}</div>
       </section>
-      {role === "admin" && <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6"><div className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50 p-4"><h2 className="font-bold text-emerald-950">School group chat</h2><p className="mt-1 text-sm text-slate-600">{chatEnabled ? "Active — authorised members can use group chat." : "Paused — group chat is unavailable to members. Existing messages are retained."}</p><button type="button" onClick={() => void toggleGroupChat()} disabled={accessSaving} className="mt-3 rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{accessSaving ? "Saving…" : chatEnabled ? "Pause group chat" : "Activate group chat"}</button></div><h2 className="text-lg font-bold">Student messaging access</h2><p className="mt-1 text-sm text-slate-600">Choose which active students can use private school messages. This setting is also enforced by the database.</p><label className="mt-4 flex items-center gap-3 rounded-lg bg-slate-50 p-3 text-sm font-semibold"><input type="checkbox" checked={allowAllStudents} onChange={e=>setAllowAllStudents(e.target.checked)} /> Enable private messaging for all active students</label>{!allowAllStudents && <div className="mt-3 max-h-56 space-y-2 overflow-y-auto rounded-lg border p-3">{contacts.filter(c=>c.role==="student").map(s=><label key={s.user_id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={allowedStudentIds.includes(s.user_id)} onChange={e=>setAllowedStudentIds(old=>e.target.checked?[...old,s.user_id]:old.filter(id=>id!==s.user_id))}/>{s.display_name} · student</label>)}{!contacts.some(c=>c.role==="student")&&<p className="text-sm text-slate-500">No active student accounts were returned by the school directory.</p>}</div>}<button type="button" onClick={()=>void saveStudentMessagingAccess()} disabled={accessSaving} className="mt-3 rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{accessSaving?"Saving…":"Save student access"}</button></section>}
-      <section className="h-fit rounded-2xl border bg-white p-4 shadow-sm sm:p-6"><div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><Send size={21}/></span><div><h2 className="text-lg font-bold">Compose message</h2><p className="text-sm text-slate-500">Send securely within RESA.</p></div></div>
+      {role === "admin" && <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6"><div className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50 p-4"><h2 className="font-bold text-emerald-950">School group chat</h2><p className="mt-1 text-sm text-slate-600">{chatEnabled ? "Active — authorised members can use group chat." : "Paused — group chat is unavailable to members. Existing messages are retained."}</p><button type="button" onClick={() => void toggleGroupChat()} disabled={accessSaving} className="mt-3 rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{accessSaving ? "Saving…" : chatEnabled ? "Pause group chat" : "Activate group chat"}</button></div><div className="mt-5 border-t border-slate-200 pt-5">
+          <h2 className="text-lg font-bold">Communication permissions</h2>
+          <p className="mt-1 text-sm text-slate-600">Control which channels are available school-wide and which roles may use them. These rules are checked by database security policies, not just by the screen.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {([{key:"private_messages",label:"Private messages"},{key:"group_messages",label:"Group messages"},{key:"announcements",label:"School announcements"},{key:"customer_care",label:"Customer Care"},{key:"file_attachments",label:"Chat file sharing / downloads"}] as const).map(item=><label key={item.key} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" checked={channelPolicy[item.key] !== false} onChange={e=>setChannelPolicy(old=>({...old,[item.key]:e.target.checked}))}/>{item.label}</label>)}
+          </div>
+          <h3 className="mt-4 text-sm font-bold text-slate-800">Role permissions</h3>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-3">Role</th><th className="p-3">Private</th><th className="p-3">Group</th><th className="p-3">Announcements</th><th className="p-3">Customer Care</th></tr></thead>
+              <tbody>{(["teacher","parent","student"] as const).map(memberRole=><tr key={memberRole} className="border-t border-slate-100"><th className="p-3 capitalize">{memberRole}</th>{(["private_messages","group_messages","announcements","customer_care"] as const).map(key=><td key={key} className="p-3"><input aria-label={memberRole+" "+key} type="checkbox" checked={rolePolicy[memberRole]?.[key] !== false} disabled={channelPolicy[key] === false} onChange={e=>setRolePolicy(old=>({...old,[memberRole]:{...old[memberRole],[key]:e.target.checked}}))}/></td>)}</tr>)}</tbody>
+            </table>
+          </div>
+          <h3 className="mt-5 text-sm font-bold text-slate-800">Who each role may message</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Choose recipient groups separately for each sender role. If a group is disabled, its names are hidden and the user is told to contact the administrator. Administrators can still manage all school members.</p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full min-w-[540px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="p-3">Sender role</th><th className="p-3">Admins</th><th className="p-3">Teachers</th><th className="p-3">Parents</th><th className="p-3">Students</th></tr></thead>
+              <tbody>{(["teacher","parent","student"] as const).map(senderRole=><tr key={senderRole} className="border-t border-slate-100"><th className="p-3 capitalize">{senderRole}</th>{(["admin","teacher","parent","student"] as const).map(targetRole=><td key={targetRole} className="p-3"><input type="checkbox" aria-label={senderRole+" may message "+targetRole} checked={(recipientPolicy[senderRole] ?? []).includes(targetRole)} disabled={channelPolicy.private_messages===false||rolePolicy[senderRole]?.private_messages===false} onChange={e=>setRecipientPolicy(old=>({...old,[senderRole]:e.target.checked?[...new Set([...(old[senderRole]??[]),targetRole])]: (old[senderRole]??[]).filter(value=>value!==targetRole)}))}/></td>)}</tr>)}</tbody>
+            </table>
+          </div>
+          <div className="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-950">Administrators retain management access. Voice and video calls remain unavailable until a calling provider is configured and tested; they are not presented as active channels.</div>
+          <button type="button" onClick={()=>void saveCommunicationPolicies()} disabled={accessSaving} className="mt-3 rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{accessSaving?"Saving…":"Save communication permissions"}</button>
+        </div>
+        <div className="mt-5 border-t border-slate-200 pt-5"><h2 className="text-lg font-bold">Student messaging access</h2></div><p className="mt-1 text-sm text-slate-600">Choose which active students can use private school messages. This setting is also enforced by the database.</p><label className="mt-4 flex items-center gap-3 rounded-lg bg-slate-50 p-3 text-sm font-semibold"><input type="checkbox" checked={allowAllStudents} onChange={e=>setAllowAllStudents(e.target.checked)} /> Enable private messaging for all active students</label>{!allowAllStudents && <div className="mt-3 max-h-56 space-y-2 overflow-y-auto rounded-lg border p-3">{contacts.filter(c=>c.role==="student").map(s=><label key={s.user_id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={allowedStudentIds.includes(s.user_id)} onChange={e=>setAllowedStudentIds(old=>e.target.checked?[...old,s.user_id]:old.filter(id=>id!==s.user_id))}/>{s.display_name} · student</label>)}{!contacts.some(c=>c.role==="student")&&<p className="text-sm text-slate-500">No active student accounts were returned by the school directory.</p>}</div>}<button type="button" onClick={()=>void saveStudentMessagingAccess()} disabled={accessSaving} className="mt-3 rounded-lg bg-emerald-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{accessSaving?"Saving…":"Save student access"}</button></section>}
+      <section className="h-fit rounded-2xl border bg-white p-4 shadow-sm sm:p-6"><div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><Send size={21}/></span><div><h2 className="text-lg font-bold">Compose message</h2><p className="text-sm text-slate-500">Send official portal messages here. For live private chats and recipient-category permissions, open RESA Chat above.</p></div></div>
         <form onSubmit={e=>void send(e)} className="mt-5 space-y-4">
-          <fieldset className="space-y-2"><legend className="text-sm font-semibold">Message type</legend><div className="grid grid-cols-2 gap-2"><button type="button" aria-pressed={composeChannel==="private"} onClick={()=>{setComposeChannel("private");setConversationId(null);setRecipient("");}} className={`rounded-lg border px-3 py-2.5 text-sm font-bold ${composeChannel==="private"?"border-emerald-900 bg-emerald-900 text-white":"border-slate-300 bg-white text-slate-700"}`}>{role==="admin"?"Direct message / announcement":"Private message"}</button><button type="button" aria-pressed={composeChannel==="customer_care"} onClick={()=>{setComposeChannel("customer_care");setConversationId(null);setRecipient("");}} className={`rounded-lg border px-3 py-2.5 text-sm font-bold ${composeChannel==="customer_care"?"border-amber-700 bg-amber-100 text-amber-950":"border-slate-300 bg-white text-slate-700"}`}>Customer Care</button></div><p className="text-xs text-slate-500">{composeChannel==="customer_care"?"Contact the school administration or reply to an existing support conversation.":"Send a private message or a targeted announcement to the selected school audience."}</p></fieldset>
+          <fieldset className="space-y-2"><legend className="text-sm font-semibold">Message type</legend><div className={role==="admin"?"grid grid-cols-2 gap-2":"grid grid-cols-1 gap-2"}>{role==="admin"&&<button type="button" aria-pressed={composeChannel==="private"} onClick={()=>{setComposeChannel("private");setConversationId(null);setRecipient("");}} className={`rounded-lg border px-3 py-2.5 text-sm font-bold ${composeChannel==="private"?"border-emerald-900 bg-emerald-900 text-white":"border-slate-300 bg-white text-slate-700"}`}>Direct message / announcement</button>}<button type="button" aria-pressed={composeChannel==="customer_care"} onClick={()=>{setComposeChannel("customer_care");setConversationId(null);setRecipient("");}} className={`rounded-lg border px-3 py-2.5 text-sm font-bold ${composeChannel==="customer_care"?"border-amber-700 bg-amber-100 text-amber-950":"border-slate-300 bg-white text-slate-700"}`}>Customer Care</button></div><p className="text-xs text-slate-500">{composeChannel==="customer_care"?"Contact the school administration or reply to an existing support conversation.":"Send a private message or a targeted announcement to the selected school audience."}</p></fieldset>
           {role === "admin" && composeChannel === "private" && <fieldset className="space-y-2"><legend className="text-sm font-semibold">Who should receive this?</legend><select className={field} value={recipientMode} onChange={e=>{setRecipientMode(e.target.value as typeof recipientMode);setRecipient("");}}><option value="individual">One person — search by name</option><option value="all">General notification — everyone</option><option value="teacher">All teachers and staff</option><option value="student">All students</option><option value="parent">All parents</option></select>{recipientMode === "individual" ? <input className={field} value={contactSearch} onChange={e=>setContactSearch(e.target.value)} placeholder="Search a student, parent, teacher or staff name…" /> : <p className="text-xs text-slate-500">A separate notification is delivered to each active member. Recipients cannot see one another.</p>}</fieldset>}
-          {(role !== "admin" || composeChannel === "customer_care" || recipientMode === "individual") && <label className="block text-sm font-semibold">Recipient<select className={field} value={recipient} onChange={e=>setRecipient(e.target.value)} required><option value="">{composeChannel==="customer_care"?"Select school Customer Care administrator":"Select a school member"}</option>{contacts.filter(c=>composeChannel==="customer_care" ? (role==="admin" || c.role==="admin" || (conversationId !== null && c.user_id===recipient)) : role==="admin"||role==="teacher" ? c.role!=="parent" : c.role==="teacher"||c.role==="admin").filter(c=>!contactSearch || c.display_name.toLowerCase().includes(contactSearch.toLowerCase())).map(c=><option key={c.user_id} value={c.user_id}>{c.display_name} · {c.role}</option>)}</select></label>}
+          {(role !== "admin" || composeChannel === "customer_care" || recipientMode === "individual") && <label className="block text-sm font-semibold">Recipient<select className={field} value={recipient} onChange={e=>setRecipient(e.target.value)} required><option value="">{composeChannel==="customer_care"?"Select school Customer Care administrator":"Select a school member"}</option>{contacts.filter(c=>role==="admin" ? (composeChannel==="customer_care" ? c.role==="admin" || (conversationId !== null && c.user_id===recipient) : true) : c.role==="admin").filter(c=>!contactSearch || c.display_name.toLowerCase().includes(contactSearch.toLowerCase())).map(c=><option key={c.user_id} value={c.user_id}>{c.display_name} · {c.role}</option>)}</select></label>}
           <label className="block text-sm font-semibold">Subject<input className={field} value={subject} onChange={e=>setSubject(e.target.value)} maxLength={160} required placeholder="Message subject"/></label>
           <label className="block text-sm font-semibold">Message<textarea className={field} value={body} onChange={e=>setBody(e.target.value)} rows={6} maxLength={5000} required placeholder="Write your message…"/></label>
           <p className="text-xs text-slate-500">Messages are stored in the school portal. Do not include passwords or sensitive personal data.</p>

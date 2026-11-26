@@ -53,18 +53,34 @@ self.addEventListener('push', (event) => {
   } catch {
     payload = { body: event.data ? event.data.text() : 'You have a new RESA update.' };
   }
-  const title = payload.title || 'RESA · School update';
-  const options = {
-    body: payload.body || payload.message || 'There is a new update in your parent portal.',
-    icon: payload.icon || '/media/logo/resa-logo.jpg?v=20261125',
-    badge: payload.badge || '/media/logo/resa-logo.jpg?v=20261125',
-    tag: payload.tag || 'resa-school-update',
-    data: { url: payload.url || '/parent-dashboard' },
-    renotify: true,
-    silent: false,
-    vibrate: Array.isArray(payload.vibrate) ? payload.vibrate : [180, 90, 180],
-  };
-  event.waitUntil(self.registration.showNotification(title, options));
+  const grouped = payload.grouped === true && typeof payload.tag === 'string';
+  const tag = payload.tag || 'resa-school-update';
+  event.waitUntil((async () => {
+    let count = 1;
+    if (grouped) {
+      const existing = await self.registration.getNotifications({ tag });
+      count = Math.max(1, Number(existing[0]?.data?.count || 0) + 1);
+    }
+    const sender = String(payload.sender || payload.title || 'RESA member');
+    const title = grouped
+      ? count === 1 ? sender + ' · New message' : 'RESA · ' + count + ' new messages'
+      : payload.title || 'RESA · School update';
+    const body = grouped
+      ? count === 1 ? (payload.body || 'You have received a new message.')
+        : count + ' new messages. Latest: ' + sender + (payload.preview ? ' · ' + String(payload.preview).slice(0, 100) : '')
+      : payload.body || payload.message || 'There is a new update in your RESA portal.';
+    const options = {
+      body,
+      icon: payload.icon || '/media/logo/resa-logo.jpg?v=20261125',
+      badge: payload.badge || '/media/logo/resa-logo.jpg?v=20261125',
+      tag,
+      data: { url: payload.url || '/notifications', count, grouped },
+      renotify: grouped,
+      silent: payload.silent === true,
+      vibrate: Array.isArray(payload.vibrate) ? payload.vibrate : [180, 90, 180],
+    };
+    await self.registration.showNotification(title, options);
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {

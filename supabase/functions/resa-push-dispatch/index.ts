@@ -11,10 +11,17 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-resa-push-token",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+};
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json", "cache-control": "no-store" },
+    headers: { ...corsHeaders, "content-type": "application/json", "cache-control": "no-store" },
   });
 }
 
@@ -145,13 +152,25 @@ async function resolveStaffUser(schoolId: string, staffId: string): Promise<stri
   return uniqueIds([data?.user_id]);
 }
 
+async function filterActiveSchoolMembers(schoolId: string, userIds: string[]): Promise<string[]> {
+  const ids = uniqueIds(userIds);
+  if (!schoolId || !ids.length) return [];
+  const { data, error } = await admin.from("school_memberships")
+    .select("user_id")
+    .eq("school_id", schoolId)
+    .eq("status", "active")
+    .in("user_id", ids);
+  if (error) throw error;
+  return uniqueIds((data || []).map((item) => item.user_id));
+}
+
 async function resolveRecipients(eventType: string, row: PushRecord): Promise<string[]> {
   const schoolId = String(row.school_id || "");
   if (!schoolId) return [];
 
 
   if (eventType === "school_message") {
-    return uniqueIds([row.recipient_id]);
+    return filterActiveSchoolMembers(schoolId, uniqueIds([row.recipient_id]));
   }
 
   if (eventType === "attendance") {
@@ -180,6 +199,12 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
       .maybeSingle();
     if (conversationError) throw conversationError;
     if (!conversation) return [];
+    // Determine the notification category from the verified conversation row,
+    // not from caller-supplied webhook data. Direct and Customer Care chats use
+    // the Private Messages preference; groups use Group Messages.
+    row.__resa_notification_category = conversation.conversation_type === "group"
+      ? "group_messages"
+      : "messages";
     let ids: string[] = [];
     if (conversation.conversation_type === "group") {
       const { data, error } = await admin
@@ -192,7 +217,7 @@ async function resolveRecipients(eventType: string, row: PushRecord): Promise<st
     } else {
       ids = uniqueIds([conversation.participant_one, conversation.participant_two]);
     }
-    return ids.filter((id) => id !== String(row.sender_id || ""));
+    return filterActiveSchoolMembers(schoolId, ids.filter((id) => id !== String(row.sender_id || "")));
   }
 
 
@@ -258,17 +283,17 @@ function makeNotification(eventType: string, row: PushRecord) {
 
   if (eventType === "school_message") {
     return {
-      title: String(row.subject || "").trim() || "New RESA message",
+      title: (String(row.__resa_sender_name || "RESA member") + " · " + (String(row.subject || "").trim() || "New message")).slice(0, 120),
       body: String(row.message || "You have received a new school message.").slice(0, 180),
-      url: "/notifications",
+      url: "/school-communication?message_id=" + encodeURIComponent(id),
       tag: "resa-message-" + id,
     };
   }
   if (eventType === "chat_message") {
     return {
-      title: "New RESA chat message",
+      title: (String(row.__resa_sender_name || "RESA member") + " · RESA chat").slice(0, 120),
       body: String(row.body || "You have received a new chat message.").slice(0, 180),
-      url: "/resa-chat",
+      url: "/resa-chat?conversation_id=" + encodeURIComponent(String(row.conversation_id || "")) + "&message_id=" + encodeURIComponent(id),
       tag: "resa-chat-" + id,
     };
   }
@@ -289,6 +314,9 @@ function makeNotification(eventType: string, row: PushRecord) {
 }
 
 Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
   if (request.method !== "POST") return json({ error: "POST required" }, 405);
   if (!supabaseUrl || !serviceRoleKey) return json({ error: "Push service is not configured" }, 503);
 
@@ -394,6 +422,19 @@ Deno.serve(async (request) => {
     const recipientIds = await resolveRecipients(eventType, row);
     if (!recipientIds.length) return json({ accepted: true, recipients: 0, sent: 0 });
 
+    // Resolve the sender's verified school display name for the phone alert.
+    // This lookup is server-side and never exposes recipient directory data.
+    if (eventType === "school_message" || eventType === "chat_message") {
+      const senderId = String(row.sender_id || "");
+      const schoolIdForSender = String(row.school_id || "");
+      if (senderId && schoolIdForSender) {
+        const { data: senderProfile, error: senderProfileError } = await admin
+          .from("profiles").select("display_name").eq("id", senderId).maybeSingle();
+        if (senderProfileError) throw senderProfileError;
+        if (senderProfile?.display_name) row.__resa_sender_name = String(senderProfile.display_name);
+      }
+    }
+
     const schoolId = String(row.school_id || "");
     const preferenceQuery = eventType === "attendance"
       ? admin.from("parent_attendance_notification_preferences")
@@ -404,13 +445,38 @@ Deno.serve(async (request) => {
         .eq("enabled", true)
         .eq("phone_notifications_enabled", true)
       : admin.from("resa_notification_preferences")
-        .select("user_id,enabled,phone_notifications_enabled")
+        .select("user_id,enabled,phone_notifications_enabled,category_preferences,category_sounds,vibration_enabled,show_notification_preview,quiet_hours_enabled,quiet_hours_start,quiet_hours_end")
         .eq("school_id", schoolId)
         .in("user_id", recipientIds)
         .eq("enabled", true)
         .eq("phone_notifications_enabled", true);
     const { data: preferences, error: preferenceError } = await preferenceQuery;
     if (preferenceError) throw preferenceError;
+    const categoryByEvent: Record<string, string> = {
+      school_message: "messages",
+      attendance: "attendance",
+      chat_message: "group_messages",
+      announcement: "announcements",
+      result_published: "results",
+      assignment_published: "academics",
+      assignment_graded: "academics",
+      exam_published: "cbt",
+      fee_update: "fees",
+      fee_payment: "fees",
+      timetable_update: "school_activities",
+      admission_admin: "admissions",
+    };
+    const category = eventType === "chat_message"
+      ? String(row.__resa_notification_category || "messages")
+      : categoryByEvent[eventType];
+    let categoryPreferenceRows: any[] = preferences || [];
+    if (eventType === "attendance") {
+      const categoryPreferenceResult = await admin.from("resa_notification_preferences")
+        .select("user_id,enabled,category_preferences,category_sounds,vibration_enabled,show_notification_preview,quiet_hours_enabled,quiet_hours_start,quiet_hours_end")
+        .eq("school_id", schoolId).in("user_id", recipientIds);
+      if (categoryPreferenceResult.error) throw categoryPreferenceResult.error;
+      categoryPreferenceRows = categoryPreferenceResult.data || [];
+    }
     const optedIn = selectPushRecipients({
       eventType,
       recipientIds,
@@ -418,33 +484,77 @@ Deno.serve(async (request) => {
       genericPreferences: eventType === "attendance" ? [] : (preferences || []),
       parentAttendancePreferences: eventType === "attendance" ? (preferences || []) as Array<{ user_id: string; parent_guardian_id: string; enabled: boolean; phone_notifications_enabled: boolean }> : [],
     });
-    if (!optedIn.length) return json({ accepted: true, recipients: recipientIds.length, devices: 0, sent: 0 });
+    const lagosClock = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).format(new Date());
+    const clockMinutes = Number(lagosClock.slice(0, 2)) * 60 + Number(lagosClock.slice(3, 5));
+    const categoryOptedIn = category
+      ? optedIn.filter((userId) => {
+          const preference = categoryPreferenceRows.find((item: any) => item.user_id === userId);
+          // The general notification master switch applies to every category,
+          // including attendance. The separate parent attendance opt-in is
+          // checked before this point and remains an additional requirement.
+          if (preference?.enabled === false) return false;
+          const categories = preference?.category_preferences;
+          // Missing legacy category keys default to enabled to preserve delivery.
+          if (categories && categories[category] === false) return false;
+          if (eventType !== "attendance" && preference?.quiet_hours_enabled === true) {
+            const startText = String(preference.quiet_hours_start || "21:00").slice(0, 5);
+            const endText = String(preference.quiet_hours_end || "07:00").slice(0, 5);
+            const [startHour, startMinute] = startText.split(":").map(Number);
+            const [endHour, endMinute] = endText.split(":").map(Number);
+            const start = startHour * 60 + startMinute;
+            const end = endHour * 60 + endMinute;
+            const inQuietHours = start === end ? false : start < end
+              ? clockMinutes >= start && clockMinutes < end
+              : clockMinutes >= start || clockMinutes < end;
+            if (inQuietHours) return false;
+          }
+          return true;
+        })
+      : optedIn;
+    if (!categoryOptedIn.length) return json({ accepted: true, recipients: recipientIds.length, devices: 0, sent: 0, skipped_by_preference: optedIn.length });
+
 
     const { data: subscriptions, error: subscriptionError } = await admin
       .from("resa_push_subscriptions")
       .select("id,user_id,endpoint,p256dh,auth_key")
       .eq("school_id", schoolId)
-      .in("user_id", optedIn);
+      .in("user_id", categoryOptedIn);
     if (subscriptionError) throw subscriptionError;
     if (!subscriptions?.length) return json({ accepted: true, recipients: optedIn.length, devices: 0, sent: 0 });
 
     webpush.setVapidDetails("mailto:rhemaexploitsacademy@gmail.com", publicKey, privateKey);
     const notice = makeNotification(eventType, row);
-    const payload = JSON.stringify({
-      ...notice,
-      icon: "/media/logo/resa-logo.jpg",
-      badge: "/media/logo/resa-logo.jpg?v=20261125",
-      vibrate: [180, 90, 180],
-    });
-
     let sent = 0;
     let expired = 0;
     const results = await Promise.allSettled(subscriptions.map(async (subscription) => {
       try {
+        const userPreference = categoryPreferenceRows.find((item: any) => item.user_id === subscription.user_id);
+        const userSound = category ? String(userPreference?.category_sounds?.[category] || "resa_chime") : "resa_chime";
+        const showPreview = userPreference?.show_notification_preview !== false;
+        const vibrationEnabled = userPreference?.vibration_enabled !== false;
+        const groupedMessage = eventType === "school_message" || eventType === "chat_message";
+        const recipientTag = groupedMessage
+          ? "resa-inbox-" + schoolId + "-" + subscription.user_id
+          : notice.tag;
+        const recipientPayload = JSON.stringify({
+          ...notice,
+          title: showPreview ? notice.title : "RESA · New school update",
+          body: showPreview ? notice.body : "You have a new RESA school update. Sign in to view it.",
+          sender: showPreview ? String(row.__resa_sender_name || "RESA member") : "RESA member",
+          preview: showPreview ? String(row.body || row.message || row.subject || "").slice(0, 100) : "",
+          tag: recipientTag,
+          grouped: groupedMessage,
+          icon: "/media/logo/resa-logo.jpg",
+          badge: "/media/logo/resa-logo.jpg?v=20261125",
+          silent: userSound === "silent",
+          vibrate: vibrationEnabled ? [180, 90, 180] : [],
+        });
         await webpush.sendNotification({
           endpoint: subscription.endpoint,
           keys: { p256dh: subscription.p256dh, auth: subscription.auth_key },
-        }, payload, { TTL: 3600, urgency: "high" });
+        }, recipientPayload, { TTL: 3600, urgency: "high" });
         sent += 1;
       } catch (error) {
         const statusCode = Number((error as { statusCode?: number })?.statusCode || 0);
@@ -458,7 +568,7 @@ Deno.serve(async (request) => {
     }));
     const failures = results.filter((result) => result.status === "rejected").length;
     if (failures) console.error("RESA push delivery failures:", failures);
-    return json({ accepted: true, recipients: optedIn.length, devices: subscriptions.length, sent, expired, failures });
+    return json({ accepted: true, recipients: categoryOptedIn.length, devices: subscriptions.length, sent, expired, failures });
   } catch (error) {
     console.error("RESA push dispatch failed:", error);
     return json({ error: error instanceof Error ? error.message : "Push dispatch failed" }, 500);

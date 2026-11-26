@@ -2042,18 +2042,101 @@ function FoundationPage() {
     let parentAttendanceChannel: any = null;
     let parentAttendancePoll: ReturnType<typeof setInterval> | null = null;
 
-    const showResaNotification = async (title: string, body: string, tag: string, url: string) => {
-      if (!alive || !('Notification' in window) || Notification.permission !== 'granted') return;
-      const options = { body, icon: '/media/logo/resa-logo.jpg?v=20261125', badge: '/media/logo/resa-logo.jpg?v=20261125', tag, data: { url } };
+    const updateResaAppBadge = async () => {
+      const badgeNavigator = navigator as Navigator & { setAppBadge?: (count?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+      if (!badgeNavigator.setAppBadge && !badgeNavigator.clearAppBadge) return;
+      const [directUnread, chatUnread] = await Promise.all([
+        db.from('school_messages').select('id', { count: 'exact', head: true })
+          .eq('school_id', sid).eq('recipient_id', uid).eq('is_read', false),
+        db.rpc('resa_get_unread_chat_count', { p_school_id: sid }),
+      ]);
+      if (!alive || directUnread.error || chatUnread.error) return;
+      const total = Math.max(0, Number(directUnread.count || 0) + Number(chatUnread.data || 0));
+      try {
+        if (total > 0) await badgeNavigator.setAppBadge?.(total);
+        else await badgeNavigator.clearAppBadge?.();
+      } catch { /* App icon badges are optional and depend on OS/browser support. */ }
+    };
+    void updateResaAppBadge();
+
+    const notificationPreferencesPromise = db.from('resa_notification_preferences')
+      .select('enabled,phone_notifications_enabled,category_preferences,category_sounds,show_notification_preview,vibration_enabled,in_app_sound_enabled,quiet_hours_enabled,quiet_hours_start,quiet_hours_end')
+      .eq('school_id', sid).eq('user_id', uid).maybeSingle();
+    const showResaNotification = async (title: string, body: string, tag: string, url: string, category: string) => {
+      if (!alive) return;
+      const { data: prefs } = await notificationPreferencesPromise;
+      if (!alive || prefs?.enabled === false || prefs?.category_preferences?.[category] === false) return;
+      if (category !== 'attendance' && prefs?.quiet_hours_enabled === true) {
+        const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+        const now = Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+        const startText = String(prefs.quiet_hours_start || '21:00').slice(0, 5);
+        const endText = String(prefs.quiet_hours_end || '07:00').slice(0, 5);
+        const [sh, sm] = startText.split(':').map(Number), [eh, em] = endText.split(':').map(Number);
+        const start = sh * 60 + sm, end = eh * 60 + em;
+        if (start !== end && (start < end ? now >= start && now < end : now >= start || now < end)) return;
+      }
+      const selectedSound = String(prefs?.category_sounds?.[category] || 'resa_chime');
+      if (prefs?.in_app_sound_enabled !== false && selectedSound !== 'silent') {
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioContextClass) {
+            const audio = new AudioContextClass();
+            const patterns: Record<string, number[]> = {
+              resa_chime: [784, 988], classic_bell: [1046, 784], digital_ping: [1175],
+              soft_tone: [523], gentle_melody: [659, 784, 988], crystal_drop: [1318, 1046],
+              double_beep: [880, 880], alert_tone: [988, 784, 988], message_pop: [740],
+              school_bell: [659, 784, 659], vibrant_ring: [880, 1046, 1318],
+            };
+            (patterns[selectedSound] || patterns.resa_chime).forEach((frequency, index) => {
+              const oscillator = audio.createOscillator(), gain = audio.createGain();
+              const start = audio.currentTime + index * 0.16;
+              oscillator.frequency.value = frequency; oscillator.type = 'sine';
+              gain.gain.setValueAtTime(0.0001, start); gain.gain.exponentialRampToValueAtTime(0.07, start + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
+              oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(start); oscillator.stop(start + 0.15);
+            });
+            void audio.resume().catch(() => undefined);
+            window.setTimeout(() => void audio.close(), 900);
+          }
+        } catch { /* Autoplay restrictions or device settings may block in-app audio. */ }
+      }
+      if (prefs?.phone_notifications_enabled !== true || !('Notification' in window) || Notification.permission !== 'granted') return;
+      // Keep private and group messages in one updating notification per signed-in
+      // school account. The unread count is visible once instead of filling the
+      // Android/iOS notification shade with one card per message.
+      if (document.visibilityState !== 'visible') return; // Background push is handled by sw.js.
+      const hidePreview = prefs?.show_notification_preview === false;
+      const grouped = category === 'messages' || category === 'group_messages';
+      const notificationTag = grouped ? 'resa-inbox-' + sid + '-' + uid : tag;
+      const safeTitle = hidePreview ? 'RESA · New school update' : title;
+      const safeBody = hidePreview ? 'You have a new RESA school update. Sign in to view it.' : body;
       try {
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.ready;
-          if (alive) await registration.showNotification(title, options);
+          if (!alive) return;
+          // When this account has a Web Push subscription, the service worker
+          // owns the system notification. The realtime listener still provides
+          // the in-app sound, but must not create a duplicate phone card.
+          const activeSubscription = await registration.pushManager.getSubscription();
+          if (activeSubscription) return;
+          const existing = grouped ? await registration.getNotifications({ tag: notificationTag }) : [];
+          const count = grouped ? Math.max(1, Number(existing[0]?.data?.count || 0) + 1) : 1;
+          const notificationTitle = grouped && count > 1 ? 'RESA · ' + count + ' new messages' : safeTitle;
+          const notificationBody = grouped && count > 1
+            ? count + ' new messages. Latest: ' + (hidePreview ? 'Open RESA to read your inbox.' : safeTitle + ' · ' + safeBody)
+            : safeBody;
+          const notificationOptions = {
+            body: notificationBody, icon: '/media/logo/resa-logo.jpg?v=20261125',
+            badge: '/media/logo/resa-logo.jpg?v=20261125', tag: notificationTag,
+            data: { url, count, grouped }, renotify: grouped,
+            silent: selectedSound === 'silent', vibrate: prefs?.vibration_enabled === false ? [] : [180, 90, 180],
+          } as NotificationOptions & { renotify?: boolean; vibrate?: number[] };
+          await registration.showNotification(notificationTitle, notificationOptions);
         } else if (alive) {
-          new Notification(title, options);
+          new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped } as NotificationOptions & { renotify?: boolean });
         }
       } catch {
-        if (alive) new Notification(title, options);
+        if (alive) new Notification(safeTitle, { body: safeBody, tag: notificationTag, renotify: grouped } as NotificationOptions & { renotify?: boolean });
       }
     };
 
@@ -2064,12 +2147,64 @@ function FoundationPage() {
       }, (payload: any) => {
         const message = payload.new as Record<string, any>;
         if (String(message.recipient_id) !== uid || String(message.sender_id) === uid) return;
-        void showResaNotification(
-          `RESA · ${String(message.subject || 'New message')}`,
-          String(message.message || 'You have received a new school message.'),
-          String(message.id || `message-${Date.now()}`),
-          '/notifications',
-        );
+        void updateResaAppBadge();
+        void (async () => {
+          const senderProfile = await db.from('profiles').select('display_name').eq('id', message.sender_id).maybeSingle();
+          if (!alive) return;
+          const senderName = senderProfile.data?.display_name || 'School member';
+          void showResaNotification(
+            senderName + ' · ' + String(message.subject || 'New message'),
+            String(message.message || 'You have received a new school message.'),
+            `resa-message-${String(message.id || `message-${Date.now()}`)}`,
+            '/school-communication?message_id=' + encodeURIComponent(String(message.id || '')),
+            'messages',
+          );
+        })();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'resa_chat_messages',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        const message = payload.new as Record<string, any>;
+        if (String(message.sender_id) === uid || !message.conversation_id) return;
+        void (async () => {
+          const { data: conversation, error: conversationError } = await db.from('resa_chat_conversations')
+            .select('id,subject,conversation_type,participant_one,participant_two')
+            .eq('school_id', sid).eq('id', message.conversation_id).maybeSingle();
+          if (!alive || conversationError || !conversation) return;
+          let isRecipient = conversation.participant_one === uid || conversation.participant_two === uid;
+          if (conversation.conversation_type === 'group') {
+            const membership = await db.from('resa_chat_group_members').select('user_id')
+              .eq('school_id', sid).eq('conversation_id', conversation.id).eq('user_id', uid).maybeSingle();
+            isRecipient = !membership.error && Boolean(membership.data);
+          }
+          if (!alive || !isRecipient) return;
+          void updateResaAppBadge();
+          const senderProfile = await db.from('profiles').select('display_name').eq('id', message.sender_id).maybeSingle();
+          const senderName = senderProfile.data?.display_name || 'School member';
+          const category = conversation.conversation_type === 'group' ? 'group_messages' : 'messages';
+          const title = conversation.conversation_type === 'group'
+            ? senderName + ' · ' + String(conversation.subject || 'RESA group')
+            : senderName + ' sent you a message';
+          const target = '/resa-chat?conversation_id=' + encodeURIComponent(String(conversation.id)) + '&message_id=' + encodeURIComponent(String(message.id));
+          void showResaNotification(
+            title,
+            String(message.body || 'You have received a new RESA message.'),
+            'resa-chat-' + String(message.id),
+            target,
+            category,
+          );
+        })();
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'resa_chat_message_reads',
+        filter: `school_id=eq.${sid}`,
+      }, () => { void updateResaAppBadge(); })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'school_messages',
+        filter: `school_id=eq.${sid}`,
+      }, (payload: any) => {
+        if (String(payload.new?.recipient_id) === uid) void updateResaAppBadge();
       })
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'announcements',
@@ -2082,8 +2217,9 @@ function FoundationPage() {
         void showResaNotification(
           `RESA · ${String(item.title || 'School announcement')}`,
           String(item.content || 'A new school announcement is available.'),
-          String(item.id || `announcement-${Date.now()}`),
+          `resa-announcement-${String(item.id || `announcement-${Date.now()}`)}`,
           '/notifications',
+          'announcements',
         );
       })
       .on('postgres_changes', {
@@ -2098,6 +2234,7 @@ function FoundationPage() {
           `${String(item.title || label)}. Reference: ${String(item.case_number || '')}. Open My Queries and Warnings to respond.`,
           String(item.id || `compliance-${Date.now()}`),
           '/my-compliance',
+          'system_alerts',
         );
       })
       .subscribe();
@@ -2142,6 +2279,7 @@ function FoundationPage() {
             String(row.message || 'A linked learner has checked in or out.'),
             id,
             '/parent-dashboard',
+            'attendance',
           );
         };
         parentAttendanceChannel = db.channel(`resa-parent-attendance-${sid}-${uid}`)

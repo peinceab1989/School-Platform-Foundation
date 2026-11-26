@@ -27,19 +27,25 @@ export default function AnnouncementsPage({ schoolId }: { schoolId: string }) {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [announcementChannelEnabled, setAnnouncementChannelEnabled] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const client = getSupabaseClient();
-      const { data, error: queryError } = await client
-        .from("announcements")
-        .select("id,title,content,announcement_type,is_published,published_at,expires_at,created_at")
-        .eq("school_id", schoolId)
-        .order("created_at", { ascending: false });
-      if (queryError) throw queryError;
-      setRows((data ?? []) as Announcement[]);
+      const [announcementsResult, settingsResult] = await Promise.all([
+        client.from("announcements")
+          .select("id,title,content,announcement_type,is_published,published_at,expires_at,created_at")
+          .eq("school_id", schoolId)
+          .order("created_at", { ascending: false }),
+        (client as any).from("resa_chat_settings").select("channel_policy").eq("school_id", schoolId).maybeSingle(),
+      ]);
+      if (announcementsResult.error) throw announcementsResult.error;
+      if (settingsResult.error) throw settingsResult.error;
+      setRows((announcementsResult.data ?? []) as Announcement[]);
+      const settingsData = settingsResult.data as { channel_policy?: Record<string, boolean> } | null;
+      setAnnouncementChannelEnabled(settingsData?.channel_policy?.announcements !== false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load announcements.");
     } finally {
@@ -91,6 +97,7 @@ export default function AnnouncementsPage({ schoolId }: { schoolId: string }) {
     try {
       const client = getSupabaseClient();
       const nextPublished = !row.is_published;
+      if (nextPublished && !announcementChannelEnabled) throw new Error("The school administrator has paused the announcements channel. You can still keep drafts and unpublish existing notices.");
       const { error: updateError } = await client.from("announcements")
         .update({ is_published: nextPublished, published_at: nextPublished ? new Date().toISOString() : null })
         .eq("id", row.id).eq("school_id", schoolId);
@@ -131,7 +138,7 @@ export default function AnnouncementsPage({ schoolId }: { schoolId: string }) {
       </div></header>
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">School notices</h2><p className="mt-1 text-sm text-slate-600">Create notices as drafts, then publish or unpublish them when needed.</p></div><div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold">School notices</h2><p className="mt-1 text-sm text-slate-600">Create notices as drafts, then publish or unpublish them when needed.</p>{!announcementChannelEnabled && <p className="mt-2 text-xs font-semibold text-amber-800">Publishing is paused by the school administrator. Drafts and unpublishing remain available.</p>}</div><div className="flex gap-2">
             <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh</button>
             <button type="button" onClick={() => setShowForm((value) => !value)} className="inline-flex items-center gap-2 rounded-lg bg-green-800 px-3 py-2 text-sm font-bold text-white hover:bg-green-900"><Plus className="h-4 w-4" /> New notice</button>
           </div></div>
@@ -147,7 +154,7 @@ export default function AnnouncementsPage({ schoolId }: { schoolId: string }) {
         <section className="mt-5 space-y-3">
           {loading ? <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading announcements…</p> : !rows.length ? <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">No announcements yet. Create your first notice above.</p> : rows.map((row) => <article key={row.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${row.is_published ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{row.is_published ? "Published" : "Draft"}</span><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-700">{row.announcement_type}</span></div><h3 className="mt-3 break-words text-lg font-bold">{row.title}</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{row.content}</p><p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500"><span>Created {formatDate(row.created_at)}</span><span className="inline-flex items-center gap-1"><CalendarClock className="h-3.5 w-3.5" />Expires: {formatDate(row.expires_at)}</span></p></div>
-              <div className="flex shrink-0 gap-2"><button type="button" disabled={busyId === row.id} onClick={() => void togglePublished(row)} className="rounded-lg bg-green-800 px-3 py-2 text-xs font-bold text-white hover:bg-green-900 disabled:opacity-50">{busyId === row.id ? "Working…" : row.is_published ? "Unpublish" : "Publish"}</button><button type="button" disabled={busyId === row.id} onClick={() => void deleteAnnouncement(row)} aria-label={`Delete ${row.title}`} className="rounded-lg border border-red-200 p-2 text-red-700 hover:bg-red-50 disabled:opacity-50"><Trash2 className="h-4 w-4" /></button></div>
+              <div className="flex shrink-0 gap-2"><button type="button" disabled={busyId === row.id || (!row.is_published && !announcementChannelEnabled)} onClick={() => void togglePublished(row)} className="rounded-lg bg-green-800 px-3 py-2 text-xs font-bold text-white hover:bg-green-900 disabled:opacity-50">{busyId === row.id ? "Working…" : row.is_published ? "Unpublish" : "Publish"}</button><button type="button" disabled={busyId === row.id} onClick={() => void deleteAnnouncement(row)} aria-label={`Delete ${row.title}`} className="rounded-lg border border-red-200 p-2 text-red-700 hover:bg-red-50 disabled:opacity-50"><Trash2 className="h-4 w-4" /></button></div>
             </div>
           </article>)}
         </section>

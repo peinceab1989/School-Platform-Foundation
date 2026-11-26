@@ -18,7 +18,7 @@ export type ResaPushRegistrationStatus = {
 
 export async function getResaPushRegistrationStatus(schoolId: string): Promise<ResaPushRegistrationStatus> {
   if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-    return { supported: false, permission: "unsupported", registered: false, detail: "Use Chrome on Android to register this phone." };
+    return { supported: false, permission: "unsupported", registered: false, detail: "This browser does not support Web Push. Try a current Chrome or Edge browser; on iPhone or iPad, install RESA from Safari using Add to Home Screen on iOS/iPadOS 16.4 or later." };
   }
   const permission = Notification.permission;
   if (permission !== "granted") {
@@ -60,7 +60,7 @@ export async function sendResaPushTestNotification(schoolId: string) {
 
 export async function enableResaPushNotifications(schoolId: string, requestPermission = true) {
   if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-    throw new Error("This browser does not support RESA phone push notifications. Use Chrome on Android.");
+    throw new Error("This browser does not support RESA Web Push. Try a current Chrome or Edge browser; on iPhone or iPad, install RESA from Safari using Add to Home Screen on iOS/iPadOS 16.4 or later.");
   }
   const permission = Notification.permission === "granted"
     ? "granted"
