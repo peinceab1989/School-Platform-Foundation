@@ -1449,7 +1449,10 @@ function NexusDashboard({
     const surface = String(module.settings?.surface || "RESA Portal");
     return matchesSearch && (moduleCategory === "all" || category === moduleCategory) && (moduleSurface === "all" || surface === moduleSurface);
   });
-  const enforcedModuleCount = modules.filter((module) => module.settings?.enforcement_state !== "registry_only").length;
+  const canToggleModule = (module: NexusModule) =>
+    ["ui_route_enforced","database_enforced","edge_function_enforced","component_enforced"]
+      .includes(String(module.settings?.enforcement_state || ""));
+  const enforcedModuleCount = modules.filter(canToggleModule).length;
   const pendingModuleCount = modules.length - enforcedModuleCount;
 
   return (
@@ -1834,9 +1837,14 @@ function NexusDashboard({
                         >
                           {module.is_enabled ? 'Enabled' : 'Disabled'}
                         </span>
-                        {module.settings?.enforcement_state === 'registry_only' && (
+                        {module.settings?.enforcement_state === 'alias' && (
+                          <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#e8eaf6', color: '#39446b' }}>
+                            Alias of {String(module.settings?.alias_of || 'canonical module')}
+                          </span>
+                        )}
+                        {!canToggleModule(module) && module.settings?.enforcement_state !== 'alias' && (
                           <span style={{ display: 'inline-block', borderRadius: 20, padding: '4px 9px', fontSize: 12, background: '#fff1d6', color: '#76520b' }}>
-                            Access enforcement pending
+                            {module.settings?.enforcement_state === 'registry_only' ? 'Access enforcement pending' : 'Enforcement not verified'}
                           </span>
                         )}
                       </div>
@@ -1845,17 +1853,17 @@ function NexusDashboard({
                     <button
                       type="button"
                       onClick={() => void changeModuleStatus(module)}
-                      disabled={busyModule !== null || loading || module.settings?.enforcement_state === 'registry_only'}
-                      title={module.settings?.enforcement_state === 'registry_only' ? 'This feature is registered but its access enforcement is not yet implemented.' : undefined}
+                      disabled={busyModule !== null || loading || !canToggleModule(module)}
+                      title={!canToggleModule(module) ? (module.settings?.enforcement_state === 'alias' ? 'This is a legacy alias. Change its canonical module instead.' : 'This feature is not connected to verified access enforcement and cannot be toggled here.') : undefined}
                       style={{
                         ...buttonStyle,
                         background: module.is_enabled ? '#8b2c2c' : '#17683b',
                         color: '#fff',
-                        opacity: busyModule !== null || loading || module.settings?.enforcement_state === 'registry_only' ? 0.45 : 1,
+                        opacity: busyModule !== null || loading || !canToggleModule(module) ? 0.45 : 1,
                       }}
                     >
-                      {module.settings?.enforcement_state === 'registry_only'
-                        ? 'Pending enforcement'
+                      {!canToggleModule(module)
+                        ? (module.settings?.enforcement_state === 'alias' ? 'Alias — manage canonical module' : 'Pending enforcement')
                         : busyModule === module.module_key
                           ? 'Saving…'
                           : module.is_enabled
