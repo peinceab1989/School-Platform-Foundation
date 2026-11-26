@@ -211,6 +211,9 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         .on("postgres_changes", { event: "*", schema: "public", table: "resa_chat_message_reads", filter: "school_id=eq." + schoolId }, (payload: any) => {
           if (payload.new?.user_id === userId || payload.old?.user_id === userId) void load(true);
         })
+        .on("postgres_changes", { event: "*", schema: "public", table: "resa_announcement_reads", filter: "user_id=eq." + userId }, () => {
+          void load(true);
+        })
         .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: "school_id=eq." + schoolId }, (payload: any) => {
           // The authenticated app-level listener handles the phone alert once;
           // this page only refreshes the inbox to avoid duplicate notifications.
