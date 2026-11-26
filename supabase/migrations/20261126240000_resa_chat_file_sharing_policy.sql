@@ -29,7 +29,24 @@ with check (
       and coalesce(s.channel_policy ->> 'file_attachments', 'true') = 'true'
       and (
         m.role = 'admin'::public.school_role
-        or coalesce(s.role_policy -> m.role::text ->> 'file_attachments', 'true') = 'true'
+        or (
+          coalesce(s.role_policy -> m.role::text ->> 'file_attachments', 'true') = 'true'
+          and (
+            (
+              c.conversation_type = 'group'
+              and exists (
+                select 1 from public.resa_chat_group_members gm
+                where gm.conversation_id = c.id
+                  and gm.school_id = c.school_id
+                  and gm.user_id = (select auth.uid())
+              )
+            )
+            or (
+              c.conversation_type <> 'group'
+              and (c.participant_one = (select auth.uid()) or c.participant_two = (select auth.uid()))
+            )
+          )
+        )
       )
   )
 );
