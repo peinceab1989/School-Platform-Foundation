@@ -44,10 +44,11 @@ async function adminFrom(req: Request) {
   return user.id;
 }
 async function assignedAdmin(duty: string) {
-  const { data: assignment } = await service.from("resa_customer_care_assignments")
-    .select("admin_user_id").eq("school_id", SCHOOL_ID).eq("enabled", true)
-    .in("duty_key", [duty, "all"]).order("duty_key", { ascending: true }).limit(1).maybeSingle();
-  const candidate = assignment?.admin_user_id;
+  const exact = await service.from("resa_customer_care_assignments").select("admin_user_id")
+    .eq("school_id",SCHOOL_ID).eq("enabled",true).eq("duty_key",duty).maybeSingle();
+  const allAccess = exact.data ? null : await service.from("resa_customer_care_assignments").select("admin_user_id")
+    .eq("school_id",SCHOOL_ID).eq("enabled",true).eq("duty_key","all").maybeSingle();
+  const candidate = exact.data?.admin_user_id || allAccess?.data?.admin_user_id;
   if (candidate) {
     const { data: active } = await service.from("school_memberships").select("user_id")
       .eq("school_id", SCHOOL_ID).eq("user_id", candidate).eq("role", "admin").eq("status", "active").maybeSingle();
