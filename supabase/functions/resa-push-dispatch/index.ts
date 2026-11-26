@@ -404,7 +404,7 @@ Deno.serve(async (request) => {
         .eq("enabled", true)
         .eq("phone_notifications_enabled", true)
       : admin.from("resa_notification_preferences")
-        .select("user_id,enabled,phone_notifications_enabled,category_preferences")
+        .select("user_id,enabled,phone_notifications_enabled,category_preferences,category_sounds,vibration_enabled,show_notification_preview")
         .eq("school_id", schoolId)
         .in("user_id", recipientIds)
         .eq("enabled", true)
@@ -453,21 +453,26 @@ Deno.serve(async (request) => {
 
     webpush.setVapidDetails("mailto:rhemaexploitsacademy@gmail.com", publicKey, privateKey);
     const notice = makeNotification(eventType, row);
-    const payload = JSON.stringify({
-      ...notice,
-      icon: "/media/logo/resa-logo.jpg",
-      badge: "/media/logo/resa-logo.jpg?v=20261125",
-      vibrate: [180, 90, 180],
-    });
-
     let sent = 0;
     let expired = 0;
     const results = await Promise.allSettled(subscriptions.map(async (subscription) => {
       try {
+        const userPreference = (preferences || []).find((item: any) => item.user_id === subscription.user_id);
+        const userSound = category ? String(userPreference?.category_sounds?.[category] || "resa_chime") : "resa_chime";
+        const showPreview = userPreference?.show_notification_preview !== false;
+        const vibrationEnabled = userPreference?.vibration_enabled !== false;
+        const recipientPayload = JSON.stringify({
+          ...notice,
+          body: showPreview ? notice.body : "You have a new RESA school update. Sign in to view it.",
+          icon: "/media/logo/resa-logo.jpg",
+          badge: "/media/logo/resa-logo.jpg?v=20261125",
+          silent: userSound === "silent",
+          vibrate: vibrationEnabled ? [180, 90, 180] : [],
+        });
         await webpush.sendNotification({
           endpoint: subscription.endpoint,
           keys: { p256dh: subscription.p256dh, auth: subscription.auth_key },
-        }, payload, { TTL: 3600, urgency: "high" });
+        }, recipientPayload, { TTL: 3600, urgency: "high" });
         sent += 1;
       } catch (error) {
         const statusCode = Number((error as { statusCode?: number })?.statusCode || 0);
