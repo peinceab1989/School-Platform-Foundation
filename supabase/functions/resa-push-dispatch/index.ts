@@ -489,6 +489,7 @@ Deno.serve(async (request) => {
         const vibrationEnabled = userPreference?.vibration_enabled !== false;
         const recipientPayload = JSON.stringify({
           ...notice,
+          title: showPreview ? notice.title : "RESA · New school update",
           body: showPreview ? notice.body : "You have a new RESA school update. Sign in to view it.",
           icon: "/media/logo/resa-logo.jpg",
           badge: "/media/logo/resa-logo.jpg?v=20261125",
