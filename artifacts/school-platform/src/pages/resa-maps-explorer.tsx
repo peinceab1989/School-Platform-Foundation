@@ -37,9 +37,9 @@ export default function ResaMapsExplorerPage() {
   return <main className="min-h-screen bg-[#f6f7f2] px-4 py-7 text-slate-900 sm:px-6">
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="overflow-hidden rounded-3xl bg-gradient-to-br from-[#103b2d] via-[#17543b] to-[#214c61] p-6 text-white shadow-xl sm:p-9">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100"><ArrowLeft size={16}/> Back to RESA website</Link>
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100"><ArrowLeft size={16}/> Back to RHEMA EXPLOITS SCIENCE ACADEMY INT’L website</Link>
         <p className="mt-6 text-xs font-bold uppercase tracking-[.2em] text-[#e5ca7d]">Explore • Discover • Navigate</p>
-        <h1 className="mt-2 text-3xl font-black sm:text-5xl">RESA Maps & Places</h1>
+        <h1 className="mt-2 text-3xl font-black sm:text-5xl">RHEMA EXPLOITS SCIENCE ACADEMY INT’L Maps & Places</h1>
         <p className="mt-3 max-w-3xl leading-7 text-emerald-50">Find the school, search destinations and open reliable live directions. Map results and journey estimates are supplied by Google Maps and may change with traffic and road conditions.</p>
       </header>
 
@@ -49,7 +49,7 @@ export default function ResaMapsExplorerPage() {
             <div><h2 className="font-extrabold text-[#17452f]">Interactive map</h2><p className="text-xs text-slate-500">Search a place or explore the school location</p></div>
             <a href={mapsSearchUrl(destination || SCHOOL_ADDRESS)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-[#174c35] px-3 py-2 text-sm font-bold text-white">Open full map <ExternalLink size={14}/></a>
           </div>
-          <iframe title="Interactive map for RESA and searched places" src={mapSrc} className="h-[420px] w-full border-0 sm:h-[540px]" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+          <iframe title="Interactive map for RHEMA EXPLOITS SCIENCE ACADEMY INT’L and searched places" src={mapSrc} className="h-[420px] w-full border-0 sm:h-[540px]" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
           <div className="p-4 text-xs leading-5 text-slate-500">Map imagery, place listings and route calculations are provided by Google Maps. Availability and accuracy depend on the map provider and the selected location.</div>
         </div>
 
@@ -58,7 +58,7 @@ export default function ResaMapsExplorerPage() {
             <div className="flex items-center gap-2 text-[#174c35]"><MapPin size={19}/><h2 className="font-extrabold">Find a place</h2></div>
             <label className="mt-4 block text-sm font-semibold text-slate-700" htmlFor="resa-destination">Destination or address</label>
             <div className="mt-2 flex gap-2"><input id="resa-destination" value={destination} onChange={e=>setDestination(e.target.value)} className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" placeholder="Enter a place or address"/><button onClick={()=>setDestination(destination.trim())} className="rounded-xl bg-[#174c35] px-3 text-white" aria-label="Search map"><Search size={18}/></button></div>
-            <button onClick={()=>setDestination(SCHOOL_ADDRESS)} className="mt-3 text-left text-sm font-bold text-emerald-800 underline underline-offset-4">Show RESA school location</button>
+            <button onClick={()=>setDestination(SCHOOL_ADDRESS)} className="mt-3 text-left text-sm font-bold text-emerald-800 underline underline-offset-4">Show RHEMA EXPLOITS SCIENCE ACADEMY INT’L school location</button>
           </section>
 
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -78,7 +78,7 @@ export default function ResaMapsExplorerPage() {
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex items-center gap-2 text-[#174c35]"><Sparkles size={20}/><h2 className="text-xl font-extrabold">Ask about RESA and places</h2></div>
+        <div className="flex items-center gap-2 text-[#174c35]"><Sparkles size={20}/><h2 className="text-xl font-extrabold">Ask about RHEMA EXPLOITS SCIENCE ACADEMY INT’L and places</h2></div>
         <p className="mt-2 text-sm leading-6 text-slate-600">Ask about the school's address or how to use the map. For other places, this first release directs you to live map-provider information rather than inventing details.</p>
         <form onSubmit={e=>{e.preventDefault();ask();}} className="mt-4 flex flex-col gap-2 sm:flex-row"><input value={question} onChange={e=>setQuestion(e.target.value)} placeholder="e.g. Where is RESA located? How do I get directions?" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"/><button className="rounded-xl bg-[#174c35] px-5 py-3 font-bold text-white">Ask</button></form>
         {answer && <div role="status" className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-700">{answer}</div>}
