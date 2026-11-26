@@ -351,7 +351,7 @@ $function$;
 
 drop trigger if exists student_attendance_school_calendar_guard on public.student_attendance;
 create trigger student_attendance_school_calendar_guard
-  before insert or update of attendance_date, school_id, status
+  before insert or update of attendance_date, school_id, status, check_in_at, check_in_event_id, biometric_event_id
   on public.student_attendance
   for each row execute function public.enforce_school_calendar_student_attendance();
 
