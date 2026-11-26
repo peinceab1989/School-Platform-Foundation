@@ -82,11 +82,14 @@ export default function ResaChatPage({ schoolId, userId, role }: { schoolId: str
     setRolePolicy(settings.data?.role_policy ?? {});
     setRecipientPolicy({ admin: ["admin", "teacher", "parent", "student"], teacher: ["admin", "student"], parent: ["admin"], student: ["admin", "teacher"], ...(settings.data?.recipient_policy ?? {}) });
     if (isAdmin) {
-      const care = await (db as any).from("resa_customer_care_settings")
-        .select("chief_admin_user_id,availability_start,availability_end,availability_days,website_popup_enabled,soft_sound_enabled")
-        .eq("school_id", schoolId).maybeSingle();
+      const [care, chief] = await Promise.all([
+        (db as any).from("resa_customer_care_public_availability")
+          .select("availability_start,availability_end,availability_days,website_popup_enabled,soft_sound_enabled")
+          .eq("school_id", schoolId).maybeSingle(),
+        (db as any).rpc("resa_is_chief_admin", { p_school_id: schoolId })
+      ]);
+      setIsChiefAdmin(Boolean(chief.data));
       if (!care.error && care.data) {
-        setIsChiefAdmin(String(care.data.chief_admin_user_id || "") === userId);
         setCareStart(String(care.data.availability_start || "08:00").slice(0,5));
         setCareEnd(String(care.data.availability_end || "16:00").slice(0,5));
         setCareDays((care.data.availability_days || [1,2,3,4,5]).map(Number));
