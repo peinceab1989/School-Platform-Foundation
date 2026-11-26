@@ -51,7 +51,7 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Quiet hours are enforced for ordinary server-delivered push and foreground OS notifications; urgent attendance alerts bypass quiet hours. This does not override device-level Do Not Disturb.
 - Admin global channel/role policy controls are available in Communication Centre settings. Database restrictive policies enforce private/group/Customer Care/announcement access for relevant writes; announcement reads are also role-gated. Student private messaging defaults to off. Administrators can still view drafts and unpublish announcements while publishing is paused.
 - Voice/video calls require a configured signalling/media provider, TURN relay, consent flow, abuse controls and device testing; they remain unavailable until those dependencies are selected and verified.
-- GitHub TypeScript, production build, Edge Function type-checks and notification routing tests passed; the Cloudflare Pages branch preview deployed successfully. Real Android multi-device and authenticated push-delivery tests remain required before merging. The automated push test confirms that the push service accepted a send request; it does not prove that Android displayed or sounded the notification.
+- GitHub TypeScript, production build, Edge Function type-checks and notification routing tests passed on the earlier feature revision. The current follow-up revision is undergoing CI. Real Android multi-device, closed-app and sustained-delivery tests remain required before release. The owner has now confirmed that one test notification was displayed on the registered Android phone.
 
 - Foreground incoming messages/announcements/account alerts also attempt the selected original RESA tone when in-app sound is enabled; browser autoplay policy can block this until the user interacts with the page.
 - Notification tags are aligned between foreground and background delivery, and the service worker avoids re-sounding duplicate events.
@@ -82,3 +82,34 @@ The implementation is additive. Never clear or reset existing conversations, sch
 - Contact visibility is relationship-scoped: administrators can manage active school members; parents can reach administrators and teachers assigned to their linked, active learners; teachers can reach learners in their assigned active classes; students can reach teachers assigned to their active classes. All scopes retain active school membership checks.
 - The contact-directory migration is committed to the feature branch but has not yet been applied to the live database. It must pass SQL review and CI before release.
 - The owner confirmed that the Android push test notification was displayed on the registered phone. This verifies one real-device test delivery; it does not yet establish multi-device, closed-app or sustained delivery reliability.
+
+## Product quality roadmap — school-grade communications
+The target is a school communication system that competes on clarity, speed, privacy and dependable delivery while retaining school-specific controls. Feature claims must be backed by working end-to-end tests.
+
+### Reliability and delivery receipts
+- Move high-value notification events toward a durable outbox/queue with idempotency keys, bounded exponential retries, dead-letter visibility and operator replay controls.
+- Record separate states for queued, provider-accepted, device-delivery-confirmed where available, and read. Never label provider acceptance as device delivery.
+- Add per-device health/last-seen information, invalid-subscription cleanup, dispatch latency/error dashboards and alerting for sustained failure.
+- Preserve a user's category preferences, quiet hours and school administrator policy at the server boundary for every delivery channel.
+
+### Conversation experience
+- Keep direct messages, class groups, staff groups, parent–teacher conversations, Customer Care and official announcements in a consistent inbox.
+- Add paginated searchable history, reply/thread context, reactions, pinning, mute controls, message editing/deletion policy, attachment previews and explicit read receipts.
+- Retain realtime presence and typing indicators only where the conversation membership permits them; reconnect and resubscribe safely after network loss.
+- Make contact names and roles consistent across direct-message and group-recipient selectors, using the authorised school directory rather than generic role-only labels.
+
+### Multi-channel reach
+- PWA/Web Push remains the current phone-alert channel. Native Android/iOS delivery, SMS, email and official WhatsApp Business delivery require separate supported providers, credentials, costs, consent and operational testing; none should be advertised as connected until verified.
+- Voice/video calls require a real-time signalling/media provider, TURN relay, consent and moderation controls, and testing on real devices. Do not expose call controls until this is implemented.
+
+### Security, privacy and operations
+- Enforce school membership, class/guardian relationships, role permissions and administrator channel policies on the server and in RLS.
+- Keep private notification previews optional; never expose private message contents to an unauthorised device or recipient.
+- Add auditable administrator actions, abuse/report controls, attachment size/type restrictions and retention rules approved by school management.
+- Test administrator, teacher, parent and student scenarios, including disabled channels, revoked memberships, stale subscriptions, duplicate events, offline/reconnect and multiple devices.
+
+### Current release boundary
+- The CORS correction is live in the RESA push-dispatch Edge Function version 12 and the owner has confirmed one successful Android test notification.
+- The contact-directory improvement is committed to this feature branch with a migration for SQL review; it is not yet applied to production.
+- The feature-branch frontend remains unmerged and has not replaced the live RESA frontend.
+- No separate Preview environment is required or being requested for this work.
