@@ -8,6 +8,30 @@ alter table public.school_settings
 alter table public.biometric_parent_notifications
   add column if not exists attendance_checkpoint_alert_id uuid;
 
+-- A parent notification must refer to exactly one attendance source:
+-- either a biometric event (arrival/departure) or a missed-attendance checkpoint.
+alter table public.biometric_parent_notifications
+  alter column biometric_event_id drop not null;
+
+do $source_constraint$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'biometric_parent_notifications_exactly_one_source'
+      and conrelid = 'public.biometric_parent_notifications'::regclass
+  ) then
+    alter table public.biometric_parent_notifications
+      add constraint biometric_parent_notifications_exactly_one_source
+      check (
+        (biometric_event_id is not null and attendance_checkpoint_alert_id is null)
+        or
+        (biometric_event_id is null and attendance_checkpoint_alert_id is not null)
+      );
+  end if;
+end;
+$source_constraint$;
+
 do $constraint$
 begin
   if not exists (
