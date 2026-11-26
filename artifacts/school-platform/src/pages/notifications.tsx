@@ -122,12 +122,14 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const senderIds = [...new Set([...(messageResult.data ?? []).map((m: any) => m.sender_id), ...chatRows.map((m: any) => m.sender_id)].filter(Boolean))];
       const senderProfiles = senderIds.length ? await db.from("profiles").select("id,display_name").in("id", senderIds) : { data: [], error: null };
       const senderNames = new Map((senderProfiles.data ?? []).map((profile: any) => [profile.id, profile.display_name || "School member"]));
+      const senderMemberships = senderIds.length ? await db.from("school_memberships").select("user_id,role").eq("school_id",schoolId).eq("status","active").in("user_id",senderIds) : {data:[]};
+      const senderRoles = new Map((senderMemberships.data ?? []).map((membership:any)=>[membership.user_id,membership.role]));
       const now = Date.now();
       const messages: Notice[] = (messageResult.data ?? []).map((m: any) => ({
         id: m.id, kind: "message", title: m.subject, body: m.message, createdAt: m.sent_at,
         unread: !m.is_read, sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member",
         channel: m.channel, targetUrl: "/school-communication?message_id=" + encodeURIComponent(m.id),
-        category: m.channel === "customer_care" ? "customer_care" : m.channel === "announcement" ? "announcements" : m.channel === "attendance" ? "attendance" : m.channel === "fees" ? "fees" : m.channel === "admissions" ? "admissions" : m.channel === "cbt" ? "cbt" : m.channel === "results" ? "results" : m.channel === "admin" ? "administration" : "messages",
+        category: m.channel === "customer_care" ? "customer_care" : m.channel === "announcement" ? "announcements" : m.channel === "attendance" ? "attendance" : m.channel === "fees" ? "fees" : m.channel === "admissions" ? "admissions" : m.channel === "cbt" ? "cbt" : m.channel === "results" ? "results" : m.channel === "admin" || senderRoles.get(m.sender_id) === "admin" ? "administration" : "messages",
       }));
       const announcements: Notice[] = (announcementResult.data ?? [])
         .filter((a: any) => {
@@ -294,7 +296,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         );
         if (chatError) throw chatError;
       }
-      setItems(previous => previous.map(item => ({ ...item, unread: false })));
+      setItems(previous => previous.map(item => item.kind === "attendance" && item.source === "attendance_checkpoint_alerts" ? item : ({ ...item, unread: false })));
       await load(true);
       setNotice("All currently loaded private and group messages have been marked as read. Older unread items will remain counted until they are loaded and marked read.");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not mark all messages as read."); }
