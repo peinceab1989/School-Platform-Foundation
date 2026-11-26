@@ -208,7 +208,14 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           // The authenticated app-level listener handles the phone alert once;
           // this page only refreshes the inbox to avoid duplicate notifications.
           void load(true);
-        }).subscribe();
+        });
+      if (role === "parent") {
+        channel.on("postgres_changes", { event: "INSERT", schema: "public", table: "biometric_parent_notifications", filter: "school_id=eq." + schoolId }, () => {
+          // Attendance alerts are already scoped to this parent's linked children by RLS.
+          void load(true);
+        });
+      }
+      channel.subscribe();
 
       if (role === "admin") {
         customerCareChannel = db.channel(
