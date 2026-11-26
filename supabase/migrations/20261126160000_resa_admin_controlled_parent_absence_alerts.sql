@@ -135,7 +135,7 @@ begin
           pga.parent_guardian_id,
           v_alert.id,
           'in_app',
-          'attendance',
+          'Student absence',
           'RESA attendance alert: ' || coalesce(v_alert.person_name, 'Your child') ||
             ' has not been recorded as present at school by ' ||
             to_char(v_local_time, 'HH12:MI AM') || ' Lagos time on ' ||
