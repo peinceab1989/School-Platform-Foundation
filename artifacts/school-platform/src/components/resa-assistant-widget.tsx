@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { useLocation } from "wouter";
 import { Bot, MapPin, MessageCircle, Send, X, ArrowUpRight, RotateCcw } from "lucide-react";
 
@@ -9,6 +10,8 @@ type HelpTopic = {
   href: string;
 };
 type ChatMessage = { role: "user" | "assistant"; content: string };
+type CustomerCareAvailability = { availability_enabled:boolean; availability_days:number[]; availability_start:string; availability_end:string; timezone:string; website_popup_enabled:boolean; soft_sound_enabled:boolean };
+const RESA_SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
 
 const helpTopics: HelpTopic[] = [
   { keys: ["attendance", "clock in", "clock out", "biometric", "check in", "check out"], title: "Attendance", answer: "Administrators can review daily attendance and manage registered devices in Smart Attendance Centre. Teachers and other users should use the attendance options available to their assigned role. If a device or scan fails, do not create a duplicate record; ask an authorised administrator to review it.", href: "/attendance" },
@@ -57,8 +60,72 @@ export default function ResaAssistantWidget() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [fallbackNotice, setFallbackNotice] = useState(false);
+  const [availability, setAvailability] = useState<CustomerCareAvailability | null>(null);
+  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
+  const [customerCareOnline, setCustomerCareOnline] = useState(false);
+  const [promptDismissed, setPromptDismissed] = useState(false);
+  const soundAttempted = useRef(false);
 
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const db = getSupabaseClient();
+    const loadAvailability = async () => {
+      const result = await (db as any).rpc("get_resa_customer_care_availability", { p_school_id: RESA_SCHOOL_ID });
+      if (!alive || result.error || !result.data?.length) return;
+      setAvailability(result.data[0] as CustomerCareAvailability);
+    };
+    void loadAvailability();
+    const refresh = window.setInterval(() => void loadAvailability(), 60000);
+    return () => { alive = false; window.clearInterval(refresh); };
+  }, []);
+
+  useEffect(() => {
+    if (!availability) return;
+    const evaluate = () => {
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat("en-GB", { timeZone: availability.timezone || "Africa/Lagos", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
+      const part = (type:string) => parts.find(item=>item.type===type)?.value || "";
+      const dayNumber = ({Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6,Sun:7} as Record<string,number>)[part("weekday")] || 0;
+      const minute = Number(part("hour"))*60+Number(part("minute"));
+      const start = Number(String(availability.availability_start).slice(0,2))*60+Number(String(availability.availability_start).slice(3,5));
+      const end = Number(String(availability.availability_end).slice(0,2))*60+Number(String(availability.availability_end).slice(3,5));
+      const online = availability.availability_enabled && (availability.availability_days || []).includes(dayNumber) && minute >= start && minute < end;
+      setCustomerCareOnline(online);
+      const shouldPrompt = online && availability.website_popup_enabled;
+      setShowAvailabilityPrompt(shouldPrompt && !promptDismissed);
+    };
+    evaluate();
+    const tick = window.setInterval(evaluate, 30000);
+    return () => window.clearInterval(tick);
+  }, [availability, promptDismissed]);
+
+  useEffect(() => {
+    if (!showAvailabilityPrompt || !availability?.soft_sound_enabled || soundAttempted.current) return;
+    soundAttempted.current = true;
+    try {
+      const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      const context = new AudioContextCtor();
+      const play = () => {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(660, context.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(880, context.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.0001, context.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.045, context.currentTime + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.28);
+        oscillator.connect(gain); gain.connect(context.destination);
+        oscillator.start(); oscillator.stop(context.currentTime + 0.3);
+        window.setTimeout(() => void context.close(), 500);
+      };
+      if (context.state === "running") play();
+      else void context.resume().then(play).catch(() => { soundAttempted.current = false; });
+    } catch {
+      soundAttempted.current = false;
+    }
+  }, [showAvailabilityPrompt, availability]);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number; startX: number; startY: number; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -140,6 +207,17 @@ export default function ResaAssistantWidget() {
 
   const activePage = useMemo(() => path.split("/").filter(Boolean).pop()?.replace(/-/g, " ") || "home", [path]);
 
+  function dismissAvailabilityPrompt() {
+    setPromptDismissed(true);
+    setShowAvailabilityPrompt(false);
+  }
+
+  function openCustomerCare() {
+    setOpen(true);
+    setShowAvailabilityPrompt(false);
+    window.location.href = "/resa-chat?channel=customer_care";
+  }
+
   function ask(value = question) {
     const trimmed = value.trim();
     if (!trimmed) return;
@@ -154,9 +232,10 @@ export default function ResaAssistantWidget() {
   }
 
   return <div ref={containerRef} className={position ? "fixed z-[1200]" : "fixed bottom-4 left-4 z-[1200]"} style={position ? { left: position.left, top: position.top, right: "auto", bottom: "auto" } : undefined}>
+    {showAvailabilityPrompt && !open && <div role="status" className="mb-3 w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-emerald-200 bg-white p-4 shadow-2xl"><div className="flex items-center justify-between gap-2"><strong className="text-sm text-emerald-950">RESA Customer Care</strong><span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-800">Available now</span></div><p className="mt-2 text-sm font-semibold text-slate-900">Hello! 👋 We're ready to chat.</p><p className="mt-1 text-xs leading-5 text-slate-600">Ask us about admissions, fees, school services or general enquiries.</p><div className="mt-3 flex gap-2"><button type="button" onClick={openCustomerCare} className="flex-1 rounded-lg bg-emerald-900 px-3 py-2 text-xs font-bold text-white">Chat with us</button><button type="button" onClick={dismissAvailabilityPrompt} aria-label="Dismiss availability message" className="rounded-lg border px-3 py-2 text-xs font-semibold text-slate-600">Not now</button></div></div>}
     {open && <section role="dialog" aria-modal="false" aria-label="Ask RESA AI assistant" className="mb-3 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl">
       <header onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} className="flex cursor-move touch-none select-none items-center justify-between bg-[#103b2d] p-4 text-white" title="Drag to move Ask RESA">
-        <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">AI portal guidance • Page: {activePage}</p></div></div>
+        <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">{customerCareOnline?"Customer Care available now":"AI portal guidance"} • Page: {activePage}</p></div></div>
         <button type="button" onPointerDown={event=>event.stopPropagation()} onClick={()=>setOpen(false)} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
       </header>
       <div className="max-h-80 space-y-3 overflow-y-auto p-4" aria-live="polite">
