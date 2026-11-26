@@ -12,7 +12,9 @@ type Notice = {
   createdAt: string;
   unread: boolean;
   sender?: string;
+  senderName?: string;
   channel?: string;
+  targetUrl?: string;
 };
 
 export default function NotificationsPage({ schoolId, role }: { schoolId: string; role: "admin" | "teacher" | "student" | "parent" }) {
@@ -105,10 +107,14 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       const conversationIds = [...new Set(chatRows.map((m: any) => m.conversation_id).filter(Boolean))];
       const conversationResult = conversationIds.length ? await db.from("resa_chat_conversations").select("id,subject").in("id", conversationIds) : { data: [] };
       const conversationNames = new Map((conversationResult.data ?? []).map((row: any) => [row.id, row.subject]));
+      const senderIds = [...new Set([...(messageResult.data ?? []).map((m: any) => m.sender_id), ...chatRows.map((m: any) => m.sender_id)].filter(Boolean))];
+      const senderProfiles = senderIds.length ? await db.from("profiles").select("id,display_name").in("id", senderIds) : { data: [], error: null };
+      const senderNames = new Map((senderProfiles.data ?? []).map((profile: any) => [profile.id, profile.display_name || "School member"]));
       const now = Date.now();
       const messages: Notice[] = (messageResult.data ?? []).map((m: any) => ({
         id: m.id, kind: "message", title: m.subject, body: m.message, createdAt: m.sent_at,
-        unread: !m.is_read, sender: m.sender_id, channel: m.channel,
+        unread: !m.is_read, sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member",
+        channel: m.channel, targetUrl: "/school-communication?message_id=" + encodeURIComponent(m.id),
       }));
       const announcements: Notice[] = (announcementResult.data ?? [])
         .filter((a: any) => {
@@ -121,7 +127,7 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
           id: a.id, kind: "announcement", title: a.title, body: a.content,
           createdAt: a.published_at || a.created_at, unread: false, sender: a.announcement_type,
         }));
-      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, channel: "chat" }));
+      const chatNotices: Notice[] = chatRows.filter((m: any) => m.sender_id !== uid).map((m: any) => ({ id: "chat-" + m.id, kind: "chat", title: conversationNames.get(m.conversation_id) || "RESA chat", body: m.body, createdAt: m.created_at, unread: !readIds.has(m.id), sender: m.sender_id, senderName: senderNames.get(m.sender_id) || "School member", channel: "chat", targetUrl: "/resa-chat?conversation_id=" + encodeURIComponent(m.conversation_id) + "&message_id=" + encodeURIComponent(m.id) }));
       setItems([...messages, ...announcements, ...chatNotices].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) { setError(e instanceof Error ? e.message : "Notifications could not be loaded."); setPreferencesLoading(false); }
     finally { if (!quiet) setLoading(false); }
@@ -170,6 +176,12 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
       document.removeEventListener("visibilitychange", refreshQuietly);
     };
   }, [load]);
+
+  async function openNotice(item: Notice) {
+    if (item.unread) await markRead(item);
+    if (item.targetUrl) window.location.assign(item.targetUrl);
+    else if (item.kind === "announcement") window.location.assign("/notifications");
+  }
 
   async function markRead(item: Notice) {
     if (!item.unread) return;
@@ -359,8 +371,8 @@ export default function NotificationsPage({ schoolId, role }: { schoolId: string
         </div>
       </section>
       {!loading && filteredItems.length===0 && items.length>0 && <p className="rounded-xl border border-dashed bg-white p-4 text-sm text-slate-600">No notifications match this date and search. Choose another date or clear the search to find older items.</p>}
-      <div className="max-h-[68vh] space-y-2 overflow-y-auto pr-1">{filteredItems.map(item => <article key={item.kind + item.id} className={`rounded-xl border bg-white p-3 shadow-sm ${item.unread ? "border-emerald-400 ring-1 ring-emerald-100" : "border-slate-200"}`}>
-        <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="announcement"?<Megaphone size={20}/>:<MessageSquare size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{item.kind==="announcement"?"School announcement":item.kind==="chat"?"Group chat":item.channel==="announcement"?"School notification":item.channel==="customer_care"?"Customer Care":"Private message"}</span></div><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-slate-700">{item.body}</p><p className="mt-2 text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
+      <div className="max-h-[68vh] space-y-2 overflow-y-auto pr-1">{filteredItems.map(item => <article key={item.kind + item.id} role={item.targetUrl?"button":undefined} tabIndex={item.targetUrl?0:undefined} onClick={()=>void openNotice(item)} onKeyDown={e=>{if(item.targetUrl&&(e.key==="Enter"||e.key===" ")){e.preventDefault();void openNotice(item);}}} className={`rounded-xl border bg-white p-3 shadow-sm ${item.unread ? "border-emerald-400 ring-1 ring-emerald-100" : "border-slate-200"} ${item.targetUrl?"cursor-pointer transition hover:border-emerald-400 hover:shadow-md":""}`}>
+        <div className="flex items-start gap-3"><span className={`rounded-xl p-2 ${item.kind==="message"?"bg-blue-50 text-blue-800":"bg-amber-50 text-amber-800"}`}>{item.kind==="announcement"?<Megaphone size={20}/>:<MessageSquare size={20}/>}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="font-bold">{item.title}</h2>{item.unread&&<span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">Unread</span>}<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{item.kind==="announcement"?"School announcement":item.kind==="chat"?"Group chat":item.channel==="announcement"?"School notification":item.channel==="customer_care"?"Customer Care":"Private message"}</span></div>{item.senderName&&<p className="mt-1 text-xs font-semibold text-emerald-800">From: {item.senderName}</p>}<p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5 text-slate-700">{item.body}</p>{item.targetUrl&&<p className="mt-2 text-xs font-bold text-emerald-800">Open conversation →</p>}<p className="mt-2 text-[11px] text-slate-500">{new Date(item.createdAt).toLocaleString()}</p></div>{item.unread&&<button onClick={()=>void markRead(item)} aria-label="Mark message as read" title="Mark as read" className="rounded-lg border p-2"><CheckCheck size={17}/></button>}</div>
       </article>)}</div>
       <p className="text-xs leading-5 text-slate-500">Background phone alerts use RESA Web Push. Each person must register each phone/browser separately. Delivery depends on Android notification permission, battery/background restrictions and network availability; this page verifies registration and provides a real push-service test. Email and WhatsApp delivery are not claimed as connected.</p>
     </div>
