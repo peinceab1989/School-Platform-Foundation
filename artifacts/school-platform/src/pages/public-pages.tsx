@@ -1,4 +1,5 @@
 
+import { useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import {
   ArrowRight,
@@ -568,27 +569,63 @@ export function ActivitiesGalleryPage() {
 }
 
 export function AdmissionsPage() {
-  const steps = [
-    ["Make an enquiry", "Contact the school to ask about admission and class placement."],
-    ["Visit or speak with the school", "Discuss your child's needs and the available admission process."],
-    ["Prepare the required documents", "Ask the school to confirm any additional documents needed for your application."],
-    ["Confirm next steps", "Contact the admissions team for current requirements, payment guidance and resumption details."],
+  const [purchase, setPurchase] = useState({
+    studentName: "",
+    classAppliedFor: "",
+    parentName: "",
+    parentPhone: "",
+    parentEmail: "",
+  });
+  const [prepared, setPrepared] = useState<string[]>([]);
+
+  const documents = [
+    "Four (4) recent passport photographs of the applicant",
+    "Birth certificate or age declaration",
+    "Most recent academic report/result (where applicable)",
+    "Transfer certificate or testimonial from previous school (where applicable)",
+    "Immunisation record (where available/requested)",
   ];
+
+  function sendPurchaseRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const message = [
+      "Hello RESA Admissions, I would like to purchase an admission form.",
+      `Applicant's full name: ${purchase.studentName.trim()}`,
+      `Class applying for: ${purchase.classAppliedFor}`,
+      `Parent/guardian: ${purchase.parentName.trim()}`,
+      `Parent/guardian phone: ${purchase.parentPhone.trim()}`,
+      purchase.parentEmail.trim() ? `Email: ${purchase.parentEmail.trim()}` : "",
+      "Please confirm the current admission form price and approved payment instructions.",
+      "I understand that the admission/form number is issued only after payment has been verified by RESA."
+    ].filter(Boolean).join("\n");
+    window.open(`https://wa.me/2348058422691?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <PublicLayout>
       <PageHero
         eyebrow="Join our community"
         title="Admissions at RESA"
-        description="Take the next step towards a learning experience built around academic foundations, practical skills, technology and character."
+        description="Begin your child's admission journey with a clear purchase request, verified form issuance and guided application process."
         image={photos.learning}
       />
       <section className="bg-[#faf8f1] px-5 py-16 sm:px-8">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
-            <SectionHeading eyebrow="Your admission journey" title="A clear path to enrolment" description="Our admissions team can guide parents and guardians through the current process and answer questions about placement." />
+            <SectionHeading
+              eyebrow="Your admission journey"
+              title="A clear path to enrolment"
+              description="Submit a purchase request, follow the school's approved payment instructions and receive your unique admission form number after payment verification."
+            />
             <div className="space-y-4">
-              {steps.map(([title, description], index) => (
+              {[
+                ["Submit a purchase request", "Provide the applicant and parent/guardian details below. This request does not itself constitute payment."],
+                ["Confirm the form fee and payment instructions", "RESA Admissions will confirm the current fee and the school's approved payment channel before you pay."],
+                ["Payment verification and form number", "After the school confirms receipt of payment, an authorised officer issues a unique admission/form number."],
+                ["Complete the online application", "Use the issued form number to verify the form and complete the admission application."],
+                ["Prepare and submit documents", "Prepare the documents listed here and follow any additional instructions from the admissions office."],
+                ["Entrance assessment where applicable", "Complete the relevant entrance assessment or RESA Open CBT process if the school requires it."]
+              ].map(([title, description], index) => (
                 <div key={title} className="flex gap-4 rounded-2xl border border-[#e7dec9] bg-white p-5 shadow-sm">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#163c2e] font-black text-[#e7cc80]">{index + 1}</div>
                   <div>
@@ -599,30 +636,54 @@ export function AdmissionsPage() {
               ))}
             </div>
           </div>
-          <aside className="h-fit rounded-3xl border border-[#e7dec9] bg-white p-7 shadow-[0_7px_0_#e7dec9,0_18px_35px_#173b2b0d] sm:p-8">
+          <aside className="h-fit rounded-3xl border border-[#e7dec9] bg-white p-6 shadow-[0_7px_0_#e7dec9,0_18px_35px_#173b2b0d] sm:p-8">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e9f0e7] text-[#20553d]"><GraduationCap size={30} /></div>
-            <h2 className="mt-5 text-2xl font-black text-[#163c2e]">Admission enquiry</h2>
-            <p className="mt-3 leading-7 text-slate-600">Please contact the school to confirm current admission availability, fees, documents and other requirements before making payment.</p>
-            <a href={`mailto:${ADMISSIONS_EMAIL}`} className="mt-4 flex items-center gap-3 rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-4 font-semibold text-[#163c2e] transition hover:border-[#c9ad66]">
-              <Mail size={19} /> <span>Admissions email: {ADMISSIONS_EMAIL}</span>
-            </a>
-            <div className="mt-6 rounded-2xl bg-[#faf8f1] p-5">
-              <p className="text-sm font-bold text-slate-500">Admission application fee</p>
-              <p className="mt-1 text-lg font-extrabold text-[#163c2e]">Confirm with RESA Admissions</p>
-              <p className="mt-2 text-xs leading-5 text-slate-500">The current amount, what it covers and approved payment instructions must be confirmed directly with the school before payment.</p>
+            <h2 className="mt-5 text-2xl font-black text-[#163c2e]">Purchase an admission form</h2>
+            <p className="mt-3 leading-7 text-slate-600">Complete the request below to contact RESA Admissions. The school will confirm the current form price and approved payment instructions.</p>
+            <div className="mt-5 rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-4">
+              <p className="text-sm font-bold text-[#163c2e]">Admission form fee</p>
+              <p className="mt-1 text-lg font-extrabold text-[#163c2e]">Confirmed by RESA Admissions</p>
+              <p className="mt-2 text-xs leading-5 text-slate-600">The existing school-approved price remains in force unless changed by an authorised administrator. Confirm the amount before making payment.</p>
             </div>
-            <div className="mt-5 rounded-2xl border border-[#e7dec9] p-5">
-              <p className="font-extrabold text-[#163c2e]">Document to prepare</p>
-              <p className="mt-2 leading-7 text-slate-600">Four (4) recent passport photographs. Please confirm whether any additional documents are required.</p>
+            <form onSubmit={sendPurchaseRequest} className="mt-5 space-y-3">
+              <label className="block text-sm font-semibold text-[#163c2e]">Applicant's full name
+                <input required maxLength={160} value={purchase.studentName} onChange={e=>setPurchase({...purchase,studentName:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter applicant's full name"/>
+              </label>
+              <label className="block text-sm font-semibold text-[#163c2e]">Class applying for
+                <select required value={purchase.classAppliedFor} onChange={e=>setPurchase({...purchase,classAppliedFor:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal">
+                  <option value="">Select class</option>
+                  {["Nursery","Primary 1","Primary 2","Primary 3","Primary 4","Primary 5","Primary 6","JSS 1","JSS 2","JSS 3","SS 1","SS 2","SS 3"].map(v=><option key={v} value={v}>{v}</option>)}
+                </select>
+              </label>
+              <label className="block text-sm font-semibold text-[#163c2e]">Parent/guardian full name
+                <input required maxLength={160} value={purchase.parentName} onChange={e=>setPurchase({...purchase,parentName:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter parent or guardian's name"/>
+              </label>
+              <label className="block text-sm font-semibold text-[#163c2e]">Parent/guardian phone
+                <input required type="tel" maxLength={40} value={purchase.parentPhone} onChange={e=>setPurchase({...purchase,parentPhone:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter contact phone number"/>
+              </label>
+              <label className="block text-sm font-semibold text-[#163c2e]">Email address (optional)
+                <input type="email" maxLength={254} value={purchase.parentEmail} onChange={e=>setPurchase({...purchase,parentEmail:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter email address"/>
+              </label>
+              <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#163c2e] px-5 py-4 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-0.5">
+                Send purchase request on WhatsApp <ArrowRight size={18}/>
+              </button>
+              <p className="text-xs leading-5 text-slate-500">Your request opens a WhatsApp message to RESA. It is not a payment confirmation. Do not send identity documents or sensitive records through this enquiry.</p>
+            </form>
+            <div className="mt-6 rounded-2xl border border-[#e7dec9] p-5">
+              <h3 className="font-extrabold text-[#163c2e]">Admission Documents to Prepare</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Prepare the following documents. RESA Admissions may confirm additional requirements for the class or applicant.</p>
+              <div className="mt-4 space-y-3">
+                {documents.map(doc=><label key={doc} className="flex items-start gap-3 text-sm leading-6 text-slate-700">
+                  <input type="checkbox" checked={prepared.includes(doc)} onChange={e=>setPrepared(current=>e.target.checked?[...current,doc]:current.filter(item=>item!==doc))} className="mt-1 h-4 w-4 accent-emerald-900"/>
+                  <span>{doc}</span>
+                </label>)}
+              </div>
+              <p className="mt-3 text-xs text-slate-500">{prepared.length} of {documents.length} document items prepared. This checklist is saved only in this browser session.</p>
             </div>
-            <Link href="/admissions-apply" className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#d8b765] px-5 py-4 font-extrabold text-[#163c2e] shadow-[0_5px_0_#98783a] transition hover:-translate-y-1">Apply online with your verified form</Link>
-            <Link href="/external-cbt-registration" className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d] transition hover:bg-[#e0ebdc]">RESA Open CBT candidate registration (verified CBT form required)</Link>
-            <a href={`tel:${PHONE}`} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#163c2e] px-5 py-4 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-1">
-              <Phone size={18} /> Call Admissions
-            </a>
-            <a href={WHATSAPP_URL} target="_blank" rel="noreferrer" className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d] transition hover:bg-[#e0ebdc]">
-              Enquire on WhatsApp <ArrowRight size={18} />
-            </a>
+            <Link href="/admissions-apply" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d]">Already have a verified form number? Complete application <ArrowRight size={18}/></Link>
+            <Link href="/external-cbt-registration" className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d]">RESA Open CBT registration <ArrowRight size={18}/></Link>
+            <a href="tel:08052159511" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#e7dec9] bg-[#faf8f1] px-5 py-4 font-extrabold text-[#163c2e]"><Phone size={18}/> Call Admissions: 08052159511</a>
+            <a href={`mailto:${ADMISSIONS_EMAIL}`} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#e7dec9] bg-white px-5 py-4 font-extrabold text-[#163c2e]"><Mail size={18}/> Email Admissions</a>
           </aside>
         </div>
       </section>
