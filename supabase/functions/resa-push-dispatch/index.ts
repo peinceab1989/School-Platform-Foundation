@@ -415,6 +415,18 @@ Deno.serve(async (request) => {
       return json({ error: "Unauthorised notification event" }, 401);
     }
 
+    const { data: pushDeliveryEnabled, error: moduleControlError } = await admin.rpc(
+      "nexus_module_is_enabled",
+      { p_module_key: "resa_push_delivery" },
+    );
+    if (moduleControlError) {
+      console.error("Push module control check failed:", moduleControlError.message);
+      return json({ error: "Push delivery is temporarily unavailable while its Engine Room control is checked." }, 503);
+    }
+    if (pushDeliveryEnabled !== true) {
+      return json({ error: "RESA push delivery is paused by the authorised system owner." }, 503);
+    }
+
     const publicKey = String(secrets?.resa_push_vapid_public_key || "");
     const privateKey = String(secrets?.resa_push_vapid_private_key || "");
     if (!publicKey || !privateKey) return json({ error: "VAPID keys are not configured" }, 503);
