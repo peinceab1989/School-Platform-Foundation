@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
 import App from './App';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -18,6 +19,15 @@ function ResaInstallPrompt() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isMac, setIsMac] = useState(false);
+  const [installModuleEnabled,setInstallModuleEnabled] = useState(true);
+
+  useEffect(()=>{
+    let active=true;
+    void getSupabaseClient().rpc('nexus_public_module_is_enabled',{p_module_key:'resa_pwa_install'})
+      .then(({data,error})=>{if(active&&!error)setInstallModuleEnabled(data===true);})
+      .catch(()=>{});
+    return()=>{active=false;};
+  },[]);
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -92,7 +102,7 @@ function ResaInstallPrompt() {
       : 'On Android: use Chrome, Edge or Samsung Internet and choose “Install app” or “Add to Home screen” from the browser menu. On Windows, Linux and Chromebook: use Chrome or Edge and choose “Install RESA” from the address bar or browser menu; Firefox on Android offers an Add to Home Screen option on supported versions.';
 
 
-  if (!visible) return null;
+  if (!installModuleEnabled || !visible) return null;
 
   return (
     <aside
