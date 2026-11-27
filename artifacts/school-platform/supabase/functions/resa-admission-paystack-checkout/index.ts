@@ -51,15 +51,16 @@ Deno.serve(async (req: Request) => {
       ]);
       if (settingsError || gatewayError || methodsError) throw new Error("Could not read admission payment settings.");
       const price = settings?.form_price == null ? null : Number(settings.form_price);
+      const validPrice = price !== null && Number.isFinite(price) && price > 0;
       const gatewayReady = Boolean(gateway?.is_enabled && ["test", "live"].includes(gateway.environment));
       const onlineCheckoutAvailable = Boolean(settings?.online_checkout_enabled && gatewayReady && price && price >= 50);
       return reply(origin, 200, {
-        success: true, form_price: Number.isFinite(price) && price > 0 ? price : null,
+        success: true, form_price: validPrice ? price : null,
         currency: settings?.currency ?? "NGN",
         online_checkout_available: onlineCheckoutAvailable,
         payment_available: onlineCheckoutAvailable || Boolean(methods?.length),
         payment_methods: methods ?? [],
-        payment_environment: gatewayReady ? gateway.environment : null,
+        payment_environment: gatewayReady ? gateway?.environment ?? null : null,
       });
     }
 
