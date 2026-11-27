@@ -29,3 +29,12 @@ Monnify and Flutterwave remain planned adapters; their provider-specific checkou
 
 ## Current deployment gate
 The migration and Edge Functions are committed to the feature branch only. They have not been applied or deployed to production. No Paystack credentials, webhook signing secret or merchant settlement account have been configured. The Paystack gateway setting remains disabled by default. Existing offline Finance verification remains the supported collection process until the complete test and onboarding gates are passed.
+
+
+## Admission-form collection channels (27 November 2026)
+- The proprietor can configure public-facing admission-form collection instructions from the RESA Payment & Collection Settings page: bank transfer, POS at the school, cash at the school office, and another approved manual channel.
+- Only enabled payment-method rows are returned by the trusted public admission quote endpoint. The full account number is intentionally shown to prospective payers only for an enabled official school account; it is never placed in source code or a client-side constant.
+- The public admissions page shows the current configured form fee (currently ₦10,000 NGN), applicant summary, and available payment options. If no manual option or verified online gateway is available, it explicitly directs the applicant to RESA Customer Care and warns against unofficial accounts.
+- Manual transfers, POS and cash are not automatically verified. Applicants are instructed to retain their transaction reference and contact RESA. An authorised admissions officer must independently verify receipt before issuing a form number. The admin form-issuance workflow now requires the exact configured fee, a transaction reference and an explicit confirmation that the payment has been checked against the official bank/provider/cash record.
+- Paystack online checkout remains separately gated by the proprietor-controlled gateway switch, credentials, webhook and successful provider verification. A generic external link or browser redirect is not payment proof.
+- Migration `20261127101500_resa_admission_payment_methods.sql` adds server-managed payment method configuration and an audit ledger. It is not applied to production until migration-history reconciliation is complete and the migration is reviewed.
