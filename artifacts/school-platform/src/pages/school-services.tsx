@@ -170,6 +170,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sharedFiles, setSharedFiles] = useState<File[]>([]);
   const lastHandledSelectionRef = useRef("");
+  const hasSelectedDriveFileRef = useRef(false);
   const [restoringFile, setRestoringFile] = useState(true);
   const [savingFile, setSavingFile] = useState(false);
   const [folderName, setFolderName] = useState("General");
@@ -223,15 +224,18 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       window.history.replaceState(window.history.state, "", window.location.pathname);
     }
     void Promise.all([
-      getPendingDriveFile(schoolId).catch(() => null),
-      readSharedDriveFiles().catch(() => []),
+      withTimeout(getPendingDriveFile(schoolId), 5_000, "Local file recovery took too long.").catch(() => null),
+      withTimeout(readSharedDriveFiles(), 5_000, "The Android share inbox took too long to open.").catch(() => []),
     ]).then(([pending, shared]) => {
       if (!mounted) return;
+      if (hasSelectedDriveFileRef.current) return;
       if (shared.length) {
+        hasSelectedDriveFileRef.current = true;
         setSharedFiles(shared);
         setSelectedFile(shared[0]);
         setNotice(`${shared.length} file${shared.length === 1 ? "" : "s"} received from Android. ${shared[0].name} is ready for secure upload.`);
       } else if (pending) {
+        hasSelectedDriveFileRef.current = true;
         setSelectedFile(pending);
         setNotice(`Recovered “${pending.name}” from this device. Press Upload file to continue.`);
       }
@@ -247,12 +251,13 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const selectionKey = `${file.name}:${file.size}:${file.lastModified}`;
     if (lastHandledSelectionRef.current === selectionKey) return;
     lastHandledSelectionRef.current = selectionKey;
+    hasSelectedDriveFileRef.current = true;
     setSelectedFile(file);
     setError("");
     setNotice(`Selected “${file.name}”. Preparing it for secure upload…`);
     setSavingFile(true);
     try {
-      await savePendingDriveFile(schoolId, file);
+      await withTimeout(savePendingDriveFile(schoolId, file), 5_000, "Local recovery is taking too long. You can still upload while keeping this page open.");
       setNotice(`“${file.name}” is ready to upload.`);
     } catch {
       setNotice("File selected. Keep this page open while uploading; this browser could not enable recovery if Android reloads the page.");
@@ -324,6 +329,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       }
       const nextFile = remainingSharedFiles[0] ?? null;
       setSelectedFile(nextFile);
+      hasSelectedDriveFileRef.current = Boolean(nextFile);
       try {
         await clearPendingDriveFile(schoolId);
         if (nextFile) await savePendingDriveFile(schoolId, nextFile);
