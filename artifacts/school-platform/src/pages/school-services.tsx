@@ -182,8 +182,8 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     let uploadedPath = "";
     let stage = "checking your school account";
     try {
-      const { data: authData, error: authError } = await withTimeout(
-        db.auth.getUser(),
+      const { data: authData, error: authError } = await withTimeout<any>(
+        Promise.resolve(db.auth.getUser()),
         AUTH_CHECK_TIMEOUT_MS,
         "The school account check timed out after 15 seconds. Your file is still selected on this device. Check your internet connection and sign in again if needed, then retry."
       );
