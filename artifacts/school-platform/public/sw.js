@@ -1,5 +1,27 @@
 const CACHE_NAME = 'resa-offline-v3';
 const OFFLINE_URL = '/offline.html';
+const SHARE_INBOX_DB = 'resa-drive-share-inbox';
+const SHARE_INBOX_STORE = 'pending';
+
+function saveSharedFiles(files) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(SHARE_INBOX_DB, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains(SHARE_INBOX_STORE)) {
+        request.result.createObjectStore(SHARE_INBOX_STORE);
+      }
+    };
+    request.onerror = () => reject(request.error || new Error('Could not open RESA share inbox.'));
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction(SHARE_INBOX_STORE, 'readwrite');
+      tx.objectStore(SHARE_INBOX_STORE).put({ files, receivedAt: Date.now() }, 'files');
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { const error = tx.error; db.close(); reject(error || new Error('Could not save shared files.')); };
+      tx.onabort = () => { const error = tx.error; db.close(); reject(error || new Error('Saving shared files was interrupted.')); };
+    };
+  });
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
