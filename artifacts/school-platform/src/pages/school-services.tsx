@@ -18,6 +18,19 @@ const MODULES: ModuleDefinition[] = [
 type RowRecord = Record<string, unknown>;
 // Supabase Free enforces a 50 MB global per-file ceiling even if a bucket is configured higher.
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const AUTH_CHECK_TIMEOUT_MS = 15_000;
+
+// Bound the remote identity check so a stalled mobile connection cannot leave
+// the upload screen spinning forever. A timeout never clears the selected file.
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  });
+}
 const formatBytes = (bytes: number) => bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 const safeFileName = (name: string) => name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(-160) || "file";
 const describeUploadError = (error: unknown) => {
@@ -169,7 +182,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     let uploadedPath = "";
     let stage = "checking your school account";
     try {
-      const { data: authData, error: authError } = await db.auth.getUser();
+      const { data: authData, error: authError } = await withTimeout<any>(
+        Promise.resolve(db.auth.getUser()),
+        AUTH_CHECK_TIMEOUT_MS,
+        "The school account check timed out after 15 seconds. Your file is still selected on this device. Check your internet connection and sign in again if needed, then retry."
+      );
       if (authError) throw authError;
       if (!authData?.user?.id) throw new Error("Your session has expired. Sign in again and retry.");
       const cleanedName = safeFileName(fileToUpload.name);
