@@ -418,7 +418,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
             <p className="mt-1 text-sm leading-6 text-slate-600">Supports photos, videos, PDFs, Office documents, audio and ZIP files up to 50 MB. Choose whether a file is visible to authorised school members or administrators only. Google Drive is not required.</p>
             <div className="mt-3 rounded-xl border border-sky-200 bg-white p-3 text-sm text-slate-700">
               <p className="font-semibold text-sky-950">Android alternative: Share files directly to RESA</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Install the RESA app on your phone. In Files, Gallery or another app, select a document or photo, tap Share, then choose RESA. It will arrive here without using this page’s file picker. You still review and press Upload before anything enters school storage.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Use the installed RESA app on your phone. In Android Files or Gallery, select all the files you want to send in one batch, tap Share, then choose RESA. This avoids the in-page file picker. Open RESA Drive to review the received files and press Upload for each one; nothing enters school storage automatically. Until the multi-share queue update is released, send one batch containing all the files you need rather than sending separate batches.</p>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="block text-sm font-semibold">Folder
