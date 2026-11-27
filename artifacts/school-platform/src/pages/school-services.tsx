@@ -105,7 +105,7 @@ async function readSharedDriveFiles(): Promise<File[]> {
     });
   } finally { db.close(); }
 }
-async function saveSharedDriveFiles(files: File[]): Promise<void> {
+async function removeSharedDriveFile(uploadedFile: File): Promise<void> {
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(SHARED_DRIVE_DB, 1);
     request.onupgradeneeded = () => {
@@ -118,8 +118,20 @@ async function saveSharedDriveFiles(files: File[]): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(SHARED_DRIVE_STORE, "readwrite");
       const store = tx.objectStore(SHARED_DRIVE_STORE);
-      if (files.length) store.put({ files, receivedAt: Date.now() }, "files");
-      else store.delete("files");
+      const request = store.get("files");
+      request.onsuccess = () => {
+        const value = request.result as { files?: unknown; receivedAt?: number } | undefined;
+        const files = Array.isArray(value?.files) ? value.files.filter((file): file is File => file instanceof File) : [];
+        const index = files.findIndex((file) =>
+          file.name === uploadedFile.name &&
+          file.size === uploadedFile.size &&
+          file.lastModified === uploadedFile.lastModified
+        );
+        if (index >= 0) files.splice(index, 1);
+        if (files.length) store.put({ files, receivedAt: Date.now() }, "files");
+        else store.delete("files");
+      };
+      request.onerror = () => { tx.abort(); };
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error ?? new Error("Could not update the RESA share inbox."));
       tx.onabort = () => reject(tx.error ?? new Error("Updating the RESA share inbox was interrupted."));
@@ -205,7 +217,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const params = new URLSearchParams(window.location.search);
     if (params.get("shared") === "1") setNotice("Files received from your Android Share menu. Review the selected file below, then upload it securely.");
     if (params.get("shareError") === "empty") setError("The Android Share action did not include a supported file. Try sharing the file again.");
-    if (params.get("shareError") === "limit") setError("The shared batch is too large. RESA accepts up to 5 files, 50 MB each, and 100 MB combined per share.");
+    if (params.get("shareError") === "limit") setError("The shared batch or waiting inbox is full. Each share accepts up to 5 files, 50 MB each and 100 MB combined; the waiting inbox holds up to 20 files or 200 MB. Upload pending files before sharing more.");
     if (params.get("shareError") === "save") setError("RESA could not save the shared files on this device. Please retry or use Choose a file.");
     if (params.has("shared") || params.has("shareError")) {
       window.history.replaceState(window.history.state, "", window.location.pathname);
@@ -308,7 +320,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         : sharedFiles;
       setSharedFiles(remainingSharedFiles);
       if (uploadedSharedIndex >= 0) {
-        try { await saveSharedDriveFiles(remainingSharedFiles); } catch { /* The cloud copy is already safely registered. */ }
+        try { await removeSharedDriveFile(fileToUpload); } catch { /* The cloud copy is already safely registered. */ }
       }
       const nextFile = remainingSharedFiles[0] ?? null;
       setSelectedFile(nextFile);
