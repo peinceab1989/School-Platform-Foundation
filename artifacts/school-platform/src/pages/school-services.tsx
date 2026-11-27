@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, RefreshCw, Database, Search, ShieldCheck, Upload, FileText, Download, Trash2, FolderOpen, Eye, X } from "lucide-react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -113,6 +113,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const lastHandledSelectionRef = useRef("");
   const [restoringFile, setRestoringFile] = useState(true);
   const [savingFile, setSavingFile] = useState(false);
   const [folderName, setFolderName] = useState("General");
@@ -167,6 +168,26 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     }).finally(() => { if (mounted) setRestoringFile(false); });
     return () => { mounted = false; };
   }, [schoolId]);
+  // Handle both native input and change events. Some Android browsers dispatch
+  // these differently when returning from the system document picker.
+  const handleDriveFileSelection = async (file: File | null) => {
+    if (!file) return;
+    const selectionKey = `${file.name}:${file.size}:${file.lastModified}`;
+    if (lastHandledSelectionRef.current === selectionKey) return;
+    lastHandledSelectionRef.current = selectionKey;
+    setSelectedFile(file);
+    setError("");
+    setNotice(`Selected “${file.name}”. Preparing it for secure upload…`);
+    setSavingFile(true);
+    try {
+      await savePendingDriveFile(schoolId, file);
+      setNotice(`“${file.name}” is ready to upload.`);
+    } catch {
+      setNotice("File selected. Keep this page open while uploading; this browser could not enable recovery if Android reloads the page.");
+    } finally {
+      setSavingFile(false);
+    }
+  };
   const uploadFile = async () => {
     let fileToUpload = selectedFile;
     if (!fileToUpload) {
@@ -309,7 +330,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
                 </select>
               </label>
               <label className="block text-sm font-semibold">Choose a file
-                <input id="resa-drive-file-picker" type="file" onClick={() => { try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onChange={async e=>{ const file=e.target.files?.[0]??null; setSelectedFile(file); setError(""); if(file){ setSavingFile(true); try { await savePendingDriveFile(schoolId,file); setNotice(`“${file.name}” is ready to upload.`); } catch { setNotice("File selected. Keep this page open while uploading; this browser could not enable recovery if Android reloads the page."); } finally { setSavingFile(false); } } }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
+                <input id="resa-drive-file-picker" type="file" onClick={() => { lastHandledSelectionRef.current = ""; try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onInput={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} onChange={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
               </label>
             </div>
             {restoringFile&&<p className="mt-2 text-xs text-slate-500">Checking for a file selection interrupted by Android…</p>}{selectedFile&&<p className="mt-2 flex items-center gap-2 break-all text-xs text-slate-600"><FileText size={15}/>{selectedFile.name} · {formatBytes(selectedFile.size)}{savingFile?" · Saving recovery copy…":" · Ready"}</p>}
