@@ -274,6 +274,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setError("Your file selection was not retained. Please choose it again, wait for its name to appear, then upload.");
       return;
     }
+    const isSharedQueueUpload = sharedFiles.some((candidate) =>
+      candidate.name === fileToUpload!.name &&
+      candidate.size === fileToUpload!.size &&
+      candidate.lastModified === fileToUpload!.lastModified
+    );
     if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 50 MB limit on the current Supabase Free plan. Compress it or choose a smaller file."); return; }
     setUploading(true); setError(""); setNotice(""); setUploadStage("Checking your school account");
     const db = getSupabaseClient() as any;
@@ -318,7 +323,9 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       // Always reconcile against IndexedDB after upload. The service worker can
       // receive another Android share while this upload is running, so React's
       // earlier queue snapshot may be stale.
-      try { await removeSharedDriveFile(fileToUpload); } catch { /* The cloud copy is already safely registered. */ }
+      if (isSharedQueueUpload) {
+        try { await removeSharedDriveFile(fileToUpload); } catch { /* The cloud copy is already safely registered. */ }
+      }
       const latestSharedFiles = await readSharedDriveFiles().catch(() => []);
       setSharedFiles(latestSharedFiles);
       const nextFile = latestSharedFiles[0] ?? null;
