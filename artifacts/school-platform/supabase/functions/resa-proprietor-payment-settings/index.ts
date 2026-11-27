@@ -96,10 +96,10 @@ Deno.serve(async (req) => {
     if (action === "save_payment_method") {
       const id = String(body.id ?? "").trim();
       const methodType = String(body.methodType ?? "");
-      const displayName = String(body.displayName ?? "").trim().replace(/\\s+/g, " ").slice(0, 100);
-      const bankName = String(body.bankName ?? "").trim().replace(/\\s+/g, " ").slice(0, 120);
-      const accountName = String(body.accountName ?? "").trim().replace(/\\s+/g, " ").slice(0, 160);
-      const accountNumber = String(body.accountNumber ?? "").replace(/\\D/g, "").slice(0, 20);
+      const displayName = String(body.displayName ?? "").trim().replace(/\s+/g, " ").slice(0, 100);
+      const bankName = String(body.bankName ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+      const accountName = String(body.accountName ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
+      const accountNumber = String(body.accountNumber ?? "").replace(/\D/g, "").slice(0, 20);
       const paymentUrl = String(body.paymentUrl ?? "").trim().slice(0, 500);
       const instructions = String(body.instructions ?? "").trim().slice(0, 2000);
       const displayOrder = Number.isInteger(Number(body.displayOrder)) ? Math.max(0, Math.min(1000, Number(body.displayOrder))) : 0;
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       if (methodType === "bank_transfer" && (!bankName || !accountName || !/^[0-9]{6,20}$/.test(accountNumber))) {
         return json({ error: "Bank transfer requires a bank name, account name and valid account number." }, 400);
       }
-      if (paymentUrl && !/^https:\\/\\//i.test(paymentUrl)) return json({ error: "Payment links must use HTTPS." }, 400);
+      if (paymentUrl && !/^https:\/\/\//i.test(paymentUrl)) return json({ error: "Payment links must use HTTPS." }, 400);
       if (methodType !== "bank_transfer" && !instructions && !paymentUrl) return json({ error: "Add payment instructions or a secure payment link." }, 400);
       const values = {
         school_id: SCHOOL_ID, method_type: methodType, display_name: displayName,
