@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       const bankName = String(body.bankName ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
       const accountName = String(body.accountName ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
       const accountNumber = String(body.accountNumber ?? "").replace(/\D/g, "").slice(0, 20);
-      const paymentUrl = String(body.paymentUrl ?? "").trim().slice(0, 500);
+      const paymentUrl = String(body.paymentUrl ?? "").trim().replace(/^https:\/\//i, "https://").slice(0, 500);
       const instructions = String(body.instructions ?? "").trim().slice(0, 2000);
       const displayOrder = Number.isInteger(Number(body.displayOrder)) ? Math.max(0, Math.min(1000, Number(body.displayOrder))) : 0;
       if (!["bank_transfer", "pos", "cash", "other"].includes(methodType)) return json({ error: "Choose a supported manual payment method." }, 400);
