@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { ShieldCheck, LockKeyhole, RefreshCw, Save, Power, AlertTriangle, Plus, Pencil, Landmark, Wallet, Copy, ExternalLink } from "lucide-react";
+import { ShieldCheck, LockKeyhole, RefreshCw, Save, Power, AlertTriangle, Plus, Pencil, Landmark, Wallet } from "lucide-react";
 
 type ProviderStatus = {
   provider: string; enabled: boolean; environment: string; displayName: string | null;
@@ -85,7 +85,7 @@ export default function PaymentGatewaySettingsPage({ schoolId, userId }: { schoo
       displayOrder: String(method.display_order ?? 0),
     });
   }
-  async function savePaymentMethod(event: React.FormEvent<HTMLFormElement>) {
+  async function savePaymentMethod(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
       const data = await call("save_payment_method", {
