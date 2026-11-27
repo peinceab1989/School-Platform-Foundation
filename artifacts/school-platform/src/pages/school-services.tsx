@@ -155,7 +155,8 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);\n  const [sharedFiles, setSharedFiles] = useState<File[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [sharedFiles, setSharedFiles] = useState<File[]>([]);
   const lastHandledSelectionRef = useRef("");
   const [restoringFile, setRestoringFile] = useState(true);
   const [savingFile, setSavingFile] = useState(false);
