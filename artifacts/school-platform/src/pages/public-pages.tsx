@@ -569,6 +569,16 @@ export function ActivitiesGalleryPage() {
   );
 }
 
+type PublicAdmissionPaymentMethod = {
+  id: string;
+  method_type: "bank_transfer" | "pos" | "cash" | "other";
+  display_name: string;
+  bank_name: string | null;
+  account_name: string | null;
+  account_number: string | null;
+  payment_url: string | null;
+  instructions: string;
+};
 export function AdmissionsPage() {
   const [purchase, setPurchase] = useState({
     studentName: "",
@@ -578,11 +588,13 @@ export function AdmissionsPage() {
     parentEmail: "",
   });
   const [prepared, setPrepared] = useState<string[]>([]);
-  const [quote,setQuote]=useState<{form_price:number|null;currency:string;online_checkout_available:boolean}|null>(null);
+  const [quote,setQuote]=useState<{form_price:number|null;currency:string;online_checkout_available:boolean;payment_methods:PublicAdmissionPaymentMethod[]}|null>(null);
   const [checkoutBusy,setCheckoutBusy]=useState(false);
   const [checkoutError,setCheckoutError]=useState("");
   const [paymentReference,setPaymentReference]=useState("");
   const [verifiedForm,setVerifiedForm]=useState<{form_number:string;receipt_number:string}|null>(null);
+  const [showPaymentOptions,setShowPaymentOptions]=useState(false);
+  const [copiedMethodId,setCopiedMethodId]=useState("");
 
   async function refreshPaymentStatus(reference:string){
     setCheckoutError("");
@@ -593,7 +605,7 @@ export function AdmissionsPage() {
         setVerifiedForm({form_number:data.form_number,receipt_number:data.receipt_number});
         setPaymentReference(reference);
       }else{
-        setCheckoutError("Paystack has returned to RESA, but settlement verification is still pending. Use Check payment status again shortly. No admission number is issued until verification succeeds.");
+        setCheckoutError("Your payment has returned to RESA, but provider verification is still pending. Check again shortly. No admission number is issued until verification succeeds.");
       }
     }catch(e){setCheckoutError(e instanceof Error?e.message:"Payment status could not be checked. Try again shortly.");}
   }
@@ -601,7 +613,14 @@ export function AdmissionsPage() {
   useEffect(()=>{
     let active=true;
     getSupabaseClient().functions.invoke("resa-admission-paystack-checkout",{body:{action:"quote"}})
-      .then(({data,error})=>{if(active&&!error&&data?.success)setQuote({form_price:data.form_price??null,currency:data.currency??"NGN",online_checkout_available:Boolean(data.online_checkout_available)});})
+      .then(({data,error})=>{
+        if(active&&!error&&data?.success)setQuote({
+          form_price:data.form_price??null,
+          currency:data.currency??"NGN",
+          online_checkout_available:Boolean(data.online_checkout_available),
+          payment_methods:Array.isArray(data.payment_methods)?data.payment_methods:[]
+        });
+      })
       .catch(()=>{});
     const reference=new URLSearchParams(window.location.search).get("reference");
     if(reference&&/^RESA-ADM-PAY-[A-F0-9]{32}$/.test(reference)){
@@ -611,15 +630,22 @@ export function AdmissionsPage() {
     return()=>{active=false;};
   },[]);
 
-  async function handlePurchaseSubmit(event:FormEvent<HTMLFormElement>){
+  function handlePurchaseSubmit(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
     setCheckoutError("");
-    if(!quote?.online_checkout_available){sendPurchaseRequest(event);return;}
-    if(!purchase.parentEmail.trim()){
-      setCheckoutError("Enter the parent/guardian email address to receive the Paystack payment receipt.");
+    if(!quote){
+      setCheckoutError("Payment options are still loading. Please wait a moment and try again.");
       return;
     }
-    setCheckoutBusy(true);
+    if(quote.online_checkout_available&&!purchase.parentEmail.trim()){
+      setCheckoutError("Enter the parent/guardian email address to receive the electronic payment receipt.");
+      return;
+    }
+    setShowPaymentOptions(true);
+  }
+
+  async function startPaystackCheckout(){
+    setCheckoutError("");setCheckoutBusy(true);
     try{
       const {data,error}=await getSupabaseClient().functions.invoke("resa-admission-paystack-checkout",{body:{
         action:"initialize",applicant_name:purchase.studentName,class_applied_for:purchase.classAppliedFor,
@@ -641,27 +667,39 @@ export function AdmissionsPage() {
     "Immunisation record (where available/requested)",
   ];
 
-  function sendPurchaseRequest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function contactCustomerCare(){
     const message = [
-      "Hello RESA Admissions, I would like to purchase an admission form.",
-      `Applicant's full name: ${purchase.studentName.trim()}`,
-      `Class applying for: ${purchase.classAppliedFor}`,
+      "Hello RESA Customer Care, I need assistance with purchasing an admission form.",
+      `Applicant: ${purchase.studentName.trim()}`,
+      `Class: ${purchase.classAppliedFor}`,
       `Parent/guardian: ${purchase.parentName.trim()}`,
-      `Parent/guardian phone: ${purchase.parentPhone.trim()}`,
+      `Phone: ${purchase.parentPhone.trim()}`,
       purchase.parentEmail.trim() ? `Email: ${purchase.parentEmail.trim()}` : "",
-      "Please confirm the current admission form price and approved payment instructions.",
-      "I understand that the admission/form number is issued only after payment has been verified by RESA."
+      `Admission form fee: ${quote?.form_price?new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:2}).format(quote.form_price):"Please confirm"}`,
+      "Please provide the currently approved payment options. I understand that a form number is issued only after payment is verified by RESA."
     ].filter(Boolean).join("\n");
     window.open(`https://wa.me/2348058422691?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   }
+
+  async function copyAccountNumber(method:PublicAdmissionPaymentMethod){
+    if(!method.account_number)return;
+    try{
+      await navigator.clipboard.writeText(method.account_number);
+      setCopiedMethodId(method.id);
+      window.setTimeout(()=>setCopiedMethodId(""),1800);
+    }catch{
+      setCheckoutError("Copy is unavailable in this browser. Please select and copy the account number manually.");
+    }
+  }
+
+  const money=(amount:number|null|undefined)=>amount==null?"To be confirmed":new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:2}).format(amount);
 
   return (
     <PublicLayout>
       <PageHero
         eyebrow="Join our community"
         title="Admissions at RESA"
-        description="Begin your child's admission journey with a clear purchase request, verified form issuance and guided application process."
+        description="Begin your child's admission journey with transparent payment options, verified form issuance and a guided application process."
         image={photos.learning}
       />
       <section className="bg-[#faf8f1] px-5 py-16 sm:px-8">
@@ -670,23 +708,20 @@ export function AdmissionsPage() {
             <SectionHeading
               eyebrow="Your admission journey"
               title="A clear path to enrolment"
-              description="Submit a purchase request, follow the school's approved payment instructions and receive your unique admission form number after payment verification."
+              description="Review the approved admission form fee, choose an available payment method and receive your unique admission form number only after RESA verifies payment."
             />
             <div className="space-y-4">
               {[
-                ["Submit a purchase request", "Provide the applicant and parent/guardian details below. This request does not itself constitute payment."],
-                ["Confirm the form fee and payment instructions", "RESA Admissions will confirm the current fee and the school's approved payment channel before you pay."],
-                ["Payment verification and form number", "After the school confirms receipt of payment, an authorised officer issues a unique admission/form number."],
-                ["Complete the online application", "Use the issued form number to verify the form and complete the admission application."],
+                ["Enter applicant details", "Provide the applicant and parent/guardian details to prepare the payment instructions."],
+                ["Choose an approved payment method", "Select a secure online checkout or a school-approved manual payment option displayed by RESA."],
+                ["Payment verification and form number", "Online payments are verified by the payment provider. Manual payments are checked by RESA staff. A form number is never issued from a screenshot or browser redirect alone."],
+                ["Complete the online application", "Use the verified admission form number to complete the admission application."],
                 ["Prepare and submit documents", "Prepare the documents listed here and follow any additional instructions from the admissions office."],
                 ["Entrance assessment where applicable", "Complete the relevant entrance assessment or RESA Open CBT process if the school requires it."]
               ].map(([title, description], index) => (
                 <div key={title} className="flex gap-4 rounded-2xl border border-[#e7dec9] bg-white p-5 shadow-sm">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#163c2e] font-black text-[#e7cc80]">{index + 1}</div>
-                  <div>
-                    <h3 className="font-extrabold text-[#163c2e]">{title}</h3>
-                    <p className="mt-2 leading-7 text-slate-600">{description}</p>
-                  </div>
+                  <div><h3 className="font-extrabold text-[#163c2e]">{title}</h3><p className="mt-2 leading-7 text-slate-600">{description}</p></div>
                 </div>
               ))}
             </div>
@@ -694,53 +729,70 @@ export function AdmissionsPage() {
           <aside className="h-fit rounded-3xl border border-[#e7dec9] bg-white p-6 shadow-[0_7px_0_#e7dec9,0_18px_35px_#173b2b0d] sm:p-8">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e9f0e7] text-[#20553d]"><GraduationCap size={30} /></div>
             <h2 className="mt-5 text-2xl font-black text-[#163c2e]">Purchase an admission form</h2>
-            <p className="mt-3 leading-7 text-slate-600">Complete the request below to contact RESA Admissions. The school will confirm the current form price and approved payment instructions.</p>
+            <p className="mt-3 leading-7 text-slate-600">Enter the applicant and parent/guardian details. The available payment methods will then be displayed here.</p>
             <div className="mt-5 rounded-2xl border border-[#e7dec9] bg-[#faf8f1] p-4">
-              <p className="text-sm font-bold text-[#163c2e]">Admission form fee</p>
-              <p className="mt-1 text-lg font-extrabold text-[#163c2e]">{quote?.form_price?new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:2}).format(quote.form_price):"Confirmed by RESA Admissions"}</p>
-              <p className="mt-2 text-xs leading-5 text-slate-600">{quote?.form_price?"This is the current school-approved admission form price.":"The admission fee has not been published online. Contact RESA Admissions to confirm the approved amount before paying."} {quote?.online_checkout_available?"Secure Paystack checkout is available.":"Online checkout is not currently enabled; use the official RESA Admissions enquiry channel."}</p>
+              <p className="text-sm font-bold text-[#163c2e]">Approved admission form fee</p>
+              <p className="mt-1 text-2xl font-extrabold text-[#163c2e]">{money(quote?.form_price)}</p>
+              <p className="mt-2 text-xs leading-5 text-slate-600">{quote?.form_price?"This fee is configured by RESA. Pay only through the options displayed on this official website.":"The current fee could not be retrieved. Contact RESA Customer Care before making any payment."}</p>
             </div>
             <form onSubmit={handlePurchaseSubmit} className="mt-5 space-y-3">
               <label className="block text-sm font-semibold text-[#163c2e]">Applicant's full name
-                <input required maxLength={160} value={purchase.studentName} onChange={e=>setPurchase({...purchase,studentName:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter applicant's full name"/>
+                <input required maxLength={160} value={purchase.studentName} onChange={e=>{setPurchase({...purchase,studentName:e.target.value});setShowPaymentOptions(false);}} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter applicant's full name"/>
               </label>
               <label className="block text-sm font-semibold text-[#163c2e]">Class applying for
-                <select required value={purchase.classAppliedFor} onChange={e=>setPurchase({...purchase,classAppliedFor:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal">
+                <select required value={purchase.classAppliedFor} onChange={e=>{setPurchase({...purchase,classAppliedFor:e.target.value});setShowPaymentOptions(false);}} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal">
                   <option value="">Select class</option>
                   {["Nursery","Primary 1","Primary 2","Primary 3","Primary 4","Primary 5","Primary 6","JSS 1","JSS 2","JSS 3","SS 1","SS 2","SS 3"].map(v=><option key={v} value={v}>{v}</option>)}
                 </select>
               </label>
               <label className="block text-sm font-semibold text-[#163c2e]">Parent/guardian full name
-                <input required maxLength={160} value={purchase.parentName} onChange={e=>setPurchase({...purchase,parentName:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter parent or guardian's name"/>
+                <input required maxLength={160} value={purchase.parentName} onChange={e=>{setPurchase({...purchase,parentName:e.target.value});setShowPaymentOptions(false);}} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter parent or guardian's name"/>
               </label>
               <label className="block text-sm font-semibold text-[#163c2e]">Parent/guardian phone
-                <input required type="tel" maxLength={40} value={purchase.parentPhone} onChange={e=>setPurchase({...purchase,parentPhone:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter contact phone number"/>
+                <input required type="tel" maxLength={40} value={purchase.parentPhone} onChange={e=>{setPurchase({...purchase,parentPhone:e.target.value});setShowPaymentOptions(false);}} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter contact phone number"/>
               </label>
-              <label className="block text-sm font-semibold text-[#163c2e]">Email address (optional)
-                <input type="email" maxLength={254} required={Boolean(quote?.online_checkout_available)} value={purchase.parentEmail} onChange={e=>setPurchase({...purchase,parentEmail:e.target.value})} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter email address"/>
+              <label className="block text-sm font-semibold text-[#163c2e]">Email address {quote?.online_checkout_available?"(required for online checkout)":"(optional)"}
+                <input type="email" maxLength={254} required={Boolean(quote?.online_checkout_available)} value={purchase.parentEmail} onChange={e=>{setPurchase({...purchase,parentEmail:e.target.value});setShowPaymentOptions(false);}} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter email address"/>
               </label>
               {checkoutError&&<div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{checkoutError}</div>}
-              <button type="submit" disabled={checkoutBusy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#163c2e] px-5 py-4 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-0.5 disabled:opacity-60">
-                {checkoutBusy?"Opening secure checkout…":quote?.online_checkout_available?"Pay admission form fee securely":"Send purchase request on WhatsApp"} <ArrowRight size={18}/>
+              <button type="submit" disabled={!quote||checkoutBusy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#163c2e] px-5 py-4 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-0.5 disabled:opacity-60">
+                {quote?"View available payment options":"Loading payment options…"} <ArrowRight size={18}/>
               </button>
-              <p className="text-xs leading-5 text-slate-500">{quote?.online_checkout_available?"You will be redirected to Paystack. RESA issues the form number only after its server verifies the exact successful NGN payment. A browser redirect or screenshot is not proof of payment.":"Your request opens a WhatsApp message to RESA. It is not a payment confirmation. Do not send identity documents or sensitive records through this enquiry."}</p>
             </form>
+
+            {showPaymentOptions&&<section className="mt-6 space-y-4" aria-live="polite">
+              <div className="rounded-2xl bg-[#163c2e] p-4 text-white"><p className="text-xs font-bold uppercase tracking-wider text-[#e7cc80]">Payment summary</p><p className="mt-1 text-lg font-extrabold">{money(quote?.form_price)}</p><p className="mt-1 text-xs text-white/75">For: {purchase.studentName} · {purchase.classAppliedFor}</p></div>
+              {quote?.online_checkout_available&&<article className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                <h3 className="font-extrabold text-emerald-950">Secure online payment</h3>
+                <p className="mt-1 text-sm leading-6 text-emerald-900">Continue to RESA's enabled payment gateway. Your admission form number will appear only after the provider transaction is independently verified.</p>
+                <button type="button" disabled={checkoutBusy} onClick={()=>void startPaystackCheckout()} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-extrabold text-white disabled:opacity-50">{checkoutBusy?"Connecting securely…":"Continue to secure checkout"} <ArrowRight size={17}/></button>
+              </article>}
+              {(quote?.payment_methods??[]).map(method=><article key={method.id} className="rounded-2xl border border-[#e7dec9] bg-white p-4">
+                <div className="flex items-center gap-2"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#edf3e9] text-[#20553d]"><Wallet size={19}/></div><div><h3 className="font-extrabold text-[#163c2e]">{method.display_name}</h3><p className="text-xs capitalize text-slate-500">{method.method_type.replace("_"," ")}</p></div></div>
+                {method.method_type==="bank_transfer"&&<div className="mt-3 space-y-2 rounded-xl bg-[#faf8f1] p-3 text-sm">
+                  <p><span className="text-slate-500">Bank</span><strong className="ml-2 text-[#163c2e]">{method.bank_name}</strong></p>
+                  <p><span className="text-slate-500">Account name</span><strong className="ml-2 text-[#163c2e]">{method.account_name}</strong></p>
+                  <div className="flex flex-wrap items-center justify-between gap-2"><p><span className="text-slate-500">Account number</span><strong className="ml-2 font-mono text-lg text-[#163c2e]">{method.account_number}</strong></p><button type="button" onClick={()=>void copyAccountNumber(method)} className="inline-flex items-center gap-1 rounded-lg border border-[#d9dfd5] px-3 py-2 text-xs font-bold text-[#20553d]"><Copy size={14}/>{copiedMethodId===method.id?"Copied":"Copy number"}</button></div>
+                </div>}
+                {method.instructions&&<p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-600">{method.instructions}</p>}
+                {method.payment_url&&<a href={method.payment_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#163c2e] px-4 py-3 text-sm font-bold text-white">Open payment option <ExternalLink size={15}/></a>}
+                <p className="mt-3 text-xs leading-5 text-amber-800">After paying, contact RESA with your payment reference. This manual payment must be verified by the school before an admission form number is issued.</p>
+              </article>)}
+              {!quote?.online_checkout_available&&!(quote?.payment_methods?.length)&&<div className="rounded-2xl border border-amber-300 bg-amber-50 p-4"><h3 className="font-extrabold text-amber-950">No payment option is currently available</h3><p className="mt-1 text-sm leading-6 text-amber-900">Please contact RESA Customer Care for the approved payment instructions. Do not transfer money to an account received from an unofficial source.</p></div>}
+              <button type="button" onClick={contactCustomerCare} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-4 py-3 font-extrabold text-[#20553d]">Contact RESA Customer Care on WhatsApp <ArrowRight size={17}/></button>
+            </section>}
+
             {verifiedForm&&<div role="status" className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="font-extrabold text-emerald-950">Payment verified — admission form issued</p><p className="mt-2 text-sm">Your RESA admission form number:</p><p className="mt-1 text-xl font-black tracking-wide text-emerald-950">{verifiedForm.form_number}</p><p className="mt-1 text-xs text-emerald-800">Receipt: {verifiedForm.receipt_number}</p><Link href="/admissions-apply" className="mt-4 inline-flex rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white">Complete admission application</Link></div>}
             {paymentReference&&!verifiedForm&&<div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-sm font-bold text-amber-950">Payment verification in progress</p><p className="mt-1 text-xs text-amber-900">Do not pay again or use an unverified form number. RESA will show your number here only after Paystack settlement is confirmed.</p><button type="button" onClick={()=>void refreshPaymentStatus(paymentReference)} className="mt-3 rounded-lg border border-amber-300 px-3 py-2 text-sm font-bold text-amber-950">Check payment status</button></div>}
             <div className="mt-6 rounded-2xl border border-[#e7dec9] p-5">
               <h3 className="font-extrabold text-[#163c2e]">Admission Documents to Prepare</h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">Prepare the following documents. RESA Admissions may confirm additional requirements for the class or applicant.</p>
-              <div className="mt-4 space-y-3">
-                {documents.map(doc=><label key={doc} className="flex items-start gap-3 text-sm leading-6 text-slate-700">
-                  <input type="checkbox" checked={prepared.includes(doc)} onChange={e=>setPrepared(current=>e.target.checked?[...current,doc]:current.filter(item=>item!==doc))} className="mt-1 h-4 w-4 accent-emerald-900"/>
-                  <span>{doc}</span>
-                </label>)}
-              </div>
+              <div className="mt-4 space-y-3">{documents.map(doc=><label key={doc} className="flex items-start gap-3 text-sm leading-6 text-slate-700"><input type="checkbox" checked={prepared.includes(doc)} onChange={e=>setPrepared(current=>e.target.checked?[...current,doc]:current.filter(item=>item!==doc))} className="mt-1 h-4 w-4 accent-emerald-900"/><span>{doc}</span></label>)}</div>
               <p className="mt-3 text-xs text-slate-500">{prepared.length} of {documents.length} document items prepared. This checklist is saved only in this browser session.</p>
             </div>
             <Link href="/admissions-apply" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d]">Already have a verified form number? Complete application <ArrowRight size={18}/></Link>
             <Link href="/external-cbt-registration" className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-5 py-4 font-extrabold text-[#20553d]">RESA Open CBT registration <ArrowRight size={18}/></Link>
-            <a href="tel:08052159511" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#e7dec9] bg-[#faf8f1] px-5 py-4 font-extrabold text-[#163c2e]"><Phone size={18}/> Call Admissions: 08052159511</a>
+            <a href="tel:08058422691" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#e7dec9] bg-[#faf8f1] px-5 py-4 font-extrabold text-[#163c2e]"><Phone size={18}/> Call RESA Customer Care: 08058422691</a>
             <a href={`mailto:${ADMISSIONS_EMAIL}`} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#e7dec9] bg-white px-5 py-4 font-extrabold text-[#163c2e]"><Mail size={18}/> Email Admissions</a>
           </aside>
         </div>
