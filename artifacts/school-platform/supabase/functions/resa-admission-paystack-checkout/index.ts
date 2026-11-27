@@ -44,17 +44,21 @@ Deno.serve(async (req: Request) => {
     const action = clean(body.action, 20);
 
     if (action === "quote") {
-      const [{ data: settings, error: settingsError }, { data: gateway, error: gatewayError }] = await Promise.all([
+      const [{ data: settings, error: settingsError }, { data: gateway, error: gatewayError }, { data: methods, error: methodsError }] = await Promise.all([
         admin.from("school_admission_settings").select("form_price,currency,online_checkout_enabled").eq("school_id", SCHOOL_ID).maybeSingle(),
         admin.from("school_payment_gateway_settings").select("is_enabled,environment").eq("school_id", SCHOOL_ID).eq("provider", "paystack").maybeSingle(),
+        admin.from("school_admission_payment_methods").select("id,method_type,display_name,bank_name,account_name,account_number,payment_url,instructions,display_order").eq("school_id", SCHOOL_ID).eq("is_enabled", true).order("display_order").order("created_at"),
       ]);
-      if (settingsError || gatewayError) throw new Error("Could not read admission payment settings.");
+      if (settingsError || gatewayError || methodsError) throw new Error("Could not read admission payment settings.");
       const price = settings?.form_price == null ? null : Number(settings.form_price);
       const gatewayReady = Boolean(gateway?.is_enabled && ["test", "live"].includes(gateway.environment));
+      const onlineCheckoutAvailable = Boolean(settings?.online_checkout_enabled && gatewayReady && price && price >= 50);
       return reply(origin, 200, {
         success: true, form_price: Number.isFinite(price) && price > 0 ? price : null,
         currency: settings?.currency ?? "NGN",
-        online_checkout_available: Boolean(settings?.online_checkout_enabled && gatewayReady && price && price >= 50),
+        online_checkout_available: onlineCheckoutAvailable,
+        payment_available: onlineCheckoutAvailable || Boolean(methods?.length),
+        payment_methods: methods ?? [],
         payment_environment: gatewayReady ? gateway.environment : null,
       });
     }
