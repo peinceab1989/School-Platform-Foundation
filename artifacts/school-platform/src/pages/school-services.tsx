@@ -315,19 +315,13 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         if (cleanup.error) throw new Error(`File details were rejected (${describeUploadError(metadataResult.error)}). Storage cleanup also failed (${describeUploadError(cleanup.error)}); contact the administrator before retrying.`);
         throw metadataResult.error;
       }
-      const uploadedSharedIndex = sharedFiles.findIndex((candidate) =>
-        candidate.name === fileToUpload!.name &&
-        candidate.size === fileToUpload!.size &&
-        candidate.lastModified === fileToUpload!.lastModified
-      );
-      const remainingSharedFiles = uploadedSharedIndex >= 0
-        ? sharedFiles.filter((_, index) => index !== uploadedSharedIndex)
-        : sharedFiles;
-      setSharedFiles(remainingSharedFiles);
-      if (uploadedSharedIndex >= 0) {
-        try { await removeSharedDriveFile(fileToUpload); } catch { /* The cloud copy is already safely registered. */ }
-      }
-      const nextFile = remainingSharedFiles[0] ?? null;
+      // Always reconcile against IndexedDB after upload. The service worker can
+      // receive another Android share while this upload is running, so React's
+      // earlier queue snapshot may be stale.
+      try { await removeSharedDriveFile(fileToUpload); } catch { /* The cloud copy is already safely registered. */ }
+      const latestSharedFiles = await readSharedDriveFiles().catch(() => []);
+      setSharedFiles(latestSharedFiles);
+      const nextFile = latestSharedFiles[0] ?? null;
       setSelectedFile(nextFile);
       hasSelectedDriveFileRef.current = Boolean(nextFile);
       try {
@@ -430,7 +424,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
                 </select>
               </label>
               <label className="block text-sm font-semibold">Choose a file
-                <input id="resa-drive-file-picker" type="file" onClick={() => { lastHandledSelectionRef.current = ""; try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onInput={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} onChange={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
+                <input id="resa-drive-file-picker" type="file" disabled={uploading} onClick={() => { lastHandledSelectionRef.current = ""; try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onInput={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} onChange={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
               </label>
             </div>
             {restoringFile&&<p className="mt-2 text-xs text-slate-500">Checking for a file selection interrupted by Android…</p>}
