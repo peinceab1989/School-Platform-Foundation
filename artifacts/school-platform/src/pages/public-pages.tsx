@@ -598,6 +598,7 @@ export function AdmissionsPage() {
   const [verifiedForm,setVerifiedForm]=useState<{form_number:string;receipt_number:string}|null>(null);
   const [showPaymentOptions,setShowPaymentOptions]=useState(false);
   const [copiedMethodId,setCopiedMethodId]=useState("");
+  const [manualPaymentReference,setManualPaymentReference]=useState("");
 
   async function refreshPaymentStatus(reference:string){
     setCheckoutError("");
@@ -679,7 +680,8 @@ export function AdmissionsPage() {
       `Phone: ${purchase.parentPhone.trim()}`,
       purchase.parentEmail.trim() ? `Email: ${purchase.parentEmail.trim()}` : "",
       `Admission form fee: ${quote?.form_price?new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:2}).format(quote.form_price):"Please confirm"}`,
-      "Please provide the currently approved payment options. I understand that a form number is issued only after payment is verified by RESA."
+      manualPaymentReference.trim() ? `My payment transaction reference: ${manualPaymentReference.trim()}` : "I need the currently approved payment options.",
+      "I understand that a form number is issued only after payment is verified by RESA."
     ].filter(Boolean).join("\n");
     window.open(`https://wa.me/2348058422691?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   }
@@ -782,7 +784,10 @@ export function AdmissionsPage() {
                 <p className="mt-3 text-xs leading-5 text-amber-800">After paying, contact RESA with your payment reference. This manual payment must be verified by the school before an admission form number is issued.</p>
               </article>)}
               {!quote?.online_checkout_available&&!(quote?.payment_methods?.length)&&<div className="rounded-2xl border border-amber-300 bg-amber-50 p-4"><h3 className="font-extrabold text-amber-950">No payment option is currently available</h3><p className="mt-1 text-sm leading-6 text-amber-900">Please contact RESA Customer Care for the approved payment instructions. Do not transfer money to an account received from an unofficial source.</p></div>}
-              <button type="button" onClick={contactCustomerCare} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-4 py-3 font-extrabold text-[#20553d]">Contact RESA Customer Care on WhatsApp <ArrowRight size={17}/></button>
+              <label className="block text-sm font-semibold text-[#163c2e]">Payment transaction reference (if you have already paid)
+                <input maxLength={100} value={manualPaymentReference} onChange={e=>setManualPaymentReference(e.target.value)} className="mt-1 w-full rounded-xl border border-[#d9dfd5] p-3 font-normal" placeholder="Enter your bank/POS transaction reference"/>
+              </label>
+              <button type="button" onClick={contactCustomerCare} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#d7dfd3] bg-[#edf4e9] px-4 py-3 font-extrabold text-[#20553d]">{manualPaymentReference.trim()?"Send payment reference to Customer Care":"Contact RESA Customer Care on WhatsApp"} <ArrowRight size={17}/></button>
             </section>}
 
             {verifiedForm&&<div role="status" className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="font-extrabold text-emerald-950">Payment verified — admission form issued</p><p className="mt-2 text-sm">Your RESA admission form number:</p><p className="mt-1 text-xl font-black tracking-wide text-emerald-950">{verifiedForm.form_number}</p><p className="mt-1 text-xs text-emerald-800">Receipt: {verifiedForm.receipt_number}</p><Link href="/admissions-apply" className="mt-4 inline-flex rounded-lg bg-emerald-900 px-4 py-3 text-sm font-bold text-white">Complete admission application</Link></div>}
