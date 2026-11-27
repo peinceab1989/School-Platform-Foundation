@@ -44,18 +44,23 @@ Deno.serve(async (req: Request) => {
     const action = clean(body.action, 20);
 
     if (action === "quote") {
-      const [{ data: settings, error: settingsError }, { data: gateway, error: gatewayError }] = await Promise.all([
+      const [{ data: settings, error: settingsError }, { data: gateway, error: gatewayError }, { data: methods, error: methodsError }] = await Promise.all([
         admin.from("school_admission_settings").select("form_price,currency,online_checkout_enabled").eq("school_id", SCHOOL_ID).maybeSingle(),
         admin.from("school_payment_gateway_settings").select("is_enabled,environment").eq("school_id", SCHOOL_ID).eq("provider", "paystack").maybeSingle(),
+        admin.from("school_admission_payment_methods").select("id,method_type,display_name,bank_name,account_name,account_number,payment_url,instructions,display_order").eq("school_id", SCHOOL_ID).eq("is_enabled", true).order("display_order").order("created_at"),
       ]);
-      if (settingsError || gatewayError) throw new Error("Could not read admission payment settings.");
+      if (settingsError || gatewayError || methodsError) throw new Error("Could not read admission payment settings.");
       const price = settings?.form_price == null ? null : Number(settings.form_price);
+      const validPrice = price !== null && Number.isFinite(price) && price > 0;
       const gatewayReady = Boolean(gateway?.is_enabled && ["test", "live"].includes(gateway.environment));
+      const onlineCheckoutAvailable = Boolean(settings?.online_checkout_enabled && gatewayReady && price && price >= 50);
       return reply(origin, 200, {
-        success: true, form_price: Number.isFinite(price) && price > 0 ? price : null,
+        success: true, form_price: validPrice ? price : null,
         currency: settings?.currency ?? "NGN",
-        online_checkout_available: Boolean(settings?.online_checkout_enabled && gatewayReady && price && price >= 50),
-        payment_environment: gatewayReady ? gateway.environment : null,
+        online_checkout_available: onlineCheckoutAvailable,
+        payment_available: onlineCheckoutAvailable || Boolean(methods?.length),
+        payment_methods: methods ?? [],
+        payment_environment: gatewayReady ? gateway?.environment ?? null : null,
       });
     }
 
@@ -63,10 +68,60 @@ Deno.serve(async (req: Request) => {
       const reference = clean(body.reference, 100);
       if (!/^RESA-ADM-PAY-[A-F0-9]{32}$/.test(reference)) return reply(origin, 400, { success: false, error: "A valid payment reference is required." });
       const { data: intent, error } = await admin.from("admission_form_payment_intents")
-        .select("status,form_purchase_id,provider_reference").eq("provider_reference", reference).eq("school_id", SCHOOL_ID).maybeSingle();
+        .select("id,status,form_purchase_id,provider_reference,amount_minor,currency,payment_environment")
+        .eq("provider_reference", reference).eq("school_id", SCHOOL_ID).maybeSingle();
       if (error) throw error;
       if (!intent) return reply(origin, 404, { success: false, error: "Admission payment reference not found." });
-      if (intent.status !== "paid" || !intent.form_purchase_id) return reply(origin, 200, { success: true, status: intent.status, verified: false });
+
+      if (intent.status !== "paid") {
+        if (intent.status === "failed") return reply(origin, 200, { success: true, status: "failed", verified: false });
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(SCHOOL_ID + "|status|" + reference));
+        const rateKey = [...new Uint8Array(digest)].map(v => v.toString(16).padStart(2, "0")).join("");
+        const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const { count, error: rateError } = await admin.from("admission_application_rate_events")
+          .select("id", { count: "exact", head: true }).eq("rate_key", rateKey).gte("created_at", since);
+        if (rateError) throw rateError;
+        if ((count ?? 0) >= 10) return reply(origin, 429, { success: false, error: "Too many status checks. Wait a few minutes before trying again." });
+        const { error: rateInsertError } = await admin.from("admission_application_rate_events").insert({ rate_key: rateKey });
+        if (rateInsertError) throw rateInsertError;
+
+        const environment = intent.payment_environment === "live" ? "live" : "test";
+        const secretKey = await readVaultSecret(admin, environment, "api_secret_key");
+        const expectedPrefix = environment === "live" ? "sk_live_" : "sk_test_";
+        if (!secretKey || !secretKey.startsWith(expectedPrefix)) {
+          return reply(origin, 503, { success: false, error: "RESA payment verification is temporarily unavailable. No form number has been issued." });
+        }
+        const verifyResponse = await fetch("https://api.paystack.co/transaction/verify/" + encodeURIComponent(reference), {
+          headers: { Authorization: "Bearer " + secretKey },
+        });
+        const verified = await verifyResponse.json().catch(() => ({}));
+        const tx = verified.data;
+        if (!verifyResponse.ok || verified.status !== true || tx?.status !== "success") {
+          return reply(origin, 200, { success: true, status: intent.status, verified: false });
+        }
+        if (tx.reference !== reference || tx.currency !== "NGN" ||
+            Number(tx.amount) !== Number(intent.amount_minor) || tx.id == null) {
+          await admin.from("admission_form_payment_intents")
+            .update({ status: "failed", failure_code: "provider_verification_mismatch", updated_at: new Date().toISOString() })
+            .eq("id", intent.id).neq("status", "paid");
+          return reply(origin, 200, { success: true, status: "failed", verified: false });
+        }
+        const { data: recorded, error: recordError } = await admin.rpc("record_verified_admission_form_purchase", {
+          p_intent_id: intent.id,
+          p_provider_transaction_id: String(tx.id),
+          p_verified_amount_minor: Number(tx.amount),
+          p_verified_currency: String(tx.currency),
+        });
+        if (recordError) throw recordError;
+        if (!recorded?.form_number || !recorded?.receipt_number) throw new Error("Verified payment did not return an issued admission form.");
+        return reply(origin, 200, {
+          success: true, status: "paid", verified: true,
+          form_number: recorded.form_number, receipt_number: recorded.receipt_number,
+          amount_paid: Number(tx.amount) / 100, paid_at: new Date().toISOString(),
+        });
+      }
+
+      if (!intent.form_purchase_id) throw new Error("Paid admission intent has no linked form purchase.");
       const { data: purchase, error: purchaseError } = await admin.from("external_candidate_form_purchases")
         .select("form_number,receipt_number,amount_paid,paid_at").eq("id", intent.form_purchase_id).eq("school_id", SCHOOL_ID).maybeSingle();
       if (purchaseError || !purchase) throw new Error("Verified admission form is awaiting reconciliation.");

@@ -67,14 +67,17 @@ Deno.serve(async (req) => {
     if (!["test", "live"].includes(environment)) return json({ error: "Invalid environment" }, 400);
 
     if (action === "status") {
-      const [{ data: settings, error: settingsError }, { data: refs, error: refsError }] = await Promise.all([
+      const [{ data: settings, error: settingsError }, { data: refs, error: refsError }, { data: paymentMethods, error: methodsError }] = await Promise.all([
         admin.from("school_payment_gateway_settings").select("provider,is_enabled,environment,display_name,settlement_bank_name,settlement_account_name,settlement_account_number_last4,settlement_verified_at,activated_at,updated_at").eq("school_id", SCHOOL_ID),
         admin.from("school_payment_gateway_secret_refs").select("provider,environment,secret_kind,updated_at").eq("school_id", SCHOOL_ID),
+        admin.from("school_admission_payment_methods").select("id,method_type,display_name,bank_name,account_name,account_number,payment_url,instructions,is_enabled,display_order,updated_at").eq("school_id", SCHOOL_ID).order("display_order").order("created_at"),
       ]);
       if (settingsError) throw settingsError;
       if (refsError) throw refsError;
+      if (methodsError) throw methodsError;
       return json({
         proprietor: true,
+        paymentMethods: paymentMethods ?? [],
         providers: ["paystack", "monnify", "flutterwave"].map((p) => {
           const row = settings?.find((x: any) => x.provider === p);
           const has = (env: string, kind: string) => Boolean(refs?.some((x: any) => x.provider === p && x.environment === env && x.secret_kind === kind));
@@ -88,6 +91,66 @@ Deno.serve(async (req) => {
           };
         }),
       });
+    }
+
+    if (action === "save_payment_method") {
+      const id = String(body.id ?? "").trim();
+      const methodType = String(body.methodType ?? "");
+      const displayName = String(body.displayName ?? "").trim().replace(/\s+/g, " ").slice(0, 100);
+      const bankName = String(body.bankName ?? "").trim().replace(/\s+/g, " ").slice(0, 120);
+      const accountName = String(body.accountName ?? "").trim().replace(/\s+/g, " ").slice(0, 160);
+      const accountNumber = String(body.accountNumber ?? "").replace(/\D/g, "").slice(0, 20);
+      const paymentUrl = String(body.paymentUrl ?? "").trim().replace(/^https:\/\//i, "https://").slice(0, 500);
+      const instructions = String(body.instructions ?? "").trim().slice(0, 2000);
+      const displayOrder = Number.isInteger(Number(body.displayOrder)) ? Math.max(0, Math.min(1000, Number(body.displayOrder))) : 0;
+      if (!["bank_transfer", "pos", "cash", "other"].includes(methodType)) return json({ error: "Choose a supported manual payment method." }, 400);
+      if (displayName.length < 2) return json({ error: "Enter a clear payment option name." }, 400);
+      if (methodType === "bank_transfer" && (!bankName || !accountName || !/^[0-9]{6,20}$/.test(accountNumber))) {
+        return json({ error: "Bank transfer requires a bank name, account name and valid account number." }, 400);
+      }
+      if (paymentUrl && !/^https:\/\//i.test(paymentUrl)) return json({ error: "Payment links must use HTTPS." }, 400);
+      if (methodType !== "bank_transfer" && !instructions && !paymentUrl) return json({ error: "Add payment instructions or a secure payment link." }, 400);
+      const values = {
+        school_id: SCHOOL_ID, method_type: methodType, display_name: displayName,
+        bank_name: bankName || null, account_name: accountName || null,
+        account_number: accountNumber || null, payment_url: paymentUrl || null,
+        instructions, display_order: displayOrder, updated_by: auth.user.id, updated_at: new Date().toISOString(),
+      };
+      let saved: any;
+      if (id) {
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Invalid payment method identifier." }, 400);
+        const { data, error } = await admin.from("school_admission_payment_methods").update(values).eq("id", id).eq("school_id", SCHOOL_ID)
+          .select("id,method_type,display_name,bank_name,account_name,account_number,payment_url,instructions,is_enabled,display_order,updated_at").single();
+        if (error) throw error;
+        saved = data;
+      } else {
+        const { data, error } = await admin.from("school_admission_payment_methods").insert({ ...values, created_by: auth.user.id })
+          .select("id,method_type,display_name,bank_name,account_name,account_number,payment_url,instructions,is_enabled,display_order,updated_at").single();
+        if (error) throw error;
+        saved = data;
+      }
+      const { error: auditError } = await admin.from("school_admission_payment_method_audit").insert({
+        school_id: SCHOOL_ID, method_id: saved.id, actor_user_id: auth.user.id,
+        action: id ? "updated" : "created",
+        details: { method_type: methodType, display_name: displayName, account_number_changed: Boolean(accountNumber), payment_url_configured: Boolean(paymentUrl) },
+      });
+      if (auditError) throw auditError;
+      return json({ success: true, method: saved, message: "Admission payment option saved. It will appear to applicants only when enabled." });
+    }
+
+    if (action === "set_payment_method_enabled") {
+      const id = String(body.id ?? "").trim();
+      const enabled = body.enabled === true;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Invalid payment method identifier." }, 400);
+      const { data, error } = await admin.from("school_admission_payment_methods").update({ is_enabled: enabled, updated_by: auth.user.id, updated_at: new Date().toISOString() })
+        .eq("id", id).eq("school_id", SCHOOL_ID).select("id").single();
+      if (error) throw error;
+      const { error: auditError } = await admin.from("school_admission_payment_method_audit").insert({
+        school_id: SCHOOL_ID, method_id: data.id, actor_user_id: auth.user.id,
+        action: enabled ? "enabled" : "disabled", details: {},
+      });
+      if (auditError) throw auditError;
+      return json({ success: true, message: enabled ? "Payment option is now visible to applicants." : "Payment option hidden from applicants." });
     }
 
     if (action === "save_credentials") {

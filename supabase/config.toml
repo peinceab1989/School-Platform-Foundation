@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.resa-admission-paystack-checkout]
 verify_jwt = false
+
+[functions.resa-proprietor-payment-settings]
+verify_jwt = true
