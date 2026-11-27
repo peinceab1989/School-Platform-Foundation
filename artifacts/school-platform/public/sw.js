@@ -1,4 +1,4 @@
-const CACHE_NAME = 'resa-offline-v3';
+const CACHE_NAME = 'resa-offline-v4';
 const OFFLINE_URL = '/offline.html';
 const SHARE_INBOX_DB = 'resa-drive-share-inbox';
 const SHARE_INBOX_STORE = 'pending';
@@ -48,9 +48,32 @@ self.addEventListener('activate', (event) => {
 // portal pages, student records, and other personal data are never cached.
 self.addEventListener('fetch', (event) => {
   const request = event.request;
-  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
-
   const url = new URL(request.url);
+
+  // Android's installed-app Share sheet can send files directly to RESA.
+  // Files remain on this device until an authorised administrator signs in
+  // and explicitly uploads them to the school's private storage.
+  if (request.method === 'POST' && url.origin === self.location.origin && url.pathname === '/drive-share') {
+    event.respondWith((async () => {
+      try {
+        const form = await request.formData();
+        const files = form.getAll('files').filter((value) => value instanceof File && value.size > 0);
+        const totalBytes = files.reduce((total, file) => total + file.size, 0);
+        if (!files.length) return Response.redirect(new URL('/drive?shareError=empty', self.location.origin).href, 303);
+        if (files.length > 5 || files.some((file) => file.size > 50 * 1024 * 1024) || totalBytes > 100 * 1024 * 1024) {
+          return Response.redirect(new URL('/drive?shareError=limit', self.location.origin).href, 303);
+        }
+        await saveSharedFiles(files);
+        return Response.redirect(new URL('/drive?shared=1', self.location.origin).href, 303);
+      } catch (error) {
+        console.error('RESA Drive share import failed:', error);
+        return Response.redirect(new URL('/drive?shareError=save', self.location.origin).href, 303);
+      }
+    })());
+    return;
+  }
+
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (
     url.pathname.includes('/auth/') ||
     url.pathname.includes('/rest/v1/') ||
