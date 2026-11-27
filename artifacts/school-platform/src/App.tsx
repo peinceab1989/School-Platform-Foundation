@@ -2598,7 +2598,7 @@ function FoundationPage() {
     }
 
     if (parentMembership) {
-      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/reset-password', '/my-compliance', '/technical-support'].includes(currentPath)) {
+      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/portal-navigation-guide', '/reset-password', '/my-compliance', '/technical-support'].includes(currentPath)) {
         setLocation('/parent-dashboard');
       }
       return;
