@@ -759,7 +759,7 @@ export function AdmissionsPage() {
               </label>
               {checkoutError&&<div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{checkoutError}</div>}
               <button type="submit" disabled={!quote||checkoutBusy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#163c2e] px-5 py-4 font-extrabold text-white shadow-[0_5px_0_#09271e] transition hover:-translate-y-0.5 disabled:opacity-60">
-                {quote?"View available payment options":"Loading payment options…"} <ArrowRight size={18}/>
+                {quote?"Continue to payment options":"Loading payment options…"} <ArrowRight size={18}/>
               </button>
             </form>
 
