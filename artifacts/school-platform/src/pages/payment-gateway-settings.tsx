@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { ShieldCheck, LockKeyhole, RefreshCw, Save, Power, AlertTriangle, Plus, Pencil, Landmark, Wallet } from "lucide-react";
+import { ShieldCheck, LockKeyhole, RefreshCw, Save, Power, AlertTriangle, Pencil, Landmark, Wallet } from "lucide-react";
 
 type ProviderStatus = {
   provider: string; enabled: boolean; environment: string; displayName: string | null;
