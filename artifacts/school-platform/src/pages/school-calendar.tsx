@@ -6,7 +6,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 type Row = Record<string, any>;
 type Day = { enabled: boolean; opens_at: string; closes_at: string };
 const DAYS = [{id:1,name:"Monday"},{id:2,name:"Tuesday"},{id:3,name:"Wednesday"},{id:4,name:"Thursday"},{id:5,name:"Friday"},{id:6,name:"Saturday"},{id:7,name:"Sunday"}];
-const DEFAULT_DAY: Day = { enabled:false, opens_at:"08:00", closes_at:"15:00" };
+const DEFAULT_DAY: Day = { enabled:false, opens_at:"08:00", closes_at:"16:00" };
 const formatDate = (v:string) => v ? new Date(v).toLocaleString("en-GB",{timeZone:"Africa/Lagos"}) : "—";
 const errorText = (e:unknown) => e instanceof Error ? e.message : "The calendar request could not be completed.";
 
@@ -16,30 +16,34 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
   const [configured,setConfigured] = useState(false);
   const [rules,setRules] = useState<Row[]>([]);
   const [staffSchedules,setStaffSchedules] = useState<Row[]>([]);
+  const [staffExceptions,setStaffExceptions] = useState<Row[]>([]);
   const [staff,setStaff] = useState<Array<{id:string;name:string;role:string}>>([]);
   const [preview,setPreview] = useState<Row|null>(null);
   const [busy,setBusy] = useState(false);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
   const [notice,setNotice] = useState("");
-  const [rule,setRule] = useState({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"15:00",scope:"all",attendanceAllowed:false,allDay:false,overrideRuleId:"",overrideReason:""});
-  const [staffForm,setStaffForm] = useState({userId:"",day:"1",start:"08:00",end:"15:00",from:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),until:"",notes:""});
+  const [rule,setRule] = useState({title:"",description:"",type:"closure",startDate:"",startTime:"08:00",endDate:"",endTime:"16:00",scope:"all",attendanceAllowed:false,allDay:false,overrideRuleId:"",overrideReason:""});
+  const [staffForm,setStaffForm] = useState({userId:"",day:"1",start:"08:00",end:"16:00",from:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),until:"",notes:""});
+  const [exceptionForm,setExceptionForm] = useState({userId:"",type:"leave",start:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),end:new Date().toLocaleDateString("en-CA",{timeZone:"Africa/Lagos"}),reason:""});
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const [scheduleResult,ruleResult,staffResult,membershipResult] = await Promise.all([
+      const [scheduleResult,ruleResult,staffResult,exceptionResult,membershipResult] = await Promise.all([
         db.from("school_operating_schedules").select("*").eq("school_id",schoolId).maybeSingle(),
         db.from("school_calendar_rules").select("*").eq("school_id",schoolId).order("starts_at",{ascending:false}).limit(100),
         db.from("school_staff_work_schedules").select("*").eq("school_id",schoolId).order("day_of_week").order("starts_at"),
+        db.from("school_staff_schedule_exceptions").select("*").eq("school_id",schoolId).order("starts_on",{ascending:false}),
         db.from("school_memberships").select("user_id,role").eq("school_id",schoolId).eq("status","active").in("role",["teacher","admin"])
       ]);
-      for (const r of [scheduleResult,ruleResult,staffResult,membershipResult]) if (r.error) throw r.error;
+      for (const r of [scheduleResult,ruleResult,staffResult,exceptionResult,membershipResult]) if (r.error) throw r.error;
       const schedule = scheduleResult.data;
       setConfigured(Boolean(schedule?.configured_at));
       setDays(schedule?.weekly_schedule ?? {});
       setRules(ruleResult.data ?? []);
       setStaffSchedules(staffResult.data ?? []);
+      setStaffExceptions(exceptionResult.data ?? []);
       const ids = [...new Set((membershipResult.data ?? []).map((x:Row)=>String(x.user_id)))];
       const profilesResult = ids.length ? await db.from("profiles").select("id,display_name").in("id",ids) : {data:[],error:null};
       if (profilesResult.error) throw profilesResult.error;
@@ -130,6 +134,33 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
     catch(e){setError(errorText(e));}finally{setBusy(false);}
   }
 
+  async function addStaffException(event:FormEvent) {
+    event.preventDefault();setBusy(true);setError("");setNotice("");
+    try {
+      if(!exceptionForm.userId||!exceptionForm.start||!exceptionForm.end) throw new Error("Select a staff member and both leave/off-day dates.");
+      if(exceptionForm.end<exceptionForm.start) throw new Error("The end date cannot be earlier than the start date.");
+      if(exceptionForm.reason.trim().length<3) throw new Error("Enter a reason of at least 3 characters.");
+      const {error:e}=await db.from("school_staff_schedule_exceptions").insert({
+        school_id:schoolId,staff_user_id:exceptionForm.userId,starts_on:exceptionForm.start,ends_on:exceptionForm.end,
+        exception_type:exceptionForm.type,status:"approved",reason:exceptionForm.reason.trim(),created_by:userId
+      });
+      if(e)throw e;
+      setNotice("Approved staff leave/off-day saved. Attendance reminders for this staff member will be suppressed for the selected dates.");
+      setExceptionForm(current=>({...current,reason:""}));
+      await load();
+    } catch(e){setError(errorText(e));}finally{setBusy(false);}
+  }
+
+  async function cancelStaffException(id:string) {
+    setBusy(true);setError("");setNotice("");
+    try {
+      const {error:e}=await db.from("school_staff_schedule_exceptions").update({status:"cancelled"}).eq("id",id).eq("school_id",schoolId);
+      if(e)throw e;
+      setNotice("Staff exception cancelled. The person's normal active schedule can apply again.");
+      await load();
+    } catch(e){setError(errorText(e));}finally{setBusy(false);}
+  }
+
   return <main className="min-h-screen bg-slate-50 text-slate-900">
     <header className="bg-emerald-950 text-white"><div className="mx-auto max-w-7xl px-4 py-5">
       <Link href="/dashboard" className="mb-3 inline-flex items-center gap-2 text-sm text-emerald-100"><ArrowLeft size={16}/> Back to dashboard</Link>
@@ -195,6 +226,19 @@ export default function SchoolCalendarPage({schoolId,userId}:{schoolId:string;us
           <div className="flex items-end"><button disabled={busy||staff.length===0} className="inline-flex items-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><Plus size={16}/> Add staff schedule</button></div>
         </form>
         <div className="mt-5 grid gap-3 md:grid-cols-2">{staffSchedules.length===0?<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No individual staff schedules have been recorded.</p>:staffSchedules.map(item=>{const person=staff.find(x=>x.id===item.staff_user_id);return <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"><div><p className="font-semibold">{person?.name||"Staff account"}</p><p className="text-xs text-slate-500">{DAYS.find(d=>d.id===Number(item.day_of_week))?.name} · {String(item.starts_at).slice(0,5)}–{String(item.ends_at).slice(0,5)} · {item.effective_from}{item.effective_until?" to "+item.effective_until:""}</p><p className="text-xs text-slate-500">Status: {item.status}</p></div>{item.status==="active"&&<button type="button" onClick={()=>void pauseStaffSchedule(item.id)} disabled={busy} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold">Pause</button>}</div>})}</div>
+        <div className="mt-7 border-t border-slate-200 pt-5">
+          <h3 className="font-bold">Approved staff leave and authorised off-days</h3>
+          <p className="mt-1 text-xs text-slate-500">An approved exception suppresses attendance alerts for that individual without deleting or changing their normal weekly schedule. Whole-school holidays and closures remain in Calendar Rules above.</p>
+          <form onSubmit={addStaffException} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm font-semibold lg:col-span-2">Staff member<select required value={exceptionForm.userId} onChange={e=>setExceptionForm({...exceptionForm,userId:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"><option value="">Select staff</option>{staff.map(x=><option key={x.id} value={x.id}>{x.name} · {x.role}</option>)}</select></label>
+            <label className="text-sm font-semibold">Exception type<select value={exceptionForm.type} onChange={e=>setExceptionForm({...exceptionForm,type:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"><option value="leave">Approved leave</option><option value="authorised_off_day">Authorised off-day</option><option value="training">Training / official duty</option><option value="other">Other approved exception</option></select></label>
+            <label className="text-sm font-semibold">Start date<input required type="date" value={exceptionForm.start} onChange={e=>setExceptionForm({...exceptionForm,start:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"/></label>
+            <label className="text-sm font-semibold">End date<input required type="date" value={exceptionForm.end} onChange={e=>setExceptionForm({...exceptionForm,end:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"/></label>
+            <label className="text-sm font-semibold lg:col-span-2">Reason<input required minLength={3} maxLength={1000} value={exceptionForm.reason} onChange={e=>setExceptionForm({...exceptionForm,reason:e.target.value})} className="mt-1 w-full rounded-lg border border-slate-300 p-3 font-normal"/></label>
+            <div className="flex items-end"><button disabled={busy||staff.length===0} className="rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">Approve exception</button></div>
+          </form>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">{staffExceptions.length===0?<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No staff leave or off-day exceptions have been recorded.</p>:staffExceptions.map(item=>{const person=staff.find(x=>x.id===item.staff_user_id);return <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"><div><p className="font-semibold">{person?.name||"Staff account"}</p><p className="text-xs text-slate-500">{item.exception_type.replaceAll("_"," ")} · {item.starts_on} to {item.ends_on}</p><p className="text-xs text-slate-600">{item.reason}</p><p className="text-xs text-slate-500">Status: {item.status}</p></div>{item.status==="approved"&&<button type="button" onClick={()=>void cancelStaffException(item.id)} disabled={busy} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold">Cancel</button>}</div>})}</div>
+        </div>
       </section>
       <p className="text-xs leading-5 text-slate-500">Calendar administration is protected by Supabase row-level security. Public school information, authentication, records access and emergency communications remain available during closures. Attendance restrictions must be enabled only after the school calendar and attendance workflow acceptance tests are passed.</p>
     </div>
