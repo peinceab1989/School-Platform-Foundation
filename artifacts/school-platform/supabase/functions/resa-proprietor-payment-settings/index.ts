@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       if (methodType === "bank_transfer" && (!bankName || !accountName || !/^[0-9]{6,20}$/.test(accountNumber))) {
         return json({ error: "Bank transfer requires a bank name, account name and valid account number." }, 400);
       }
-      if (paymentUrl && !/^https:\/\/\//i.test(paymentUrl)) return json({ error: "Payment links must use HTTPS." }, 400);
+      if (paymentUrl && !/^https:\/\//i.test(paymentUrl)) return json({ error: "Payment links must use HTTPS." }, 400);
       if (methodType !== "bank_transfer" && !instructions && !paymentUrl) return json({ error: "Add payment instructions or a secure payment link." }, 400);
       const values = {
         school_id: SCHOOL_ID, method_type: methodType, display_name: displayName,
