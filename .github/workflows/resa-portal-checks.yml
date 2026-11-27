@@ -61,6 +61,8 @@ jobs:
           supabase/functions/resa-external-candidate-register/index.ts
           supabase/functions/resa-external-cbt/index.ts
           supabase/functions/resa-admission-application-submit/index.ts
+          supabase/functions/resa-admission-paystack-checkout/index.ts
+          supabase/functions/resa-proprietor-payment-settings/index.ts
           supabase/functions/resa-push-dispatch/index.ts
           supabase/functions/resa-ai-practice/index.ts
           supabase/functions/resa-ai-assistant/index.ts
