@@ -7,7 +7,9 @@ import {
   Brain,
   CheckCircle2,
   ChevronRight,
+  Copy,
   Cpu,
+  ExternalLink,
   FlaskConical,
   GraduationCap,
   Heart,
@@ -22,6 +24,7 @@ import {
   Target,
   Trophy,
   Users,
+  Wallet,
   Wrench,
 } from "lucide-react";
 import { PublicLayout } from "@/components/public-site";
