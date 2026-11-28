@@ -3,7 +3,7 @@ import { ArrowLeft, BellRing, BookOpen, ClipboardList, FileText, Globe2, ShieldC
 
 type Props = { schoolId: string; userId: string };
 const links = [
-  { title: "Website & public content", description: "Edit RESA website news, announcements, events, admissions notices and gallery highlights without writing code.", href: "/website-manager", icon: Globe2, action: "Open website manager" },
+  { title: "Website & public content", description: "Manage RESA public pages, news, announcements, events, admissions notices, photo and video media, and search appearance without a code change or redeployment.", href: "/website-manager", icon: Globe2, action: "Open website manager" },
   { title: "Announcements", description: "Create school notices, then publish or unpublish them.", href: "/announcements", icon: BellRing, action: "Manage announcements" },
   { title: "Teaching materials", description: "Review teacher drafts and publish or unpublish learning resources for students.", href: "/teaching-materials", icon: BookOpen, action: "Manage learning resources" },
   { title: "Examinations & CBT", description: "Manage examination availability and draft/published status.", href: "/examinations", icon: ClipboardList, action: "Manage examinations" },
