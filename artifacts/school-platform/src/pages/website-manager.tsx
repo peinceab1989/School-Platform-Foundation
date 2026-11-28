@@ -72,6 +72,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
   const [historyItem, setHistoryItem] = useState<WebsiteContent | null>(null);
   const [historyRows, setHistoryRows] = useState<ContentRevision[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,6 +130,29 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
       if (key === "title" && autoSlug) next.slug = makeSlug(String(value));
       return next;
     });
+  }
+
+  async function uploadImage(file: File) {
+    setError(""); setNotice("");
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+    if (!allowed.has(file.type)) { setError("Choose a JPG, PNG, WebP or GIF image."); return; }
+    if (file.size > 8 * 1024 * 1024) { setError("Website images must be 8 MB or smaller."); return; }
+    setUploadingImage(true);
+    try {
+      const extension = file.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "").toLowerCase() || "img";
+      const objectPath = `${schoolId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+      const storage = getSupabaseClient().storage.from("resa-public-website-media");
+      const { data, error: uploadError } = await storage.upload(objectPath, file, {
+        cacheControl: "3600", upsert: false, contentType: file.type,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicFile } = storage.getPublicUrl(data.path);
+      update("image_url", publicFile.publicUrl);
+      if (!draft.image_alt.trim()) update("image_alt", file.name.replace(/\\.[^.]+$/, "").replace(/[-_]+/g, " "));
+      setNotice("Image uploaded to the school's public website media library. Save the content draft to attach it to this page.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Image upload failed. Check your administrator access and try again.");
+    } finally { setUploadingImage(false); }
   }
 
   async function save(publish: boolean) {
@@ -332,7 +356,8 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
             <div className="rounded-xl border border-dashed border-slate-300 p-3">
               <p className="flex items-center gap-2 text-sm font-bold"><ImagePlus size={16}/> Featured image</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">Paste a secure public image URL. RESA will not execute uploaded HTML or scripts.</p>
-              <label className={label + " mt-3"}>HTTPS image URL<input type="url" value={draft.image_url} onChange={e => update("image_url", e.target.value)} placeholder="https://…" className={field}/></label>
+              <label className={label + " mt-3"}>Upload image from this device<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploadingImage} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadImage(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingImage ? "Uploading image…" : "JPG, PNG, WebP or GIF · maximum 8 MB"}</span></label>
+              <label className={label + " mt-3"}>Or paste an HTTPS image URL<input type="url" value={draft.image_url} onChange={e => update("image_url", e.target.value)} placeholder="https://…" className={field}/></label>
               <label className={label + " mt-3"}>Image description (accessibility)<input value={draft.image_alt} onChange={e => update("image_alt", e.target.value)} maxLength={180} placeholder="Describe the image briefly" className={field}/></label>
               {draft.image_url && <img src={draft.image_url} alt={draft.image_alt} className="mt-3 max-h-40 w-full rounded-lg border object-cover" onError={e => { e.currentTarget.style.display = "none"; }}/>}
             </div>
