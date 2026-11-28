@@ -466,15 +466,42 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     if (!window.confirm(`Delete “${String(row.original_name ?? row.file_name ?? "this file")}” from RESA Drive? This cannot be undone.`)) return;
     setError(""); setNotice("");
     const db = getSupabaseClient() as any;
+    const fileId = String(row.id ?? "");
+    const path = String(row.storage_path ?? "");
+    if (!fileId || !path) {
+      setError("This Drive record is missing its file ID or secure storage path. Nothing was deleted.");
+      return;
+    }
     try {
-      const path = String(row.storage_path ?? "");
+      // Hide the register entry first. If Storage refuses the deletion, restore
+      // the active flag so the administrator does not lose a working file link.
+      const deactivateResult = await db.from("resa_drive_files")
+        .update({ is_active: false })
+        .eq("id", fileId).eq("school_id", schoolId);
+      if (deactivateResult.error) throw deactivateResult.error;
+
       const removeResult = await db.storage.from("resa-drive").remove([path]);
-      if (removeResult.error) throw removeResult.error;
-      const metadataResult = await db.from("resa_drive_files").delete().eq("id", String(row.id)).eq("school_id", schoolId);
-      if (metadataResult.error) throw metadataResult.error;
-      setNotice("File deleted.");
+      if (removeResult.error) {
+        const restoreResult = await db.from("resa_drive_files")
+          .update({ is_active: true })
+          .eq("id", fileId).eq("school_id", schoolId);
+        if (restoreResult.error) {
+          throw new Error(`Storage refused to delete the file (${describeUploadError(removeResult.error)}), and the Drive register could not be reactivated (${describeUploadError(restoreResult.error)}). The inactive record has been retained for administrator recovery.`);
+        }
+        throw removeResult.error;
+      }
+
+      const metadataResult = await db.from("resa_drive_files")
+        .delete().eq("id", fileId).eq("school_id", schoolId);
+      if (metadataResult.error) {
+        throw new Error(`The file bytes were deleted from secure storage, but the inactive Drive register could not be removed (${describeUploadError(metadataResult.error)}). The inactive record has been retained for administrator review.`);
+      }
+      setNotice("File and Drive register entry deleted.");
       await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "The file could not be deleted."); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The file could not be deleted. Check the Drive register before retrying.");
+      await load().catch(() => undefined);
+    }
   };
   const visibleRows = rows.filter(row => !search || JSON.stringify(row).toLowerCase().includes(search.toLowerCase()));
   const label = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
