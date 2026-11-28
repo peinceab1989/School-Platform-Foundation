@@ -25,8 +25,36 @@ import {
 } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
 
-type WebsiteContent =
-  Database["public"]["Functions"]["get_resa_website_content"]["Returns"][number];
+type WebsiteContent = {
+  id: string; content_type: string; title: string; slug: string; summary: string | null;
+  body: string | null; image_url: string | null; image_alt: string | null;
+  video_url: string | null; seo_title: string | null; seo_description: string | null;
+  published_at: string | null; sort_order: number;
+};
+
+function videoPresentation(rawUrl: string | null) {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:") return null;
+    const host = url.hostname.toLowerCase().replace(/^www\\./, "");
+    if (host === "youtu.be") {
+      const id = url.pathname.slice(1).split("/")[0];
+      return id ? { kind: "embed" as const, src: "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) } : null;
+    }
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const match = url.pathname.match(/^\\/(?:embed|shorts)\\/([^/]+)/);
+      const id = url.searchParams.get("v") || match?.[1];
+      return id ? { kind: "embed" as const, src: "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) } : null;
+    }
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      const id = url.pathname.split("/").filter(Boolean).pop();
+      return id && /^\\d+$/.test(id) ? { kind: "embed" as const, src: "https://player.vimeo.com/video/" + id } : null;
+    }
+    if (/\\.(mp4|webm)$/i.test(url.pathname)) return { kind: "file" as const, src: url.toString() };
+  } catch { return null; }
+  return null;
+}
 
 const mediaPath = (path: string) =>
   `${import.meta.env.BASE_URL}${path}`;
@@ -75,7 +103,7 @@ export default function HomePage() {
     async function loadWebsiteContent() {
       try {
         const { data, error } = await getSupabaseClient().rpc(
-          "get_resa_website_content",
+          "get_resa_website_content_v2",
           {
             p_content_type: null,
           },
@@ -179,7 +207,7 @@ export default function HomePage() {
               </div>
 
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {websiteContent.map((item) => {
+                {websiteContent.filter((item) => item.content_type !== "page").map((item) => {
                   const contentType = item.content_type.replace(/_/g, " ");
                   const hasImage = Boolean(item.image_url?.trim());
                   const hasPublicationDate =
@@ -200,6 +228,13 @@ export default function HomePage() {
                         />
                       )}
 
+                      {(() => {
+                        const media = videoPresentation(item.video_url);
+                        if (!media) return null;
+                        return media.kind === "file"
+                          ? <video className="w-full max-h-72 bg-black" controls preload="metadata" src={media.src}>Your browser does not support video playback.</video>
+                          : <div className="aspect-video bg-black"><iframe className="h-full w-full" src={media.src} title={item.title} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>;
+                      })()}
                       <div className="p-5">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-[#eaf1e8] px-3 py-1 text-xs font-bold capitalize text-[#215641]">
