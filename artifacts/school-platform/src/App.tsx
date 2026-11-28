@@ -3622,7 +3622,7 @@ function AppRoutes() {
         <Route path="/admissions-apply" component={() => <PublicModuleGate moduleKey="resa_admissions_application"><AdmissionsApplicationPage /></PublicModuleGate>} />
         <Route path="/external-cbt-registration" component={() => <PublicModuleGate moduleKey="resa_cbt_registration"><ExternalCbtRegistrationPage /></PublicModuleGate>} />
         <Route path="/contact" component={() => <PublicModuleGate moduleKey="resa_public_contact"><ManagedPageOverride slug="contact" fallback={<ContactPage />} /></PublicModuleGate>} />
-        <Route path="/pages/:slug" component={ManagedPublicPage} />
+        <Route path="/pages/:slug" component={({ params }) => <ManagedPublicPage slug={params.slug} />} />
         <Route path="/maps" component={() => <PublicModuleGate moduleKey="resa_maps"><ResaMapsExplorerPage /></PublicModuleGate>} />
         <Route path="/portal-options" component={() => <PublicModuleGate moduleKey="resa_portal_options"><PortalOptionsPage /></PublicModuleGate>} />
         <Route path="/practice-drills" component={() => <PublicModuleGate moduleKey="resa_practice_drills"><StudentPracticeDrillsPage /></PublicModuleGate>} />
