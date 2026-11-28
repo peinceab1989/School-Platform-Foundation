@@ -78,6 +78,7 @@ const TeachingMaterialsPage = lazy(() => import('@/pages/teaching-materials'));
 const ResaChatPage = lazy(() => import('@/pages/resa-chat'));
 const PublicationCentre = lazy(() => import('@/pages/publication-centre'));
 const WebsiteManagerPage = lazy(() => import('@/pages/website-manager'));
+const ManagedPublicPage = lazy(() => import('@/pages/managed-public-page'));
 const IdentitySecurityPage = lazy(() => import('@/pages/identity-security'));
 const TestDataSetupPage = lazy(() => import('@/pages/test-data-setup'));
 const SchoolCctvPage = lazy(() => import('@/pages/school-cctv'));
@@ -3598,6 +3599,7 @@ function AppRoutes() {
         <Route path="/admissions-apply" component={() => <PublicModuleGate moduleKey="resa_admissions_application"><AdmissionsApplicationPage /></PublicModuleGate>} />
         <Route path="/external-cbt-registration" component={() => <PublicModuleGate moduleKey="resa_cbt_registration"><ExternalCbtRegistrationPage /></PublicModuleGate>} />
         <Route path="/contact" component={() => <PublicModuleGate moduleKey="resa_public_contact"><ContactPage /></PublicModuleGate>} />
+        <Route path="/pages/:slug" component={ManagedPublicPage} />
         <Route path="/maps" component={() => <PublicModuleGate moduleKey="resa_maps"><ResaMapsExplorerPage /></PublicModuleGate>} />
         <Route path="/portal-options" component={() => <PublicModuleGate moduleKey="resa_portal_options"><PortalOptionsPage /></PublicModuleGate>} />
         <Route path="/practice-drills" component={() => <PublicModuleGate moduleKey="resa_practice_drills"><StudentPracticeDrillsPage /></PublicModuleGate>} />
