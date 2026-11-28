@@ -3036,6 +3036,22 @@ function FoundationPage() {
   ) : content;
 
   /*
+   * Website publishing is an administrator capability even when the same
+   * person also has a teacher membership. Keep the check strict: signed-in,
+   * verified active admin membership, and the normal membership access gate.
+   */
+  if (
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    adminMembership &&
+    !membershipsLoading &&
+    currentPath === '/website-manager' &&
+    session
+  ) {
+    return withAdminShell(<WebsiteManagerPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
+  }
+
+  /*
    * Administrator pages remain available only to active admins.
    */
   if (
