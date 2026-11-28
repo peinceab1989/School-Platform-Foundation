@@ -41,7 +41,7 @@ function resolveVideo(rawUrl: string | null) {
   return null;
 }
 
-export default function ManagedPublicPage({ slug }: { slug: string }) {
+export default function ManagedPublicPage({ slug, contentType = "page" }: { slug: string; contentType?: string | null }) {
   const [item, setItem] = useState<ManagedContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -59,7 +59,7 @@ export default function ManagedPublicPage({ slug }: { slug: string }) {
     void (async () => {
       try {
         const { data, error } = await (getSupabaseClient() as any).rpc("get_resa_website_content_v2", {
-          p_content_type: "page",
+          p_content_type: contentType,
           p_slug: slug,
         });
         if (error) throw error;
@@ -72,7 +72,7 @@ export default function ManagedPublicPage({ slug }: { slug: string }) {
       }
     })();
     return () => { active = false; };
-  }, [slug]);
+  }, [slug, contentType]);
 
   useEffect(() => {
     if (!item) return;
