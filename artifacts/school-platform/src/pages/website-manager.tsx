@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Eye, FilePlus2, Globe2, ImagePlus, Newspaper, Pencil, RefreshCw, Save, ShieldCheck, UploadCloud } from "lucide-react";
+import { ArrowLeft, Eye, FilePlus2, Globe2, History, ImagePlus, Newspaper, Pencil, RefreshCw, Save, ShieldCheck, UploadCloud } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -20,6 +20,14 @@ type WebsiteContent = {
   sort_order: number;
   created_at: string;
   updated_at: string;
+};
+type ContentRevision = {
+  id: string;
+  revision_number: number;
+  action: "created" | "updated" | "published" | "unpublished";
+  created_at: string;
+  changed_by: string | null;
+  snapshot: Record<string, any>;
 };
 type Draft = {
   content_type: ContentType;
@@ -61,6 +69,9 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
   const [filter, setFilter] = useState<"all" | ContentType>("all");
   const [search, setSearch] = useState("");
   const [autoSlug, setAutoSlug] = useState(true);
+  const [historyItem, setHistoryItem] = useState<WebsiteContent | null>(null);
+  const [historyRows, setHistoryRows] = useState<ContentRevision[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -167,6 +178,57 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     }
   }
 
+  async function loadHistory(item: WebsiteContent) {
+    setHistoryItem(item);
+    setHistoryRows([]);
+    setHistoryLoading(true);
+    setError("");
+    try {
+      const db = getSupabaseClient() as any;
+      const { data, error: historyError } = await db.from("public_website_content_revisions")
+        .select("id,revision_number,action,created_at,changed_by,snapshot")
+        .eq("school_id", schoolId).eq("content_id", item.id)
+        .order("revision_number", { ascending: false }).limit(20);
+      if (historyError) throw historyError;
+      setHistoryRows((data ?? []) as ContentRevision[]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Revision history could not be loaded.");
+    } finally { setHistoryLoading(false); }
+  }
+
+  async function restoreRevision(revision: ContentRevision) {
+    if (!historyItem) return;
+    if (!window.confirm(`Restore revision ${revision.revision_number} for “${historyItem.title}”? The current version will remain in the history.`)) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const snapshot = revision.snapshot ?? {};
+      const row = {
+        content_type: snapshot.content_type,
+        title: snapshot.title,
+        slug: snapshot.slug,
+        summary: snapshot.summary ?? null,
+        body: snapshot.body ?? null,
+        image_url: snapshot.image_url ?? null,
+        image_alt: snapshot.image_alt ?? null,
+        is_published: Boolean(snapshot.is_published),
+        published_at: snapshot.published_at ?? null,
+        expires_at: snapshot.expires_at ?? null,
+        sort_order: Number(snapshot.sort_order ?? 0),
+        updated_at: new Date().toISOString(),
+      };
+      const db = getSupabaseClient() as any;
+      const { error: restoreError } = await db.from("public_website_content")
+        .update(row).eq("school_id", schoolId).eq("id", historyItem.id);
+      if (restoreError) throw restoreError;
+      setNotice(`Revision ${revision.revision_number} restored. The previous live version was preserved in the revision history.`);
+      setHistoryItem(null);
+      setHistoryRows([]);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The selected revision could not be restored.");
+    } finally { setSaving(false); }
+  }
+
   async function setPublished(item: WebsiteContent, publish: boolean) {
     setSaving(true); setError(""); setNotice("");
     try {
@@ -239,10 +301,24 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button type="button" onClick={() => edit(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold hover:bg-slate-50"><Pencil size={14}/> Edit</button>
+                  <button type="button" onClick={() => void loadHistory(item)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold hover:bg-slate-50"><History size={14}/> History</button>
                   <button type="button" onClick={() => void setPublished(item, !item.is_published)} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-800 px-3 py-2 text-xs font-bold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50">{item.is_published ? "Unpublish" : "Publish"}</button>
                 </div>
               </article>)}
           </div>
+          {historyItem && <section className="mt-5 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><h3 className="font-extrabold text-indigo-950">Revision history</h3><p className="mt-1 text-xs text-indigo-800">{historyItem.title} · latest 20 saved versions</p></div>
+              <button type="button" onClick={() => { setHistoryItem(null); setHistoryRows([]); }} className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-bold text-indigo-900">Close history</button>
+            </div>
+            {historyLoading ? <p className="mt-3 text-sm text-indigo-800">Loading revisions…</p>
+              : historyRows.length === 0 ? <p className="mt-3 text-sm text-indigo-800">No saved revisions were found for this item.</p>
+              : <div className="mt-3 space-y-2">{historyRows.map(revision => <div key={revision.id} className="rounded-lg border border-indigo-100 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-bold text-slate-900">Revision {revision.revision_number} · {revision.action}</p><p className="mt-1 text-xs text-slate-500">{new Date(revision.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</p></div><button type="button" onClick={() => void restoreRevision(revision)} disabled={saving} className="rounded-lg bg-indigo-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">Restore this version</button></div>
+                <p className="mt-2 text-sm font-semibold text-slate-800">{String(revision.snapshot?.title ?? "Untitled")}</p>
+                {revision.snapshot?.summary && <p className="mt-1 text-xs leading-5 text-slate-600">{String(revision.snapshot.summary).slice(0, 240)}</p>}
+              </div>)}</div>}
+          </section>}
         </article>
 
         <article className="h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
