@@ -377,9 +377,17 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setSelectedFile(nextFile);
       hasSelectedDriveFileRef.current = Boolean(nextFile);
       try {
-        await clearPendingDriveFile(schoolId);
-        if (nextFile) await savePendingDriveFile(schoolId, nextFile);
-      } catch { /* Cloud upload and metadata are already saved. */ }
+        await withTimeout(clearPendingDriveFile(schoolId), 5_000, "Local pending-file recovery update timed out.");
+        if (nextFile) {
+          await withTimeout(
+            savePendingDriveFile(schoolId, nextFile),
+            5_000,
+            "The next queued file could not be saved as the current recovery selection."
+          );
+        }
+      } catch {
+        shareQueueWarning ||= " The uploaded cloud copy is safe, but the next local recovery selection could not be updated. Keep RESA open and review the remaining share queue before leaving this page.";
+      }
       setDriveVisibility("school");
       const picker = document.getElementById("resa-drive-file-picker") as HTMLInputElement | null;
       if (picker) picker.value = "";
