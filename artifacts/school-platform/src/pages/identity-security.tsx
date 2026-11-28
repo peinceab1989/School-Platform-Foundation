@@ -82,7 +82,6 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
       setSelectedIdentity(previous => nextIdentities.some(item => `${item.person_type}:${item.person_id ?? "account"}` === previous)
         ? previous
         : nextIdentities[0] ? `${nextIdentities[0].person_type}:${nextIdentities[0].person_id ?? "account"}` : "");
-      if (nextIdentities[0] && !selectedActivity) setSelectedActivity(nextIdentities[0].allowed_activities[0] ?? "");
     } catch (e) {
       const details = errorText(e);
       setError(/passkey_disabled/i.test(details)
@@ -91,7 +90,7 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
     } finally {
       setLoading(false);
     }
-  }, [schoolId, userId, selectedActivity]);
+  }, [schoolId, userId]);
 
   useEffect(() => { void load(); }, [load]);
 
