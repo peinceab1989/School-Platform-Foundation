@@ -173,6 +173,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [sharedFiles, setSharedFiles] = useState<File[]>([]);
   const lastHandledSelectionRef = useRef("");
   const hasSelectedDriveFileRef = useRef(false);
+  const uploadInFlightRef = useRef(false);
   const [restoringFile, setRestoringFile] = useState(true);
   const [savingFile, setSavingFile] = useState(false);
   const [folderName, setFolderName] = useState("General");
@@ -286,6 +287,10 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       candidate.lastModified === fileToUpload!.lastModified
     );
     if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 50 MB limit on the current Supabase Free plan. Compress it or choose a smaller file."); return; }
+    // React state updates are asynchronous; use a ref to block rapid double-taps
+    // before the disabled button has had a chance to render.
+    if (uploadInFlightRef.current) return;
+    uploadInFlightRef.current = true;
     setUploading(true); setError(""); setNotice(""); setUploadStage("Checking your school account");
     const db = getSupabaseClient() as any;
     let uploadedPath = "";
@@ -401,6 +406,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setUploadStage("");
     } finally {
       if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+      uploadInFlightRef.current = false;
       setUploading(false);
     }
   };
