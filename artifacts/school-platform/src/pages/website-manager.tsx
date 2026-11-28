@@ -336,6 +336,17 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
       {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {notice && <p role="status" aria-live="polite" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{notice}</p>}
 
+      <section aria-label="Publishing guide" className="mt-5 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-5">
+        <h2 className="text-base font-extrabold text-emerald-950">How to update the public website</h2>
+        <ol className="mt-3 grid gap-3 text-sm leading-6 text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+          <li><strong className="block text-emerald-900">1. Create</strong>Choose New content, select the content type and add the title, text and optional image or video.</li>
+          <li><strong className="block text-emerald-900">2. Save safely</strong>Save as a draft first. Use Preview to review the public presentation before publishing.</li>
+          <li><strong className="block text-emerald-900">3. Publish</strong>Publish immediately or set a future publication time and optional expiry date.</li>
+          <li><strong className="block text-emerald-900">4. Maintain</strong>Use the content library to edit, unpublish or restore an earlier revision. Unpublishing keeps the record.</li>
+        </ol>
+        <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">Only publish information and media approved for public viewing. Do not upload student records, private contact details, identity documents or confidential school files here. Website images and MP4/WebM clips are limited to 8 MB per file.</p>
+      </section>
+
       <section className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,.9fr)]">
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
