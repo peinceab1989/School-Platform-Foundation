@@ -110,6 +110,9 @@ begin
     or p_event_type not in ('check_in','check_out') then
     raise exception 'Invalid RESA attendance request';
   end if;
+  if p_person_type in ('admin','proprietor') and p_person_id is not null then
+    raise exception 'School leadership attendance does not accept a person record override';
+  end if;
   if (p_activity in ('school_arrival','work_arrival','school_visit') and p_event_type <> 'check_in')
     or (p_activity in ('school_departure','work_departure','school_visit_exit') and p_event_type <> 'check_out') then
     raise exception 'The attendance action does not match the selected activity';
@@ -244,6 +247,15 @@ begin
     end if;
 
   elsif p_person_type = 'parent' then
+    if p_activity = 'school_visit_exit' and not exists (
+      select 1 from public.resa_identity_attendance_events event
+      where event.school_id = p_school_id and event.user_id = v_user_id
+        and event.person_type = 'parent' and event.person_id = p_person_id
+        and event.activity = 'school_visit' and event.event_type = 'check_in'
+        and event.attendance_date = v_today
+    ) then
+      raise exception 'A valid parent school-visit check-in is required before check-out';
+    end if;
     if p_activity not in ('school_visit','school_visit_exit')
       or not exists (
         select 1 from public.parent_portal_accounts a
@@ -259,6 +271,14 @@ begin
     where g.id = p_person_id and g.school_id = p_school_id;
 
   elsif p_person_type = 'admin' then
+    if p_event_type = 'check_out' and not exists (
+      select 1 from public.resa_identity_attendance_events event
+      where event.school_id = p_school_id and event.user_id = v_user_id
+        and event.person_type = 'admin' and event.activity = 'work_arrival'
+        and event.event_type = 'check_in' and event.attendance_date = v_today
+    ) then
+      raise exception 'A valid administrator check-in is required before check-out';
+    end if;
     if p_activity not in ('work_arrival','work_departure') or not exists (
       select 1 from public.school_memberships m
       where m.school_id = p_school_id and m.user_id = v_user_id
@@ -270,6 +290,14 @@ begin
     from public.people p where p.school_id = p_school_id and p.user_id = v_user_id limit 1;
 
   elsif p_person_type = 'proprietor' then
+    if p_event_type = 'check_out' and not exists (
+      select 1 from public.resa_identity_attendance_events event
+      where event.school_id = p_school_id and event.user_id = v_user_id
+        and event.person_type = 'proprietor' and event.activity = 'work_arrival'
+        and event.event_type = 'check_in' and event.attendance_date = v_today
+    ) then
+      raise exception 'A valid proprietor check-in is required before check-out';
+    end if;
     if p_activity not in ('work_arrival','work_departure') or not exists (
       select 1 from public.school_payment_gateway_proprietors p
       where p.school_id = p_school_id and p.user_id = v_user_id
