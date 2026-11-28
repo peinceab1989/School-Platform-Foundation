@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import { validateMessages } from "./validation.ts";
+import { localFaqAnswer } from "./faq.ts";
 
 Deno.test("accepts a short user question", () => {
   assertEquals(validateMessages([{ role: "user", content: "How do I view published results?" }]), [
@@ -36,8 +37,6 @@ Deno.test("rejects excessive combined message length", () => {
     { role: "assistant", content: "f".repeat(1200) },
   ]), null);
 });
-
-import { localFaqAnswer } from "./faq.ts";
 
 Deno.test("local FAQ recognises greetings after whitespace normalisation", () => {
   const answer = localFaqAnswer([{ role: "user", content: "  HELLO   there  " }]);
