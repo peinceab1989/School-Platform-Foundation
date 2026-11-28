@@ -3609,7 +3609,7 @@ function AppRoutes() {
         {/* Public school website */}
         <Route path="/" component={() => <PublicModuleGate moduleKey="resa_public_home"><ManagedPageOverride slug="home" fallback={<PublicHome />} /></PublicModuleGate>} />
         {/* Some mobile browsers may retain the explicit document path. */}
-        <Route path="/index.html" component={() => <PublicModuleGate moduleKey="resa_public_home"><PublicHome /></PublicModuleGate>} />
+        <Route path="/index.html" component={() => <PublicModuleGate moduleKey="resa_public_home"><ManagedPageOverride slug="home" fallback={<PublicHome />} /></PublicModuleGate>} />
         <Route path="/about" component={() => <PublicModuleGate moduleKey="resa_about"><ManagedPageOverride slug="about" fallback={<AboutPage />} /></PublicModuleGate>} />
         <Route path="/academics" component={() => <PublicModuleGate moduleKey="resa_academics"><ManagedPageOverride slug="academics" fallback={<AcademicsPage />} /></PublicModuleGate>} />
         <Route
