@@ -454,10 +454,12 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const nextVisibility = String(row.visibility ?? "private") === "school" ? "private" : "school";
     setError(""); setNotice("");
     try {
-      const { error: updateError } = await (getSupabaseClient() as any).from("resa_drive_files")
+      const { data: updatedRecord, error: updateError } = await (getSupabaseClient() as any).from("resa_drive_files")
         .update({ visibility: nextVisibility })
-        .eq("id", String(row.id)).eq("school_id", schoolId);
+        .eq("id", String(row.id)).eq("school_id", schoolId)
+        .select("id").maybeSingle();
       if (updateError) throw updateError;
+      if (!updatedRecord?.id) throw new Error("The Drive file could not be verified for this school. Its visibility was not changed.");
       setNotice(nextVisibility === "school" ? "File shared with authorised RESA portal members." : "File returned to administrator-only visibility.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "File visibility could not be updated."); }
