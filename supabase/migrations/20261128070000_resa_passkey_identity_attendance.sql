@@ -472,3 +472,41 @@ create trigger public_website_content_revision_capture
 
 comment on table public.public_website_content_revisions is
   'Immutable school-scoped snapshots of public website content changes, readable by authorised school administrators and proprietor only.';
+
+-- Public website imagery is separated from private school documents and drive files.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'resa-public-website-media',
+  'resa-public-website-media',
+  true,
+  8388608,
+  array['image/jpeg','image/png','image/webp','image/gif']::text[]
+)
+on conflict (id) do nothing;
+
+drop policy if exists "Public can view RESA website media" on storage.objects;
+create policy "Public can view RESA website media"
+  on storage.objects
+  for select to public
+  using (bucket_id = 'resa-public-website-media');
+
+drop policy if exists "RESA administrators upload website media" on storage.objects;
+create policy "RESA administrators upload website media"
+  on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'resa-public-website-media'
+    and exists (
+      select 1
+      from public.schools school
+      where school.id::text = (storage.foldername(name))[1]
+        and (
+          public.has_school_role(school.id, array['admin']::public.school_role[])
+          or exists (
+            select 1 from public.school_payment_gateway_proprietors proprietor
+            where proprietor.school_id = school.id and proprietor.user_id = (select auth.uid())
+          )
+        )
+    )
+  );
+
