@@ -3,6 +3,11 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const source = await readFile(new URL("../artifacts/school-platform/public/sw.js", import.meta.url), "utf8");
+const manifest = JSON.parse(await readFile(new URL("../artifacts/school-platform/public/manifest.json", import.meta.url), "utf8"));
+assert.equal(manifest.share_target?.action, "/drive-share", "PWA manifest must point Android shares to the service worker route");
+assert.equal(manifest.share_target?.method, "POST");
+assert.equal(manifest.share_target?.enctype, "multipart/form-data");
+assert.ok(manifest.share_target?.params?.files?.some((entry) => entry.name === "files"), "PWA manifest must declare the expected files field");
 const databases = new Map();
 
 const indexedDB = {
