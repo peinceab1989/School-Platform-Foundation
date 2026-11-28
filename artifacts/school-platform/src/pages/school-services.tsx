@@ -477,24 +477,28 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       // the active flag so the administrator does not lose a working file link.
       const deactivateResult = await db.from("resa_drive_files")
         .update({ is_active: false })
-        .eq("id", fileId).eq("school_id", schoolId);
+        .eq("id", fileId).eq("school_id", schoolId)
+        .select("id").maybeSingle();
       if (deactivateResult.error) throw deactivateResult.error;
+      if (!deactivateResult.data?.id) throw new Error("The Drive record could not be verified for deletion. Nothing was removed from storage.");
 
       const removeResult = await db.storage.from("resa-drive").remove([path]);
       if (removeResult.error) {
         const restoreResult = await db.from("resa_drive_files")
           .update({ is_active: true })
-          .eq("id", fileId).eq("school_id", schoolId);
-        if (restoreResult.error) {
-          throw new Error(`Storage refused to delete the file (${describeUploadError(removeResult.error)}), and the Drive register could not be reactivated (${describeUploadError(restoreResult.error)}). The inactive record has been retained for administrator recovery.`);
+          .eq("id", fileId).eq("school_id", schoolId)
+          .select("id").maybeSingle();
+        if (restoreResult.error || !restoreResult.data?.id) {
+          throw new Error(`Storage refused to delete the file (${describeUploadError(removeResult.error)}), and the Drive register could not be verified as reactivated (${restoreResult.error ? describeUploadError(restoreResult.error) : "no matching record was returned"}). The inactive record has been retained for administrator recovery.`);
         }
         throw removeResult.error;
       }
 
       const metadataResult = await db.from("resa_drive_files")
-        .delete().eq("id", fileId).eq("school_id", schoolId);
-      if (metadataResult.error) {
-        throw new Error(`The file bytes were deleted from secure storage, but the inactive Drive register could not be removed (${describeUploadError(metadataResult.error)}). The inactive record has been retained for administrator review.`);
+        .delete().eq("id", fileId).eq("school_id", schoolId)
+        .select("id").maybeSingle();
+      if (metadataResult.error || !metadataResult.data?.id) {
+        throw new Error(`The file bytes were deleted from secure storage, but the inactive Drive register could not be verified as removed (${metadataResult.error ? describeUploadError(metadataResult.error) : "no matching record was returned"}). The inactive record has been retained for administrator review.`);
       }
       setNotice("File and Drive register entry deleted.");
       await load();
