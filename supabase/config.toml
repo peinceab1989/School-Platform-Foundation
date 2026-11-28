@@ -1,3 +1,5 @@
+project_id = "mhwwzzxwpsqwhxrsuwaa"
+
 [auth.passkey]
 enabled = true
 
@@ -5,9 +7,6 @@ enabled = true
 rp_display_name = "RESA School Portal"
 rp_id = "school-platform-foundation.pages.dev"
 rp_origins = ["https://school-platform-foundation.pages.dev"]
-
-
-project_id = "mhwwzzxwpsqwhxrsuwaa"
 
 [functions.resa-login-by-id]
 verify_jwt = false
