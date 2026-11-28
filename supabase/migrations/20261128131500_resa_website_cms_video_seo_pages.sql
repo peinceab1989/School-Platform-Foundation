@@ -13,8 +13,14 @@ alter table public.public_website_content
   add constraint public_website_content_video_url_https_check
   check (video_url is null or video_url ~* '^https://');
 
+-- Keep the existing 8 MB per-file cap to protect the free storage allowance.
+-- Extend only the public website media bucket MIME allow-list; private school storage is untouched.
+update storage.buckets
+set allowed_mime_types = array['image/jpeg','image/png','image/webp','image/gif','video/mp4','video/webm']::text[]
+where id = 'resa-public-website-media';
+
 comment on column public.public_website_content.video_url is
-  'Optional HTTPS link to an approved public video (YouTube, Vimeo or direct MP4/WebM). Videos are embedded from their source; they are not uploaded into private school storage.';
+  'Optional HTTPS link to an approved public video (YouTube, Vimeo or direct MP4/WebM). Videos may be uploaded to the public website media bucket (8 MB maximum) or embedded from an approved HTTPS source; private school storage is not used.';
 comment on column public.public_website_content.seo_title is
   'Optional search-result title for a public content page.';
 comment on column public.public_website_content.seo_description is
