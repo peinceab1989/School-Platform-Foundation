@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, BadgeCheck, CalendarClock, Fingerprint, KeyRound, LoaderCircle, LockKeyhole, Pencil, Plus, RefreshCw, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
+import { ArrowLeft, BadgeCheck, CalendarClock, Fingerprint, LockKeyhole, Pencil, Plus, RefreshCw, ShieldCheck, Smartphone, Trash2 } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
