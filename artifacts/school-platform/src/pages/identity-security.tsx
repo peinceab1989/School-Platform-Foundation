@@ -203,7 +203,7 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
 
   return <main className="min-h-screen bg-[#f4f7f1] px-4 py-5 text-slate-900 sm:px-6">
     <div className="mx-auto max-w-6xl">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-900"><ArrowLeft size={16}/> Back to dashboard</Link>
+      <Link href="/portal-navigation-guide" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-900"><ArrowLeft size={16}/> Back to portal navigation guide</Link>
       <header className="mt-4 overflow-hidden rounded-3xl bg-gradient-to-br from-[#09291f] via-[#14543b] to-[#24724d] p-5 text-white shadow-lg sm:p-8">
         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.2em] text-amber-200"><ShieldCheck size={15}/> RESA account protection</p>
         <h1 className="mt-3 text-3xl font-black sm:text-4xl">Passkeys & Attendance</h1>
