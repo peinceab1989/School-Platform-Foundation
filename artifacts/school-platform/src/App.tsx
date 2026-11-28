@@ -78,6 +78,7 @@ const TeachingMaterialsPage = lazy(() => import('@/pages/teaching-materials'));
 const ResaChatPage = lazy(() => import('@/pages/resa-chat'));
 const PublicationCentre = lazy(() => import('@/pages/publication-centre'));
 const WebsiteManagerPage = lazy(() => import('@/pages/website-manager'));
+const IdentitySecurityPage = lazy(() => import('@/pages/identity-security'));
 const TestDataSetupPage = lazy(() => import('@/pages/test-data-setup'));
 const SchoolCctvPage = lazy(() => import('@/pages/school-cctv'));
 const NotificationsPage = lazy(() => import('@/pages/notifications'));
@@ -2964,6 +2965,18 @@ function FoundationPage() {
     return <PortalNavigationGuidePage />;
   }
 
+  if (
+    currentPath === '/identity-security' &&
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    !membershipsLoading &&
+    session &&
+    (adminMembership || teacherMembership || studentMembership || parentMembership)
+  ) {
+    const identitySchoolId = adminMembership?.schoolId ?? teacherMembership?.schoolId ?? studentMembership?.schoolId ?? parentMembership?.schoolId;
+    if (identitySchoolId) return <IdentitySecurityPage schoolId={identitySchoolId} userId={session.user.id} />;
+  }
+
   /*
    * Preserve the existing private JETAB Engine Room.
    * Its database owner verification remains in place.
@@ -3640,6 +3653,7 @@ function AppRoutes() {
         <Route path="/resa-drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
         <Route path="/website-manager" component={FoundationPage} />
+        <Route path="/identity-security" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/technical-support" component={FoundationPage} />
         <Route path="/technical-operations" component={FoundationPage} />
