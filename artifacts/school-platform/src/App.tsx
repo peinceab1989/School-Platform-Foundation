@@ -3578,27 +3578,50 @@ function PublicModuleGate({moduleKey,children}:{moduleKey:string;children:ReactN
   return <>{children}</>;
 }
 
+function ManagedPageOverride({ slug, fallback }: { slug: string; fallback: ReactNode }) {
+  const [hasOverride, setHasOverride] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!hasSupabaseConfig) return () => { active = false; };
+    void (async () => {
+      try {
+        const { data, error } = await (getSupabaseClient() as any).rpc("get_resa_website_content_v2", {
+          p_content_type: "page",
+          p_slug: slug,
+        });
+        if (active && !error) setHasOverride(Array.isArray(data) && data.length > 0);
+      } catch {
+        // Preserve the existing static page if the CMS cannot be reached.
+      }
+    })();
+    return () => { active = false; };
+  }, [slug]);
+
+  return hasOverride ? <ManagedPublicPage slug={slug} /> : <>{fallback}</>;
+}
+
 function AppRoutes() {
   return (
     <RoutedErrorBoundary>
       <Switch>
         {/* Public school website */}
-        <Route path="/" component={() => <PublicModuleGate moduleKey="resa_public_home"><PublicHome /></PublicModuleGate>} />
+        <Route path="/" component={() => <PublicModuleGate moduleKey="resa_public_home"><ManagedPageOverride slug="home" fallback={<PublicHome />} /></PublicModuleGate>} />
         {/* Some mobile browsers may retain the explicit document path. */}
         <Route path="/index.html" component={() => <PublicModuleGate moduleKey="resa_public_home"><PublicHome /></PublicModuleGate>} />
-        <Route path="/about" component={() => <PublicModuleGate moduleKey="resa_about"><AboutPage /></PublicModuleGate>} />
-        <Route path="/academics" component={() => <PublicModuleGate moduleKey="resa_academics"><AcademicsPage /></PublicModuleGate>} />
+        <Route path="/about" component={() => <PublicModuleGate moduleKey="resa_about"><ManagedPageOverride slug="about" fallback={<AboutPage />} /></PublicModuleGate>} />
+        <Route path="/academics" component={() => <PublicModuleGate moduleKey="resa_academics"><ManagedPageOverride slug="academics" fallback={<AcademicsPage />} /></PublicModuleGate>} />
         <Route
           path="/innovation-technology"
-          component={() => <PublicModuleGate moduleKey="resa_innovation_technology"><InnovationTechnologyPage /></PublicModuleGate>}
+          component={() => <PublicModuleGate moduleKey="resa_innovation_technology"><ManagedPageOverride slug="innovation-technology" fallback={<InnovationTechnologyPage />} /></PublicModuleGate>}
         />
-        <Route path="/practical-skills" component={() => <PublicModuleGate moduleKey="resa_practical_skills"><PracticalSkillsPage /></PublicModuleGate>} />
-        <Route path="/wisdom-inspiration" component={() => <PublicModuleGate moduleKey="resa_wisdom_inspiration"><WisdomInspirationPage /></PublicModuleGate>} />
-        <Route path="/activities-gallery" component={() => <PublicModuleGate moduleKey="resa_activities_gallery"><ActivitiesGalleryPage /></PublicModuleGate>} />
-        <Route path="/admissions" component={() => <PublicModuleGate moduleKey="resa_public_admissions"><AdmissionsPage /></PublicModuleGate>} />
+        <Route path="/practical-skills" component={() => <PublicModuleGate moduleKey="resa_practical_skills"><ManagedPageOverride slug="practical-skills" fallback={<PracticalSkillsPage />} /></PublicModuleGate>} />
+        <Route path="/wisdom-inspiration" component={() => <PublicModuleGate moduleKey="resa_wisdom_inspiration"><ManagedPageOverride slug="wisdom-inspiration" fallback={<WisdomInspirationPage />} /></PublicModuleGate>} />
+        <Route path="/activities-gallery" component={() => <PublicModuleGate moduleKey="resa_activities_gallery"><ManagedPageOverride slug="activities-gallery" fallback={<ActivitiesGalleryPage />} /></PublicModuleGate>} />
+        <Route path="/admissions" component={() => <PublicModuleGate moduleKey="resa_public_admissions"><ManagedPageOverride slug="admissions" fallback={<AdmissionsPage />} /></PublicModuleGate>} />
         <Route path="/admissions-apply" component={() => <PublicModuleGate moduleKey="resa_admissions_application"><AdmissionsApplicationPage /></PublicModuleGate>} />
         <Route path="/external-cbt-registration" component={() => <PublicModuleGate moduleKey="resa_cbt_registration"><ExternalCbtRegistrationPage /></PublicModuleGate>} />
-        <Route path="/contact" component={() => <PublicModuleGate moduleKey="resa_public_contact"><ContactPage /></PublicModuleGate>} />
+        <Route path="/contact" component={() => <PublicModuleGate moduleKey="resa_public_contact"><ManagedPageOverride slug="contact" fallback={<ContactPage />} /></PublicModuleGate>} />
         <Route path="/pages/:slug" component={ManagedPublicPage} />
         <Route path="/maps" component={() => <PublicModuleGate moduleKey="resa_maps"><ResaMapsExplorerPage /></PublicModuleGate>} />
         <Route path="/portal-options" component={() => <PublicModuleGate moduleKey="resa_portal_options"><PortalOptionsPage /></PublicModuleGate>} />
