@@ -263,7 +263,7 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
       </section>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs leading-5 text-sky-950"><p className="font-bold">No personal smartphone?</p><p className="mt-1">The school can set up an approved shared tablet or attendance terminal. Each student or staff member must have their own passkey registered on a supported device. The device may verify with its fingerprint sensor, face unlock or secure PIN.</p></div>
+        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-xs leading-5 text-sky-950"><p className="font-bold">No personal smartphone?</p><p className="mt-1">Use the school's existing biometric reader or a supervised attendance station with each person's individual student/staff ID or QR. A shared tablet's single screen lock cannot distinguish different people; use a passkey on a shared device only when each person has an isolated operating-system profile and authenticator.</p></div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950"><p className="font-bold">Important distinction</p><p className="mt-1">A passkey confirms the account holder's identity; by itself it does not prove GPS location or physical presence. The school should pair attendance with its approved on-site terminal or station procedure where physical presence must be enforced.</p></div>
       </div>
       <p className="mt-4 text-center text-xs text-slate-500">RESA School Portal · Secure identity and attendance · No biometric templates stored by RESA</p>
