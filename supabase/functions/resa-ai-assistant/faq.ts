@@ -1,6 +1,6 @@
 export type ResaChatMessage = { role: "user" | "assistant"; content: string };
 
-export export function localFaqAnswer(messages: ResaChatMessage[]): string {
+export function localFaqAnswer(messages: ResaChatMessage[]): string {
   const question = messages.filter((message) => message.role === "user").at(-1)?.content
     .toLowerCase().replace(/\s+/g, " ").trim() ?? "";
 
