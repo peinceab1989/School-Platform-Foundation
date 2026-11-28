@@ -199,7 +199,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
             const mime = String(row.mime_type ?? "").toLowerCase();
             const path = String(row.storage_path ?? "");
             if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return row;
-            const signed = await withTimeout(
+            const signed = await withTimeout<any>(
               db.storage.from("resa-drive").createSignedUrl(path, 1800),
               DRIVE_READ_TIMEOUT_MS,
               "Secure media preview link timed out."
@@ -401,7 +401,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     try {
       const path = String(row.storage_path ?? "");
       if (!path) throw new Error("This record has no storage path.");
-      const { data, error: signedError } = await withTimeout(
+      const { data, error: signedError } = await withTimeout<any>(
         (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 60),
         DRIVE_READ_TIMEOUT_MS,
         "Secure download link request timed out. Check your connection and try again."
@@ -417,7 +417,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return;
     setPreviewLoading(String(row.id ?? path)); setError("");
     try {
-      const { data, error: signedError } = await withTimeout(
+      const { data, error: signedError } = await withTimeout<any>(
         (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 120),
         DRIVE_READ_TIMEOUT_MS,
         "Secure preview link request timed out. Check your connection and try again."
