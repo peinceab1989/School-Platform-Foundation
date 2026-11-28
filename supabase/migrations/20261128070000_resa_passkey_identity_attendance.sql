@@ -9,6 +9,7 @@ create table if not exists public.resa_identity_attendance_events (
   person_type text not null
     check (person_type in ('student', 'teacher', 'staff', 'parent', 'admin', 'proprietor')),
   person_id uuid,
+  person_name text not null default 'RESA account',
   activity text not null
     check (activity in ('school_arrival', 'school_departure', 'work_arrival', 'work_departure', 'school_visit', 'school_visit_exit')),
   event_type text not null check (event_type in ('check_in', 'check_out')),
@@ -306,7 +307,7 @@ begin
     ) then
       raise exception 'Active school administrator access is required';
     end if;
-    select coalesce(p.email, 'RESA administrator') into v_person_name
+    select coalesce(nullif(concat_ws(' ', p.first_name, p.middle_name, p.last_name),''), p.email, 'RESA administrator') into v_person_name
     from public.people p where p.school_id = p_school_id and p.user_id = v_user_id limit 1;
 
   elsif p_person_type = 'proprietor' then
@@ -324,15 +325,15 @@ begin
     ) then
       raise exception 'Authorised school proprietor access is required';
     end if;
-    select coalesce(p.email, 'RESA proprietor') into v_person_name
+    select coalesce(nullif(concat_ws(' ', p.first_name, p.middle_name, p.last_name),''), p.email, 'RESA proprietor') into v_person_name
     from public.people p where p.school_id = p_school_id and p.user_id = v_user_id limit 1;
   end if;
 
   insert into public.resa_identity_attendance_events (
-    school_id, user_id, person_type, person_id, activity, event_type,
+    school_id, user_id, person_type, person_id, person_name, activity, event_type,
     attendance_date, event_time, verification_method, auth_session_id, biometric_event_id, device_label
   ) values (
-    p_school_id, v_user_id, p_person_type, p_person_id, p_activity, p_event_type,
+    p_school_id, v_user_id, p_person_type, p_person_id, coalesce(nullif(v_person_name,''),'RESA account'), p_activity, p_event_type,
     v_today, v_now, 'passkey', v_session_id, v_biometric_event_id,
     nullif(left(trim(coalesce(p_device_label,'')),80),'')
   ) returning id into v_event_id;
