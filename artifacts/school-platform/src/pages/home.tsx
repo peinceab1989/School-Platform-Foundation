@@ -287,6 +287,9 @@ export default function HomePage() {
                             {item.summary || item.body}
                           </p>
                         )}
+                        <Link href={"/updates/" + encodeURIComponent(item.slug)} className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#215641] hover:text-[#98782c]">
+                          Read more <ArrowRight size={15} aria-hidden="true" />
+                        </Link>
                       </div>
                     </article>
                   );
