@@ -28,7 +28,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { PublicLayout } from "@/components/public-site";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 
 const SCHOOL = "RHEMA EXPLOITS SCIENCE ACADEMY INT’L";
 const TAGLINE = "PASSION • SKILLS • EXCELLENT SPIRIT";
@@ -581,6 +581,7 @@ export function ActivitiesGalleryPage() {
 
   useEffect(() => {
     let active = true;
+    if (!hasSupabaseConfig) return () => { active = false; };
     void getSupabaseClient().rpc("get_resa_website_content_v2", { p_content_type: "gallery" })
       .then(({ data, error }) => {
         if (!error && active) setManagedGallery((data ?? []) as ManagedGalleryItem[]);
