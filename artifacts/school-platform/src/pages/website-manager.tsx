@@ -340,7 +340,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
         <h2 className="text-base font-extrabold text-emerald-950">How to update the public website</h2>
         <ol className="mt-3 grid gap-3 text-sm leading-6 text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
           <li><strong className="block text-emerald-900">1. Create</strong>Choose New content, select the content type and add the title, text and optional image or video.</li>
-          <li><strong className="block text-emerald-900">2. Save safely</strong>Save as a draft first. Use Preview to review the public presentation before publishing.</li>
+          <li><strong className="block text-emerald-900">2. Save safely</strong>Save as a draft first. Review the Live content preview below the editor before publishing.</li>
           <li><strong className="block text-emerald-900">3. Publish</strong>Publish immediately or set a future publication time and optional expiry date.</li>
           <li><strong className="block text-emerald-900">4. Maintain</strong>Use the content library to edit, unpublish or restore an earlier revision. Unpublishing keeps the record.</li>
         </ol>
