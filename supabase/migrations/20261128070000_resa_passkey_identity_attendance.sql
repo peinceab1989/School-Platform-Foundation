@@ -115,10 +115,11 @@ begin
 
   v_auth_time := nullif(v_claims ->> 'auth_time', '')::bigint;
   v_amr := coalesce(v_claims -> 'amr', '[]'::jsonb);
-  if jsonb_typeof(v_amr) = 'array' and jsonb_array_length(v_amr) > 0 then
-    if jsonb_typeof(v_amr -> 0) = 'object' and v_amr -> 0 ->> 'method' = 'passkey' then
-      v_passkey_time := nullif(v_amr -> 0 ->> 'timestamp', '')::bigint;
-    end if;
+  if jsonb_typeof(v_amr) = 'array' then
+    select max(nullif(entry.value ->> 'timestamp', '')::bigint)
+      into v_passkey_time
+    from jsonb_array_elements(v_amr) as entry(value)
+    where entry.value ->> 'method' = 'passkey';
   end if;
   if v_auth_time is null or v_passkey_time is null
     or v_passkey_time < extract(epoch from v_now)::bigint - 120
