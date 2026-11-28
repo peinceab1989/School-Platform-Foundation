@@ -182,6 +182,27 @@ export default function HomePage() {
           </div>
         </section>
 
+        {websiteContent.some((item) => item.content_type === "page") && (
+          <section aria-labelledby="managed-pages-heading" className="bg-[#f1efe5] px-5 py-10 sm:px-8 sm:py-14">
+            <div className="mx-auto max-w-7xl">
+              <div className="mx-auto mb-7 max-w-2xl text-center">
+                <p className="text-sm font-bold uppercase tracking-[0.15em] text-[#98782c]">Explore RESA</p>
+                <h2 id="managed-pages-heading" className="mt-3 text-2xl font-extrabold text-[#215641] sm:text-3xl">More About Our School</h2>
+                <p className="mt-3 leading-7 text-[#5d6a60]">Read more about our programmes, people, values and school life.</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {websiteContent.filter((item) => item.content_type === "page").map((item) => (
+                  <Link key={item.id} href={"/pages/" + encodeURIComponent(item.slug)} className="group rounded-2xl border border-[#e2dece] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#245b40]">
+                    <h3 className="text-lg font-bold text-[#215641] group-hover:text-[#98782c]">{item.title}</h3>
+                    {item.summary && <p className="mt-2 line-clamp-3 text-sm leading-6 text-[#657066]">{item.summary}</p>}
+                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[#245b40]">Read more <ArrowRight size={15} aria-hidden="true" /></span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {websiteContent.length > 0 && (
           <section
             aria-labelledby="website-updates-heading"
