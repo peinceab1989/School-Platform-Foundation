@@ -175,7 +175,7 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
       if (claimsError) throw claimsError;
       const claims = (claimsData as any)?.claims ?? {};
       const amr = Array.isArray(claims.amr) ? claims.amr : [];
-      if (amr[0]?.method !== "passkey") {
+      if (!amr.some((entry: any) => entry?.method === "passkey")) {
         throw new Error("RESA could not confirm a fresh passkey verification. Please try the attendance action again.");
       }
 
