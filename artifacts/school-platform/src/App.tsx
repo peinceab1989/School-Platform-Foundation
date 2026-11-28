@@ -355,7 +355,8 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           .order("created_at", { ascending: false })
           .limit(100);
         if (attendanceAlertsError) throw attendanceAlertsError;
-        if (active) setAttendanceAlerts(initialAttendanceAlerts ?? []);
+        if (!active) return;
+        setAttendanceAlerts(initialAttendanceAlerts ?? []);
 
         // Realtime is the fast path; a short authenticated poll is the recovery
         // path for mobile browsers that temporarily suspend WebSocket delivery.
@@ -394,7 +395,14 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           }
         };
 
-        attendanceChannel = db.channel(`parent-attendance-alerts-${schoolId}-${userId}`)
+        // React StrictMode and rapid route remounts can leave an earlier async
+        // effect alive long enough to race its cleanup. A per-effect topic prevents
+        // Supabase from handing a new listener an already-subscribed channel.
+        if (!active) return;
+        const attendanceChannelInstance = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        attendanceChannel = db.channel(`parent-attendance-alerts-${schoolId}-${userId}-${attendanceChannelInstance}`)
           .on("postgres_changes", { event: "INSERT", schema: "public", table: "biometric_parent_notifications", filter: `school_id=eq.${schoolId}` }, (payload: any) => {
             deliverAttendanceAlert(payload.new as Record<string, any>);
           })
@@ -2422,7 +2430,11 @@ function FoundationPage() {
             'attendance',
           );
         };
-        parentAttendanceChannel = db.channel(`resa-parent-attendance-${sid}-${uid}`)
+        if (!alive) return;
+        const parentAttendanceChannelInstance = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        parentAttendanceChannel = db.channel(`resa-parent-attendance-${sid}-${uid}-${parentAttendanceChannelInstance}`)
           .on('postgres_changes', {
             event: 'INSERT', schema: 'public', table: 'biometric_parent_notifications',
             filter: `school_id=eq.${sid}`,
