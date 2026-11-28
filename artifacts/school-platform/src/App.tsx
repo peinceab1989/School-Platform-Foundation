@@ -77,6 +77,7 @@ const StudentPracticeDrillsPage = lazy(() => import('@/pages/student-practice-dr
 const TeachingMaterialsPage = lazy(() => import('@/pages/teaching-materials'));
 const ResaChatPage = lazy(() => import('@/pages/resa-chat'));
 const PublicationCentre = lazy(() => import('@/pages/publication-centre'));
+const WebsiteManagerPage = lazy(() => import('@/pages/website-manager'));
 const TestDataSetupPage = lazy(() => import('@/pages/test-data-setup'));
 const SchoolCctvPage = lazy(() => import('@/pages/school-cctv'));
 const NotificationsPage = lazy(() => import('@/pages/notifications'));
@@ -3033,6 +3034,7 @@ function FoundationPage() {
     if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     if (currentPath === '/resa-chat' && session) return withAdminShell(<ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     if (currentPath === '/publication-centre' && session) return withAdminShell(<PublicationCentre schoolId={adminMembership.schoolId} userId={session.user.id} />);
+    if (currentPath === '/website-manager' && session) return withAdminShell(<WebsiteManagerPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
 
     if (currentPath === '/school-cctv') {
       return withAdminShell(<SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />);
@@ -3637,6 +3639,7 @@ function AppRoutes() {
         <Route path="/drive" component={FoundationPage} />
         <Route path="/resa-drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
+        <Route path="/website-manager" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/technical-support" component={FoundationPage} />
         <Route path="/technical-operations" component={FoundationPage} />
