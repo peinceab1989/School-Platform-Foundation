@@ -5,7 +5,7 @@ import {
   ClipboardCheck, CalendarDays, FileText, ClipboardList, Sparkles,
   MessageSquare, Bell, Megaphone, BriefcaseBusiness, ChartNoAxesCombined,
   Settings, Database, Video, ShieldCheck, Menu, X, LogOut, ChevronRight, ChevronDown,
-  MessageCircle, Wallet, Wrench, BellRing,
+  MessageCircle, Wallet, Wrench, BellRing, Fingerprint,
 } from "lucide-react";
 import UnreadMessageBadge from "@/components/unread-message-badge";
 import ProfilePhotoCard from "@/components/profile-photo-card";
@@ -61,6 +61,7 @@ const groups = [
     ["Technical Operations", "/technical-operations", Wrench],
     ["Technical Support Queue", "/technical-support", ShieldCheck],
     ["Portal Navigation Guide", "/portal-navigation-guide", BookOpen],
+    ["Passkeys & Identity Attendance", "/identity-security", Fingerprint],
   ]},
 ];
 
