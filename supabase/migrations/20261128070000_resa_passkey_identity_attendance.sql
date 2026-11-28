@@ -1,55 +1,6 @@
--- RESA passkey credentials and cross-role verified attendance.
--- Passkeys store public keys only; no fingerprint, face image or biometric template is collected.
--- Client roles cannot read credential/challenge records or write attendance events directly.
-
-create table if not exists public.resa_passkey_credentials (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  credential_id text not null unique,
-  public_key text not null,
-  signature_counter bigint not null default 0 check (signature_counter >= 0),
-  transports text[] not null default '{}'::text[],
-  device_type text not null default 'singleDevice'
-    check (device_type in ('singleDevice', 'multiDevice')),
-  backed_up boolean not null default false,
-  label text not null default 'My device'
-    check (length(trim(label)) between 1 and 80),
-  created_at timestamptz not null default now(),
-  last_used_at timestamptz,
-  revoked_at timestamptz
-);
-
-create index if not exists resa_passkey_credentials_user_active_idx
-  on public.resa_passkey_credentials (user_id, created_at desc)
-  where revoked_at is null;
-
-create table if not exists public.resa_passkey_challenges (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
-  purpose text not null
-    check (purpose in ('registration', 'authentication', 'attendance')),
-  challenge text not null,
-  school_id uuid references public.schools(id) on delete cascade,
-  person_type text
-    check (person_type is null or person_type in ('student', 'teacher', 'staff', 'parent', 'admin', 'proprietor')),
-  person_id uuid,
-  activity text
-    check (activity is null or activity in ('school_arrival', 'school_departure', 'work_arrival', 'work_departure', 'school_visit', 'school_visit_exit')),
-  event_type text
-    check (event_type is null or event_type in ('check_in', 'check_out')),
-  request_ip_hash text,
-  expires_at timestamptz not null,
-  consumed_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists resa_passkey_challenges_expiry_idx
-  on public.resa_passkey_challenges (expires_at);
-create index if not exists resa_passkey_challenges_user_recent_idx
-  on public.resa_passkey_challenges (user_id, purpose, created_at desc);
-create index if not exists resa_passkey_challenges_ip_recent_idx
-  on public.resa_passkey_challenges (request_ip_hash, purpose, created_at desc)
-  where request_ip_hash is not null;
+-- RESA unified attendance register for Supabase Auth native passkeys.
+-- Supabase Auth owns WebAuthn credential/challenge storage and verification.
+-- RESA stores attendance events only; no fingerprint, face image or biometric template is collected.
 
 create table if not exists public.resa_identity_attendance_events (
   id uuid primary key default gen_random_uuid(),
@@ -65,9 +16,8 @@ create table if not exists public.resa_identity_attendance_events (
   event_time timestamptz not null default now(),
   verification_method text not null default 'passkey'
     check (verification_method = 'passkey'),
-  credential_id text not null references public.resa_passkey_credentials(credential_id) on delete restrict,
+  auth_session_id uuid not null,
   device_label text,
-  station_id uuid references public.biometric_devices(id) on delete set null,
   created_at timestamptz not null default now(),
   constraint resa_identity_attendance_one_action_per_day
     unique (school_id, user_id, activity, attendance_date, event_type)
@@ -78,18 +28,9 @@ create index if not exists resa_identity_attendance_school_recent_idx
 create index if not exists resa_identity_attendance_user_recent_idx
   on public.resa_identity_attendance_events (user_id, school_id, event_time desc);
 
-alter table public.resa_passkey_credentials enable row level security;
-alter table public.resa_passkey_challenges enable row level security;
 alter table public.resa_identity_attendance_events enable row level security;
-
-revoke all on table public.resa_passkey_credentials from anon, authenticated;
-revoke all on table public.resa_passkey_challenges from anon, authenticated;
-grant all on table public.resa_passkey_credentials to service_role;
-grant all on table public.resa_passkey_challenges to service_role;
-
 revoke all on table public.resa_identity_attendance_events from anon, authenticated;
 grant select on table public.resa_identity_attendance_events to authenticated;
-grant all on table public.resa_identity_attendance_events to service_role;
 
 drop policy if exists "Users read own passkey attendance" on public.resa_identity_attendance_events;
 create policy "Users read own passkey attendance"
@@ -116,25 +57,15 @@ create policy "School proprietors read passkey attendance"
     )
   );
 
-comment on table public.resa_passkey_credentials is
-  'WebAuthn passkey public credentials. No biometric templates or fingerprint/face images are stored.';
-comment on table public.resa_passkey_challenges is
-  'Short-lived, single-use server-side WebAuthn challenges. Access is service-role only.';
-comment on table public.resa_identity_attendance_events is
-  'Server-verified passkey attendance events for students, teachers, staff, parents, administrators and proprietors.';
-
-
--- The Edge Function verifies the WebAuthn signature first, then invokes this
--- service-role-only transaction to update the existing student/staff registers,
--- write the universal identity event, and notify linked parents.
+-- A passkey sign-in creates a short-lived Supabase Auth session with amr.method='passkey'.
+-- This RPC accepts only a recent passkey-authenticated session, not an ordinary password session.
+-- The user's identity and school role are resolved and checked again inside this transaction.
 create or replace function public.resa_record_passkey_attendance(
   p_school_id uuid,
-  p_user_id uuid,
   p_person_type text,
   p_person_id uuid,
   p_activity text,
   p_event_type text,
-  p_credential_id text,
   p_device_label text default null
 )
 returns jsonb
@@ -143,9 +74,14 @@ security definer
 set search_path = ''
 as $function$
 declare
+  v_user_id uuid := auth.uid();
+  v_claims jsonb := auth.jwt();
+  v_amr jsonb;
+  v_passkey_time bigint;
+  v_auth_time bigint;
+  v_now timestamptz := now();
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_local_time time := (now() at time zone 'Africa/Lagos')::time;
-  v_now timestamptz := now();
   v_session_id uuid;
   v_class_id uuid;
   v_attendance_id uuid;
@@ -153,19 +89,30 @@ declare
   v_person_name text;
   v_staff_category text;
 begin
-  if current_setting('request.jwt.claim.role', true) <> 'service_role' then
-    raise exception 'Passkey attendance must be recorded by the verified server endpoint';
+  if v_user_id is null then
+    raise exception 'Sign in to RESA before recording attendance';
   end if;
-  if p_school_id is null or p_user_id is null or p_person_type not in ('student','teacher','staff','parent','admin','proprietor')
-    or p_event_type not in ('check_in','check_out')
-    or p_credential_id is null then
-    raise exception 'Invalid passkey attendance request';
+
+  v_auth_time := nullif(v_claims ->> 'auth_time', '')::bigint;
+  v_amr := coalesce(v_claims -> 'amr', '[]'::jsonb);
+  if jsonb_typeof(v_amr) = 'array' and jsonb_array_length(v_amr) > 0 then
+    if jsonb_typeof(v_amr -> 0) = 'object' and v_amr -> 0 ->> 'method' = 'passkey' then
+      v_passkey_time := nullif(v_amr -> 0 ->> 'timestamp', '')::bigint;
+    end if;
   end if;
-  if not exists (
-    select 1 from public.resa_passkey_credentials c
-    where c.user_id = p_user_id and c.credential_id = p_credential_id and c.revoked_at is null
-  ) then
-    raise exception 'This passkey is not active for the account';
+  if v_auth_time is null or v_passkey_time is null
+    or v_passkey_time < extract(epoch from v_now)::bigint - 120
+    or v_auth_time < extract(epoch from v_now)::bigint - 120 then
+    raise exception 'A fresh fingerprint/passkey verification is required for every attendance action';
+  end if;
+
+  if p_school_id is null or p_person_type not in ('student','teacher','staff','parent','admin','proprietor')
+    or p_event_type not in ('check_in','check_out') then
+    raise exception 'Invalid RESA attendance request';
+  end if;
+  if (p_activity in ('school_arrival','work_arrival','school_visit') and p_event_type <> 'check_in')
+    or (p_activity in ('school_departure','work_departure','school_visit_exit') and p_event_type <> 'check_out') then
+    raise exception 'The attendance action does not match the selected activity';
   end if;
 
   if p_person_type = 'student' then
@@ -174,11 +121,15 @@ begin
         select 1 from public.students s
         where s.id = p_person_id and s.school_id = p_school_id and s.status = 'active'
           and (
-            s.user_id = p_user_id
+            s.user_id = v_user_id
             or exists (
               select 1 from public.student_portal_accounts a
               where a.school_id = p_school_id and a.student_id = s.id
-                and a.user_id = p_user_id and a.is_active
+                and a.user_id = v_user_id and a.is_active
+            )
+            or exists (
+              select 1 from public.people p
+              where p.id = s.person_id and p.school_id = s.school_id and p.user_id = v_user_id
             )
           )
       ) then
@@ -245,7 +196,10 @@ begin
     from public.staff sf
     left join public.people p on p.id = sf.person_id and p.school_id = sf.school_id
     where sf.id = p_person_id and sf.school_id = p_school_id and sf.status = 'active'
-      and (sf.user_id = p_user_id or p.user_id = p_user_id)
+      and (
+        sf.user_id = v_user_id
+        or p.user_id = v_user_id
+      )
     for update of sf;
     if not found then
       raise exception 'The staff identity is not linked to this active account';
@@ -266,11 +220,11 @@ begin
       insert into public.staff_attendance (
         school_id, staff_id, attendance_date, status, check_in_time, recorded_by, remarks
       ) values (
-        p_school_id, p_person_id, v_today, 'present', v_local_time, p_user_id, 'Passkey verified check-in'
+        p_school_id, p_person_id, v_today, 'present', v_local_time, v_user_id, 'Passkey verified check-in'
       )
       on conflict (staff_id, attendance_date) do update
         set status = 'present', check_in_time = excluded.check_in_time,
-            recorded_by = p_user_id,
+            recorded_by = v_user_id,
             remarks = concat_ws(' · ', nullif(public.staff_attendance.remarks,''), 'Passkey verified check-in')
         where public.staff_attendance.check_in_time is null
       returning id into v_attendance_id;
@@ -279,7 +233,7 @@ begin
       end if;
     else
       update public.staff_attendance
-      set check_out_time = v_local_time, status = 'checked_out', recorded_by = p_user_id,
+      set check_out_time = v_local_time, recorded_by = v_user_id,
           remarks = concat_ws(' · ', nullif(remarks,''), 'Passkey verified check-out')
       where school_id = p_school_id and staff_id = p_person_id
         and attendance_date = v_today and check_in_time is not null and check_out_time is null
@@ -290,14 +244,12 @@ begin
     end if;
 
   elsif p_person_type = 'parent' then
-    if p_activity not in ('school_visit','school_visit_exit') then
-      raise exception 'Invalid parent attendance activity';
-    end if;
-    if not exists (
-      select 1 from public.parent_portal_accounts a
-      where a.school_id = p_school_id and a.parent_guardian_id = p_person_id
-        and a.user_id = p_user_id and a.is_active
-    ) then
+    if p_activity not in ('school_visit','school_visit_exit')
+      or not exists (
+        select 1 from public.parent_portal_accounts a
+        where a.school_id = p_school_id and a.parent_guardian_id = p_person_id
+          and a.user_id = v_user_id and a.is_active
+      ) then
       raise exception 'The parent identity is not linked to this active account';
     end if;
     select concat_ws(' ', p.first_name, p.middle_name, p.last_name)
@@ -309,36 +261,32 @@ begin
   elsif p_person_type = 'admin' then
     if p_activity not in ('work_arrival','work_departure') or not exists (
       select 1 from public.school_memberships m
-      where m.school_id = p_school_id and m.user_id = p_user_id
+      where m.school_id = p_school_id and m.user_id = v_user_id
         and m.role = 'admin'::public.school_role and m.status = 'active'
     ) then
       raise exception 'Active school administrator access is required';
     end if;
     select coalesce(p.email, 'RESA administrator') into v_person_name
-    from public.people p where p.school_id = p_school_id and p.user_id = p_user_id limit 1;
+    from public.people p where p.school_id = p_school_id and p.user_id = v_user_id limit 1;
 
   elsif p_person_type = 'proprietor' then
     if p_activity not in ('work_arrival','work_departure') or not exists (
       select 1 from public.school_payment_gateway_proprietors p
-      where p.school_id = p_school_id and p.user_id = p_user_id
+      where p.school_id = p_school_id and p.user_id = v_user_id
     ) then
       raise exception 'Authorised school proprietor access is required';
     end if;
     select coalesce(p.email, 'RESA proprietor') into v_person_name
-    from public.people p where p.school_id = p_school_id and p.user_id = p_user_id limit 1;
-  end if;
-
-  if (p_activity in ('school_arrival','work_arrival','school_visit') and p_event_type <> 'check_in')
-    or (p_activity in ('school_departure','work_departure','school_visit_exit') and p_event_type <> 'check_out') then
-    raise exception 'The attendance action does not match the selected activity';
+    from public.people p where p.school_id = p_school_id and p.user_id = v_user_id limit 1;
   end if;
 
   insert into public.resa_identity_attendance_events (
     school_id, user_id, person_type, person_id, activity, event_type,
-    attendance_date, event_time, verification_method, credential_id, device_label
+    attendance_date, event_time, verification_method, auth_session_id, device_label
   ) values (
-    p_school_id, p_user_id, p_person_type, p_person_id, p_activity, p_event_type,
-    v_today, v_now, 'passkey', p_credential_id, nullif(left(trim(coalesce(p_device_label,'')),80),'')
+    p_school_id, v_user_id, p_person_type, p_person_id, p_activity, p_event_type,
+    v_today, v_now, 'passkey', (v_claims ->> 'session_id')::uuid,
+    nullif(left(trim(coalesce(p_device_label,'')),80),'')
   ) returning id into v_event_id;
 
   if p_person_type = 'student' then
@@ -366,5 +314,8 @@ begin
 end;
 $function$;
 
-revoke all on function public.resa_record_passkey_attendance(uuid,uuid,text,uuid,text,text,text,text) from public, anon, authenticated;
-grant execute on function public.resa_record_passkey_attendance(uuid,uuid,text,uuid,text,text,text,text) to service_role;
+revoke all on function public.resa_record_passkey_attendance(uuid,text,uuid,text,text,text) from public, anon;
+grant execute on function public.resa_record_passkey_attendance(uuid,text,uuid,text,text,text) to authenticated;
+
+comment on table public.resa_identity_attendance_events is
+  'Server-verified, fresh-passkey attendance events for students, teachers, staff, parents, administrators and proprietors. Supabase Auth stores WebAuthn public credentials; RESA does not store biometric templates.';
