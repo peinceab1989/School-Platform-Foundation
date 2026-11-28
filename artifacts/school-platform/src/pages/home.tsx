@@ -209,19 +209,18 @@ export default function HomePage() {
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {websiteContent.filter((item) => item.content_type !== "page").map((item) => {
                   const contentType = item.content_type.replace(/_/g, " ");
-                  const hasImage = Boolean(item.image_url?.trim());
-                  const hasPublicationDate =
-                    Boolean(item.published_at) &&
-                    !Number.isNaN(Date.parse(item.published_at));
+                  const imageUrl = item.image_url?.trim() || null;
+                  const publishedAt = item.published_at;
+                  const hasPublicationDate = Boolean(publishedAt && !Number.isNaN(Date.parse(publishedAt)));
 
                   return (
                     <article
                       key={item.id}
                       className="overflow-hidden rounded-2xl border border-[#e2dece] bg-white shadow-sm transition hover:shadow-md"
                     >
-                      {hasImage && (
+                      {imageUrl && (
                         <img
-                          src={item.image_url}
+                          src={imageUrl}
                           alt={item.image_alt || item.title}
                           className="h-48 w-full object-cover"
                           loading="lazy"
@@ -243,10 +242,10 @@ export default function HomePage() {
 
                           {hasPublicationDate && (
                             <time
-                              dateTime={item.published_at}
+                              dateTime={publishedAt ?? undefined}
                               className="text-xs text-[#657066]"
                             >
-                              {new Date(item.published_at).toLocaleDateString(
+                              {new Date(publishedAt as string).toLocaleDateString(
                                 "en-NG",
                                 {
                                   day: "numeric",
