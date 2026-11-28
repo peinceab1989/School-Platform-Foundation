@@ -44,6 +44,10 @@ where not exists (
     and device.device_name = 'RESA Passkey (WebAuthn)'
 );
 
+create unique index if not exists biometric_devices_resa_passkey_unique
+  on public.biometric_devices (school_id)
+  where device_name = 'RESA Passkey (WebAuthn)';
+
 create or replace function public.protect_resa_passkey_attendance_device()
 returns trigger
 language plpgsql
