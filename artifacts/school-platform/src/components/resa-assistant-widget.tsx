@@ -368,7 +368,8 @@ export default function ResaAssistantWidget() {
   async function ask(value = question) {
     const trimmed = value.trim();
     if (!trimmed || assistantBusy) return;
-    const history: ChatMessage[] = [...messages, { role: "user" as const, content: trimmed }].slice(-8);
+    const history: ChatMessage[] = [...messages, { role: "user" as const, content: trimmed }].slice(-8).map(message => ({ ...message, content: message.content.slice(0, 1200) }));
+    while (history.reduce((total, message) => total + message.content.length, 0) > 6000) history.shift();
     setQuestion("");
     setAssistantBusy(true);
     setFallbackNotice(false);
