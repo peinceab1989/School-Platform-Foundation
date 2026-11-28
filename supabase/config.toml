@@ -3,6 +3,9 @@ project_id = "mhwwzzxwpsqwhxrsuwaa"
 [functions.resa-login-by-id]
 verify_jwt = false
 
+[functions.resa-passkey]
+verify_jwt = false
+
 [functions.resa-external-candidate-register]
 verify_jwt = false
 
