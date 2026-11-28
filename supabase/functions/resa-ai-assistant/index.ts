@@ -32,8 +32,6 @@ function jsonResponse(body: unknown, status = 200, origin: string | null = null)
 }
 
 
-type ResaChatMessage = { role: "user" | "assistant"; content: string };
-
 function allowRequest(key: string) {
   const now = Date.now();
   const current = requestBuckets.get(key);
