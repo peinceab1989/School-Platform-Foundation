@@ -14,6 +14,9 @@ type WebsiteContent = {
   body: string | null;
   image_url: string | null;
   image_alt: string | null;
+  video_url: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   is_published: boolean;
   published_at: string | null;
   expires_at: string | null;
@@ -37,13 +40,16 @@ type Draft = {
   body: string;
   image_url: string;
   image_alt: string;
+  video_url: string;
+  seo_title: string;
+  seo_description: string;
   published_at: string;
   expires_at: string;
   sort_order: string;
 };
 const EMPTY: Draft = {
   content_type: "news", title: "", slug: "", summary: "", body: "",
-  image_url: "", image_alt: "", published_at: "", expires_at: "", sort_order: "0",
+  image_url: "", image_alt: "", video_url: "", seo_title: "", seo_description: "", published_at: "", expires_at: "", sort_order: "0",
 };
 const TYPES: { value: ContentType; label: string; help: string }[] = [
   { value: "news", label: "News", help: "School news and achievements" },
@@ -51,12 +57,12 @@ const TYPES: { value: ContentType; label: string; help: string }[] = [
   { value: "event", label: "Event", help: "Upcoming and past school events" },
   { value: "admissions", label: "Admissions", help: "Admission information and notices" },
   { value: "gallery", label: "Gallery", help: "Photo or media highlights" },
-  { value: "page", label: "Homepage information", help: "Additional public information cards on the RESA homepage" },
+  { value: "page", label: "Managed page", help: "Standalone public page managed without a redeployment" },
 ];
 const field = "mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
 const label = "block text-sm font-semibold text-slate-800";
 const toLocalInput = (value: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
-const makeSlug = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100);
+const makeSlug = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100);
 
 export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: string; userId: string }) {
   const [items, setItems] = useState<WebsiteContent[]>([]);
@@ -73,6 +79,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
   const [historyRows, setHistoryRows] = useState<ContentRevision[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,7 +87,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     try {
       const db = getSupabaseClient() as any;
       const { data, error: queryError } = await db.from("public_website_content")
-        .select("id,school_id,content_type,title,slug,summary,body,image_url,image_alt,is_published,published_at,expires_at,sort_order,created_at,updated_at")
+        .select("id,school_id,content_type,title,slug,summary,body,image_url,image_alt,video_url,seo_title,seo_description,is_published,published_at,expires_at,sort_order,created_at,updated_at")
         .eq("school_id", schoolId)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
@@ -116,7 +123,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     setDraft({
       content_type: item.content_type, title: item.title, slug: item.slug,
       summary: item.summary ?? "", body: item.body ?? "", image_url: item.image_url ?? "",
-      image_alt: item.image_alt ?? "", published_at: toLocalInput(item.published_at),
+      image_alt: item.image_alt ?? "", video_url: item.video_url ?? "", seo_title: item.seo_title ?? "", seo_description: item.seo_description ?? "", published_at: toLocalInput(item.published_at),
       expires_at: toLocalInput(item.expires_at), sort_order: String(item.sort_order ?? 0),
     });
     setError("");
@@ -155,6 +162,28 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     } finally { setUploadingImage(false); }
   }
 
+  async function uploadVideo(file: File) {
+    setError(""); setNotice("");
+    const allowed = new Set(["video/mp4", "video/webm"]);
+    if (!allowed.has(file.type)) { setError("Choose an MP4 or WebM video."); return; }
+    if (file.size > 8 * 1024 * 1024) { setError("Website video clips must be 8 MB or smaller."); return; }
+    setUploadingVideo(true);
+    try {
+      const extension = file.type === "video/webm" ? "webm" : "mp4";
+      const objectPath = `${schoolId}/video-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+      const storage = getSupabaseClient().storage.from("resa-public-website-media");
+      const { data, error: uploadError } = await storage.upload(objectPath, file, {
+        cacheControl: "3600", upsert: false, contentType: file.type,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicFile } = storage.getPublicUrl(data.path);
+      update("video_url", publicFile.publicUrl);
+      setNotice("Video uploaded to the public RESA website media library. Save the content draft to attach it to this item.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Video upload failed. Check your administrator access and try again.");
+    } finally { setUploadingVideo(false); }
+  }
+
   async function save(publish: boolean) {
     setError("");
     setNotice("");
@@ -162,6 +191,10 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     const slug = makeSlug(draft.slug);
     if (!title) { setError("Enter a title before saving."); return; }
     if (!slug) { setError("Enter a valid page slug."); return; }
+    if (draft.video_url.trim()) {
+      try { const parsed = new URL(draft.video_url.trim()); if (parsed.protocol !== "https:") throw new Error(); }
+      catch { setError("Video URL must be a valid HTTPS address."); return; }
+    }
     if (draft.image_url.trim()) {
       try {
         const parsed = new URL(draft.image_url.trim());
@@ -180,6 +213,8 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
         school_id: schoolId, content_type: draft.content_type, title, slug,
         summary: draft.summary.trim() || null, body: draft.body.trim() || null,
         image_url: draft.image_url.trim() || null, image_alt: draft.image_alt.trim() || null,
+        video_url: draft.video_url.trim() || null, seo_title: draft.seo_title.trim() || null,
+        seo_description: draft.seo_description.trim() || null,
         is_published: publish, published_at: publish ? publishedAt : null,
         expires_at: expiresAt, sort_order: Math.max(-10000, Math.min(10000, Number.parseInt(draft.sort_order, 10) || 0)),
         updated_at: new Date().toISOString(),
@@ -234,6 +269,8 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
         body: snapshot.body ?? null,
         image_url: snapshot.image_url ?? null,
         image_alt: snapshot.image_alt ?? null,
+        video_url: snapshot.video_url ?? null, seo_title: snapshot.seo_title ?? null,
+        seo_description: snapshot.seo_description ?? null,
         is_published: Boolean(snapshot.is_published),
         published_at: snapshot.published_at ?? null,
         expires_at: snapshot.expires_at ?? null,
@@ -285,7 +322,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
           <div className="max-w-3xl">
             <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.2em] text-amber-200"><Globe2 size={15}/> RESA website control</p>
             <h1 className="mt-3 text-3xl font-black sm:text-4xl">Website & Content Manager</h1>
-            <p className="mt-3 text-sm leading-7 text-emerald-50 sm:text-base">Update the public RESA website without editing code. Create news, announcements, events, admissions notices, gallery highlights and homepage information cards. Save drafts, schedule publication or publish when ready.</p>
+            <p className="mt-3 text-sm leading-7 text-emerald-50 sm:text-base">Update the public RESA website without editing code. Create news, announcements, events, admissions notices, photo/video highlights and standalone managed pages with search metadata. Save drafts, schedule publication or publish when ready.</p>
           </div>
           <div className="flex flex-wrap gap-2"><Link href="/announcements" className="inline-flex items-center gap-2 rounded-xl border border-white/40 px-4 py-3 text-sm font-bold text-white hover:bg-white/10">Portal announcements</Link><button type="button" onClick={startNew} className="inline-flex items-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-sm font-extrabold text-emerald-950 shadow hover:bg-amber-200"><FilePlus2 size={17}/> New content</button></div>
         </div>
@@ -318,6 +355,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
                     <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase text-emerald-900">{TYPES.find(t => t.value === item.content_type)?.label ?? item.content_type}</span><span className={"rounded-full px-2.5 py-1 text-[11px] font-bold " + (statusLabel(item) === "Published" ? "bg-green-100 text-green-800" : statusLabel(item) === "Scheduled" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700")}>{statusLabel(item)}</span></div>
                     <h3 className="mt-2 break-words font-extrabold">{item.title}</h3>
                     <p className="mt-1 break-all text-xs text-slate-500">/{item.slug}</p>
+                    {item.content_type === "page" && <a href={"/pages/" + encodeURIComponent(item.slug)} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs font-bold text-emerald-800 underline">Open public page preview</a>}
                     {item.summary && <p className="mt-2 text-sm leading-6 text-slate-600">{item.summary}</p>}
                     <p className="mt-2 text-xs text-slate-500">Updated {new Date(item.updated_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</p>
                   </div>
@@ -359,13 +397,15 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
               <label className={label + " mt-3"}>Upload image from this device<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploadingImage} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadImage(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingImage ? "Uploading image…" : "JPG, PNG, WebP or GIF · maximum 8 MB"}</span></label>
               <label className={label + " mt-3"}>Or paste an HTTPS image URL<input type="url" value={draft.image_url} onChange={e => update("image_url", e.target.value)} placeholder="https://…" className={field}/></label>
               <label className={label + " mt-3"}>Image description (accessibility)<input value={draft.image_alt} onChange={e => update("image_alt", e.target.value)} maxLength={180} placeholder="Describe the image briefly" className={field}/></label>
+              <label className={label + " mt-3"}>Upload a short video<input type="file" accept="video/mp4,video/webm" disabled={uploadingVideo} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadVideo(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingVideo ? "Uploading video…" : "MP4 or WebM · maximum 8 MB per clip"}</span></label>
+              <label className={label + " mt-3"}>Video link (optional)<input type="url" value={draft.video_url} onChange={e => update("video_url", e.target.value)} placeholder="https://youtu.be/... or https://vimeo.com/..." className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Use a public HTTPS YouTube, Vimeo or direct MP4/WebM link, or upload a short clip above.</span></label>
               {draft.image_url && <img src={draft.image_url} alt={draft.image_alt} className="mt-3 max-h-40 w-full rounded-lg border object-cover" onError={e => { e.currentTarget.style.display = "none"; }}/>}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={label}>Publish date & time<input type="datetime-local" value={draft.published_at} onChange={e => update("published_at", e.target.value)} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Leave blank to publish immediately when you choose Publish.</span></label>
               <label className={label}>Expiry date & time<input type="datetime-local" value={draft.expires_at} onChange={e => update("expires_at", e.target.value)} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Optional automatic expiry on the public site.</span></label>
             </div>
-            <label className={label}>Display order<input type="number" value={draft.sort_order} onChange={e => update("sort_order", e.target.value)} min={-10000} max={10000} className={field}/></label>
+            <div className="rounded-xl border border-slate-200 p-3"><p className="text-sm font-extrabold">Search appearance (optional)</p><label className={label + " mt-3"}>SEO title<input value={draft.seo_title} onChange={e => update("seo_title", e.target.value)} maxLength={160} placeholder="Search-result title" className={field}/></label><label className={label + " mt-3"}>SEO description<textarea value={draft.seo_description} onChange={e => update("seo_description", e.target.value)} maxLength={320} rows={2} placeholder="Short description for search engines" className={field}/></label></div>\n            {draft.content_type === "page" && <p className="rounded-lg bg-sky-50 p-3 text-xs leading-5 text-sky-900">Use a matching slug to replace an existing public page: about, academics, admissions, contact, activities-gallery, innovation-technology, practical-skills or wisdom-inspiration. Use any other slug for a new page at /pages/{makeSlug(draft.slug) || "your-page-slug"}. The existing static page remains visible until the replacement is published.</p>}\n            <label className={label}>Display order<input type="number" value={draft.sort_order} onChange={e => update("sort_order", e.target.value)} min={-10000} max={10000} className={field}/></label>
             <div className="flex flex-wrap gap-2 border-t pt-4">
               <button type="submit" disabled={saving} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-900 px-4 py-3 text-sm font-bold text-emerald-950 hover:bg-emerald-50 disabled:opacity-50"><Save size={16}/>{saving ? "Saving…" : "Save draft"}</button>
               <button type="button" disabled={saving} onClick={() => void save(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50"><UploadCloud size={16}/>{saving ? "Saving…" : "Publish / Schedule"}</button>
@@ -375,6 +415,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
           <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3"><div><p className="text-sm font-extrabold">Live content preview</p><p className="text-xs text-slate-500">A preview of the public content card</p></div><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-slate-500">{TYPES.find(t => t.value === draft.content_type)?.label ?? "Content"}</span></div>
             {draft.image_url && <img src={draft.image_url} alt={draft.image_alt} className="max-h-48 w-full object-cover"/>}
+            {draft.video_url && (draft.video_url.toLowerCase().includes(".mp4") || draft.video_url.toLowerCase().includes(".webm")) && <video className="max-h-48 w-full bg-black" controls preload="metadata" src={draft.video_url}>Your browser does not support video playback.</video>}
             <div className="p-4"><h3 className="text-lg font-extrabold text-slate-900">{draft.title.trim() || "Your title will appear here"}</h3><p className="mt-2 text-sm font-medium leading-6 text-slate-600">{draft.summary.trim() || "Your short introduction will appear here."}</p>{draft.body.trim() && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{draft.body}</p>}</div>
           </section>
           <div className="mt-5 rounded-xl bg-sky-50 p-3 text-xs leading-5 text-sky-950"><p className="flex items-center gap-2 font-bold"><Eye size={15}/> Publishing safeguards</p><p className="mt-1">Drafts remain private. Scheduled items become public only when their publication time arrives. Unpublishing retains the record; nothing is permanently deleted from this screen.</p></div>

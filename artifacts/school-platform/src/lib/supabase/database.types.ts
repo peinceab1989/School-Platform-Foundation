@@ -387,20 +387,24 @@ export interface Database {
         Returns: boolean;
       };
 
-      get_resa_website_content: {
+      get_resa_website_content_v2: {
         Args: {
           p_content_type?: string | null;
+          p_slug?: string | null;
         };
         Returns: {
           id: string;
           content_type: string;
           title: string;
           slug: string;
-          summary: string;
-          body: string;
-          image_url: string;
-          image_alt: string;
-          published_at: string;
+          summary: string | null;
+          body: string | null;
+          image_url: string | null;
+          image_alt: string | null;
+          video_url: string | null;
+          seo_title: string | null;
+          seo_description: string | null;
+          published_at: string | null;
           sort_order: number;
         }[];
       };
