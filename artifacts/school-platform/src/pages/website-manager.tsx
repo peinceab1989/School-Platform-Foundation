@@ -372,6 +372,11 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
               {editingId && <button type="button" onClick={startNew} className="rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-slate-50">Cancel edit</button>}
             </div>
           </form>
+          <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3"><div><p className="text-sm font-extrabold">Live content preview</p><p className="text-xs text-slate-500">A preview of the public content card</p></div><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-slate-500">{TYPES.find(t => t.value === draft.content_type)?.label ?? "Content"}</span></div>
+            {draft.image_url && <img src={draft.image_url} alt={draft.image_alt} className="max-h-48 w-full object-cover"/>}
+            <div className="p-4"><h3 className="text-lg font-extrabold text-slate-900">{draft.title.trim() || "Your title will appear here"}</h3><p className="mt-2 text-sm font-medium leading-6 text-slate-600">{draft.summary.trim() || "Your short introduction will appear here."}</p>{draft.body.trim() && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{draft.body}</p>}</div>
+          </section>
           <div className="mt-5 rounded-xl bg-sky-50 p-3 text-xs leading-5 text-sky-950"><p className="flex items-center gap-2 font-bold"><Eye size={15}/> Publishing safeguards</p><p className="mt-1">Drafts remain private. Scheduled items become public only when their publication time arrives. Unpublishing retains the record; nothing is permanently deleted from this screen.</p></div>
         </article>
       </section>
