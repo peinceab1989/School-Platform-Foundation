@@ -77,6 +77,8 @@ const StudentPracticeDrillsPage = lazy(() => import('@/pages/student-practice-dr
 const TeachingMaterialsPage = lazy(() => import('@/pages/teaching-materials'));
 const ResaChatPage = lazy(() => import('@/pages/resa-chat'));
 const PublicationCentre = lazy(() => import('@/pages/publication-centre'));
+const WebsiteManagerPage = lazy(() => import('@/pages/website-manager'));
+const IdentitySecurityPage = lazy(() => import('@/pages/identity-security'));
 const TestDataSetupPage = lazy(() => import('@/pages/test-data-setup'));
 const SchoolCctvPage = lazy(() => import('@/pages/school-cctv'));
 const NotificationsPage = lazy(() => import('@/pages/notifications'));
@@ -210,6 +212,7 @@ const PROTECTED_SCHOOL_PATHS = [
   '/school-communication',
   '/payment-gateway-settings',
   '/notifications',
+  '/identity-security',
   '/my-compliance',
   '/external-cbt',
   '/school-cctv',
@@ -355,7 +358,8 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           .order("created_at", { ascending: false })
           .limit(100);
         if (attendanceAlertsError) throw attendanceAlertsError;
-        if (active) setAttendanceAlerts(initialAttendanceAlerts ?? []);
+        if (!active) return;
+        setAttendanceAlerts(initialAttendanceAlerts ?? []);
 
         // Realtime is the fast path; a short authenticated poll is the recovery
         // path for mobile browsers that temporarily suspend WebSocket delivery.
@@ -394,7 +398,14 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
           }
         };
 
-        attendanceChannel = db.channel(`parent-attendance-alerts-${schoolId}-${userId}`)
+        // React StrictMode and rapid route remounts can leave an earlier async
+        // effect alive long enough to race its cleanup. A per-effect topic prevents
+        // Supabase from handing a new listener an already-subscribed channel.
+        if (!active) return;
+        const attendanceChannelInstance = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        attendanceChannel = db.channel(`parent-attendance-alerts-${schoolId}-${userId}-${attendanceChannelInstance}`)
           .on("postgres_changes", { event: "INSERT", schema: "public", table: "biometric_parent_notifications", filter: `school_id=eq.${schoolId}` }, (payload: any) => {
             deliverAttendanceAlert(payload.new as Record<string, any>);
           })
@@ -595,6 +606,7 @@ function ParentDashboard({ schoolId, schoolName, userId, email, onSignOut }: { s
             <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">Your family's school connection. Follow your linked learners’ fees, attendance, results and school updates from one place.</p>
             <p className="mt-3 max-w-full break-words text-xs text-emerald-100">{schoolName}</p>
             <Link href="/portal-navigation-guide" className="mt-4 mr-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-white/40 px-4 py-2 text-sm font-bold text-white">Portal Navigation Guide</Link>
+             <Link href="/identity-security" className="mt-4 mr-2 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200/70 px-4 py-2 text-sm font-bold text-amber-100 hover:bg-white/10">Passkeys & Attendance</Link>
             <button type="button" onClick={onSignOut} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-200 bg-amber-200 px-4 py-2 text-sm font-extrabold text-emerald-950 shadow-sm hover:bg-amber-100">↪ Sign out</button>
           </div>
           <div className="min-w-0 rounded-2xl border border-white/15 bg-white/10 p-3">
@@ -953,6 +965,7 @@ function StudentDashboard({
               <p style={{ margin: '0 0 18px', color: '#e8eee8', overflowWrap: 'anywhere' }}>{schoolName}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link href="/portal-navigation-guide" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>Portal Guide</Link>
+            <Link href="/identity-security" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Fingerprint & Attendance</Link>
             <Link href="/my-results" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>My Report Cards</Link>
             <Link href="/student-id-card" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#fff', color: '#123d2b', fontWeight: 700, textDecoration: 'none' }}>My ID Card</Link>
             <Link href="/school-communication" style={{ display: 'inline-flex', alignItems: 'center', borderRadius: 8, padding: '11px 15px', background: '#e6c66b', color: '#17251b', fontWeight: 700, textDecoration: 'none' }}>Communication Centre <UnreadMessageBadge schoolId={schoolId} /></Link>
@@ -2422,7 +2435,11 @@ function FoundationPage() {
             'attendance',
           );
         };
-        parentAttendanceChannel = db.channel(`resa-parent-attendance-${sid}-${uid}`)
+        if (!alive) return;
+        const parentAttendanceChannelInstance = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        parentAttendanceChannel = db.channel(`resa-parent-attendance-${sid}-${uid}-${parentAttendanceChannelInstance}`)
           .on('postgres_changes', {
             event: 'INSERT', schema: 'public', table: 'biometric_parent_notifications',
             filter: `school_id=eq.${sid}`,
@@ -2591,14 +2608,14 @@ function FoundationPage() {
     }
 
     if (studentMembership) {
-      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance' && currentPath !== '/technical-support') {
+      if (currentPath !== '/student-dashboard' && currentPath !== '/student-cbt' && currentPath !== '/student-assignments' && currentPath !== '/assignments' && currentPath !== '/student-id-card' && currentPath !== '/school-communication' && currentPath !== '/notifications' && currentPath !== '/my-results' && currentPath !== '/teaching-materials' && currentPath !== '/resa-chat' && currentPath !== '/reset-password' && currentPath !== '/my-compliance' && currentPath !== '/technical-support' && currentPath !== '/identity-security') {
         setLocation('/student-dashboard');
       }
       return;
     }
 
     if (parentMembership) {
-      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/portal-navigation-guide', '/reset-password', '/my-compliance', '/technical-support'].includes(currentPath)) {
+      if (!['/parent-dashboard', '/parent-authorizations', '/school-cctv', '/notifications', '/school-communication', '/resa-chat', '/my-results', '/portal-navigation-guide', '/reset-password', '/my-compliance', '/technical-support', '/identity-security'].includes(currentPath)) {
         setLocation('/parent-dashboard');
       }
       return;
@@ -2951,6 +2968,18 @@ function FoundationPage() {
     return <PortalNavigationGuidePage />;
   }
 
+  if (
+    currentPath === '/identity-security' &&
+    authState === 'signed-in' &&
+    accessCheckState === 'success' &&
+    !membershipsLoading &&
+    session &&
+    (adminMembership || teacherMembership || studentMembership || parentMembership)
+  ) {
+    const identitySchoolId = adminMembership?.schoolId ?? teacherMembership?.schoolId ?? studentMembership?.schoolId ?? parentMembership?.schoolId;
+    if (identitySchoolId) return <IdentitySecurityPage schoolId={identitySchoolId} userId={session.user.id} />;
+  }
+
   /*
    * Preserve the existing private JETAB Engine Room.
    * Its database owner verification remains in place.
@@ -3021,6 +3050,7 @@ function FoundationPage() {
     if (currentPath === '/teaching-materials' && session) return withAdminShell(<TeachingMaterialsPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     if (currentPath === '/resa-chat' && session) return withAdminShell(<ResaChatPage schoolId={adminMembership.schoolId} userId={session.user.id} role="admin" />);
     if (currentPath === '/publication-centre' && session) return withAdminShell(<PublicationCentre schoolId={adminMembership.schoolId} userId={session.user.id} />);
+    if (currentPath === '/website-manager' && session) return withAdminShell(<WebsiteManagerPage schoolId={adminMembership.schoolId} userId={session.user.id} />);
 
     if (currentPath === '/school-cctv') {
       return withAdminShell(<SchoolCctvPage schoolId={adminMembership.schoolId} role="admin" />);
@@ -3625,6 +3655,8 @@ function AppRoutes() {
         <Route path="/drive" component={FoundationPage} />
         <Route path="/resa-drive" component={FoundationPage} />
         <Route path="/publication-centre" component={FoundationPage} />
+        <Route path="/website-manager" component={FoundationPage} />
+        <Route path="/identity-security" component={FoundationPage} />
         <Route path="/notifications" component={FoundationPage} />
         <Route path="/technical-support" component={FoundationPage} />
         <Route path="/technical-operations" component={FoundationPage} />
