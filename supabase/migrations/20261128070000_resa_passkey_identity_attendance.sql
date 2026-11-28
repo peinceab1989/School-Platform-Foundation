@@ -34,13 +34,13 @@ alter table public.biometric_attendance_events
   check (verification_method = any (array['fingerprint','face','card','other','qr_code','passkey']::text[]));
 
 insert into public.biometric_devices (school_id, device_name, device_type, location, is_active)
-select school.id, 'RESA Passkey Attendance (System-managed)', 'other',
+select school.id, 'RESA Passkey (WebAuthn)', 'other',
        'Authenticated mobile device or approved school terminal', true
 from public.schools school
 where not exists (
   select 1 from public.biometric_devices device
   where device.school_id = school.id
-    and device.device_name = 'RESA Passkey Attendance (System-managed)'
+    and device.device_name = 'RESA Passkey (WebAuthn)'
 );
 
 create table if not exists public.resa_passkey_attendance_auth_uses (
@@ -190,7 +190,7 @@ begin
     select device.id into v_passkey_device_id
     from public.biometric_devices device
     where device.school_id = p_school_id
-      and device.device_name = 'RESA Passkey Attendance (System-managed)'
+      and device.device_name = 'RESA Passkey (WebAuthn)'
       and device.is_active = true
     limit 1;
     if v_passkey_device_id is null then
