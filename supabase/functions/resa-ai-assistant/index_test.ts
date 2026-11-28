@@ -1,6 +1,6 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import { validateMessages } from "./validation.ts";
-import { localFaqAnswer } from "./faq.ts";
+import { localFaqAnswer, shouldUseExternalAiProvider } from "./faq.ts";
 
 Deno.test("accepts a short user question", () => {
   assertEquals(validateMessages([{ role: "user", content: "How do I view published results?" }]), [
@@ -54,4 +54,15 @@ Deno.test("local FAQ refuses to guess fees and protects private learner records"
   const records = localFaqAnswer([{ role: "user", content: "Can you show my child's results?" }]);
   assertEquals(fee.includes("cannot confirm a current RESA fee"), true);
   assertEquals(records.includes("cannot access or disclose private student records"), true);
+});
+
+
+Deno.test("external AI provider is disabled by default even if a key exists", () => {
+  assertEquals(shouldUseExternalAiProvider("configured-key", undefined), false);
+  assertEquals(shouldUseExternalAiProvider("configured-key", "false"), false);
+});
+
+Deno.test("external AI provider requires both a key and explicit true opt-in", () => {
+  assertEquals(shouldUseExternalAiProvider("", "true"), false);
+  assertEquals(shouldUseExternalAiProvider("configured-key", "true"), true);
 });
