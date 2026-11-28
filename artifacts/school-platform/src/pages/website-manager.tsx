@@ -168,7 +168,11 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     const slug = makeSlug(draft.slug);
     if (!title) { setError("Enter a title before saving."); return; }
     if (!slug) { setError("Enter a valid page slug."); return; }
-    if (draft.video_url.trim()) {\n      try { const parsed = new URL(draft.video_url.trim()); if (parsed.protocol !== "https:") throw new Error(); }\n      catch { setError("Video URL must be a valid HTTPS address."); return; }\n    }\n    if (draft.image_url.trim()) {
+    if (draft.video_url.trim()) {
+      try { const parsed = new URL(draft.video_url.trim()); if (parsed.protocol !== "https:") throw new Error(); }
+      catch { setError("Video URL must be a valid HTTPS address."); return; }
+    }
+    if (draft.image_url.trim()) {
       try {
         const parsed = new URL(draft.image_url.trim());
         if (parsed.protocol !== "https:") throw new Error();
