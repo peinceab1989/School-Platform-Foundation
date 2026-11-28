@@ -19,6 +19,7 @@ import {
   Globe,
   Eye,
   EyeOff,
+  Fingerprint,
 } from 'lucide-react';
 import { SchoolLogo } from '@/components/school-logo';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -127,10 +128,38 @@ function SignInView({
   const [showPassword, setShowPassword] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyMessage, setPasskeyMessage] = useState('');
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSignIn(email, password);
+  }
+
+  async function handlePasskeySignIn() {
+    setPasskeyMessage('');
+    setPasskeyBusy(true);
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.auth.signInWithPasskey();
+      if (error) throw error;
+      setPasskeyMessage(data.user?.email
+        ? `Passkey verified for ${data.user.email}. Opening your RESA workspace…`
+        : 'Passkey verified. Opening your RESA workspace…');
+    } catch (error) {
+      const details = error instanceof Error ? error.message : 'Passkey sign-in could not be completed.';
+      const disabled = /passkey_disabled|passkeys are disabled/i.test(details);
+      const unsupported = /not supported|not available|publickeycredential/i.test(details);
+      setPasskeyMessage(disabled
+        ? 'Passkey sign-in is prepared in RESA but is not enabled in the Supabase Auth project settings yet. Use your password for now.'
+        : unsupported
+          ? 'This browser or device does not support passkeys. Use your password or try a supported Android browser with a screen lock enabled.'
+          : /notallowederror|cancelled|canceled/i.test(details)
+            ? 'Passkey sign-in was cancelled. You can try again or use your password.'
+            : details);
+    } finally {
+      setPasskeyBusy(false);
+    }
   }
 
   async function handlePasswordReset() {
@@ -356,6 +385,28 @@ function SignInView({
                   )}
                 </button>
               </form>
+
+              <div className="mt-4">
+                <div className="flex items-center gap-3 py-1 text-[11px] font-semibold uppercase tracking-[.14em] text-[#829087]">
+                  <span className="h-px flex-1 bg-[#e8e5da]" />
+                  OR USE YOUR DEVICE
+                  <span className="h-px flex-1 bg-[#e8e5da]" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handlePasskeySignIn()}
+                  disabled={passkeyBusy || isLoading || needsConfig}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#b9cbbf] bg-[#f7fbf7] px-4 py-3 text-sm font-bold text-[#1e573d] transition hover:border-[#6c967e] hover:bg-[#eef7ef] disabled:cursor-not-allowed disabled:opacity-50"
+                  data-testid="button-passkey-sign-in"
+                >
+                  {passkeyBusy ? <RefreshCw size={17} className="animate-spin" aria-hidden="true" /> : <Fingerprint size={19} aria-hidden="true" />}
+                  {passkeyBusy ? 'Verifying passkey…' : 'Sign in with fingerprint / passkey'}
+                </button>
+                <p className="mt-2 text-center text-[11px] leading-5 text-[#6f7f75]">
+                  Use your phone's fingerprint, face recognition or secure screen lock.
+                </p>
+                {passkeyMessage && <p className="mt-2 rounded-lg bg-[#f1f6f1] p-3 text-xs leading-5 text-[#3c5d49]" role="status" aria-live="polite">{passkeyMessage}</p>}
+              </div>
 
               <div className="mt-3">
                 <button
