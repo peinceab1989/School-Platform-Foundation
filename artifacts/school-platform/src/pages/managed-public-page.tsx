@@ -21,21 +21,22 @@ function resolveVideo(rawUrl: string | null) {
   try {
     const url = new URL(rawUrl);
     if (url.protocol !== "https:") return null;
-    const host = url.hostname.toLowerCase().replace(/^www\\./, "");
+    const host = url.hostname.toLowerCase().startsWith("www.") ? url.hostname.toLowerCase().slice(4) : url.hostname.toLowerCase();
     if (host === "youtu.be") {
       const id = url.pathname.slice(1).split("/")[0];
       return id ? { type: "embed" as const, src: "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) } : null;
     }
     if (host === "youtube.com" || host === "m.youtube.com") {
-      const match = url.pathname.match(/^\\/(?:embed|shorts)\\/([^/]+)/);
-      const id = url.searchParams.get("v") || match?.[1];
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = url.searchParams.get("v") || (parts[0] === "embed" || parts[0] === "shorts" ? parts[1] : null);
       return id ? { type: "embed" as const, src: "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) } : null;
     }
     if (host === "vimeo.com" || host === "player.vimeo.com") {
       const id = url.pathname.split("/").filter(Boolean).pop();
-      return id && /^\\d+$/.test(id) ? { type: "embed" as const, src: "https://player.vimeo.com/video/" + id } : null;
+      const numeric = Boolean(id) && id!.split("").every((character) => character >= "0" && character <= "9");
+      return numeric ? { type: "embed" as const, src: "https://player.vimeo.com/video/" + id } : null;
     }
-    if (/\\.(mp4|webm)$/i.test(url.pathname)) return { type: "file" as const, src: url.toString() };
+    if (url.pathname.toLowerCase().endsWith(".mp4") || url.pathname.toLowerCase().endsWith(".webm")) return { type: "file" as const, src: url.toString() };
   } catch { return null; }
   return null;
 }
