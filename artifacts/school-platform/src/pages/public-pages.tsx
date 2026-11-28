@@ -586,7 +586,7 @@ export function ActivitiesGalleryPage() {
       .then(({ data, error }) => {
         if (!error && active) setManagedGallery((data ?? []) as ManagedGalleryItem[]);
       })
-      .catch(() => {
+      .then(undefined, () => {
         // Keep the existing school gallery available if the CMS is offline.
       });
     return () => { active = false; };
