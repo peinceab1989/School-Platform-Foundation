@@ -3583,6 +3583,7 @@ function ManagedPageOverride({ slug, fallback }: { slug: string; fallback: React
 
   useEffect(() => {
     let active = true;
+    setHasOverride(false);
     if (!hasSupabaseConfig) return () => { active = false; };
     void (async () => {
       try {
