@@ -144,4 +144,29 @@ response = await share([]);
 assert.match(response.headers.get("location") ?? "", /shareError=empty/);
 assert.equal(queuedFiles().length, 17);
 
-console.log("RESA Drive Android share queue tests passed: append, queue cap, batch cap, empty share and preservation on rejected shares.");
+const oversizedFile = file("oversized.txt");
+Object.defineProperty(oversizedFile, "size", { value: 51 * 1024 * 1024 });
+response = await share([oversizedFile]);
+assert.match(response.headers.get("location") ?? "", /shareError=limit/);
+assert.equal(queuedFiles().length, 17, "A file above the per-file limit must not alter the queue");
+
+const oversizedBatch = Array.from({ length: 3 }, (_, index) => file(`large-batch-${index}.txt`));
+for (const item of oversizedBatch) Object.defineProperty(item, "size", { value: 40 * 1024 * 1024 });
+response = await share(oversizedBatch);
+assert.match(response.headers.get("location") ?? "", /shareError=limit/);
+assert.equal(queuedFiles().length, 17, "A batch above the combined size limit must not alter the queue");
+
+databases.clear();
+const firstHundredMb = Array.from({ length: 5 }, (_, index) => file(`quota-a-${index}.txt`));
+const secondHundredMb = Array.from({ length: 5 }, (_, index) => file(`quota-b-${index}.txt`));
+for (const item of [...firstHundredMb, ...secondHundredMb]) Object.defineProperty(item, "size", { value: 20 * 1024 * 1024 });
+response = await share(firstHundredMb);
+assert.match(response.headers.get("location") ?? "", /shared=1/);
+response = await share(secondHundredMb);
+assert.match(response.headers.get("location") ?? "", /shared=1/);
+assert.equal(queuedFiles().length, 10, "A 200 MB waiting queue should be accepted at the configured boundary");
+response = await share([file("quota-overflow.txt")]);
+assert.match(response.headers.get("location") ?? "", /shareError=limit/);
+assert.equal(queuedFiles().length, 10, "A queue above 200 MB must be rejected without losing existing files");
+
+console.log("RESA Drive Android share queue tests passed: PWA target, append, file/batch limits, queue count/byte limits, empty share and preservation on rejected shares.");
