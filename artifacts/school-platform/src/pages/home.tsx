@@ -23,7 +23,6 @@ import {
   getSupabaseClient,
   hasSupabaseConfig,
 } from "@/lib/supabase/client";
-import type { Database } from "@/lib/supabase/database.types";
 
 type WebsiteContent = {
   id: string; content_type: string; title: string; slug: string; summary: string | null;
