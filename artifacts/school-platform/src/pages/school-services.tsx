@@ -105,7 +105,7 @@ async function readSharedDriveFiles(): Promise<File[]> {
     });
   } finally { db.close(); }
 }
-async function saveSharedDriveFiles(files: File[]): Promise<void> {
+async function removeSharedDriveFile(uploadedFile: File): Promise<void> {
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(SHARED_DRIVE_DB, 1);
     request.onupgradeneeded = () => {
@@ -118,8 +118,20 @@ async function saveSharedDriveFiles(files: File[]): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(SHARED_DRIVE_STORE, "readwrite");
       const store = tx.objectStore(SHARED_DRIVE_STORE);
-      if (files.length) store.put({ files, receivedAt: Date.now() }, "files");
-      else store.delete("files");
+      const request = store.get("files");
+      request.onsuccess = () => {
+        const value = request.result as { files?: unknown; receivedAt?: number } | undefined;
+        const files = Array.isArray(value?.files) ? value.files.filter((file): file is File => file instanceof File) : [];
+        const index = files.findIndex((file) =>
+          file.name === uploadedFile.name &&
+          file.size === uploadedFile.size &&
+          file.lastModified === uploadedFile.lastModified
+        );
+        if (index >= 0) files.splice(index, 1);
+        if (files.length) store.put({ files, receivedAt: Date.now() }, "files");
+        else store.delete("files");
+      };
+      request.onerror = () => { tx.abort(); };
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error ?? new Error("Could not update the RESA share inbox."));
       tx.onabort = () => reject(tx.error ?? new Error("Updating the RESA share inbox was interrupted."));
@@ -158,6 +170,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sharedFiles, setSharedFiles] = useState<File[]>([]);
   const lastHandledSelectionRef = useRef("");
+  const hasSelectedDriveFileRef = useRef(false);
   const [restoringFile, setRestoringFile] = useState(true);
   const [savingFile, setSavingFile] = useState(false);
   const [folderName, setFolderName] = useState("General");
@@ -205,21 +218,24 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const params = new URLSearchParams(window.location.search);
     if (params.get("shared") === "1") setNotice("Files received from your Android Share menu. Review the selected file below, then upload it securely.");
     if (params.get("shareError") === "empty") setError("The Android Share action did not include a supported file. Try sharing the file again.");
-    if (params.get("shareError") === "limit") setError("The shared batch is too large. RESA accepts up to 5 files, 50 MB each, and 100 MB combined per share.");
+    if (params.get("shareError") === "limit") setError("The shared batch or waiting inbox is full. Each share accepts up to 5 files, 50 MB each and 100 MB combined; the waiting inbox holds up to 20 files or 200 MB. Upload pending files before sharing more.");
     if (params.get("shareError") === "save") setError("RESA could not save the shared files on this device. Please retry or use Choose a file.");
     if (params.has("shared") || params.has("shareError")) {
       window.history.replaceState(window.history.state, "", window.location.pathname);
     }
     void Promise.all([
-      getPendingDriveFile(schoolId).catch(() => null),
-      readSharedDriveFiles().catch(() => []),
+      withTimeout(getPendingDriveFile(schoolId), 5_000, "Local file recovery took too long.").catch(() => null),
+      withTimeout(readSharedDriveFiles(), 5_000, "The Android share inbox took too long to open.").catch(() => []),
     ]).then(([pending, shared]) => {
       if (!mounted) return;
+      if (hasSelectedDriveFileRef.current) return;
       if (shared.length) {
+        hasSelectedDriveFileRef.current = true;
         setSharedFiles(shared);
         setSelectedFile(shared[0]);
         setNotice(`${shared.length} file${shared.length === 1 ? "" : "s"} received from Android. ${shared[0].name} is ready for secure upload.`);
       } else if (pending) {
+        hasSelectedDriveFileRef.current = true;
         setSelectedFile(pending);
         setNotice(`Recovered “${pending.name}” from this device. Press Upload file to continue.`);
       }
@@ -235,12 +251,13 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const selectionKey = `${file.name}:${file.size}:${file.lastModified}`;
     if (lastHandledSelectionRef.current === selectionKey) return;
     lastHandledSelectionRef.current = selectionKey;
+    hasSelectedDriveFileRef.current = true;
     setSelectedFile(file);
     setError("");
     setNotice(`Selected “${file.name}”. Preparing it for secure upload…`);
     setSavingFile(true);
     try {
-      await savePendingDriveFile(schoolId, file);
+      await withTimeout(savePendingDriveFile(schoolId, file), 5_000, "Local recovery is taking too long. You can still upload while keeping this page open.");
       setNotice(`“${file.name}” is ready to upload.`);
     } catch {
       setNotice("File selected. Keep this page open while uploading; this browser could not enable recovery if Android reloads the page.");
@@ -257,6 +274,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setError("Your file selection was not retained. Please choose it again, wait for its name to appear, then upload.");
       return;
     }
+    const isSharedQueueUpload = sharedFiles.some((candidate) =>
+      candidate.name === fileToUpload!.name &&
+      candidate.size === fileToUpload!.size &&
+      candidate.lastModified === fileToUpload!.lastModified
+    );
     if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 50 MB limit on the current Supabase Free plan. Compress it or choose a smaller file."); return; }
     setUploading(true); setError(""); setNotice(""); setUploadStage("Checking your school account");
     const db = getSupabaseClient() as any;
@@ -298,20 +320,17 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         if (cleanup.error) throw new Error(`File details were rejected (${describeUploadError(metadataResult.error)}). Storage cleanup also failed (${describeUploadError(cleanup.error)}); contact the administrator before retrying.`);
         throw metadataResult.error;
       }
-      const uploadedSharedIndex = sharedFiles.findIndex((candidate) =>
-        candidate.name === fileToUpload!.name &&
-        candidate.size === fileToUpload!.size &&
-        candidate.lastModified === fileToUpload!.lastModified
-      );
-      const remainingSharedFiles = uploadedSharedIndex >= 0
-        ? sharedFiles.filter((_, index) => index !== uploadedSharedIndex)
-        : sharedFiles;
-      setSharedFiles(remainingSharedFiles);
-      if (uploadedSharedIndex >= 0) {
-        try { await saveSharedDriveFiles(remainingSharedFiles); } catch { /* The cloud copy is already safely registered. */ }
+      // Always reconcile against IndexedDB after upload. The service worker can
+      // receive another Android share while this upload is running, so React's
+      // earlier queue snapshot may be stale.
+      if (isSharedQueueUpload) {
+        try { await removeSharedDriveFile(fileToUpload); } catch { /* The cloud copy is already safely registered. */ }
       }
-      const nextFile = remainingSharedFiles[0] ?? null;
+      const latestSharedFiles = await readSharedDriveFiles().catch(() => []);
+      setSharedFiles(latestSharedFiles);
+      const nextFile = latestSharedFiles[0] ?? null;
       setSelectedFile(nextFile);
+      hasSelectedDriveFileRef.current = Boolean(nextFile);
       try {
         await clearPendingDriveFile(schoolId);
         if (nextFile) await savePendingDriveFile(schoolId, nextFile);
@@ -399,7 +418,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
             <p className="mt-1 text-sm leading-6 text-slate-600">Supports photos, videos, PDFs, Office documents, audio and ZIP files up to 50 MB. Choose whether a file is visible to authorised school members or administrators only. Google Drive is not required.</p>
             <div className="mt-3 rounded-xl border border-sky-200 bg-white p-3 text-sm text-slate-700">
               <p className="font-semibold text-sky-950">Android alternative: Share files directly to RESA</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Install the RESA app on your phone. In Files, Gallery or another app, select a document or photo, tap Share, then choose RESA. It will arrive here without using this page’s file picker. You still review and press Upload before anything enters school storage.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Use the installed RESA app on your phone. In Android Files or Gallery, select all the files you want to send in one batch, tap Share, then choose RESA. This avoids the in-page file picker. Open RESA Drive to review the received files and press Upload for each one; nothing enters school storage automatically. Until the multi-share queue update is released, send one batch containing all the files you need rather than sending separate batches.</p>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="block text-sm font-semibold">Folder
@@ -412,7 +431,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
                 </select>
               </label>
               <label className="block text-sm font-semibold">Choose a file
-                <input id="resa-drive-file-picker" type="file" onClick={() => { lastHandledSelectionRef.current = ""; try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onInput={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} onChange={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
+                <input id="resa-drive-file-picker" type="file" disabled={uploading} onClick={() => { lastHandledSelectionRef.current = ""; try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onInput={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} onChange={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
               </label>
             </div>
             {restoringFile&&<p className="mt-2 text-xs text-slate-500">Checking for a file selection interrupted by Android…</p>}
