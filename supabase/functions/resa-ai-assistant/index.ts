@@ -11,7 +11,7 @@ const EXTERNAL_AI_PROVIDER_ENABLED = Deno.env.get("RESA_ENABLE_EXTERNAL_AI_PROVI
 const RESA_SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
 const PRIMARY_ORIGIN = "https://school-platform-foundation.pages.dev";
 const ALLOWED_ORIGINS = new Set([PRIMARY_ORIGIN, "https://resa-school-portal.netlify.app"]);
-const PREVIEW_ORIGIN = /^[a-f0-9]{8,40}\.school-platform-foundation\.pages\.dev$/i;
+const PREVIEW_ORIGIN = /^(?:[a-f0-9]{8,40}|[a-z0-9]+(?:-[a-z0-9]+)*)\.school-platform-foundation\.pages\.dev$/i;
 const requestBuckets = new Map<string, { startedAt: number; count: number }>();
 
 function corsHeaders(origin: string | null) {
