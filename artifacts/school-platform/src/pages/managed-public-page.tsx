@@ -4,6 +4,7 @@ import { PublicLayout } from "@/components/public-site";
 import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 
 type ManagedContent = {
+  content_type: string;
   title: string;
   slug: string;
   summary: string | null;
@@ -105,7 +106,7 @@ export default function ManagedPublicPage({ slug, contentType = "page" }: { slug
             <>
               {item.image_url && <img src={item.image_url} alt={item.image_alt || item.title} className="max-h-[460px] w-full object-cover" />}
               <div className="p-6 sm:p-10">
-                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#98782c]">Rhema Exploits Science Academy International</p>
+                <p className="text-xs font-bold uppercase tracking-[.18em] text-[#98782c]">{item.content_type === "page" ? "Rhema Exploits Science Academy International" : item.content_type.replace(/_/g, " ") + " • RESA"}</p>
                 <h1 className="mt-3 text-3xl font-extrabold leading-tight text-[#215641] sm:text-4xl">{item.title}</h1>
                 {item.published_at && <time dateTime={item.published_at} className="mt-3 block text-xs text-slate-500">{new Date(item.published_at).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })}</time>}
                 {item.summary && <p className="mt-6 text-lg leading-8 text-slate-600">{item.summary}</p>}
