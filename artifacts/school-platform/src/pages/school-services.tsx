@@ -398,7 +398,12 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   };
   const downloadFile = async (row: RowRecord) => {
     setError(""); setNotice("");
+    // Open the destination synchronously from the click handler so mobile
+    // browsers do not block the new tab after the signed-link request awaits.
+    const downloadWindow = window.open("about:blank", "_blank");
+    if (downloadWindow) downloadWindow.opener = null;
     try {
+      if (!downloadWindow) throw new Error("Your browser blocked the download tab. Allow pop-ups for RESA, then try again.");
       const path = String(row.storage_path ?? "");
       if (!path) throw new Error("This record has no storage path.");
       const { data, error: signedError } = await withTimeout<any>(
@@ -408,8 +413,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       );
       if (signedError) throw signedError;
       if (!data?.signedUrl) throw new Error("A secure download link could not be created.");
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (e) { setError(e instanceof Error ? e.message : "Download failed."); }
+      downloadWindow.location.replace(data.signedUrl);
+    } catch (e) {
+      downloadWindow?.close();
+      setError(e instanceof Error ? e.message : "Download failed.");
+    }
   };
   const previewFile = async (row: RowRecord) => {
     const path = String(row.storage_path ?? "");
