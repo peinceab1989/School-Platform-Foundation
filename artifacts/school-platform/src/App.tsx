@@ -1467,6 +1467,15 @@ function NexusDashboard({
       .includes(String(module.settings?.enforcement_state || ""));
   const enforcedModuleCount = modules.filter(canToggleModule).length;
   const pendingModuleCount = modules.length - enforcedModuleCount;
+  const healthCounts = modules.reduce((counts, module) => {
+    const state = String(module.settings?.health_state || "unknown").toLowerCase();
+    if (state === "missing") counts.missing += 1;
+    else if (state === "down" || state === "degraded" || state === "failed") counts.degraded += 1;
+    else if (state === "healthy" || state === "operational") counts.healthy += 1;
+    else counts.unknown += 1;
+    if (module.settings?.enforcement_state === "registry_only") counts.registryOnly.push(module);
+    return counts;
+  }, { healthy: 0, degraded: 0, missing: 0, unknown: 0, registryOnly: [] as NexusModule[] });
 
   return (
     <main
@@ -1668,6 +1677,34 @@ function NexusDashboard({
                   </strong>
                 </div>
               </div>
+              <h3 style={{ margin: "20px 0 10px", fontSize: 15 }}>Health and enforcement status</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+                {[
+                  { label: "Healthy (recorded)", value: healthCounts.healthy, background: "#e8f4eb" },
+                  { label: "Degraded / down", value: healthCounts.degraded, background: "#fbe9e7" },
+                  { label: "Missing", value: healthCounts.missing, background: "#fff1d6" },
+                  { label: "Unknown health", value: healthCounts.unknown, background: "#eef1f4" },
+                  { label: "Registry-only", value: healthCounts.registryOnly.length, background: "#fff1d6" },
+                ].map((item) => (
+                  <div key={item.label} style={{ ...statStyle, background: item.background }}>
+                    <div style={statLabelStyle}>{item.label}</div>
+                    <strong style={statNumberStyle}>{item.value}</strong>
+                  </div>
+                ))}
+              </div>
+              <p role="note" style={{ margin: "12px 0 0", color: "#536456", fontSize: 12, lineHeight: 1.6 }}>
+                Health labels reflect recorded registry metadata, not a fresh live probe. Unknown is not healthy. Registry-only entries are catalogued but have no verified access enforcement and remain non-toggleable.
+              </p>
+              {healthCounts.registryOnly.length > 0 && (
+                <div style={{ marginTop: 12, padding: 12, border: "1px solid #e5c66b", borderRadius: 9, background: "#fffaf0" }}>
+                  <strong style={{ fontSize: 13 }}>Registry-only features requiring implementation</strong>
+                  <ul style={{ margin: "8px 0 0", paddingLeft: 20, fontSize: 12, lineHeight: 1.7 }}>
+                    {healthCounts.registryOnly.map((module) => (
+                      <li key={module.module_key}>{module.display_name} <span style={{ color: "#68766b" }}>({module.module_key})</span></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </section>
 
             <section style={panelStyle}>
