@@ -1,8 +1,10 @@
-export function localFaqAnswer(messages: ResaChatMessage[]): string {
+export type ResaChatMessage = { role: "user" | "assistant"; content: string };
+
+export export function localFaqAnswer(messages: ResaChatMessage[]): string {
   const question = messages.filter((message) => message.role === "user").at(-1)?.content
     .toLowerCase().replace(/\s+/g, " ").trim() ?? "";
 
-  if (/^(hi|hello|good morning|good afternoon|good evening|greetings)\\b/.test(question)) {
+  if (/^(hi|hello|good morning|good afternoon|good evening|greetings)\b/.test(question)) {
     return "Hello! Welcome to Rhema Exploits Science Academy International (RESA). I can help with general school information and portal guidance. What would you like to know?";
   }
   if (/(admission|apply|application|admission form|form number|enrol|enroll)/.test(question)) {
