@@ -78,7 +78,8 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
   const [historyItem, setHistoryItem] = useState<WebsiteContent | null>(null);
   const [historyRows, setHistoryRows] = useState<ContentRevision[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);\n  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -395,7 +396,8 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
               <p className="mt-1 text-xs leading-5 text-slate-500">Paste a secure public image URL. RESA will not execute uploaded HTML or scripts.</p>
               <label className={label + " mt-3"}>Upload image from this device<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploadingImage} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadImage(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingImage ? "Uploading image…" : "JPG, PNG, WebP or GIF · maximum 8 MB"}</span></label>
               <label className={label + " mt-3"}>Or paste an HTTPS image URL<input type="url" value={draft.image_url} onChange={e => update("image_url", e.target.value)} placeholder="https://…" className={field}/></label>
-              <label className={label + " mt-3"}>Image description (accessibility)<input value={draft.image_alt} onChange={e => update("image_alt", e.target.value)} maxLength={180} placeholder="Describe the image briefly" className={field}/></label>\n              <label className={label + " mt-3"}>Upload a short video<input type="file" accept="video/mp4,video/webm" disabled={uploadingVideo} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadVideo(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingVideo ? "Uploading video…" : "MP4 or WebM · maximum 8 MB per clip"}</span></label>
+              <label className={label + " mt-3"}>Image description (accessibility)<input value={draft.image_alt} onChange={e => update("image_alt", e.target.value)} maxLength={180} placeholder="Describe the image briefly" className={field}/></label>
+              <label className={label + " mt-3"}>Upload a short video<input type="file" accept="video/mp4,video/webm" disabled={uploadingVideo} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadVideo(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingVideo ? "Uploading video…" : "MP4 or WebM · maximum 8 MB per clip"}</span></label>
               <label className={label + " mt-3"}>Video link (optional)<input type="url" value={draft.video_url} onChange={e => update("video_url", e.target.value)} placeholder="https://youtu.be/... or https://vimeo.com/..." className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Use a public HTTPS YouTube, Vimeo or direct MP4/WebM link, or upload a short clip above.</span></label>
               {draft.image_url && <img src={draft.image_url} alt={draft.image_alt} className="mt-3 max-h-40 w-full rounded-lg border object-cover" onError={e => { e.currentTarget.style.display = "none"; }}/>}
             </div>
