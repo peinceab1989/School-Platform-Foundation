@@ -118,7 +118,7 @@ let response = await share([first]);
 assert.match(response.headers.get("location") ?? "", /shared=1/);
 response = await share([second]);
 assert.match(response.headers.get("location") ?? "", /shared=1/);
-assert.deepEqual(queuedFiles().map((item) => item.name), ["first.txt", "second.txt"]);
+assert.equal(JSON.stringify(Array.from(queuedFiles(), (item) => item.name)), JSON.stringify(["first.txt", "second.txt"]));
 
 for (let batch = 0; batch < 3; batch += 1) {
   const files = Array.from({ length: 5 }, (_, index) => file(`batch-${batch}-${index}.txt`));
