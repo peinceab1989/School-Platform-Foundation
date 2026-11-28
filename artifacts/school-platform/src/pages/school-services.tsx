@@ -290,6 +290,13 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const db = getSupabaseClient() as any;
     let uploadedPath = "";
     let stage = "checking your school account";
+    let slowStageTimer: ReturnType<typeof setTimeout> | undefined;
+    const warnIfSlow = (operation: string) => {
+      if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+      slowStageTimer = setTimeout(() => {
+        setUploadStage(`${operation} is taking longer than expected. Keep RESA open; do not start another upload.`);
+      }, DRIVE_SLOW_STAGE_WARNING_MS);
+    };
     try {
       const { data: authData, error: authError } = await withTimeout<any>(
         Promise.resolve(db.auth.getUser()),
@@ -301,13 +308,6 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       const cleanedName = safeFileName(fileToUpload.name);
       stage = "uploading the file to secure storage"; setUploadStage("Uploading file to secure storage");
       uploadedPath = `${schoolId}/${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID()}-${cleanedName}`;
-      let slowStageTimer: ReturnType<typeof setTimeout> | undefined;
-      const warnIfSlow = (operation: string) => {
-        if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
-        slowStageTimer = setTimeout(() => {
-          setUploadStage(`${operation} is taking longer than expected. Keep RESA open; do not start another upload.`);
-        }, DRIVE_SLOW_STAGE_WARNING_MS);
-      };
       warnIfSlow("Secure file upload");
       const storageResult = await db.storage.from("resa-drive").upload(uploadedPath, fileToUpload, {
         contentType: fileToUpload.type || "application/octet-stream",
@@ -392,6 +392,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setError(`RESA Drive failed while ${stage}: ${describeUploadError(e)}. Check your connection and school administrator access, then retry.`);
       setUploadStage("");
     } finally {
+      if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
       setUploading(false);
     }
   };
