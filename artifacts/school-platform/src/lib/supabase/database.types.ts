@@ -397,10 +397,10 @@ export interface Database {
           content_type: string;
           title: string;
           slug: string;
-          summary: string;
-          body: string;
-          image_url: string;
-          image_alt: string;
+          summary: string | null;
+          body: string | null;
+          image_url: string | null;
+          image_alt: string | null;
           video_url: string | null;
           seo_title: string | null;
           seo_description: string | null;
