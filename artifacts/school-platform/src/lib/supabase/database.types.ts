@@ -387,9 +387,10 @@ export interface Database {
         Returns: boolean;
       };
 
-      get_resa_website_content: {
+      get_resa_website_content_v2: {
         Args: {
           p_content_type?: string | null;
+          p_slug?: string | null;
         };
         Returns: {
           id: string;
@@ -400,7 +401,10 @@ export interface Database {
           body: string;
           image_url: string;
           image_alt: string;
-          published_at: string;
+          video_url: string | null;
+          seo_title: string | null;
+          seo_description: string | null;
+          published_at: string | null;
           sort_order: number;
         }[];
       };
