@@ -319,3 +319,85 @@ grant execute on function public.resa_record_passkey_attendance(uuid,text,uuid,t
 
 comment on table public.resa_identity_attendance_events is
   'Server-verified, fresh-passkey attendance events for students, teachers, staff, parents, administrators and proprietors. Supabase Auth stores WebAuthn public credentials; RESA does not store biometric templates.';
+
+
+-- Return only the calling user's own RESA identity categories for the selected school.
+create or replace function public.resa_get_attendance_identities(p_school_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $function$
+  with identity_rows as (
+    select
+      'proprietor'::text as person_type,
+      null::uuid as person_id,
+      'School proprietor'::text as display_label,
+      array['work_arrival','work_departure']::text[] as allowed_activities
+    where exists (
+      select 1 from public.school_payment_gateway_proprietors proprietor
+      where proprietor.school_id = p_school_id and proprietor.user_id = auth.uid()
+    )
+    union all
+    select
+      'admin'::text, null::uuid, 'School administrator'::text,
+      array['work_arrival','work_departure']::text[]
+    where exists (
+      select 1 from public.school_memberships membership
+      where membership.school_id = p_school_id and membership.user_id = auth.uid()
+        and membership.role = 'admin'::public.school_role and membership.status = 'active'
+    )
+    union all
+    select
+      'student'::text, student.id, 'Student attendance'::text,
+      array['school_arrival','school_departure']::text[]
+    from public.students student
+    left join public.people person
+      on person.id = student.person_id and person.school_id = student.school_id
+    left join public.student_portal_accounts account
+      on account.school_id = student.school_id and account.student_id = student.id and account.is_active
+    where student.school_id = p_school_id and student.status = 'active'
+      and (student.user_id = auth.uid() or person.user_id = auth.uid() or account.user_id = auth.uid())
+    union all
+    select
+      case when staff.staff_category = 'academic' then 'teacher' else 'staff' end,
+      staff.id,
+      case when staff.staff_category = 'academic' then 'Teacher attendance' else 'Staff attendance' end,
+      array['work_arrival','work_departure']::text[]
+    from public.staff staff
+    left join public.people person
+      on person.id = staff.person_id and person.school_id = staff.school_id
+    where staff.school_id = p_school_id and staff.status = 'active'
+      and (staff.user_id = auth.uid() or person.user_id = auth.uid())
+    union all
+    select
+      'parent'::text, guardian.id, 'Parent / guardian'::text,
+      array['school_visit','school_visit_exit']::text[]
+    from public.parent_portal_accounts account
+    join public.parents_guardians guardian
+      on guardian.id = account.parent_guardian_id and guardian.school_id = account.school_id
+    where account.school_id = p_school_id and account.user_id = auth.uid() and account.is_active
+  ),
+  deduplicated as (
+    select distinct on (person_type, person_id)
+      person_type, person_id, display_label, allowed_activities
+    from identity_rows
+    order by person_type, person_id, display_label
+  )
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'person_type', person_type,
+        'person_id', person_id,
+        'display_label', display_label,
+        'allowed_activities', allowed_activities
+      ) order by person_type, display_label
+    ),
+    '[]'::jsonb
+  )
+  from deduplicated;
+$function$;
+
+revoke all on function public.resa_get_attendance_identities(uuid) from public, anon;
+grant execute on function public.resa_get_attendance_identities(uuid) to authenticated;
