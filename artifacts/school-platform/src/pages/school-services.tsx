@@ -19,6 +19,8 @@ type RowRecord = Record<string, unknown>;
 // Supabase Free enforces a 50 MB global per-file ceiling even if a bucket is configured higher.
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const AUTH_CHECK_TIMEOUT_MS = 15_000;
+const DRIVE_READ_TIMEOUT_MS = 15_000;
+const DRIVE_SLOW_STAGE_WARNING_MS = 45_000;
 
 // Bound the remote identity check so a stalled mobile connection cannot leave
 // the upload screen spinning forever. A timeout never clears the selected file.
@@ -105,7 +107,7 @@ async function readSharedDriveFiles(): Promise<File[]> {
     });
   } finally { db.close(); }
 }
-async function saveSharedDriveFiles(files: File[]): Promise<void> {
+async function removeSharedDriveFile(uploadedFile: File): Promise<void> {
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(SHARED_DRIVE_DB, 1);
     request.onupgradeneeded = () => {
@@ -118,8 +120,20 @@ async function saveSharedDriveFiles(files: File[]): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(SHARED_DRIVE_STORE, "readwrite");
       const store = tx.objectStore(SHARED_DRIVE_STORE);
-      if (files.length) store.put({ files, receivedAt: Date.now() }, "files");
-      else store.delete("files");
+      const request = store.get("files");
+      request.onsuccess = () => {
+        const value = request.result as { files?: unknown; receivedAt?: number } | undefined;
+        const files = Array.isArray(value?.files) ? value.files.filter((file): file is File => file instanceof File) : [];
+        const index = files.findIndex((file) =>
+          file.name === uploadedFile.name &&
+          file.size === uploadedFile.size &&
+          file.lastModified === uploadedFile.lastModified
+        );
+        if (index >= 0) files.splice(index, 1);
+        if (files.length) store.put({ files, receivedAt: Date.now() }, "files");
+        else store.delete("files");
+      };
+      request.onerror = () => { tx.abort(); };
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error ?? new Error("Could not update the RESA share inbox."));
       tx.onabort = () => reject(tx.error ?? new Error("Updating the RESA share inbox was interrupted."));
@@ -158,10 +172,12 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sharedFiles, setSharedFiles] = useState<File[]>([]);
   const lastHandledSelectionRef = useRef("");
+  const hasSelectedDriveFileRef = useRef(false);
+  const uploadInFlightRef = useRef(false);
   const [restoringFile, setRestoringFile] = useState(true);
   const [savingFile, setSavingFile] = useState(false);
   const [folderName, setFolderName] = useState("General");
-  const [driveVisibility, setDriveVisibility] = useState<"school" | "private">("school");
+  const [driveVisibility, setDriveVisibility] = useState<"school" | "private">("private");
   const [uploading, setUploading] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
   const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
@@ -184,7 +200,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
             const mime = String(row.mime_type ?? "").toLowerCase();
             const path = String(row.storage_path ?? "");
             if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return row;
-            const signed = await db.storage.from("resa-drive").createSignedUrl(path, 1800);
+            const signed = await withTimeout<any>(
+              db.storage.from("resa-drive").createSignedUrl(path, 1800),
+              DRIVE_READ_TIMEOUT_MS,
+              "Secure media preview link timed out."
+            );
             return signed.error || !signed.data?.signedUrl ? row : { ...row, preview_url: signed.data.signedUrl };
           } catch {
             return row;
@@ -205,21 +225,24 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const params = new URLSearchParams(window.location.search);
     if (params.get("shared") === "1") setNotice("Files received from your Android Share menu. Review the selected file below, then upload it securely.");
     if (params.get("shareError") === "empty") setError("The Android Share action did not include a supported file. Try sharing the file again.");
-    if (params.get("shareError") === "limit") setError("The shared batch is too large. RESA accepts up to 5 files, 50 MB each, and 100 MB combined per share.");
+    if (params.get("shareError") === "limit") setError("The shared batch or waiting inbox is full. Each share accepts up to 5 files, 50 MB each and 100 MB combined; the waiting inbox holds up to 20 files or 200 MB. Upload pending files before sharing more.");
     if (params.get("shareError") === "save") setError("RESA could not save the shared files on this device. Please retry or use Choose a file.");
     if (params.has("shared") || params.has("shareError")) {
       window.history.replaceState(window.history.state, "", window.location.pathname);
     }
     void Promise.all([
-      getPendingDriveFile(schoolId).catch(() => null),
-      readSharedDriveFiles().catch(() => []),
+      withTimeout(getPendingDriveFile(schoolId), 5_000, "Local file recovery took too long.").catch(() => null),
+      withTimeout(readSharedDriveFiles(), 5_000, "The Android share inbox took too long to open.").catch(() => []),
     ]).then(([pending, shared]) => {
       if (!mounted) return;
+      if (hasSelectedDriveFileRef.current) return;
       if (shared.length) {
+        hasSelectedDriveFileRef.current = true;
         setSharedFiles(shared);
         setSelectedFile(shared[0]);
         setNotice(`${shared.length} file${shared.length === 1 ? "" : "s"} received from Android. ${shared[0].name} is ready for secure upload.`);
       } else if (pending) {
+        hasSelectedDriveFileRef.current = true;
         setSelectedFile(pending);
         setNotice(`Recovered “${pending.name}” from this device. Press Upload file to continue.`);
       }
@@ -235,12 +258,13 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const selectionKey = `${file.name}:${file.size}:${file.lastModified}`;
     if (lastHandledSelectionRef.current === selectionKey) return;
     lastHandledSelectionRef.current = selectionKey;
+    hasSelectedDriveFileRef.current = true;
     setSelectedFile(file);
     setError("");
     setNotice(`Selected “${file.name}”. Preparing it for secure upload…`);
     setSavingFile(true);
     try {
-      await savePendingDriveFile(schoolId, file);
+      await withTimeout(savePendingDriveFile(schoolId, file), 5_000, "Local recovery is taking too long. You can still upload while keeping this page open.");
       setNotice(`“${file.name}” is ready to upload.`);
     } catch {
       setNotice("File selected. Keep this page open while uploading; this browser could not enable recovery if Android reloads the page.");
@@ -257,11 +281,27 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       setError("Your file selection was not retained. Please choose it again, wait for its name to appear, then upload.");
       return;
     }
+    const isSharedQueueUpload = sharedFiles.some((candidate) =>
+      candidate.name === fileToUpload!.name &&
+      candidate.size === fileToUpload!.size &&
+      candidate.lastModified === fileToUpload!.lastModified
+    );
     if (fileToUpload.size > MAX_FILE_BYTES) { setError("This file is larger than the 50 MB limit on the current Supabase Free plan. Compress it or choose a smaller file."); return; }
+    // React state updates are asynchronous; use a ref to block rapid double-taps
+    // before the disabled button has had a chance to render.
+    if (uploadInFlightRef.current) return;
+    uploadInFlightRef.current = true;
     setUploading(true); setError(""); setNotice(""); setUploadStage("Checking your school account");
     const db = getSupabaseClient() as any;
     let uploadedPath = "";
     let stage = "checking your school account";
+    let slowStageTimer: ReturnType<typeof setTimeout> | undefined;
+    const warnIfSlow = (operation: string) => {
+      if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+      slowStageTimer = setTimeout(() => {
+        setUploadStage(`${operation} is taking longer than expected. Keep RESA open; do not start another upload.`);
+      }, DRIVE_SLOW_STAGE_WARNING_MS);
+    };
     try {
       const { data: authData, error: authError } = await withTimeout<any>(
         Promise.resolve(db.auth.getUser()),
@@ -273,13 +313,17 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       const cleanedName = safeFileName(fileToUpload.name);
       stage = "uploading the file to secure storage"; setUploadStage("Uploading file to secure storage");
       uploadedPath = `${schoolId}/${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID()}-${cleanedName}`;
+      warnIfSlow("Secure file upload");
       const storageResult = await db.storage.from("resa-drive").upload(uploadedPath, fileToUpload, {
         contentType: fileToUpload.type || "application/octet-stream",
         cacheControl: "3600",
         upsert: false,
       });
+      if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+      slowStageTimer = undefined;
       if (storageResult.error) throw storageResult.error;
       stage = "saving the file register"; setUploadStage("Saving file details");
+      warnIfSlow("Saving file details");
       const metadataResult = await db.from("resa_drive_files").insert({
         school_id: schoolId,
         uploaded_by: authData.user.id,
@@ -293,52 +337,101 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         published_to_website: false,
         is_active: true,
       });
+      if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+      slowStageTimer = undefined;
       if (metadataResult.error) {
         const cleanup = await db.storage.from("resa-drive").remove([uploadedPath]);
         if (cleanup.error) throw new Error(`File details were rejected (${describeUploadError(metadataResult.error)}). Storage cleanup also failed (${describeUploadError(cleanup.error)}); contact the administrator before retrying.`);
         throw metadataResult.error;
       }
-      const uploadedSharedIndex = sharedFiles.findIndex((candidate) =>
-        candidate.name === fileToUpload!.name &&
-        candidate.size === fileToUpload!.size &&
-        candidate.lastModified === fileToUpload!.lastModified
-      );
-      const remainingSharedFiles = uploadedSharedIndex >= 0
-        ? sharedFiles.filter((_, index) => index !== uploadedSharedIndex)
-        : sharedFiles;
-      setSharedFiles(remainingSharedFiles);
-      if (uploadedSharedIndex >= 0) {
-        try { await saveSharedDriveFiles(remainingSharedFiles); } catch { /* The cloud copy is already safely registered. */ }
+      // Always reconcile against IndexedDB after upload. The service worker can
+      // receive another Android share while this upload is running, so React's
+      // earlier queue snapshot may be stale.
+      let shareQueueWarning = "";
+      if (isSharedQueueUpload) {
+        try {
+          await withTimeout(
+            removeSharedDriveFile(fileToUpload),
+            5_000,
+            "The cloud upload succeeded, but the local Android share queue could not be updated."
+          );
+        } catch {
+          shareQueueWarning = " The cloud copy is safely registered, but the local Android share queue could not be cleared. Do not upload this same queued file again; first confirm it appears in the Drive register.";
+        }
       }
-      const nextFile = remainingSharedFiles[0] ?? null;
-      setSelectedFile(nextFile);
+      let latestSharedFiles = sharedFiles;
       try {
-        await clearPendingDriveFile(schoolId);
-        if (nextFile) await savePendingDriveFile(schoolId, nextFile);
-      } catch { /* Cloud upload and metadata are already saved. */ }
-      setDriveVisibility("school");
+        latestSharedFiles = await withTimeout(
+          readSharedDriveFiles(),
+          5_000,
+          "The Android share queue could not be refreshed."
+        );
+      } catch {
+        shareQueueWarning ||= " The cloud copy is safely registered, but the local share queue could not be refreshed. Keep this page open and check the Drive register before retrying any pending file.";
+      }
+      if (shareQueueWarning && isSharedQueueUpload) {
+        const duplicateIndex = latestSharedFiles.findIndex((candidate) =>
+          candidate.name === fileToUpload!.name &&
+          candidate.size === fileToUpload!.size &&
+          candidate.lastModified === fileToUpload!.lastModified
+        );
+        if (duplicateIndex >= 0) latestSharedFiles = latestSharedFiles.filter((_, index) => index !== duplicateIndex);
+      }
+      setSharedFiles(latestSharedFiles);
+      const nextFile = latestSharedFiles[0] ?? null;
+      setSelectedFile(nextFile);
+      hasSelectedDriveFileRef.current = Boolean(nextFile);
+      try {
+        await withTimeout(clearPendingDriveFile(schoolId), 5_000, "Local pending-file recovery update timed out.");
+        if (nextFile) {
+          await withTimeout(
+            savePendingDriveFile(schoolId, nextFile),
+            5_000,
+            "The next queued file could not be saved as the current recovery selection."
+          );
+        }
+      } catch {
+        shareQueueWarning ||= " The uploaded cloud copy is safe, but the next local recovery selection could not be updated. Keep RESA open and review the remaining share queue before leaving this page.";
+      }
+      setDriveVisibility("private");
       const picker = document.getElementById("resa-drive-file-picker") as HTMLInputElement | null;
       if (picker) picker.value = "";
       setUploadStage("");
-      setNotice(nextFile
+      setNotice((nextFile
         ? `Uploaded “${fileToUpload.name}”. “${nextFile.name}” is next and ready to upload.`
-        : `Uploaded “${fileToUpload.name}” successfully.`);
+        : `Uploaded “${fileToUpload.name}” successfully.`) + shareQueueWarning);
       await load();
     } catch (e) {
       setError(`RESA Drive failed while ${stage}: ${describeUploadError(e)}. Check your connection and school administrator access, then retry.`);
       setUploadStage("");
-    } finally { setUploading(false); }
+    } finally {
+      if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+      uploadInFlightRef.current = false;
+      setUploading(false);
+    }
   };
   const downloadFile = async (row: RowRecord) => {
     setError(""); setNotice("");
+    // Open the destination synchronously from the click handler so mobile
+    // browsers do not block the new tab after the signed-link request awaits.
+    const downloadWindow = window.open("about:blank", "_blank");
+    if (downloadWindow) downloadWindow.opener = null;
     try {
+      if (!downloadWindow) throw new Error("Your browser blocked the download tab. Allow pop-ups for RESA, then try again.");
       const path = String(row.storage_path ?? "");
       if (!path) throw new Error("This record has no storage path.");
-      const { data, error: signedError } = await (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 60);
+      const { data, error: signedError } = await withTimeout<any>(
+        (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 60),
+        DRIVE_READ_TIMEOUT_MS,
+        "Secure download link request timed out. Check your connection and try again."
+      );
       if (signedError) throw signedError;
       if (!data?.signedUrl) throw new Error("A secure download link could not be created.");
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (e) { setError(e instanceof Error ? e.message : "Download failed."); }
+      downloadWindow.location.replace(data.signedUrl);
+    } catch (e) {
+      downloadWindow?.close();
+      setError(e instanceof Error ? e.message : "Download failed.");
+    }
   };
   const previewFile = async (row: RowRecord) => {
     const path = String(row.storage_path ?? "");
@@ -346,7 +439,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return;
     setPreviewLoading(String(row.id ?? path)); setError("");
     try {
-      const { data, error: signedError } = await (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 120);
+      const { data, error: signedError } = await withTimeout<any>(
+        (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 120),
+        DRIVE_READ_TIMEOUT_MS,
+        "Secure preview link request timed out. Check your connection and try again."
+      );
       if (signedError) throw signedError;
       if (!data?.signedUrl) throw new Error("A secure preview link could not be created.");
       setPreview({ url: data.signedUrl, mime, name: String(row.original_name ?? row.file_name ?? "RESA Drive media") });
@@ -357,10 +454,12 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     const nextVisibility = String(row.visibility ?? "private") === "school" ? "private" : "school";
     setError(""); setNotice("");
     try {
-      const { error: updateError } = await (getSupabaseClient() as any).from("resa_drive_files")
+      const { data: updatedRecord, error: updateError } = await (getSupabaseClient() as any).from("resa_drive_files")
         .update({ visibility: nextVisibility })
-        .eq("id", String(row.id)).eq("school_id", schoolId);
+        .eq("id", String(row.id)).eq("school_id", schoolId)
+        .select("id").maybeSingle();
       if (updateError) throw updateError;
+      if (!updatedRecord?.id) throw new Error("The Drive file could not be verified for this school. Its visibility was not changed.");
       setNotice(nextVisibility === "school" ? "File shared with authorised RESA portal members." : "File returned to administrator-only visibility.");
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "File visibility could not be updated."); }
@@ -369,15 +468,46 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     if (!window.confirm(`Delete “${String(row.original_name ?? row.file_name ?? "this file")}” from RESA Drive? This cannot be undone.`)) return;
     setError(""); setNotice("");
     const db = getSupabaseClient() as any;
+    const fileId = String(row.id ?? "");
+    const path = String(row.storage_path ?? "");
+    if (!fileId || !path) {
+      setError("This Drive record is missing its file ID or secure storage path. Nothing was deleted.");
+      return;
+    }
     try {
-      const path = String(row.storage_path ?? "");
+      // Hide the register entry first. If Storage refuses the deletion, restore
+      // the active flag so the administrator does not lose a working file link.
+      const deactivateResult = await db.from("resa_drive_files")
+        .update({ is_active: false })
+        .eq("id", fileId).eq("school_id", schoolId)
+        .select("id").maybeSingle();
+      if (deactivateResult.error) throw deactivateResult.error;
+      if (!deactivateResult.data?.id) throw new Error("The Drive record could not be verified for deletion. Nothing was removed from storage.");
+
       const removeResult = await db.storage.from("resa-drive").remove([path]);
-      if (removeResult.error) throw removeResult.error;
-      const metadataResult = await db.from("resa_drive_files").delete().eq("id", String(row.id)).eq("school_id", schoolId);
-      if (metadataResult.error) throw metadataResult.error;
-      setNotice("File deleted.");
+      if (removeResult.error) {
+        const restoreResult = await db.from("resa_drive_files")
+          .update({ is_active: true })
+          .eq("id", fileId).eq("school_id", schoolId)
+          .select("id").maybeSingle();
+        if (restoreResult.error || !restoreResult.data?.id) {
+          throw new Error(`Storage refused to delete the file (${describeUploadError(removeResult.error)}), and the Drive register could not be verified as reactivated (${restoreResult.error ? describeUploadError(restoreResult.error) : "no matching record was returned"}). The inactive record has been retained for administrator recovery.`);
+        }
+        throw removeResult.error;
+      }
+
+      const metadataResult = await db.from("resa_drive_files")
+        .delete().eq("id", fileId).eq("school_id", schoolId)
+        .select("id").maybeSingle();
+      if (metadataResult.error || !metadataResult.data?.id) {
+        throw new Error(`The file bytes were deleted from secure storage, but the inactive Drive register could not be verified as removed (${metadataResult.error ? describeUploadError(metadataResult.error) : "no matching record was returned"}). The inactive record has been retained for administrator review.`);
+      }
+      setNotice("File and Drive register entry deleted.");
       await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "The file could not be deleted."); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The file could not be deleted. Check the Drive register before retrying.");
+      await load().catch(() => undefined);
+    }
   };
   const visibleRows = rows.filter(row => !search || JSON.stringify(row).toLowerCase().includes(search.toLowerCase()));
   const label = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -399,7 +529,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
             <p className="mt-1 text-sm leading-6 text-slate-600">Supports photos, videos, PDFs, Office documents, audio and ZIP files up to 50 MB. Choose whether a file is visible to authorised school members or administrators only. Google Drive is not required.</p>
             <div className="mt-3 rounded-xl border border-sky-200 bg-white p-3 text-sm text-slate-700">
               <p className="font-semibold text-sky-950">Android alternative: Share files directly to RESA</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Install the RESA app on your phone. In Files, Gallery or another app, select a document or photo, tap Share, then choose RESA. It will arrive here without using this page’s file picker. You still review and press Upload before anything enters school storage.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Use the installed RESA app on your phone. In Android Files or Gallery, select files, tap Share, then choose RESA. You can share additional batches while earlier files are waiting or uploading. Open RESA Drive to review the queued files and press Upload for each one; nothing enters school storage automatically. Keep RESA open until each upload is confirmed.</p>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="block text-sm font-semibold">Folder
@@ -412,7 +542,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
                 </select>
               </label>
               <label className="block text-sm font-semibold">Choose a file
-                <input id="resa-drive-file-picker" type="file" onClick={() => { lastHandledSelectionRef.current = ""; try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onInput={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} onChange={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
+                <input id="resa-drive-file-picker" type="file" disabled={uploading} onClick={() => { lastHandledSelectionRef.current = ""; try { window.sessionStorage.setItem("resa-school-services-active-module", "drive"); } catch { /* Storage may be unavailable. */ } }} onInput={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} onChange={e=>{ void handleDriveFileSelection(e.currentTarget.files?.[0]??null); }} className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-normal file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-900 file:px-3 file:py-2 file:font-semibold file:text-white"/>
               </label>
             </div>
             {restoringFile&&<p className="mt-2 text-xs text-slate-500">Checking for a file selection interrupted by Android…</p>}
@@ -420,7 +550,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
             {selectedFile&&<p className="mt-2 flex items-center gap-2 break-all text-xs text-slate-600"><FileText size={15}/>{selectedFile.name} · {formatBytes(selectedFile.size)}{savingFile?" · Saving recovery copy…":" · Ready"}</p>}
             <button type="button" onClick={()=>void uploadFile()} disabled={!selectedFile||uploading||savingFile||restoringFile} className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Upload size={16}/>{uploading?"Uploading securely…":"Upload file"}</button>
             {uploading&&<p role="status" aria-live="polite" className="mt-2 rounded-lg bg-emerald-50 p-3 text-xs font-semibold text-emerald-900">{uploadStage||"Working securely…"}</p>}
-            <p className="mt-2 text-xs text-slate-500">Maximum size: 50 MB per file on the current Supabase Free plan. Your selected file is saved on this device to survive Android page reloads. Keep the page open until upload completes.</p>
+            <p className="mt-2 text-xs text-slate-500">Maximum size: 50 MB per file on the current Supabase Free plan. RESA attempts to keep a local recovery copy when browser storage is available. Keep the page open until upload completes.</p>
           </div>
           <label className="my-4 flex items-center gap-2 rounded-lg border px-3"><Search size={16} className="text-slate-400"/><input className="min-w-0 flex-1 py-3 text-sm outline-none" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search files and folders…"/></label>
           {loading&&<p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600">Loading files…</p>}

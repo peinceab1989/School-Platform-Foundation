@@ -15,10 +15,31 @@ function saveSharedFiles(files) {
     request.onsuccess = () => {
       const db = request.result;
       const tx = db.transaction(SHARE_INBOX_STORE, 'readwrite');
-      tx.objectStore(SHARE_INBOX_STORE).put({ files, receivedAt: Date.now() }, 'files');
+      const store = tx.objectStore(SHARE_INBOX_STORE);
+      const existingRequest = store.get('files');
+      let abortError = null;
+      existingRequest.onsuccess = () => {
+        const existing = Array.isArray(existingRequest.result?.files)
+          ? existingRequest.result.files.filter((file) => file instanceof File && file.size > 0)
+          : [];
+        const combined = [...existing, ...files];
+        const totalBytes = combined.reduce((total, file) => total + file.size, 0);
+        // Bound local pending storage while preserving previously shared files.
+        if (combined.length > 20 || totalBytes > 200 * 1024 * 1024) {
+          abortError = new Error('The RESA share inbox is full. Upload pending files before sharing more.');
+          abortError.code = 'LIMIT';
+          tx.abort();
+          return;
+        }
+        store.put({ files: combined, receivedAt: Date.now() }, 'files');
+      };
+      existingRequest.onerror = () => {
+        abortError = existingRequest.error || new Error('Could not read the existing RESA share inbox.');
+        tx.abort();
+      };
       tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror = () => { const error = tx.error; db.close(); reject(error || new Error('Could not save shared files.')); };
-      tx.onabort = () => { const error = tx.error; db.close(); reject(error || new Error('Saving shared files was interrupted.')); };
+      tx.onerror = () => { const error = abortError || tx.error; db.close(); reject(error || new Error('Could not save shared files.')); };
+      tx.onabort = () => { const error = abortError || tx.error; db.close(); reject(error || new Error('Saving shared files was interrupted.')); };
     };
   });
 }
@@ -67,7 +88,8 @@ self.addEventListener('fetch', (event) => {
         return Response.redirect(new URL('/drive?shared=1', self.location.origin).href, 303);
       } catch (error) {
         console.error('RESA Drive share import failed:', error);
-        return Response.redirect(new URL('/drive?shareError=save', self.location.origin).href, 303);
+        const reason = error && error.code === 'LIMIT' ? 'limit' : 'save';
+        return Response.redirect(new URL('/drive?shareError=' + reason, self.location.origin).href, 303);
       }
     })());
     return;

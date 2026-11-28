@@ -43,6 +43,9 @@ jobs:
       - name: Validate encrypted backup exporter syntax
         run: python3 -m py_compile scripts/resa_encrypted_dropbox_backup.py
 
+      - name: Test RESA Drive Android share queue
+        run: node scripts/test-resa-drive-share-queue.mjs
+
       - name: Typecheck workspace
         run: pnpm run typecheck
 
