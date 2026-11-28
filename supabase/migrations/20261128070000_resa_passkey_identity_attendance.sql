@@ -127,8 +127,10 @@ begin
     raise exception 'A fresh fingerprint/passkey verification is required for every attendance action';
   end if;
 
-  if p_school_id is null or p_person_type not in ('student','teacher','staff','parent','admin','proprietor')
-    or p_event_type not in ('check_in','check_out') then
+  if p_school_id is null or p_person_type is null
+    or p_person_type not in ('student','teacher','staff','parent','admin','proprietor')
+    or p_activity is null
+    or p_event_type is null or p_event_type not in ('check_in','check_out') then
     raise exception 'Invalid RESA attendance request';
   end if;
   if p_person_type in ('admin','proprietor') and p_person_id is not null then
