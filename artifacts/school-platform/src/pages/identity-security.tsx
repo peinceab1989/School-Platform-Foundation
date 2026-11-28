@@ -18,6 +18,7 @@ type Identity = {
 type AttendanceEvent = {
   id: string;
   person_type: string;
+  person_name: string;
   activity: string;
   event_type: "check_in" | "check_out";
   event_time: string;
@@ -67,8 +68,8 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
         auth.passkey.list(),
         db.rpc("resa_get_attendance_identities", { p_school_id: schoolId }),
         db.from("resa_identity_attendance_events")
-          .select("id,person_type,activity,event_type,event_time,attendance_date,verification_method")
-          .eq("school_id", schoolId).eq("user_id", userId)
+          .select("id,person_type,person_name,activity,event_type,event_time,attendance_date,verification_method")
+          .eq("school_id", schoolId)
           .order("event_time", { ascending: false }).limit(30),
       ]);
       if (passkeyResult.error) throw passkeyResult.error;
@@ -252,12 +253,12 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
       </section>
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-extrabold">Your recent attendance activity</h2><p className="mt-1 text-sm text-slate-600">Passkey-verified records for this school account.</p></div><button type="button" onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={15} className={loading ? "animate-spin" : ""}/> Refresh</button></div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-extrabold">{identities.some(item => item.person_type === "admin" || item.person_type === "proprietor") ? "Recent school attendance activity" : "Your recent attendance activity"}</h2><p className="mt-1 text-sm text-slate-600">{identities.some(item => item.person_type === "admin" || item.person_type === "proprietor") ? "School-wide passkey-verified records. Access is enforced by database row-level security." : "Passkey-verified records for this school account."}</p></div><button type="button" onClick={() => void load()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={15} className={loading ? "animate-spin" : ""}/> Refresh</button></div>
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[560px] text-left text-sm">
-            <thead><tr className="border-b text-xs uppercase tracking-wide text-slate-500"><th className="py-3 pr-3">Activity</th><th className="py-3 pr-3">Action</th><th className="py-3 pr-3">Date & time</th><th className="py-3">Verification</th></tr></thead>
-            <tbody>{events.length ? events.map(item => <tr key={item.id} className="border-b last:border-0"><td className="py-3 pr-3 font-semibold">{activityLabels[item.activity] ?? item.activity}</td><td className="py-3 pr-3"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800">{item.event_type === "check_in" ? "Checked in" : "Checked out"}</span></td><td className="py-3 pr-3 text-slate-600">{formatDate(item.event_time)}</td><td className="py-3 text-slate-600">Passkey</td></tr>)
-              : <tr><td colSpan={4} className="py-8 text-center text-slate-500">No attendance events recorded yet.</td></tr>}</tbody>
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead><tr className="border-b text-xs uppercase tracking-wide text-slate-500"><th className="py-3 pr-3">Person</th><th className="py-3 pr-3">Category</th><th className="py-3 pr-3">Activity</th><th className="py-3 pr-3">Action</th><th className="py-3 pr-3">Date & time</th><th className="py-3">Verification</th></tr></thead>
+            <tbody>{events.length ? events.map(item => <tr key={item.id} className="border-b last:border-0"><td className="py-3 pr-3 font-semibold">{item.person_name || "RESA account"}</td><td className="py-3 pr-3 capitalize text-slate-600">{item.person_type}</td><td className="py-3 pr-3">{activityLabels[item.activity] ?? item.activity}</td><td className="py-3 pr-3"><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800">{item.event_type === "check_in" ? "Checked in" : "Checked out"}</span></td><td className="py-3 pr-3 text-slate-600">{formatDate(item.event_time)}</td><td className="py-3 text-slate-600">Passkey</td></tr>)
+              : <tr><td colSpan={6} className="py-8 text-center text-slate-500">No attendance events recorded yet.</td></tr>}</tbody>
           </table>
         </div>
       </section>
