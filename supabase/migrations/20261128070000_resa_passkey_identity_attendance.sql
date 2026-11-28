@@ -405,3 +405,70 @@ $function$;
 
 revoke all on function public.resa_get_attendance_identities(uuid) from public, anon;
 grant execute on function public.resa_get_attendance_identities(uuid) to authenticated;
+
+-- Immutable content snapshots provide a simple, school-scoped revision history.
+create table if not exists public.public_website_content_revisions (
+  id uuid primary key default gen_random_uuid(),
+  revision_number bigint generated always as identity unique,
+  school_id uuid not null references public.schools(id) on delete cascade,
+  content_id uuid not null references public.public_website_content(id) on delete cascade,
+  changed_by uuid references auth.users(id) on delete set null,
+  action text not null check (action in ('created','updated','published','unpublished')),
+  snapshot jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists public_website_content_revisions_content_idx
+  on public.public_website_content_revisions (school_id, content_id, created_at desc);
+
+alter table public.public_website_content_revisions enable row level security;
+revoke all on table public.public_website_content_revisions from anon, authenticated;
+grant select on table public.public_website_content_revisions to authenticated;
+
+drop policy if exists "School admins read website content revisions" on public.public_website_content_revisions;
+create policy "School admins read website content revisions"
+  on public.public_website_content_revisions
+  for select to authenticated
+  using (
+    public.has_school_role(school_id, array['admin']::public.school_role[])
+    or exists (
+      select 1 from public.school_payment_gateway_proprietors proprietor
+      where proprietor.school_id = public_website_content_revisions.school_id
+        and proprietor.user_id = (select auth.uid())
+    )
+  );
+
+create or replace function public.capture_public_website_content_revision()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_action text;
+begin
+  if tg_op = 'INSERT' then
+    v_action := 'created';
+  elsif old.is_published is distinct from new.is_published then
+    v_action := case when new.is_published then 'published' else 'unpublished' end;
+  else
+    v_action := 'updated';
+  end if;
+
+  insert into public.public_website_content_revisions (
+    school_id, content_id, changed_by, action, snapshot
+  ) values (
+    new.school_id, new.id, auth.uid(), v_action, to_jsonb(new)
+  );
+  return new;
+end;
+$function$;
+
+revoke all on function public.capture_public_website_content_revision() from public, anon, authenticated;
+drop trigger if exists public_website_content_revision_capture on public.public_website_content;
+create trigger public_website_content_revision_capture
+  after insert or update on public.public_website_content
+  for each row execute function public.capture_public_website_content_revision();
+
+comment on table public.public_website_content_revisions is
+  'Immutable school-scoped snapshots of public website content changes, readable by authorised school administrators and proprietor only.';
