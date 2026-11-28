@@ -176,7 +176,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
   const [restoringFile, setRestoringFile] = useState(true);
   const [savingFile, setSavingFile] = useState(false);
   const [folderName, setFolderName] = useState("General");
-  const [driveVisibility, setDriveVisibility] = useState<"school" | "private">("school");
+  const [driveVisibility, setDriveVisibility] = useState<"school" | "private">("private");
   const [uploading, setUploading] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
   const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
@@ -388,7 +388,7 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       } catch {
         shareQueueWarning ||= " The uploaded cloud copy is safe, but the next local recovery selection could not be updated. Keep RESA open and review the remaining share queue before leaving this page.";
       }
-      setDriveVisibility("school");
+      setDriveVisibility("private");
       const picker = document.getElementById("resa-drive-file-picker") as HTMLInputElement | null;
       if (picker) picker.value = "";
       setUploadStage("");
