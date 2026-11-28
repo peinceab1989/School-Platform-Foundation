@@ -43,6 +43,19 @@ where not exists (
     and device.device_name = 'RESA Passkey Attendance (System-managed)'
 );
 
+create table if not exists public.resa_passkey_attendance_auth_uses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  session_id uuid not null,
+  passkey_auth_time bigint not null,
+  used_at timestamptz not null default now(),
+  constraint resa_passkey_attendance_auth_use_once
+    unique (user_id, session_id, passkey_auth_time)
+);
+
+alter table public.resa_passkey_attendance_auth_uses enable row level security;
+revoke all on table public.resa_passkey_attendance_auth_uses from anon, authenticated;
+
 create index if not exists resa_identity_attendance_school_recent_idx
   on public.resa_identity_attendance_events (school_id, event_time desc);
 create index if not exists resa_identity_attendance_user_recent_idx
@@ -99,6 +112,7 @@ declare
   v_amr jsonb;
   v_passkey_time bigint;
   v_auth_time bigint;
+  v_session_id uuid;
   v_now timestamptz := now();
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_local_time time := (now() at time zone 'Africa/Lagos')::time;
@@ -126,6 +140,17 @@ begin
     or v_auth_time < extract(epoch from v_now)::bigint - 120 then
     raise exception 'A fresh fingerprint/passkey verification is required for every attendance action';
   end if;
+
+  v_session_id := nullif(v_claims ->> 'session_id', '')::uuid;
+  if v_session_id is null then
+    raise exception 'The verified passkey session is incomplete. Sign in again';
+  end if;
+  begin
+    insert into public.resa_passkey_attendance_auth_uses (user_id, session_id, passkey_auth_time)
+    values (v_user_id, v_session_id, v_passkey_time);
+  exception when unique_violation then
+    raise exception 'This passkey verification has already been used. Verify again for each attendance action';
+  end;
 
   if p_school_id is null or p_person_type is null
     or p_person_type not in ('student','teacher','staff','parent','admin','proprietor')
@@ -308,7 +333,7 @@ begin
     attendance_date, event_time, verification_method, auth_session_id, biometric_event_id, device_label
   ) values (
     p_school_id, v_user_id, p_person_type, p_person_id, p_activity, p_event_type,
-    v_today, v_now, 'passkey', (v_claims ->> 'session_id')::uuid, v_biometric_event_id,
+    v_today, v_now, 'passkey', v_session_id, v_biometric_event_id,
     nullif(left(trim(coalesce(p_device_label,'')),80),'')
   ) returning id into v_event_id;
 
