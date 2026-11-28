@@ -287,7 +287,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
             <h1 className="mt-3 text-3xl font-black sm:text-4xl">Website & Content Manager</h1>
             <p className="mt-3 text-sm leading-7 text-emerald-50 sm:text-base">Update the public RESA website without editing code. Create news, announcements, events, admissions notices, gallery highlights and homepage information cards. Save drafts, schedule publication or publish when ready.</p>
           </div>
-          <button type="button" onClick={startNew} className="inline-flex items-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-sm font-extrabold text-emerald-950 shadow hover:bg-amber-200"><FilePlus2 size={17}/> New content</button>
+          <div className="flex flex-wrap gap-2"><Link href="/announcements" className="inline-flex items-center gap-2 rounded-xl border border-white/40 px-4 py-3 text-sm font-bold text-white hover:bg-white/10">Portal announcements</Link><button type="button" onClick={startNew} className="inline-flex items-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-sm font-extrabold text-emerald-950 shadow hover:bg-amber-200"><FilePlus2 size={17}/> New content</button></div>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-white/15 bg-white/10 p-4"><p className="text-xs text-emerald-100">Total items</p><p className="mt-1 text-2xl font-black">{items.length}</p></div>
