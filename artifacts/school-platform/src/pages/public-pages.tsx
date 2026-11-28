@@ -41,6 +41,43 @@ const WHATSAPP = "08058422691";
 const WHATSAPP_URL = "https://wa.me/2348058422691?text=Hello%20RESA%20Customer%20Care%2C%20I%20would%20like%20to%20make%20an%20enquiry.";
 const FACEBOOK = "https://www.facebook.com/share/1H2v8eruwR/";
 
+type ManagedGalleryItem = {
+  id: string;
+  title: string;
+  summary: string | null;
+  body: string | null;
+  image_url: string | null;
+  image_alt: string | null;
+  video_url: string | null;
+};
+
+function resolveGalleryVideo(rawUrl: string | null) {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:") return null;
+    const host = url.hostname.toLowerCase().startsWith("www.") ? url.hostname.toLowerCase().slice(4) : url.hostname.toLowerCase();
+    if (host === "youtu.be") {
+      const id = url.pathname.slice(1).split("/")[0];
+      return id ? { kind: "embed" as const, src: "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) } : null;
+    }
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const parts = url.pathname.split("/").filter(Boolean);
+      const id = url.searchParams.get("v") || (parts[0] === "embed" || parts[0] === "shorts" ? parts[1] : null);
+      return id ? { kind: "embed" as const, src: "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) } : null;
+    }
+    if (host === "vimeo.com" || host === "player.vimeo.com") {
+      const id = url.pathname.split("/").filter(Boolean).pop();
+      const numeric = Boolean(id) && id!.split("").every((character) => character >= "0" && character <= "9");
+      return numeric ? { kind: "embed" as const, src: "https://player.vimeo.com/video/" + id } : null;
+    }
+    if (url.pathname.toLowerCase().endsWith(".mp4") || url.pathname.toLowerCase().endsWith(".webm")) {
+      return { kind: "file" as const, src: url.toString() };
+    }
+  } catch { return null; }
+  return null;
+}
+
 const photos = {
   science: "science-lab-activity.jpg",
   ict: "ict-classroom-workstations.jpg",
@@ -540,6 +577,20 @@ export function WisdomInspirationPage() {
 }
 
 export function ActivitiesGalleryPage() {
+  const [managedGallery, setManagedGallery] = useState<ManagedGalleryItem[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void getSupabaseClient().rpc("get_resa_website_content_v2", { p_content_type: "gallery" })
+      .then(({ data, error }) => {
+        if (!error && active) setManagedGallery((data ?? []) as ManagedGalleryItem[]);
+      })
+      .catch(() => {
+        // Keep the existing school gallery available if the CMS is offline.
+      });
+    return () => { active = false; };
+  }, []);
+
   const activities = [
     { image: photos.science, title: "Science activities", description: "Exploring scientific ideas through practical learning." },
     { image: photos.ict, title: "ICT & computing", description: "Building confidence with digital tools and computer skills." },
@@ -563,6 +614,21 @@ export function ActivitiesGalleryPage() {
         <div className="mx-auto max-w-7xl">
           <SectionHeading eyebrow="Moments of growth" title="Explore our learning experiences" description="A selection of school activity photographs. More photographs and updates can be added as the school gallery grows." />
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {managedGallery.map((item) => {
+              const video = resolveGalleryVideo(item.video_url);
+              return (
+                <article key={item.id} className="overflow-hidden rounded-2xl border border-[#e6e0d3] bg-white shadow-sm">
+                  {item.image_url && <img src={item.image_url} alt={item.image_alt || item.title} loading="lazy" className="aspect-[4/3] w-full object-cover" />}
+                  {video?.kind === "file" && <video src={video.src} controls preload="metadata" className="max-h-72 w-full bg-black">Your browser does not support video playback.</video>}
+                  {video?.kind === "embed" && <div className="aspect-video bg-black"><iframe src={video.src} title={item.title} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen className="h-full w-full" /></div>}
+                  <div className="p-5">
+                    <h3 className="text-lg font-extrabold text-[#215641]">{item.title}</h3>
+                    {item.summary && <p className="mt-2 text-sm leading-6 text-slate-600">{item.summary}</p>}
+                    {item.body && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{item.body}</p>}
+                  </div>
+                </article>
+              );
+            })}
             {activities.map(activity => <PhotoCard key={activity.title} {...activity} />)}
           </div>
         </div>
