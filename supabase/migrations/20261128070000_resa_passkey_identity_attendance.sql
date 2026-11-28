@@ -17,10 +17,30 @@ create table if not exists public.resa_identity_attendance_events (
   verification_method text not null default 'passkey'
     check (verification_method = 'passkey'),
   auth_session_id uuid not null,
+  biometric_event_id uuid references public.biometric_attendance_events(id) on delete set null,
   device_label text,
   created_at timestamptz not null default now(),
   constraint resa_identity_attendance_one_action_per_day
     unique (school_id, user_id, activity, attendance_date, event_type)
+);
+
+
+-- A logical device entry lets the existing biometric attendance processor,
+-- student register and parent Realtime notification triggers process passkey events.
+alter table public.biometric_attendance_events
+  drop constraint if exists biometric_attendance_verification_check;
+alter table public.biometric_attendance_events
+  add constraint biometric_attendance_verification_check
+  check (verification_method = any (array['fingerprint','face','card','other','qr_code','passkey']::text[]));
+
+insert into public.biometric_devices (school_id, device_name, device_type, location, is_active)
+select school.id, 'RESA Passkey Attendance (System-managed)', 'other',
+       'Authenticated mobile device or approved school terminal', true
+from public.schools school
+where not exists (
+  select 1 from public.biometric_devices device
+  where device.school_id = school.id
+    and device.device_name = 'RESA Passkey Attendance (System-managed)'
 );
 
 create index if not exists resa_identity_attendance_school_recent_idx
@@ -82,10 +102,10 @@ declare
   v_now timestamptz := now();
   v_today date := (now() at time zone 'Africa/Lagos')::date;
   v_local_time time := (now() at time zone 'Africa/Lagos')::time;
-  v_session_id uuid;
-  v_class_id uuid;
   v_attendance_id uuid;
   v_event_id uuid;
+  v_biometric_event_id uuid;
+  v_passkey_device_id uuid;
   v_person_name text;
   v_staff_category text;
 begin
@@ -139,16 +159,14 @@ begin
       raise exception 'The student identity is not linked to this active account';
     end if;
 
-    select e.academic_session_id, e.class_id
-      into v_session_id, v_class_id
-    from public.student_enrollments e
-    join public.academic_sessions a
-      on a.id = e.academic_session_id and a.school_id = e.school_id and a.is_current
-    where e.school_id = p_school_id and e.student_id = p_person_id and e.status = 'active'
-    order by e.enrollment_date desc
+    select device.id into v_passkey_device_id
+    from public.biometric_devices device
+    where device.school_id = p_school_id
+      and device.device_name = 'RESA Passkey Attendance (System-managed)'
+      and device.is_active = true
     limit 1;
-    if v_session_id is null or v_class_id is null then
-      raise exception 'The student has no active class enrolment in the current academic session';
+    if v_passkey_device_id is null then
+      raise exception 'The school passkey attendance station is not active. Contact the school administrator';
     end if;
 
     select concat_ws(' ', p.first_name, p.middle_name, p.last_name)
@@ -157,39 +175,13 @@ begin
     join public.people p on p.id = s.person_id and p.school_id = s.school_id
     where s.id = p_person_id and s.school_id = p_school_id;
 
-    if p_event_type = 'check_in' then
-      select sa.id into v_attendance_id
-      from public.student_attendance sa
-      where sa.school_id = p_school_id and sa.student_id = p_person_id and sa.attendance_date = v_today
-      for update;
-      if v_attendance_id is not null then
-        if exists (select 1 from public.student_attendance sa where sa.id = v_attendance_id and sa.check_in_at is not null) then
-          raise exception 'Student attendance has already been checked in today';
-        end if;
-        update public.student_attendance
-        set check_in_at = v_now, status = 'present',
-            remarks = concat_ws(' · ', nullif(remarks,''), 'Passkey verified check-in')
-        where id = v_attendance_id;
-      else
-        insert into public.student_attendance (
-          school_id, student_id, academic_session_id, class_id, attendance_date,
-          status, check_in_at, remarks
-        ) values (
-          p_school_id, p_person_id, v_session_id, v_class_id, v_today,
-          'present', v_now, 'Passkey verified check-in'
-        ) returning id into v_attendance_id;
-      end if;
-    else
-      update public.student_attendance
-      set check_out_at = v_now,
-          remarks = concat_ws(' · ', nullif(remarks,''), 'Passkey verified check-out')
-      where school_id = p_school_id and student_id = p_person_id
-        and attendance_date = v_today and check_in_at is not null and check_out_at is null
-      returning id into v_attendance_id;
-      if v_attendance_id is null then
-        raise exception 'A valid student check-in is required before check-out';
-      end if;
-    end if;
+    -- Existing database triggers validate current enrolment, update student_attendance,
+    -- and create the linked parent notification for this verified event.
+    insert into public.biometric_attendance_events (
+      school_id, biometric_device_id, student_id, event_type, event_time, verification_method
+    ) values (
+      p_school_id, v_passkey_device_id, p_person_id, p_event_type, v_now, 'passkey'
+    ) returning id into v_biometric_event_id;
 
   elsif p_person_type in ('teacher','staff') then
     if p_activity not in ('work_arrival','work_departure') then
@@ -310,28 +302,12 @@ begin
 
   insert into public.resa_identity_attendance_events (
     school_id, user_id, person_type, person_id, activity, event_type,
-    attendance_date, event_time, verification_method, auth_session_id, device_label
+    attendance_date, event_time, verification_method, auth_session_id, biometric_event_id, device_label
   ) values (
     p_school_id, v_user_id, p_person_type, p_person_id, p_activity, p_event_type,
-    v_today, v_now, 'passkey', (v_claims ->> 'session_id')::uuid,
+    v_today, v_now, 'passkey', (v_claims ->> 'session_id')::uuid, v_biometric_event_id,
     nullif(left(trim(coalesce(p_device_label,'')),80),'')
   ) returning id into v_event_id;
-
-  if p_person_type = 'student' then
-    insert into public.biometric_parent_notifications (
-      school_id, student_id, parent_guardian_id, channel, notification_type, message, status
-    )
-    select
-      p_school_id, p_person_id, spg.parent_guardian_id, 'in_app', 'attendance',
-      coalesce(nullif(v_person_name,''),'Your child') ||
-        case when p_event_type = 'check_in' then ' has checked in at RESA.' else ' has checked out from RESA.' end,
-      'pending'
-    from public.student_parent_guardians spg
-    join public.parent_portal_accounts pa
-      on pa.school_id = spg.school_id and pa.parent_guardian_id = spg.parent_guardian_id
-      and pa.is_active
-    where spg.school_id = p_school_id and spg.student_id = p_person_id;
-  end if;
 
   return jsonb_build_object(
     'success', true, 'event_id', v_event_id, 'person_type', p_person_type,
