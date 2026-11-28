@@ -35,7 +35,7 @@ If RESA later adopts another production hostname, add that exact HTTPS origin to
 
 ## Attendance behaviour
 
-Every attendance action starts a fresh passkey sign-in. The database function accepts the action only when the signed-in Supabase JWT contains a recent `amr.method = passkey` authentication record. A normal portal login does not automatically create an attendance event.
+Every attendance action starts a fresh passkey sign-in. The database function accepts the action only when the signed-in Supabase JWT contains a recent `amr.method = passkey` authentication record, and each verified passkey assertion can be used for only one attendance action. A normal portal login does not automatically create an attendance event.
 
 The role mapping is:
 
@@ -46,7 +46,9 @@ The role mapping is:
 - Administrators: optional work arrival and departure.
 - Proprietor: optional work arrival and departure.
 
-The database validates the user-to-school relationship, person record, role category, action pairing, current date, duplicate action and check-out prerequisites. Attendance events are retained in the unified RESA identity-attendance register and are readable only by the user and authorised school leadership under RLS.
+The database validates the user-to-school relationship, person record, role category, action pairing, current date, duplicate action and check-out prerequisites. Student passkey events flow through the existing biometric attendance processor so the established student register and parent alert triggers continue to work. Attendance events are retained in the unified RESA identity-attendance register; each user can read their own records, while authorised administrators and proprietors can review school-wide records under RLS.
+
+The system-managed `RESA Passkey (WebAuthn)` logical device is created for each school so student passkey events can pass through the existing biometric attendance processor. It is not a physical reader and should not be deactivated or deleted while passkey student attendance is in use.
 
 ## Shared school devices
 
