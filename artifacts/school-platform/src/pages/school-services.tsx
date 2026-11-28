@@ -19,6 +19,8 @@ type RowRecord = Record<string, unknown>;
 // Supabase Free enforces a 50 MB global per-file ceiling even if a bucket is configured higher.
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const AUTH_CHECK_TIMEOUT_MS = 15_000;
+const DRIVE_READ_TIMEOUT_MS = 15_000;
+const DRIVE_SLOW_STAGE_WARNING_MS = 45_000;
 
 // Bound the remote identity check so a stalled mobile connection cannot leave
 // the upload screen spinning forever. A timeout never clears the selected file.
@@ -197,7 +199,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
             const mime = String(row.mime_type ?? "").toLowerCase();
             const path = String(row.storage_path ?? "");
             if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return row;
-            const signed = await db.storage.from("resa-drive").createSignedUrl(path, 1800);
+            const signed = await withTimeout(
+              db.storage.from("resa-drive").createSignedUrl(path, 1800),
+              DRIVE_READ_TIMEOUT_MS,
+              "Secure media preview link timed out."
+            );
             return signed.error || !signed.data?.signedUrl ? row : { ...row, preview_url: signed.data.signedUrl };
           } catch {
             return row;
@@ -295,13 +301,24 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       const cleanedName = safeFileName(fileToUpload.name);
       stage = "uploading the file to secure storage"; setUploadStage("Uploading file to secure storage");
       uploadedPath = `${schoolId}/${new Date().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID()}-${cleanedName}`;
+      let slowStageTimer: ReturnType<typeof setTimeout> | undefined;
+      const warnIfSlow = (operation: string) => {
+        if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+        slowStageTimer = setTimeout(() => {
+          setUploadStage(`${operation} is taking longer than expected. Keep RESA open; do not start another upload.`);
+        }, DRIVE_SLOW_STAGE_WARNING_MS);
+      };
+      warnIfSlow("Secure file upload");
       const storageResult = await db.storage.from("resa-drive").upload(uploadedPath, fileToUpload, {
         contentType: fileToUpload.type || "application/octet-stream",
         cacheControl: "3600",
         upsert: false,
       });
+      if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+      slowStageTimer = undefined;
       if (storageResult.error) throw storageResult.error;
       stage = "saving the file register"; setUploadStage("Saving file details");
+      warnIfSlow("Saving file details");
       const metadataResult = await db.from("resa_drive_files").insert({
         school_id: schoolId,
         uploaded_by: authData.user.id,
@@ -315,6 +332,8 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
         published_to_website: false,
         is_active: true,
       });
+      if (slowStageTimer !== undefined) clearTimeout(slowStageTimer);
+      slowStageTimer = undefined;
       if (metadataResult.error) {
         const cleanup = await db.storage.from("resa-drive").remove([uploadedPath]);
         if (cleanup.error) throw new Error(`File details were rejected (${describeUploadError(metadataResult.error)}). Storage cleanup also failed (${describeUploadError(cleanup.error)}); contact the administrator before retrying.`);
@@ -323,10 +342,36 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       // Always reconcile against IndexedDB after upload. The service worker can
       // receive another Android share while this upload is running, so React's
       // earlier queue snapshot may be stale.
+      let shareQueueWarning = "";
       if (isSharedQueueUpload) {
-        try { await removeSharedDriveFile(fileToUpload); } catch { /* The cloud copy is already safely registered. */ }
+        try {
+          await withTimeout(
+            removeSharedDriveFile(fileToUpload),
+            5_000,
+            "The cloud upload succeeded, but the local Android share queue could not be updated."
+          );
+        } catch {
+          shareQueueWarning = " The cloud copy is safely registered, but the local Android share queue could not be cleared. Do not upload this same queued file again; first confirm it appears in the Drive register.";
+        }
       }
-      const latestSharedFiles = await readSharedDriveFiles().catch(() => []);
+      let latestSharedFiles = sharedFiles;
+      try {
+        latestSharedFiles = await withTimeout(
+          readSharedDriveFiles(),
+          5_000,
+          "The Android share queue could not be refreshed."
+        );
+      } catch {
+        shareQueueWarning ||= " The cloud copy is safely registered, but the local share queue could not be refreshed. Keep this page open and check the Drive register before retrying any pending file.";
+      }
+      if (shareQueueWarning && isSharedQueueUpload) {
+        const duplicateIndex = latestSharedFiles.findIndex((candidate) =>
+          candidate.name === fileToUpload!.name &&
+          candidate.size === fileToUpload!.size &&
+          candidate.lastModified === fileToUpload!.lastModified
+        );
+        if (duplicateIndex >= 0) latestSharedFiles = latestSharedFiles.filter((_, index) => index !== duplicateIndex);
+      }
       setSharedFiles(latestSharedFiles);
       const nextFile = latestSharedFiles[0] ?? null;
       setSelectedFile(nextFile);
@@ -339,21 +384,27 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
       const picker = document.getElementById("resa-drive-file-picker") as HTMLInputElement | null;
       if (picker) picker.value = "";
       setUploadStage("");
-      setNotice(nextFile
+      setNotice((nextFile
         ? `Uploaded “${fileToUpload.name}”. “${nextFile.name}” is next and ready to upload.`
-        : `Uploaded “${fileToUpload.name}” successfully.`);
+        : `Uploaded “${fileToUpload.name}” successfully.`) + shareQueueWarning);
       await load();
     } catch (e) {
       setError(`RESA Drive failed while ${stage}: ${describeUploadError(e)}. Check your connection and school administrator access, then retry.`);
       setUploadStage("");
-    } finally { setUploading(false); }
+    } finally {
+      setUploading(false);
+    }
   };
   const downloadFile = async (row: RowRecord) => {
     setError(""); setNotice("");
     try {
       const path = String(row.storage_path ?? "");
       if (!path) throw new Error("This record has no storage path.");
-      const { data, error: signedError } = await (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 60);
+      const { data, error: signedError } = await withTimeout(
+        (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 60),
+        DRIVE_READ_TIMEOUT_MS,
+        "Secure download link request timed out. Check your connection and try again."
+      );
       if (signedError) throw signedError;
       if (!data?.signedUrl) throw new Error("A secure download link could not be created.");
       window.open(data.signedUrl, "_blank", "noopener,noreferrer");
@@ -365,7 +416,11 @@ export default function SchoolServicesPage({ schoolId }: { schoolId: string }) {
     if (!path || !(mime.startsWith("image/") || mime.startsWith("video/"))) return;
     setPreviewLoading(String(row.id ?? path)); setError("");
     try {
-      const { data, error: signedError } = await (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 120);
+      const { data, error: signedError } = await withTimeout(
+        (getSupabaseClient() as any).storage.from("resa-drive").createSignedUrl(path, 120),
+        DRIVE_READ_TIMEOUT_MS,
+        "Secure preview link request timed out. Check your connection and try again."
+      );
       if (signedError) throw signedError;
       if (!data?.signedUrl) throw new Error("A secure preview link could not be created.");
       setPreview({ url: data.signedUrl, mime, name: String(row.original_name ?? row.file_name ?? "RESA Drive media") });
