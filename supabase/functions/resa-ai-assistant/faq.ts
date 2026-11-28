@@ -36,3 +36,7 @@ export function localFaqAnswer(messages: ResaChatMessage[]): string {
   }
   return "I can provide basic RESA website, admissions, payment-safety and portal-navigation guidance, but the free local help service is not connected to a live AI provider right now. For a question outside those topics, please use Ask RESA to contact the school team or speak with an authorised administrator. I will not guess fees, dates, policies or private account information.";
 }
+
+export function shouldUseExternalAiProvider(apiKey: string, enabled: string | undefined): boolean {
+  return Boolean(apiKey.trim()) && enabled === "true";
+}

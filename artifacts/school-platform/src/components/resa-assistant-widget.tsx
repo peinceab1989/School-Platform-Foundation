@@ -64,6 +64,7 @@ export default function ResaAssistantWidget() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [fallbackNotice, setFallbackNotice] = useState(false);
+  const [assistantBusy, setAssistantBusy] = useState(false);
   const [careMode,setCareMode]=useState(false);
   const [careName,setCareName]=useState("");
   const [careEmail,setCareEmail]=useState("");
@@ -364,17 +365,35 @@ export default function ResaAssistantWidget() {
     } catch(error) {setCareError(error instanceof Error?error.message:"Message could not be sent. Try again.");}
     finally {setCareBusy(false);}
   }
-  function ask(value = question) {
+  async function ask(value = question) {
     const trimmed = value.trim();
-    if (!trimmed) return;
-    const history: ChatMessage[] = [...messages, { role: "user" as const, content: trimmed }].slice(-8);
-    const topic = findTopic(trimmed);
-    const answer = topic
-      ? `${topic.title}\n\n${topic.answer}\n\nSource: RESA's approved local help library. No external AI service was contacted for this reply.`
-      : "I do not have an approved answer to that question in RESA's current help library. I can help with attendance, results, fees and payments, assignments, examinations and CBT, admissions, staff accounts, parent accounts, classes, RESA Drive, school communication, school contact details and basic login guidance. For other questions or an official decision, please use the Portal Navigation Guide or contact RESA Customer Care. No external AI service was contacted.";
-    setMessages([...history, { role: "assistant" as const, content: answer }].slice(-8));
+    if (!trimmed || assistantBusy) return;
+    const history: ChatMessage[] = [...messages, { role: "user" as const, content: trimmed }].slice(-8).map(message => ({ ...message, content: message.content.slice(0, 1200) }));
+    while (history.reduce((total, message) => total + message.content.length, 0) > 6000) history.shift();
     setQuestion("");
-    setFallbackNotice(true);
+    setAssistantBusy(true);
+    setFallbackNotice(false);
+    try {
+      if (!hasSupabaseConfig) throw new Error("RESA assistant service is not configured.");
+      const result = await getSupabaseClient().functions.invoke("resa-ai-assistant", {
+        body: { messages: history, currentPage: activePage },
+      });
+      if (result.error) throw result.error;
+      const data = result.data as { answer?: unknown; mode?: unknown } | null;
+      const answer = typeof data?.answer === "string" ? data.answer.trim() : "";
+      if (!answer) throw new Error("RESA assistant returned no answer.");
+      setMessages([...history, { role: "assistant" as const, content: answer }].slice(-8));
+      setFallbackNotice(data?.mode !== "ai");
+    } catch {
+      const topic = findTopic(trimmed);
+      const answer = topic
+        ? `${topic.title}\n\n${topic.answer}\n\nSource: RESA's approved local help library. No external AI service was contacted for this reply.`
+        : "I do not have an approved answer to that question in RESA's current help library. I can help with attendance, results, fees and payments, assignments, examinations and CBT, admissions, staff accounts, parent accounts, classes, RESA Drive, school communication, school contact details and basic login guidance. For other questions or an official decision, please use the Portal Navigation Guide or contact RESA Customer Care. No external AI service was contacted.";
+      setMessages([...history, { role: "assistant" as const, content: answer }].slice(-8));
+      setFallbackNotice(true);
+    } finally {
+      setAssistantBusy(false);
+    }
   }
 
   if(!publicAskEnabled&&!careId)return null;
@@ -383,18 +402,19 @@ export default function ResaAssistantWidget() {
     {showAvailabilityPrompt && !open && <div role="status" className="mb-3 w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-emerald-200 bg-white p-4 shadow-2xl"><div className="flex items-center justify-between gap-2"><strong className="text-sm text-emerald-950">RESA Customer Care</strong><span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-800">Available now</span></div><p className="mt-2 text-sm font-semibold text-slate-900">Hello! 👋 We're ready to chat.</p><p className="mt-1 text-xs leading-5 text-slate-600">Ask us about admissions, fees, school services or general enquiries.</p><div className="mt-3 flex gap-2"><button type="button" onClick={openCustomerCare} className="flex-1 rounded-lg bg-emerald-900 px-3 py-2 text-xs font-bold text-white">Chat with us</button><button type="button" onClick={dismissAvailabilityPrompt} aria-label="Dismiss availability message" className="rounded-lg border px-3 py-2 text-xs font-semibold text-slate-600">Not now</button></div></div>}
     {open && <section role="dialog" aria-modal="false" aria-label="Ask RESA AI assistant" className="mb-3 flex w-[min(390px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-2xl">
       <header onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} className="flex cursor-move touch-none select-none items-center justify-between bg-[#103b2d] p-4 text-white" title="Drag to move Ask RESA">
-        <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">{customerCareOnline?"Customer Care available now":"AI portal guidance"} • Page: {activePage}</p></div></div>
+        <div className="flex items-center gap-2"><Bot size={20}/><div><p className="font-extrabold">Ask RESA</p><p className="text-[11px] text-emerald-100">{customerCareOnline?"Customer Care available now":"RESA school & portal guidance"} • Page: {activePage}</p></div></div>
         <button type="button" onPointerDown={event=>event.stopPropagation()} onClick={()=>setOpen(false)} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><X size={18}/></button>
       </header>
       <div className="max-h-80 space-y-3 overflow-y-auto p-4" aria-live="polite">
         <p className="text-sm leading-6 text-slate-600">Hello! I can guide you through RESA's general portal features. You can also chat with the school team without creating a portal account. Never share passwords or verification codes.</p>
         <div className="flex flex-wrap gap-2"><button type="button" onClick={()=>setCareMode(false)} className="rounded-full border px-3 py-2 text-xs font-semibold">Ask RESA guide</button><button type="button" onClick={()=>setCareMode(true)} className="rounded-full border border-emerald-300 px-3 py-2 text-xs font-semibold text-emerald-900">Chat with Customer Care</button></div>
-        <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","How do I use school fees?"].map(q=><button type="button" key={q} onClick={()=>ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50">{q}</button>)}</div>
+        <div className="flex flex-wrap gap-2">{["How do I check results?","How does biometric attendance work?","How do I enrol a student?","How do I use school fees?"].map(q=><button type="button" key={q} disabled={assistantBusy} onClick={()=>void ask(q)} className="rounded-full border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50">{q}</button>)}</div>
         {!careMode && messages.map((message, index)=><div key={index} className={message.role==="user"?"ml-7 rounded-xl bg-emerald-50 p-3 text-sm leading-6 text-emerald-950":"mr-3 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"}><p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">{message.role==="user"?"You":"Ask RESA"}</p><p className="whitespace-pre-wrap">{message.content}</p></div>)}
         {careMode && <div className="space-y-2"><p className="text-xs text-slate-500">Public Customer Care • no portal account required</p>{careId ? <>{careMessages.map(message=><div key={message.id} className={message.sender_kind==="visitor"?"ml-6 rounded-xl bg-emerald-50 p-3 text-sm":"mr-4 rounded-xl bg-slate-100 p-3 text-sm"}><p className="mb-1 text-[10px] font-bold uppercase text-slate-500">{message.sender_kind==="visitor"?"You":"RESA Customer Care"}</p><p className="whitespace-pre-wrap">{message.body}</p><time className="mt-1 block text-[10px] text-slate-400">{new Date(message.created_at).toLocaleString()}</time></div>)}{careStatus==="closed"&&<div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950"><strong>This conversation has been closed by RESA Customer Care.</strong><button type="button" onClick={startNewPublicCare} className="mt-2 block font-bold underline">Start a new conversation</button></div>}</> : <form onSubmit={startPublicCare} className="space-y-2"><input required maxLength={100} value={careName} onChange={e=>setCareName(e.target.value)} placeholder="Your name" className="w-full rounded-lg border px-3 py-2 text-sm"/><input type="email" maxLength={254} value={careEmail} onChange={e=>setCareEmail(e.target.value)} placeholder="Email (optional)" className="w-full rounded-lg border px-3 py-2 text-sm"/><select value={careDuty} onChange={e=>setCareDuty(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm"><option value="general">General enquiry</option><option value="admissions">Admissions</option><option value="fees">Fees</option><option value="cbt">CBT and examinations</option><option value="results">Results</option><option value="attendance">Attendance</option><option value="technical">Technical support</option></select></form>}{careError&&<p className="text-xs text-rose-700">{careError}</p>}</div>}
-        {fallbackNotice && <p className="text-[10px] text-amber-700">Local verified help-library mode • no AI API usage</p>}
+        {assistantBusy && <p role="status" className="text-xs text-slate-500">Checking RESA’s approved help service…</p>}
+        {fallbackNotice && <p className="text-[10px] text-amber-700">Local help mode • no external AI usage</p>}
       </div>
-      {careMode ? (careId&&careStatus==="closed" ? <div className="border-t border-slate-100 p-3 text-center text-xs text-slate-500">This conversation is closed. Use “Start a new conversation” above to contact RESA again.</div> : <form onSubmit={careId?sendPublicCare:startPublicCare} className="flex gap-2 border-t border-slate-100 p-3"><input value={careDraft} onChange={e=>setCareDraft(e.target.value)} maxLength={5000} placeholder={careId?"Write to Customer Care…":"Your first message…"} className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm"/><button type="submit" disabled={!careDraft.trim()||careBusy||careStatus==="closed"} className="rounded-xl bg-[#174c35] px-3 text-white disabled:opacity-50"><Send size={17}/></button></form>) : <form onSubmit={e=>{e.preventDefault();void ask();}} className="flex gap-2 border-t border-slate-100 p-3"><input value={question} onChange={e=>setQuestion(e.target.value)} maxLength={1200} placeholder="Ask a portal question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 disabled:bg-slate-50" aria-label="Ask RESA a question"/><button type="submit" aria-label="Send question" disabled={!question.trim()} className="rounded-xl bg-[#174c35] px-3 text-white disabled:opacity-50"><Send size={17}/></button></form>}
+      {careMode ? (careId&&careStatus==="closed" ? <div className="border-t border-slate-100 p-3 text-center text-xs text-slate-500">This conversation is closed. Use “Start a new conversation” above to contact RESA again.</div> : <form onSubmit={careId?sendPublicCare:startPublicCare} className="flex gap-2 border-t border-slate-100 p-3"><input value={careDraft} onChange={e=>setCareDraft(e.target.value)} maxLength={5000} placeholder={careId?"Write to Customer Care…":"Your first message…"} className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm"/><button type="submit" disabled={!careDraft.trim()||careBusy||careStatus==="closed"} className="rounded-xl bg-[#174c35] px-3 text-white disabled:opacity-50"><Send size={17}/></button></form>) : <form onSubmit={e=>{e.preventDefault();void ask();}} className="flex gap-2 border-t border-slate-100 p-3"><input value={question} onChange={e=>setQuestion(e.target.value)} disabled={assistantBusy} maxLength={1200} placeholder="Ask a portal question…" className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-700 disabled:bg-slate-50" aria-label="Ask RESA a question"/><button type="submit" aria-label="Send question" disabled={!question.trim()||assistantBusy} className="rounded-xl bg-[#174c35] px-3 text-white disabled:opacity-50"><Send size={17}/></button></form>}
       <footer className="flex flex-wrap items-center justify-between gap-2 px-4 pb-3 text-xs"><button type="button" onClick={()=>{setPosition(null);try{localStorage.removeItem("resa-assistant-position-v2");}catch{/* Position reset remains active for this session. */}}} className="inline-flex items-center gap-1 font-semibold text-slate-600 underline" title="Return Ask RESA to its default left-side position"><RotateCcw size={12}/> Reset position</button><a href="/portal-navigation-guide" className="font-semibold text-emerald-800 underline">Portal guide</a><button type="button" onClick={()=>setCareMode(true)} className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MessageCircle size={12}/> Public Customer Care</button><a href="/maps" className="inline-flex items-center gap-1 font-semibold text-emerald-800 underline"><MapPin size={12}/> Maps</a><a href="https://wa.me/2348058422691" target="_blank" rel="noreferrer" className="font-semibold text-emerald-800 underline">WhatsApp support</a></footer>
       <p className="px-4 pb-3 text-[10px] leading-4 text-slate-400">AI guidance is informational, may be inaccurate and cannot access private records or perform school actions.</p>
     </section>}

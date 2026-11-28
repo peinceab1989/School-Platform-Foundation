@@ -1,16 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { validateMessages } from "./validation.ts";
-import { localFaqAnswer } from "./faq.ts";
+import { localFaqAnswer, shouldUseExternalAiProvider } from "./faq.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const EXTERNAL_AI_PROVIDER_ENABLED = Deno.env.get("RESA_ENABLE_EXTERNAL_AI_PROVIDER") ?? "";
 const RESA_SCHOOL_ID = "469a9ed9-8e6c-45b8-a76c-89536adb1d3d";
 const PRIMARY_ORIGIN = "https://school-platform-foundation.pages.dev";
 const ALLOWED_ORIGINS = new Set([PRIMARY_ORIGIN, "https://resa-school-portal.netlify.app"]);
-const PREVIEW_ORIGIN = /^[a-f0-9]{8,40}\.school-platform-foundation\.pages\.dev$/i;
+const PREVIEW_ORIGIN = /^(?:[a-f0-9]{8,40}|[a-z0-9]+(?:-[a-z0-9]+)*)\.school-platform-foundation\.pages\.dev$/i;
 const requestBuckets = new Map<string, { startedAt: number; count: number }>();
 
 function corsHeaders(origin: string | null) {
@@ -132,7 +133,7 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "You have reached the assistant's short-term request limit. Please wait a minute and try again." }, 429, origin);
     }
 
-    if (!OPENAI_API_KEY) {
+    if (!shouldUseExternalAiProvider(OPENAI_API_KEY, EXTERNAL_AI_PROVIDER_ENABLED)) {
       return jsonResponse({ answer: localFaqAnswer(messages), mode: "local_faq" }, 200, origin);
     }
 
