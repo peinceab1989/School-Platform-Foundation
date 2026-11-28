@@ -14,6 +14,9 @@ type WebsiteContent = {
   body: string | null;
   image_url: string | null;
   image_alt: string | null;
+  video_url: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   is_published: boolean;
   published_at: string | null;
   expires_at: string | null;
@@ -37,13 +40,16 @@ type Draft = {
   body: string;
   image_url: string;
   image_alt: string;
+  video_url: string;
+  seo_title: string;
+  seo_description: string;
   published_at: string;
   expires_at: string;
   sort_order: string;
 };
 const EMPTY: Draft = {
   content_type: "news", title: "", slug: "", summary: "", body: "",
-  image_url: "", image_alt: "", published_at: "", expires_at: "", sort_order: "0",
+  image_url: "", image_alt: "", video_url: "", seo_title: "", seo_description: "", published_at: "", expires_at: "", sort_order: "0",
 };
 const TYPES: { value: ContentType; label: string; help: string }[] = [
   { value: "news", label: "News", help: "School news and achievements" },
@@ -51,7 +57,7 @@ const TYPES: { value: ContentType; label: string; help: string }[] = [
   { value: "event", label: "Event", help: "Upcoming and past school events" },
   { value: "admissions", label: "Admissions", help: "Admission information and notices" },
   { value: "gallery", label: "Gallery", help: "Photo or media highlights" },
-  { value: "page", label: "Homepage information", help: "Additional public information cards on the RESA homepage" },
+  { value: "page", label: "Managed page", help: "Standalone public page managed without a redeployment" },
 ];
 const field = "mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
 const label = "block text-sm font-semibold text-slate-800";
@@ -80,7 +86,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     try {
       const db = getSupabaseClient() as any;
       const { data, error: queryError } = await db.from("public_website_content")
-        .select("id,school_id,content_type,title,slug,summary,body,image_url,image_alt,is_published,published_at,expires_at,sort_order,created_at,updated_at")
+        .select("id,school_id,content_type,title,slug,summary,body,image_url,image_alt,video_url,seo_title,seo_description,is_published,published_at,expires_at,sort_order,created_at,updated_at")
         .eq("school_id", schoolId)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false });
@@ -116,7 +122,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     setDraft({
       content_type: item.content_type, title: item.title, slug: item.slug,
       summary: item.summary ?? "", body: item.body ?? "", image_url: item.image_url ?? "",
-      image_alt: item.image_alt ?? "", published_at: toLocalInput(item.published_at),
+      image_alt: item.image_alt ?? "", video_url: item.video_url ?? "", seo_title: item.seo_title ?? "", seo_description: item.seo_description ?? "", published_at: toLocalInput(item.published_at),
       expires_at: toLocalInput(item.expires_at), sort_order: String(item.sort_order ?? 0),
     });
     setError("");
@@ -162,7 +168,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     const slug = makeSlug(draft.slug);
     if (!title) { setError("Enter a title before saving."); return; }
     if (!slug) { setError("Enter a valid page slug."); return; }
-    if (draft.image_url.trim()) {
+    if (draft.video_url.trim()) {\n      try { const parsed = new URL(draft.video_url.trim()); if (parsed.protocol !== "https:") throw new Error(); }\n      catch { setError("Video URL must be a valid HTTPS address."); return; }\n    }\n    if (draft.image_url.trim()) {
       try {
         const parsed = new URL(draft.image_url.trim());
         if (parsed.protocol !== "https:") throw new Error();
@@ -285,7 +291,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
           <div className="max-w-3xl">
             <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.2em] text-amber-200"><Globe2 size={15}/> RESA website control</p>
             <h1 className="mt-3 text-3xl font-black sm:text-4xl">Website & Content Manager</h1>
-            <p className="mt-3 text-sm leading-7 text-emerald-50 sm:text-base">Update the public RESA website without editing code. Create news, announcements, events, admissions notices, gallery highlights and homepage information cards. Save drafts, schedule publication or publish when ready.</p>
+            <p className="mt-3 text-sm leading-7 text-emerald-50 sm:text-base">Update the public RESA website without editing code. Create news, announcements, events, admissions notices, photo/video highlights and standalone managed pages with search metadata. Save drafts, schedule publication or publish when ready.</p>
           </div>
           <div className="flex flex-wrap gap-2"><Link href="/announcements" className="inline-flex items-center gap-2 rounded-xl border border-white/40 px-4 py-3 text-sm font-bold text-white hover:bg-white/10">Portal announcements</Link><button type="button" onClick={startNew} className="inline-flex items-center gap-2 rounded-xl bg-amber-300 px-4 py-3 text-sm font-extrabold text-emerald-950 shadow hover:bg-amber-200"><FilePlus2 size={17}/> New content</button></div>
         </div>
@@ -358,14 +364,14 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
               <p className="mt-1 text-xs leading-5 text-slate-500">Paste a secure public image URL. RESA will not execute uploaded HTML or scripts.</p>
               <label className={label + " mt-3"}>Upload image from this device<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploadingImage} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadImage(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingImage ? "Uploading image…" : "JPG, PNG, WebP or GIF · maximum 8 MB"}</span></label>
               <label className={label + " mt-3"}>Or paste an HTTPS image URL<input type="url" value={draft.image_url} onChange={e => update("image_url", e.target.value)} placeholder="https://…" className={field}/></label>
-              <label className={label + " mt-3"}>Image description (accessibility)<input value={draft.image_alt} onChange={e => update("image_alt", e.target.value)} maxLength={180} placeholder="Describe the image briefly" className={field}/></label>
+              <label className={label + " mt-3"}>Image description (accessibility)<input value={draft.image_alt} onChange={e => update("image_alt", e.target.value)} maxLength={180} placeholder="Describe the image briefly" className={field}/></label>\n              <label className={label + " mt-3"}>Video link (optional)<input type="url" value={draft.video_url} onChange={e => update("video_url", e.target.value)} placeholder="https://youtu.be/... or https://vimeo.com/..." className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Use a public HTTPS YouTube, Vimeo or direct MP4/WebM link. Video files are not uploaded to school storage.</span></label>
               {draft.image_url && <img src={draft.image_url} alt={draft.image_alt} className="mt-3 max-h-40 w-full rounded-lg border object-cover" onError={e => { e.currentTarget.style.display = "none"; }}/>}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className={label}>Publish date & time<input type="datetime-local" value={draft.published_at} onChange={e => update("published_at", e.target.value)} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Leave blank to publish immediately when you choose Publish.</span></label>
               <label className={label}>Expiry date & time<input type="datetime-local" value={draft.expires_at} onChange={e => update("expires_at", e.target.value)} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Optional automatic expiry on the public site.</span></label>
             </div>
-            <label className={label}>Display order<input type="number" value={draft.sort_order} onChange={e => update("sort_order", e.target.value)} min={-10000} max={10000} className={field}/></label>
+            <div className="rounded-xl border border-slate-200 p-3"><p className="text-sm font-extrabold">Search appearance (optional)</p><label className={label + " mt-3"}>SEO title<input value={draft.seo_title} onChange={e => update("seo_title", e.target.value)} maxLength={160} placeholder="Search-result title" className={field}/></label><label className={label + " mt-3"}>SEO description<textarea value={draft.seo_description} onChange={e => update("seo_description", e.target.value)} maxLength={320} rows={2} placeholder="Short description for search engines" className={field}/></label></div>\n            {draft.content_type === "page" && <p className="rounded-lg bg-sky-50 p-3 text-xs leading-5 text-sky-900">After publishing, this managed page will be available at /pages/{makeSlug(draft.slug) || "your-page-slug"}.</p>}\n            <label className={label}>Display order<input type="number" value={draft.sort_order} onChange={e => update("sort_order", e.target.value)} min={-10000} max={10000} className={field}/></label>
             <div className="flex flex-wrap gap-2 border-t pt-4">
               <button type="submit" disabled={saving} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-900 px-4 py-3 text-sm font-bold text-emerald-950 hover:bg-emerald-50 disabled:opacity-50"><Save size={16}/>{saving ? "Saving…" : "Save draft"}</button>
               <button type="button" disabled={saving} onClick={() => void save(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50"><UploadCloud size={16}/>{saving ? "Saving…" : "Publish / Schedule"}</button>
