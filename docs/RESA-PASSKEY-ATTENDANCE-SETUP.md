@@ -11,6 +11,7 @@ Passkey support in the Supabase JavaScript SDK is currently marked experimental.
 ## Required Supabase project setting
 
 The hosted Supabase Auth setting is managed in the Supabase Dashboard; it is not activated merely by committing application code.
+The same relying-party values are also declared in the repository's `supabase/config.toml` for a controlled Supabase CLI configuration push. A normal Cloudflare Pages build does not apply Supabase Auth configuration.
 
 1. Open the RESA Supabase project.
 2. Go to **Authentication → Passkeys**.
