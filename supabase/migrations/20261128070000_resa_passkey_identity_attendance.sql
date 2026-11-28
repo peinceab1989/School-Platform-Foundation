@@ -44,6 +44,38 @@ where not exists (
     and device.device_name = 'RESA Passkey (WebAuthn)'
 );
 
+create or replace function public.protect_resa_passkey_attendance_device()
+returns trigger
+language plpgsql
+set search_path = ''
+as $function$
+begin
+  if tg_op = 'DELETE' then
+    if old.device_name = 'RESA Passkey (WebAuthn)' then
+      raise exception 'The RESA passkey attendance device is system-managed and cannot be deleted';
+    end if;
+    return old;
+  end if;
+
+  if old.device_name = 'RESA Passkey (WebAuthn)'
+    and (
+      new.school_id is distinct from old.school_id
+      or new.device_name is distinct from old.device_name
+      or new.device_type is distinct from old.device_type
+      or new.is_active is distinct from true
+    ) then
+    raise exception 'The RESA passkey attendance device is system-managed and must remain active';
+  end if;
+  return new;
+end;
+$function$;
+
+revoke all on function public.protect_resa_passkey_attendance_device() from public, anon, authenticated;
+drop trigger if exists protect_resa_passkey_attendance_device on public.biometric_devices;
+create trigger protect_resa_passkey_attendance_device
+  before update or delete on public.biometric_devices
+  for each row execute function public.protect_resa_passkey_attendance_device();
+
 create table if not exists public.resa_passkey_attendance_auth_uses (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
