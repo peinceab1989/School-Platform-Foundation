@@ -47,7 +47,7 @@ const TYPES: { value: ContentType; label: string; help: string }[] = [
 ];
 const field = "mt-1.5 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
 const label = "block text-sm font-semibold text-slate-800";
-const toLocalInput = (value: string | null) => value ? new Date(value).toISOString().slice(0, 16) : "";
+const toLocalInput = (value: string | null) => { if (!value) return ""; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
 const makeSlug = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100);
 
 export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: string; userId: string }) {
@@ -120,8 +120,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     });
   }
 
-  async function save(event: FormEvent, publish: boolean) {
-    event.preventDefault();
+  async function save(publish: boolean) {
     setError("");
     setNotice("");
     const title = draft.title.trim();
@@ -248,7 +247,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
 
         <article className="h-fit rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-50 p-3 text-emerald-900"><Pencil size={20}/></span><div><h2 className="text-xl font-extrabold">{editingId ? "Edit content" : "Create content"}</h2><p className="text-sm text-slate-600">All fields can be updated later.</p></div></div>
-          <form className="mt-5 space-y-4" onSubmit={e => void save(e, false)}>
+          <form className="mt-5 space-y-4" onSubmit={e => { e.preventDefault(); void save(false); }}>
             <label className={label}>Content type<select value={draft.content_type} onChange={e => update("content_type", e.target.value as ContentType)} className={field}>{TYPES.map(t => <option key={t.value} value={t.value}>{t.label} — {t.help}</option>)}</select></label>
             <label className={label}>Title<input value={draft.title} onChange={e => update("title", e.target.value)} maxLength={160} required placeholder="Enter a clear public heading" className={field}/></label>
             <label className={label}>Page slug<div className="mt-1.5 flex gap-2"><input value={draft.slug} onChange={e => { setAutoSlug(false); update("slug", e.target.value); }} maxLength={100} required placeholder="e.g. science-fair-2026" className={field}/><button type="button" title="Generate slug from title" onClick={() => { setAutoSlug(true); update("slug", makeSlug(draft.title)); }} className="shrink-0 rounded-xl border px-3 text-xs font-bold hover:bg-slate-50">Auto</button></div></label>
@@ -268,7 +267,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
             <label className={label}>Display order<input type="number" value={draft.sort_order} onChange={e => update("sort_order", e.target.value)} min={-10000} max={10000} className={field}/></label>
             <div className="flex flex-wrap gap-2 border-t pt-4">
               <button type="submit" disabled={saving} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-900 px-4 py-3 text-sm font-bold text-emerald-950 hover:bg-emerald-50 disabled:opacity-50"><Save size={16}/>{saving ? "Saving…" : "Save draft"}</button>
-              <button type="button" disabled={saving} onClick={e => { const form = e.currentTarget.closest("form"); if (form) void save({ preventDefault: () => undefined } as FormEvent, true); }} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50"><UploadCloud size={16}/>{saving ? "Saving…" : "Publish / Schedule"}</button>
+              <button type="button" disabled={saving} onClick={() => void save(true)} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-900 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50"><UploadCloud size={16}/>{saving ? "Saving…" : "Publish / Schedule"}</button>
               {editingId && <button type="button" onClick={startNew} className="rounded-xl border px-4 py-3 text-sm font-semibold hover:bg-slate-50">Cancel edit</button>}
             </div>
           </form>
