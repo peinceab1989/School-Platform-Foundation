@@ -78,7 +78,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
   const [historyItem, setHistoryItem] = useState<WebsiteContent | null>(null);
   const [historyRows, setHistoryRows] = useState<ContentRevision[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);\n  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +159,28 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
     } catch (e) {
       setError(e instanceof Error ? e.message : "Image upload failed. Check your administrator access and try again.");
     } finally { setUploadingImage(false); }
+  }
+
+  async function uploadVideo(file: File) {
+    setError(""); setNotice("");
+    const allowed = new Set(["video/mp4", "video/webm"]);
+    if (!allowed.has(file.type)) { setError("Choose an MP4 or WebM video."); return; }
+    if (file.size > 8 * 1024 * 1024) { setError("Website video clips must be 8 MB or smaller."); return; }
+    setUploadingVideo(true);
+    try {
+      const extension = file.type === "video/webm" ? "webm" : "mp4";
+      const objectPath = `${schoolId}/video-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+      const storage = getSupabaseClient().storage.from("resa-public-website-media");
+      const { data, error: uploadError } = await storage.upload(objectPath, file, {
+        cacheControl: "3600", upsert: false, contentType: file.type,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicFile } = storage.getPublicUrl(data.path);
+      update("video_url", publicFile.publicUrl);
+      setNotice("Video uploaded to the public RESA website media library. Save the content draft to attach it to this item.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Video upload failed. Check your administrator access and try again.");
+    } finally { setUploadingVideo(false); }
   }
 
   async function save(publish: boolean) {
@@ -373,7 +395,8 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
               <p className="mt-1 text-xs leading-5 text-slate-500">Paste a secure public image URL. RESA will not execute uploaded HTML or scripts.</p>
               <label className={label + " mt-3"}>Upload image from this device<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploadingImage} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadImage(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingImage ? "Uploading image…" : "JPG, PNG, WebP or GIF · maximum 8 MB"}</span></label>
               <label className={label + " mt-3"}>Or paste an HTTPS image URL<input type="url" value={draft.image_url} onChange={e => update("image_url", e.target.value)} placeholder="https://…" className={field}/></label>
-              <label className={label + " mt-3"}>Image description (accessibility)<input value={draft.image_alt} onChange={e => update("image_alt", e.target.value)} maxLength={180} placeholder="Describe the image briefly" className={field}/></label>\n              <label className={label + " mt-3"}>Video link (optional)<input type="url" value={draft.video_url} onChange={e => update("video_url", e.target.value)} placeholder="https://youtu.be/... or https://vimeo.com/..." className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Use a public HTTPS YouTube, Vimeo or direct MP4/WebM link. Video files are not uploaded to school storage.</span></label>
+              <label className={label + " mt-3"}>Image description (accessibility)<input value={draft.image_alt} onChange={e => update("image_alt", e.target.value)} maxLength={180} placeholder="Describe the image briefly" className={field}/></label>\n              <label className={label + " mt-3"}>Upload a short video<input type="file" accept="video/mp4,video/webm" disabled={uploadingVideo} onChange={e => { const file = e.target.files?.[0]; if (file) void uploadVideo(file); e.currentTarget.value = ""; }} className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">{uploadingVideo ? "Uploading video…" : "MP4 or WebM · maximum 8 MB per clip"}</span></label>
+              <label className={label + " mt-3"}>Video link (optional)<input type="url" value={draft.video_url} onChange={e => update("video_url", e.target.value)} placeholder="https://youtu.be/... or https://vimeo.com/..." className={field}/><span className="mt-1 block text-xs font-normal text-slate-500">Use a public HTTPS YouTube, Vimeo or direct MP4/WebM link, or upload a short clip above.</span></label>
               {draft.image_url && <img src={draft.image_url} alt={draft.image_alt} className="mt-3 max-h-40 w-full rounded-lg border object-cover" onError={e => { e.currentTarget.style.display = "none"; }}/>}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -390,6 +413,7 @@ export default function WebsiteManagerPage({ schoolId, userId }: { schoolId: str
           <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3"><div><p className="text-sm font-extrabold">Live content preview</p><p className="text-xs text-slate-500">A preview of the public content card</p></div><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-bold uppercase text-slate-500">{TYPES.find(t => t.value === draft.content_type)?.label ?? "Content"}</span></div>
             {draft.image_url && <img src={draft.image_url} alt={draft.image_alt} className="max-h-48 w-full object-cover"/>}
+            {draft.video_url && (draft.video_url.toLowerCase().includes(".mp4") || draft.video_url.toLowerCase().includes(".webm")) && <video className="max-h-48 w-full bg-black" controls preload="metadata" src={draft.video_url}>Your browser does not support video playback.</video>}
             <div className="p-4"><h3 className="text-lg font-extrabold text-slate-900">{draft.title.trim() || "Your title will appear here"}</h3><p className="mt-2 text-sm font-medium leading-6 text-slate-600">{draft.summary.trim() || "Your short introduction will appear here."}</p>{draft.body.trim() && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{draft.body}</p>}</div>
           </section>
           <div className="mt-5 rounded-xl bg-sky-50 p-3 text-xs leading-5 text-sky-950"><p className="flex items-center gap-2 font-bold"><Eye size={15}/> Publishing safeguards</p><p className="mt-1">Drafts remain private. Scheduled items become public only when their publication time arrives. Unpublishing retains the record; nothing is permanently deleted from this screen.</p></div>
