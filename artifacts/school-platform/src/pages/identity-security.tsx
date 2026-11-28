@@ -65,14 +65,13 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
     const auth = supabase.auth as any;
     try {
       const [passkeyResult, identityResult, eventResult] = await Promise.all([
-        auth.passkey.list(),
+        auth.passkey.list().catch((error: unknown) => ({ data: null, error })),
         db.rpc("resa_get_attendance_identities", { p_school_id: schoolId }),
         db.from("resa_identity_attendance_events")
           .select("id,person_type,person_name,activity,event_type,event_time,attendance_date,verification_method")
           .eq("school_id", schoolId)
           .order("event_time", { ascending: false }).limit(30),
       ]);
-      if (passkeyResult.error) throw passkeyResult.error;
       if (identityResult.error) throw identityResult.error;
       if (eventResult.error) throw eventResult.error;
       const nextPasskeys = (passkeyResult.data ?? []) as Passkey[];
@@ -80,6 +79,12 @@ export default function IdentitySecurityPage({ schoolId, userId }: { schoolId: s
       setPasskeys(nextPasskeys);
       setIdentities(nextIdentities);
       setEvents((eventResult.data ?? []) as AttendanceEvent[]);
+      if (passkeyResult.error) {
+        const details = errorText(passkeyResult.error);
+        setError(/passkey_disabled/i.test(details)
+          ? "Passkeys are not enabled in the RESA Supabase Auth project settings yet. Your linked identities and attendance history are still available; password sign-in remains active."
+          : details);
+      }
       setSelectedIdentity(previous => nextIdentities.some(item => `${item.person_type}:${item.person_id ?? "account"}` === previous)
         ? previous
         : nextIdentities[0] ? `${nextIdentities[0].person_type}:${nextIdentities[0].person_id ?? "account"}` : "");
