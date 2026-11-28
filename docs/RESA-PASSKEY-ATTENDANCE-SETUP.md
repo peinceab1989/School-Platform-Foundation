@@ -50,7 +50,7 @@ The database validates the user-to-school relationship, person record, role cate
 
 ## Shared school devices
 
-A learner or staff member without a personal smartphone can register a separate passkey on an approved school tablet or attendance terminal, provided that device supports a platform authenticator and secure screen lock. Each person must use their own RESA account and own passkey; never share one account or one person's passkey with another person.
+A learner or staff member without a personal smartphone should use the school's existing biometric reader or a supervised attendance station with an individual student/staff ID or QR. A shared tablet's single device screen lock cannot distinguish different people. Use a passkey on a shared device only when each person has an isolated operating-system profile and authenticator. Never share one account or one person's passkey with another person.
 
 ## Physical-presence limitation
 
