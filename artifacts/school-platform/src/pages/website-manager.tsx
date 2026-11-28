@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Eye, FilePlus2, Globe2, ImagePlus, Newspaper, Pencil, RefreshCw, Save, ShieldCheck, UploadCloud } from "lucide-react";
 import { Link } from "wouter";
 import { getSupabaseClient } from "@/lib/supabase/client";
