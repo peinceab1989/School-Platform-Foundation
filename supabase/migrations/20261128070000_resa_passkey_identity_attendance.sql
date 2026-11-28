@@ -433,12 +433,8 @@ create policy "School admins read website content revisions"
   on public.public_website_content_revisions
   for select to authenticated
   using (
-    public.has_school_role(school_id, array['admin']::public.school_role[])
-    or exists (
-      select 1 from public.school_payment_gateway_proprietors proprietor
-      where proprietor.school_id = public_website_content_revisions.school_id
-        and proprietor.user_id = (select auth.uid())
-    )
+    public.is_nexus_owner()
+    or public.has_school_role(school_id, array['admin']::public.school_role[])
   );
 
 create or replace function public.capture_public_website_content_revision()
@@ -504,11 +500,8 @@ create policy "RESA administrators upload website media"
       from public.schools school
       where school.id::text = (storage.foldername(name))[1]
         and (
-          public.has_school_role(school.id, array['admin']::public.school_role[])
-          or exists (
-            select 1 from public.school_payment_gateway_proprietors proprietor
-            where proprietor.school_id = school.id and proprietor.user_id = (select auth.uid())
-          )
+          public.is_nexus_owner()
+          or public.has_school_role(school.id, array['admin']::public.school_role[])
         )
     )
   );
