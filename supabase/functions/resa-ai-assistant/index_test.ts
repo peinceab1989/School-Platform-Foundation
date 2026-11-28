@@ -36,3 +36,23 @@ Deno.test("rejects excessive combined message length", () => {
     { role: "assistant", content: "f".repeat(1200) },
   ]), null);
 });
+
+import { localFaqAnswer } from "./faq.ts";
+
+Deno.test("local FAQ recognises greetings after whitespace normalisation", () => {
+  const answer = localFaqAnswer([{ role: "user", content: "  HELLO   there  " }]);
+  assertEquals(answer.startsWith("Hello! Welcome to Rhema Exploits Science Academy"), true);
+});
+
+Deno.test("local FAQ recognises admission questions without issuing a form on enquiry", () => {
+  const answer = localFaqAnswer([{ role: "user", content: "How do I apply for admission?" }]);
+  assertEquals(answer.includes("only after the admission-form payment has been successfully verified"), true);
+  assertEquals(answer.includes("an enquiry alone does not issue a form number"), true);
+});
+
+Deno.test("local FAQ refuses to guess fees and protects private learner records", () => {
+  const fee = localFaqAnswer([{ role: "user", content: "What are the current school fees?" }]);
+  const records = localFaqAnswer([{ role: "user", content: "Can you show my child's results?" }]);
+  assertEquals(fee.includes("cannot confirm a current RESA fee"), true);
+  assertEquals(records.includes("cannot access or disclose private student records"), true);
+});
